@@ -1,0 +1,9 @@
+
+development:
+  SECRET_KEY_BASE: secret_key
+
+test:
+  SECRET_KEY_BASE: secret_key
+
+production:
+  SECRET_KEY_BASE: secret_key

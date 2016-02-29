@@ -1,0 +1,196 @@
+<script src="http://127.0.0.1:3000/assets/jquery.min.js"></script>
+<script src="http://127.0.0.1:3000/assets/underscore.min.js"></script> 
+<link rel="stylesheet" type="text/css" href="http://127.0.0.1:3000/assets/bootstrap.min.css"/>
+<script src="http://127.0.0.1:3000/assets/bootstrap.min.js"></script>
+<script src="http://127.0.0.1:3000/assets/backbone.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/backbone-forms/0.14.0/backbone-forms.min.js"></script>
+
+<!-- Bootstrap Material Design -->
+<style type="text/css">
+  html, body {
+    padding-top: 20px;
+}
+
+[data-role="dynamic-fields"] > .form-inline + .form-inline {
+    margin-top: 0.5em;
+}
+
+[data-role="dynamic-fields"] > .form-inline [data-role="add"] {
+    display: none;
+}
+
+[data-role="dynamic-fields"] > .form-inline:last-child [data-role="add"] {
+    display: inline-block;
+}
+
+[data-role="dynamic-fields"] > .form-inline:last-child [data-role="remove"] {
+    display: none;
+}
+
+.my-btn {
+  background-color: rgb(223, 220, 245);
+    color: black;
+}
+
+.my-rmv-btn {
+      background-color: #8a6d3b;
+    color: white;
+}
+
+.row{
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+</style>
+<script type="text/html" id="template1">
+  <div class="container">
+    <fieldset style="border-bottom: 1px solid #F37622; margin-top: 5px; margin-bottom: 5px;" class="col-xs-10 fieldset">
+      <div class="form-inline">
+        <div class="row">
+          <div class="col-xs-12">
+            <div class="form-group" style="width: 100%;">
+                <label class="sr-only" for="field-name" >Field Name</label>
+                <div data-attributes="name">
+                  <input type="text" class="form-control" id="field-name" placeholder="Field Name" style="width: 100%;" name="name">
+                </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+            <div class="col-xs-12">
+              <div class="form-group" style="width: 100%;">
+                  <label class="sr-only" for="field-value">Field Value</label>
+                  <div data-attributes="value">
+                    <input type="text" class="form-control" id="field-value" placeholder="Field Value" style="width: 100%;padding-left: 15px;" name="value">
+                  </div>
+              </div>
+            </div>
+        </div>
+
+        <div data-role="inner-dynamic-fields">
+          <div class="row">
+            <button class="btn btn-primary col-md-2 pull-right my-btn" data-role="add-inner" style="margin-right: 15px;">
+                Add a new inner user
+            </button>
+          </div>
+        </div> 
+
+        <div class="row">
+          <button class="btn btn-danger col-md-2" data-role="remove" style="margin-left: 15px;">Remove user</button>
+        </div>
+      </div>
+    </fieldset>
+  </div>
+
+</script>
+
+<script type="text/html" id="template2">
+  <fieldset style="border-bottom: 1px solid #B37622; margin-top: 5px; margin-bottom: 10px; margin-left: 2%" class="col-xs-10 fieldset">
+    <div class="form-inline">
+      <div class="row">
+        <div class="col-xs-12">
+          <div class="form-group" style="width: 100%;">
+              <label class="sr-only" for="inner-field-name" >Inner Field Name</label>
+              <input type="text" class="form-control" id="inner-field-name" placeholder="Inner Field Name" style="width: 100%;">
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+          <div class="col-xs-12">
+            <div class="form-group" style="width: 100%;">
+                <label class="sr-only" for="inner-field-value">Inner Field Value</label>
+                <input type="text" class="form-control" id="inner-field-value" placeholder="Inner Field Value" style="width: 100%;padding-left: 15px;">
+            </div>
+          </div>
+      </div>
+
+    </div>
+  </fieldset>
+</script>
+
+<script type="text/html" id="main">
+  <form>
+  <div class="container">
+    <div data-role="dynamic-fields">
+      <div class="row col-md-6">
+        <button class="btn btn-primary col-md-4" data-role="add" style="margin-left: 30px;">
+            Add a new user
+        </button>
+      </div>
+    </div>  <!-- /div[data-role="dynamic-fields"]
+  </div> -->  <!-- /div.col-md-12 -->
+
+
+
+</form>
+</script>
+
+<script type="text/javascript">
+  $(function() {
+      // Remove button click
+      $(document).on(
+          'click',
+          '[data-role="dynamic-fields"] [data-role="remove"]',
+          function(e) {
+              e.preventDefault();
+              $(this).closest('.fieldset').remove();
+          }
+      );
+      // Add button click
+      $(document).on(
+          'click',
+          '[data-role="dynamic-fields"] [data-role="add"]',
+          function(e) {
+              var html = _.template($('#template1').html())();
+              e.preventDefault();
+              var container = $(this).closest('[data-role="dynamic-fields"]');
+              var add = $(this).closest('[data-role="add"]');
+              var xmlString =html;
+              parser = new DOMParser(), doc = parser.parseFromString(xmlString, "text/html");
+              container[0].insertBefore(doc.children[0].children[1].children[0], container.children()[0])
+          }
+      );
+
+      $(document).on(
+          'click',
+          '[data-role="inner-dynamic-fields"] [data-role="inner-remove"]',
+          function(e) {
+              e.preventDefault();
+              $(this).closest('.fieldset').remove();
+          }
+      );
+      // Add button click
+      $(document).on(
+          'click',
+          '[data-role="inner-dynamic-fields"] [data-role="add-inner"]',
+          function(e) {
+              var html = _.template($('#template2').html())();
+              e.preventDefault();
+              var container = $(this).closest('[data-role="inner-dynamic-fields"]');
+              var add = $(this).closest('[data-role=add-inner]');
+              var xmlString =html;
+              parser = new DOMParser(), doc = parser.parseFromString(xmlString, "text/html");
+              container[0].insertBefore(doc.children[0].children[1].children[0], container.children()[0])
+          }
+      );
+
+
+      RoomDetails = Backbone.Model.extend({
+        schema: {
+            name: { type: 'Text' },
+            value: { type: 'Text'},
+
+        }
+      });
+
+      var form = new Backbone.Form({
+          template: _.template($('#main').html()),
+        }).render();
+
+        $('body').append(form.el);
+    });
+      
+
+</script>
