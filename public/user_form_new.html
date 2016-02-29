@@ -1,0 +1,494 @@
+<script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.2.3/backbone-min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/backbone-forms/0.14.0/backbone-forms.min.js"></script>
+<script src="http://127.0.0.1:3000/assets/bootstrap.min.js"></script>
+<script src="http://127.0.0.1:3000/assets/jasny-bootstrap.js"></script>
+<link rel="stylesheet" type="text/css" href="http://127.0.0.1:3000/assets/bootstrap.min.css"/>
+<link rel="stylesheet" type="text/css" href="http://127.0.0.1:3000/assets/jasny-bootstrap.css"/>
+
+
+<script type="text/html" id="user_form">
+<form class="form-right" style="margin-left: 15%; margin-right: 10%;">
+    <div class="form-group">
+      <label for="profile_pic">Profile Picture</label>
+      <div class="form-group" id="profile_pic">
+        <div class="fileinput fileinput-new" data-provides="fileinput">
+          <span class="btn btn-default btn-file"><span>Select a profile picture</span><input type="file" /></span>
+          <span class="fileinput-filename"></span><span class="fileinput-new">No file chosen</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="title">Title</label>
+      <select class="form-control" id="title" placeholder="Select a title" name="title">
+        <option></option>
+        <option>Mr</option>
+        <option>Mrs</option>
+        <option>Ms</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+        <label for="first_name">First Name</label>
+        <input type="name" class="form-control" id="first_name" placeholder="Enter your first name">
+      </div>
+
+    <div class="form-group">
+        <label for="last_name">Last Name</label>
+        <input type="name" class="form-control" id="last_name" placeholder="Enter your last name">
+      </div>
+
+
+      <div class="form-group">
+        <label for="email">Email address</label>
+        <input type="email" class="form-control" id="email" placeholder="Enter your email">
+      </div>
+
+      <div class="form-group">
+        <label for="mobile_number">Mobile Number</label>
+        <input type="number" class="form-control" id="mobile_number" placeholder="Enter your mobile number">
+      </div>
+
+      <div class="form-group">
+        <label for="work_address" class="control-label">Work Address</label>
+        <input type="text" class="form-control" id="work_address" placeholder="Enter your office address">
+      </div>
+
+      <div class="form-group">
+        <label for="add_search_requirements_div">Search requirements</label>
+        <div class="form-group" id="add_search_requirements_div">
+          <div data-role="dynamic-fields" style="margin-bottom: 3%;" class="form-group" id="add_search_requirements">
+            <button class="btn btn-primary" data-role="add" id="add_search_requirement">
+              Add a new search requirement
+            </button>
+            <div class="row"></div>
+          </div>
+        </div>
+      </div>
+    <button type="submit" class="btn btn-default">Submit</button>
+
+
+</form>
+</script>
+
+<script type="text/html" id="search_requirement">
+  <div class="container">
+    <fieldset style="border-bottom: 1px solid #F37622; margin-top: 5px; margin-bottom: 15px;" class="col-xs-10 fieldset">
+    <div class="" ="form-group">
+      <div class="form-inline" style="margin-bottom: 15px;">
+        <label for="price_range"> Enter min and max prices</label>
+        <div id="price_range">
+          <div class="form-group">
+            <label for="min_price"> Min Price</label>
+            <input type="number" class="form-control" id="min_price" placeholder="Enter max price"/>
+          </div>
+
+          <div class="form-group">
+            <label for="max_price"> Max Price</label>
+            <input type="number" class="form-control" id="max_price" placeholder="Enter max price"/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="property_type"> Property type</label>
+      <select class="form-control" id="property_type" placeholder="Select a property type">
+          <option></option>
+          <option>Barn conversion</option>
+          <option>Bungalow</option>
+          <option>Cottage</option>
+          <option>Country house</option>
+          <option>Detached house</option>
+          <option>Detached bungalow</option>
+          <option>End terrace house</option>
+          <option>Equestrian property</option>
+          <option>Farm</option>
+          <option>Barn conversion/farmhouse</option>
+          <option>Farmhouse</option>
+          <option>Flat</option>
+          <option>Houseboat</option>
+          <option>Link­detached house</option>
+          <option>Lodge</option>
+          <option>Maisonnette</option>
+          <option>Mews house</option>
+          <option>Mobile/park home</option>
+          <option>Semi­detached house</option>
+          <option>Semi­detached bungalow</option>
+          <option>Studio</option>
+          <option>Terraced house</option>
+          <option>Terraced bungalow</option>
+          <option>Town house</option>
+          <option>Land with planning permission</option>
+          <option>Land without planning permission</option>
+        </select>
+    </div>
+
+    <div class="" ="form-group">
+      <div class="form-inline" style="margin-bottom: 15px;">
+        <label for="bedroom_range"> Enter min and max number of bedrooms</label>
+        <div id="bedroom_range">
+          <div class="form-group">
+            <label for="min_bedroom"> Min number of bedrooms</label>
+            <input type="number" class="form-control" id="min_price" placeholder="Enter min number of bedrooms"/>
+          </div>
+
+          <div class="form-group">
+            <label for="max_bedroom"> Max number of bedrooms</label>
+            <input type="number" class="form-control" id="max_price" placeholder="Enter max number of bedrooms"/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-inline" style="margin-bottom: 15px;">
+        <label for="bathroom_range"> Enter min and max number of bathrooms</label>
+        <div id="bathroom_range">
+          <div class="form-group">
+            <label for="min_bathroom"> Min number of bathrooms</label>
+            <input type="number" class="form-control" id="min_price" placeholder="Enter min number of bathrooms"/>
+          </div>
+
+          <div class="form-group">
+            <label for="max_bathroom"> Max number of bathrooms</label>
+            <input type="number" class="form-control" id="max_price" placeholder="Enter max number of bathrooms"/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group vendor_status_checkbox">
+      <label for="vendor_status"> Select vendor status</label>
+      <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+        <input type="checkbox">All
+      </label>
+
+      <label class="checkbox" style="font-weight: 400; margin-left: 1.8%;">
+        <input type="checkbox">Sale
+      </label>
+      
+      <label class="checkbox" style="font-weight: 400; margin-left: 1.8%;">
+        <input type="checkbox">Amber
+      </label>
+
+      <label class="checkbox" style="font-weight: 400; margin-left: 1.8%;">
+        <input type="checkbox">Red
+      </label>
+    </div>
+
+    <div class="form-group">
+      <button class="btn btn-danger col-sm-4" data-role="remove" style="margin-bottom: 10px;">Remove search requirement</button>
+    </div>
+
+    </fieldset>
+  </div>
+</script>
+
+
+<script type="text/html" id="agent_form">
+<form class="form-right" style="margin-left: 15%; margin-right: 10%;">
+    
+    <div class="form-group">
+      <label for="profile_pic">Profile Picture</label>
+      <div class="form-group" id="profile_pic">
+        <div class="fileinput fileinput-new" data-provides="fileinput">
+          <span class="btn btn-default btn-file"><span>Select a profile picture</span><input type="file" /></span>
+          <span class="fileinput-filename"></span><span class="fileinput-new">No file chosen</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="title_agent">Title</label>
+      <select class="form-control" id="title_agent" placeholder="Select a title" name="title">
+        <option></option>
+        <option>Mr</option>
+        <option>Mrs</option>
+        <option>Ms</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+        <label for="first_name_agent">First Name</label>
+        <input type="name" class="form-control" id="first_name_agent" placeholder="Enter your first name">
+      </div>
+
+    <div class="form-group">
+        <label for="last_name_agent">Last Name</label>
+        <input type="name" class="form-control" id="last_name_agent" placeholder="Enter your last name">
+      </div>
+
+      <div class="form-group">
+        <label for="branch_name" class="control-label">Branch name</label>
+        <input type="name" class="form-control" id="branch_name" placeholder="Enter the branch name">
+      </div>
+
+
+
+      <div class="form-group">
+        <label for="email_agent">Email address</label>
+        <input type="email" class="form-control" id="email_agent" placeholder="Enter your email">
+      </div>
+
+      <div class="form-group">
+        <label for="mobile_number_agent">Mobile Number</label>
+        <input type="number" class="form-control" id="mobile_number_agent" placeholder="Enter your mobile number">
+      </div>
+
+      <div class="form_group">
+      <label for="add_agency">Add an agency</label>
+      <div data-role="dynamic-fields" style="margin-bottom: 3%;" class="form-group" id="add_agency">
+        <button class="btn btn-primary" data-role="add" id="add_agency_button">
+          Add a new agency
+        </button>
+        <div class="row"></div>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-default">Submit</button>
+
+
+
+</form>
+</script>
+
+<script type="text/html" id="add_agency">
+  <div class="container">
+    <fieldset style="border-bottom: 1px solid #F37622; margin-top: 5px; margin-bottom: 15px;" class="col-xs-10 fieldset">
+
+      <div class="form-group">
+        <label for="logo">Agent logo</label>
+        <div class="form-group" id="logo">
+          <div class="fileinput fileinput-new" data-provides="fileinput">
+            <span class="btn btn-default btn-file"><span>Select a logo</span><input type="file" /></span>
+            <span class="fileinput-filename"></span><span class="fileinput-new">No file chosen</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="group_name">Group Name</label>
+        <input type="name" class="form-control" id="group_name" placeholder="Enter group name">
+      </div>
+
+      <div class="form-group">
+        <label for="brand_name">Brand Name</label>
+        <input type="name" class="form-control" id="brand_name" placeholder="Enter brand name">
+      </div>
+
+      <div class="form_group">
+      <div data-role="dynamic-fields" style="margin-bottom: 3%;" class="form-group">
+        <button class="btn btn-primary add_branch_button" data-role="add" id="add_branch_button">
+          Add a new branch
+        </button>
+        <div class="row"></div>
+      </div>
+    </div>
+
+
+    </fieldset>
+  </div>
+</script>
+
+<script type="text/html" id="add_branch">
+  <div class="container">
+    <fieldset style="border-bottom: 1px solid #B37622; margin-top: 5px; margin-bottom: 15px;" class="col-xs-10 fieldset">
+
+      <div class="form-group">
+        <label for="branch_address" class="control-label">Address</label>
+        <div class="form-inline" id="branch_address">
+          <div class="form-group">
+            <input type="text" class="form-control" placeholder="Branch Address"/>
+          </div>
+          <div class="form-group">
+            <input type="text" class="form-control" placeholder="Postcode"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="website">Website</label>
+        <input type="text" class="form-control" id="website" placeholder="Enter website">
+      </div>
+
+      <div class="form-group">
+        <label for="phone">Phone</label>
+        <input type="number" class="form-control" id="phone" placeholder="Enter phone number">
+      </div>
+
+      <div class="form-group">
+        <label for="about_us">About us</label>
+        <textarea type="number" class="form-control" id="about_us" placeholder="Enter about us" rows="3"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="opening_hours">Opening hours</label>
+        <div class="form-inline" id="opening_hours">
+
+          <div class="form-group">
+            <label for="hour">Hours</label>
+            <select id="hour" class="form-control">
+              <option></option>
+              <option>1</option>
+              <option>2</option>
+              <option>3</option>
+              <option>4</option>
+              <option>5</option>
+              <option>6</option>
+              <option>7</option>
+              <option>8</option>
+              <option>9</option>
+              <option>10</option>
+              <option>11</option>
+              <option>12</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="minute">Minutes</label>
+            <input id="minute" min="0" max="59" step="1" class="form-control" style="width: 15%;">
+              <div class="btn-group" data-toggle="buttons">
+                  <label class="btn btn-default active">
+                    <input type="radio" name="options" id="option1" checked/>A.M.</label>
+                  <label class="btn btn-default">
+                    <input type="radio" name="options" id="option2"/>P.M.
+                  </label>
+              </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="affliation">Affliation</label>
+        <select id="hour" class="form-control">
+          <option></option>
+          <option>NAEA</option>
+          <option>AIPP</option>
+          <option>The Property Ombudsman</option>
+        </select>
+      </div>
+
+      <div class="invite_staff" style="margin-bottom: 4%;">
+        <label for="staff_email">Staff emails ids</label>
+        <div class="form_group" id="staff_email">
+          <div class="form-inline" style="margin-bottom: 1%;">
+            <div class="entry input-group col-xs-3">
+              <input class="form-control" name="fields[]" type="text" placeholder="Enter staff mail" />
+              <span class="input-group-btn">
+                <button class="btn btn-success btn-add add_staff_email_button" type="button">
+                  <span>+</span>
+                </button>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+
+    </fieldset>
+  </div>
+</script>
+
+<script type="text/html" id="staff_email">
+  <fieldset class="fieldset">
+    <div class="container">
+        
+      
+
+    </div>
+  </fieldset>
+</script>
+
+<script type="text/javascript">
+$(function() {
+  var form = new Backbone.Form({
+        template: _.template($('#user_form').html()),
+    }).render();
+    
+    $('body').append(form.el);
+
+    var agent_form = new Backbone.Form({
+        template: _.template($('#agent_form').html()),
+    }).render();
+    
+    $('body').append(agent_form.el);
+
+    $(document).on(
+          'click',
+          '[data-role="dynamic-fields"] [data-role="remove"]',
+          function(e) {
+              e.preventDefault();
+              $(this).closest('.fieldset').remove();
+          }
+    );
+
+    $('#add_search_requirement').click(function(e) {
+            var html = _.template($('#search_requirement').html())();
+            e.preventDefault();
+            var container = $(this).closest('[data-role="dynamic-fields"]');
+            var add = $(this).closest('[data-role="add"]');
+            var xmlString =html;
+            parser = new DOMParser(), doc = parser.parseFromString(xmlString, "text/html");
+            container[0].insertBefore(doc.children[0].children[1].children[0], add[0]);
+            $('.form-group .vendor_status_checkbox').change(function(e_inner) {
+              var text = e_inner.target.parentElement.textContent.replace(/^\s+|\s+$/g, '');
+              if (text == 'All') {
+                var checkboxes = $(this).find('[type=checkbox]');
+                for(var i=0, n=checkboxes.length;i<n;i++) {
+                  checkboxes[i].checked = e_inner.target.checked;
+                }
+              };
+            });
+        }
+    );
+
+    $('.add_staff_email_button').click(function(){ console.log("hh")});
+
+    $('#add_agency_button').click(function(e) {
+            var html = _.template($('#add_agency').html())();
+            e.preventDefault();
+            var container = $(this).closest('[data-role="dynamic-fields"]');
+            var add = $(this).closest('[data-role="add"]');
+            var xmlString =html;
+            parser = new DOMParser(), doc = parser.parseFromString(xmlString, "text/html");
+            container[0].insertBefore(doc.children[0].children[1].children[0], add[0]);
+
+            $('.add_branch_button').click(function(e_inner) {
+
+              var html = _.template($('#add_branch').html())();
+              e_inner.preventDefault();
+              var container = $(this).closest('[data-role="dynamic-fields"]');
+              var add = $(this).closest('[data-role="add"]');
+              var xmlString =html;
+              parser = new DOMParser(), doc = parser.parseFromString(xmlString, "text/html");
+              container[0].insertBefore(doc.children[0].children[1].children[0], add[0]);
+
+              $('.add_staff_email_button').click(function(e_inner_inner) {
+                e_inner_inner.preventDefault();
+                var f = this.parentElement.parentElement.parentElement;
+                var f1 = $(f).clone();
+                $(this.parentElement.parentElement.children[0])[0].value = "";
+                $(f1[0].children[0].children[1].children[0].children[0]).html('<span>-</span>');
+                var f2 = this.parentElement.parentElement.parentElement.parentElement;
+                f2.insertBefore(f1[0], f);
+                $(f1[0].children[0].children[1].children[0]).removeClass('btn-add').addClass('btn-remove')
+                        .removeClass('btn-success').addClass('btn-danger')
+                        .removeClass('add_staff_email_button').addClass('remove_staff_email_button');
+
+
+                    $('.remove_staff_email_button').click(function(e_inner_inner_inner) {
+                        this.parentElement.parentElement.parentElement.remove();
+                    });
+                        // .html('<span>-</span>');
+              });
+
+            });
+        }
+    );
+
+
+  });
+</script>

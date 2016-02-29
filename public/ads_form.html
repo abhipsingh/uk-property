@@ -1,0 +1,254 @@
+<script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.2.3/backbone-min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/backbone-forms/0.14.0/backbone-forms.min.js"></script>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/assets/bootstrap.min.js"></script>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/assets/jasny-bootstrap.js"></script>
+<link rel="stylesheet" type="text/css" href="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/assets/bootstrap.min.css"/>
+<link rel="stylesheet" type="text/css" href="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/assets/jasny-bootstrap.css"/>
+
+<script type="text/html" id="main">
+  <div>
+    
+    <h1 class="center">
+      Place an ad on any of your 3 properties
+    </h1>
+
+    <div class="container">
+      <div class="panel panel-default panel-info">
+        <div class="panel-heading">
+          <div class="address">
+            <p>Medhurst Close, London, London, E3 5DE</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="row">
+            <div class="col-md-4">
+              <img data-ajax="39642767" src="http://li.zoocdn.com/a40b51a55b719c2a445e5dc5503d17c6710c3b39_354_255.jpg" alt="Thumbnail 4 bed property for sale in Alric Avenue, London" itemprop="contentUrl">
+            </div>
+            <div class="col-md-8 content">
+              <div class="ad_type_group">
+                <label for="year" class="control-label input-group">Please select the type of ad you want to place</label>
+                <div class="btn-group ad_type" data-toggle="buttons">
+                  <label class="btn btn-default">
+                    <input name="ad_type" value="Featured" type="radio">Featured
+                  </label>
+                  <label class="btn btn-default">
+                    <input name="ad_type" value="Premium" type="radio">Premium
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+      <div class="panel panel-default panel-info">
+        <div class="panel-heading">
+          <div class="address">
+            <p>Strahan Road, London, London, E3 5DB</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="row">
+            <div class="col-md-4">
+              <img data-ajax="39642763" src="http://li.zoocdn.com/f9f6e20f375c50d4560a085867f3ea7456c6af4c_354_255.jpg" alt="Thumbnail 4 bed detached house for sale in Knights Ridge, Chelsfield, Orpington" itemprop="contentUrl">
+            </div>
+            <div class="col-md-8 content">
+              <div class="ad_type_group">
+                <label for="year" class="control-label input-group">Please select the type of ad you want to place</label>
+                <div class="btn-group ad_type" data-toggle="buttons">
+                  <label class="btn btn-default">
+                    <input name="ad_type" value="Featured" type="radio">Featured
+                  </label>
+                  <label class="btn btn-default">
+                    <input name="ad_type" value="Premium" type="radio">Premium
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+      <div class="panel panel-default panel-info">
+        <div class="panel-heading">
+          <div class="address">
+            <p>Arbery Road, London, London, E3 5DD</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="row">
+            <div class="col-md-4">
+              <img data-ajax="39642767" src="http://li.zoocdn.com/a40b51a55b719c2a445e5dc5503d17c6710c3b39_354_255.jpg" alt="Thumbnail 4 bed property for sale in Alric Avenue, London" itemprop="contentUrl">
+            </div>
+            <div class="col-md-8 content">
+              <div class="ad_type_group">
+                <label for="year" class="control-label input-group">Please select the type of ad you want to place</label>
+                <div class="btn-group ad_type" data-toggle="buttons">
+                  <label class="btn btn-default">
+                    <input name="ad_type" value="Featured" type="radio">Featured
+                  </label>
+                  <label class="btn btn-default">
+                    <input name="ad_type" value="Premium" type="radio">Premium
+                  </label>
+                </div>
+              </div>
+            </div>            
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</script>
+
+<script type="text/html" id="ad_inventory_table">
+  <div class="table-content">
+    <table class="table table-striped table-hover">
+      <thead>
+        <tr>
+          <th>Search Text</th>
+          <th>Featured remaining</th>
+          <th>Premium Remaining </th>
+        </tr>
+      </thead>>
+      <tbody>
+      </tbody>
+    </table>
+  </div>
+</script>
+
+
+
+<script type="text/javascript">
+$(function() {
+    var html = _.template($('#main').html())();
+    var domnode = $.parseHTML( html );
+    $('body').append(domnode);   
+
+    $('.ad_type').change(function(e){
+      var value = e.target.value;
+      var address = $(this).closest('.container').find('.address p')[0].innerHTML;
+      var addresses = address.split(',');
+      var addresses_without_postcode = addresses.slice(0, (addresses.length - 1));
+      var ad_type = $(this);
+      var url = 'http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/api/v0/ads/availability';
+      var inventory_html = _.template($('#ad_inventory_table').html())();
+      var inventory_table_node = $.parseHTML(inventory_html);
+      var arr_users = ['DEFAULT1'];
+      users = arr_users[Math.floor(Math.random()*arr_users.length)];
+      $.get( url, { addresses: addresses_without_postcode, users: users }, function( data ) {
+        var inventory_table_node1 = inventory_table_node;
+        var addresses1 = addresses;
+        var ad_type1 = ad_type;
+        var unit_type_map = {};
+        for (var i = data.availability_count.length - 1; i >= 0; i--) {
+          var premium_count = data.availability_count[i]._source.premium_count;
+          var featured_count = data.availability_count[i]._source.featured_count;
+          var type_value = data.availability_count[i]._source.type_value;
+          var version = data.availability_count[i]._source.version;
+          var premium_buyers = data.availability_count[i]._source.premium_buyers;
+          var featured_buyers = data.availability_count[i]._source.featured_buyers;
+          var matched_index = parseInt(data.availability_count[i].matched_queries[0]);
+          var table1 = inventory_table_node1[1];
+          var _id = data.availability_count[i]._id;
+          var body = '<tr><td>' + addresses[matched_index].toString() + ' ('+type_value + ')'+ '</td><td>';
+
+          if (data.availability_count[i]._source.featured_booked == true) {
+            var key =  'entity_ads_featured_' + data.availability_count[i]._id + users;
+            var val = data.ads_availability[key]._source.created_at;
+            body = body + 'Already booked '+ val + ' for expiry </td><td>';
+          } else if (data.availability_count[i]._source.featured_count == 0) {
+            var key =  data.availability_count[i]._id;
+            var val = data.ads_availability[key+'|featured']._source.created_at;
+            body = body + val + ' for earliest expiry' + '</td><td>';
+          } else {
+            body = body +featured_count +' <a href="#" class=featured_booking_link style="font-size: 12px;"> Book now </a> ' + '</td><td>';
+          }
+
+          if (data.availability_count[i]._source.premium_booked == true) {
+            var key =  'entity_ads_premium_' + data.availability_count[i]._id + users;
+            var val = data.ads_availability[key]._source.created_at;
+            body = body + 'Already booked '+ val + ' for expiry </td><td>';
+          } else if (data.availability_count[i]._source.premium_count == 0) {
+            var key =  data.availability_count[i]._id;
+            var val = data.ads_availability[key+'|premium']._source.created_at;
+            body = body + val + ' for earliest expiry' + '</td><td>';
+          } else {
+            body = body + premium_count + '<a href="#" class=premium_booking_link style="font-size: 12px;"> Book now </a> ' + '</td>';
+          }
+
+          
+
+          body = body + '</tr>';
+          var body_dom = $.parseHTML(body);
+          $(body_dom[0]).attr('_id', _id);
+          $(body_dom[0]).attr('version', version);
+          $(body_dom[0]).attr('premium_buyers', premium_buyers.join(','));
+          $(body_dom[0]).attr('featured_buyers', featured_buyers.join(','));
+          if (i == data.availability_count.length - 1) {
+            table1.firstChild.remove();
+          };
+          $(table1).find('tbody')[0].appendChild(body_dom[0]);
+        };
+        if (ad_type1.closest('.content').find('.table-content').length > 0) {
+          ad_type1.closest('.content').find('.table-content')[0].remove();
+        };
+        ad_type1.closest('.content')[0].appendChild(table1);
+        //  Callback starts WHEN featured link is clicked
+        $('.featured_booking_link').on('click', function(event1) {
+          event1.preventDefault();
+          var elem_id = $(event1.target.parentElement.parentElement).attr('_id');
+          var elem_version = parseInt($(event1.target.parentElement.parentElement).attr('version'));
+          var premium_buyers = $(event1.target.parentElement.parentElement).attr('premium_buyers');
+          var featured_buyers = $(event1.target.parentElement.parentElement).attr('featured_buyers');
+          var elem_value = parseInt(event1.target.parentElement.firstChild.textContent);
+          console.log(elem_value);
+          var type = 'featured_count';
+          var update_url = 'http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/api/v0/ads/availability/update';
+          var url_params = { id: elem_id, type: type, value: elem_value, version: elem_version, premium_buyers: premium_buyers, featured_buyers: featured_buyers, users: users };
+          var availability_elem = $(this);
+          $.post(update_url, url_params).done(function(data){
+            var availability_elem1 = availability_elem;
+            if (data.message == 'Successful') {
+              availability_elem1[0].parentElement.innerHTML = 'Expires on ' + data.expiry_date ;
+            };
+          });
+        });
+        // Callback ends WHEN featured link is clicked
+
+        //  Callback starts WHEN  link is clicked
+        $('.premium_booking_link').on('click', function(event1) {
+          event1.preventDefault();
+          var elem_id = $(event1.target.parentElement.parentElement).attr('_id');
+          var elem_version = parseInt($(event1.target.parentElement.parentElement).attr('version'));
+          var premium_buyers = $(event1.target.parentElement.parentElement).attr('premium_buyers');
+          var featured_buyers = $(event1.target.parentElement.parentElement).attr('featured_buyers');
+          var elem_value = parseInt(event1.target.parentElement.firstChild.textContent);
+          console.log(elem_value);
+          var type = 'premium_count';
+          var url_params = { id: elem_id, type: type, value: elem_value, version: elem_version, premium_buyers: premium_buyers, featured_buyers: featured_buyers, users: users };
+          var update_url = 'http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/api/v0/ads/availability/update';
+          var availability_elem = $(this);
+          $.post(update_url, url_params).done(function(data){
+            var availability_elem1 = availability_elem;
+            if (data.message == 'Successful') {
+              availability_elem1[0].parentElement.innerHTML = 'Expires on ' + data.expiry_date ;
+            };
+          });
+        });
+        // Callback ends WHEN featured link is clicked
+
+      });
+    });
+
+
+
+});
+
+</script>
