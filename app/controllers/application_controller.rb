@@ -10,6 +10,8 @@ class ApplicationController < ActionController::Base
     if check_if_postcode?(params[:str].upcase, regexes)
       query_str = {filter: form_query(params[:str].upcase)}
       res, code = post_url('addresses', query_str, '_search')
+      res = JSON.parse(res)["hits"]["hits"].map{ |t| t["_source"] }
+      res.map{ |t| add_new_keys(t) }
       render json: res, status: code
     elsif !(params[:str].upcase).match(/([A-Z]{0,3})([0-9]{0,6})([A-Z]{0,3})/).captures.any?{|t| !t.empty?}
       matches =  (params[:str].upcase).match(/([A-Z]{0,3})([0-9]{0,6})([A-Z]{0,3})/)
@@ -56,12 +58,52 @@ class ApplicationController < ActionController::Base
       end
       query_str = {filter: filter}
       res, code = post_url('addresses', query_str, '_search')
+      res = JSON.parse(res)["hits"]["hits"].map{ |t| t["_source"] }
+      res.map{ |t| add_new_keys(t) }
       render json: res, status: code
     else
       str = params[:str].gsub(',',' ').downcase
       results, code = get_results_from_es_suggest(str)
       results, code = get_results_for_search_term(results)
+      results = JSON.parse(results)["hits"]["hits"].map{ |t| t["_source"] }
+      results.map{ |t| add_new_keys(t) }
       render json: results, status: code
+    end
+  end
+
+  def add_new_keys(result)
+    characters = (1..10).to_a
+    alphabets = ('A'..'Z').to_a
+    start_date = 3.months.ago
+    ending_date = 4.hours.ago
+    years = (1955..2015).step(10).to_a
+    time_frame_years = (2004..2016).step(1).to_a
+    days = (1..24).to_a
+    ::PropertyDetailsRepo::RANDOM_SEED_MAP.each do |key, values|
+      result[key] = values.sample(1).first
+    end
+    result[:date_added] = Time.at((start_date.to_f - ending_date.to_f)*rand + start_date.to_f).utc.strftime('%Y-%m-%d %H:%M:%S')
+    result[:time_frame] = time_frame_years.sample(1).first.to_s + "-01-01"
+    result[:external_property_size] = result[:internal_property_size] + 100
+    result[:total_property_size] = result[:external_property_size] + 100
+    result[:budget] = result[:price]
+
+    if result[:photos] == "Yes"
+      result[:photo_count] = 3
+      result[:photo_urls] = [
+        "http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/prop.jpg",
+        "http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/prop2.jpg",
+        "http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/prop3.jpg",
+      ]
+    else
+      result[:photo_urls] = []
+    end
+
+    result[:broker_logo] = "http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/prop3.jpg"
+    result[:broker_contact] = "020 3641 4259"
+    description = ''
+    result[:description] = characters.sample(1).first.times do
+      description += alphabets.sample(1).first
     end
   end
 
@@ -72,9 +114,10 @@ class ApplicationController < ActionController::Base
     else
       str = params[:str].gsub(',',' ').downcase
       results, code= get_results_from_es_suggest(str)
-      Rails.logger.info(results)
       parsed_json = JSON.parse(results)
       res, code = find_results(parsed_json)
+      res = JSON.parse(res)
+      add_new_keys(res["hits"]["hits"][0]["_source"]) if res["hits"]["hits"].length > 0
     end
     render json: res, status: code
   end
