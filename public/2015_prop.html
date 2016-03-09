@@ -8,7 +8,7 @@
 <link rel="stylesheet" type="text/css" href="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/assets/jasny-bootstrap.css"/>
 
 <script type="text/html" id="main">
-  <form class="form-right" style="margin-left: 15%; margin-right: 10%;">
+  <form class="form-right" style="margin-left: 15%; margin-right: 10%;" id="main_form">
     <fieldset>
       <div class="form-group">
         <label for="title">Title</label>
@@ -19,33 +19,32 @@
           <option>Ms</option>
         </select>
       </div>
-
       <div class="form-group">
         <label for="name">Name</label>
-        <input type="name" class="form-control" id="name" placeholder="Enter your name">
+        <input type="name" class="form-control" id="name" name="name" placeholder="Enter your name">
       </div>
 
 
       <div class="form-group">
         <label for="email">Email address</label>
-        <input type="email" class="form-control" id="email" placeholder="Enter your email">
+        <input type="email" class="form-control" id="email" name="email" placeholder="Enter your email">
       </div>
 
       <div class="form-group">
         <label for="address" class="control-label">Address</label>
         <div class="form-inline">
           <div class="form-group">
-            <input type="text" class="form-control" placeholder="House No"/>
+            <input type="text" class="form-control" name="house_no" placeholder="House No"/>
           </div>
           <div class="form-group">
-            <input type="text" class="form-control" placeholder="Postcode"/>
+            <input type="text" class="form-control" name="postcode" placeholder="Postcode"/>
           </div>
         </div>
       </div>
 
       <div class="form-group">
         <label for="title">Title</label>
-        <select class="form-control" id="title" placeholder="Select a title">
+        <select class="form-control" id="title" name="title" placeholder="Select a title">
           <option></option>
           <option>Owner/Occupier</option>
           <option>Tenant</option>
@@ -56,7 +55,7 @@
 
       <div class="form-group">
         <label for="property_type">Property Type</label>
-        <select class="form-control" id="property_type" placeholder="Select a property type">
+        <select class="form-control" id="property_type" name="property_type" placeholder="Select a property type">
           <option></option>
           <option>Barn conversion</option>
           <option>Bungalow</option>
@@ -89,18 +88,18 @@
 
       <div class="form-group">
         <label for="epc"> Epc</label></br>
-        <div class="btn-group epc" id="epc" data-toggle="buttons">
+        <div class="btn-group epc" id="epc" name="epc" data-toggle="buttons">
             <label class="btn btn-default active">
-              <input type="radio" name="options" id="option1" checked/>Yes</label>
+              <input type="radio" name="options" id="option1" name="epc_flag" class="form-control" checked/>Yes</label>
             <label class="btn btn-default">
-              <input type="radio" name="options" id="option2"/>No
+              <input type="radio" name="options" id="option2" name="epc_flag" class="form-control" />No
             </label>
         </div>
       </div>
 
       <div class="form-group">
         <label for="tenure">Tenure</label>
-        <select class="form-control" id="tenure" placeholder="Select a property type">
+        <select class="form-control" id="tenure" name="tenure" placeholder="Select a property type">
           <option></option>
           <option>Freehold</option>
           <option>Share of freehold</option>
@@ -110,15 +109,8 @@
       </div>
 
       <div class="form-group">
-        <div class="fileinput fileinput-new" data-provides="fileinput">
-          <span class="btn btn-default btn-file"><span>Choose file</span><input type="file" /></span>
-          <span class="fileinput-filename"></span><span class="fileinput-new">No file chosen</span>
-        </div>
-      </div>
-
-      <div class="form-group">
         <label for="bedroom">Bedrooms</label>
-        <select class="form-control" id="bedroom" placeholder="Select number of bedroom">
+        <select class="form-control" id="bedroom" name="bedroom" placeholder="Select number of bedroom">
           <option></option>
           <option>0</option>
           <option>1</option>
@@ -136,7 +128,7 @@
 
       <div class="form-group">
         <label for="bathroom">Bathrooms</label>
-        <select class="form-control" id="bathroom" placeholder="Select number of bathroom">
+        <select class="form-control" id="bathroom" name="bathroom" placeholder="Select number of bathroom">
           <option></option>
           <option>0</option>
           <option>1</option>
@@ -154,7 +146,7 @@
 
       <div class="form-group">
         <label for="reception">Receptions</label>
-        <select class="form-control" id="reception" placeholder="Select number of receptions">
+        <select class="form-control" id="reception" name="reception" placeholder="Select number of receptions">
           <option></option>
           <option>0</option>
           <option>1</option>
@@ -176,42 +168,42 @@
           <div class="form-group" style="margin-left: 2%;">
             <div class="form-group">
               <label for="water_cost" style="font-weight: 400;">Water (Avg. cost per month)</label>
-              <input type="number" class="form-control" id="water_cost" placeholder="Enter the cost of water per month">
+              <input type="number" class="form-control" id="water_cost" name="water_cost" placeholder="Enter the cost of water per month">
             </div>
             
             <div class="form-group">
               <label for="lighting_cost" style="font-weight: 400;">Lighting (per EPC) (Avg. cost per month)</label>
-              <input type="number" class="form-control" id="lighting_cost" placeholder="Enter the cost of lighting per month">
+              <input type="number" class="form-control" id="lighting_cost" name="lighting_cost" placeholder="Enter the cost of lighting per month">
             </div>
 
             <div class="form-group">
               <label for="heating_cost" style="font-weight: 400;">Heating (per EPC) (Avg. cost per month)</label>
-              <input type="number" class="form-control" id="heating_cost" placeholder="Enter the cost of heating per month">
+              <input type="number" class="form-control" id="heating_cost" name="heating_cost" placeholder="Enter the cost of heating per month">
             </div>
 
             <div class="form-group">
               <label for="hot_water_cost" style="font-weight: 400;">Hot water (per EPC) (Avg. cost per month)</label>
-              <input type="number" class="form-control" id="hot_water_cost" placeholder="Enter the cost of hot water per month">
+              <input type="number" class="form-control" id="hot_water_cost" name="water_cost" placeholder="Enter the cost of hot water per month">
             </div>
 
             <div class="form-group">
               <label for="council_band_cost" style="font-weight: 400;">Council Tax Band ​ (Avg. cost per month)</label>
-              <input type="number" class="form-control" id="council_band_cost" placeholder="Enter the cost of council tax band">
+              <input type="number" class="form-control" id="council_band_cost" name="council_cost" placeholder="Enter the cost of council tax band">
             </div>
 
             <div class="form-group">
               <label for="ground_rent_charge" style="font-weight: 400;">Annual ground rent/service charge</label>
-              <input type="number" class="form-control" id="ground_rent_charge" placeholder="Enter the annual rent service charge">
+              <input type="number" class="form-control" id="ground_rent_charge" name="ground_rent_cost" placeholder="Enter the annual rent service charge">
             </div>
 
             <div class="form-group">
               <label for="service_cost" style="font-weight: 400;">Annual service charge</label>
-              <input type="number" class="form-control" id="service_cost" placeholder="Service charge(Per Year)">
+              <input type="number" class="form-control" id="service_cost" name="annual_service_cost" placeholder="Service charge(Per Year)">
             </div>
 
             <div class="form-group">
               <label for="parking_cost" style="font-weight: 400;">Annual residents parking charge</label>
-              <input type="number" class="form-control" id="parking_cost" placeholder="Parking charge(Per Year)">
+              <input type="number" class="form-control" id="parking_cost" name="parking_cost" placeholder="Parking charge(Per Year)">
             </div>
           </div>
 
@@ -219,7 +211,7 @@
 
       <div class="form-group">
         <label for="property_style">Property style</label>
-        <select class="form-control" id="property_style" placeholder="Select a property style">
+        <select class="form-control" id="property_style" name="property_style" placeholder="Select a property style">
           <option></option>
           <option>Period</option>
           <option>New build</option>
@@ -239,7 +231,7 @@
 
       <div class="form-group">
         <label for="floors">Floors</label>
-        <select class="form-control" id="floor" placeholder="Select number of floors">
+        <select class="form-control" id="floor" name="floor" placeholder="Select number of floors">
           <option></option>
           <option>1</option>
           <option>2</option>
@@ -251,7 +243,7 @@
 
       <div class="form-group">
         <label for="listed_status">Listed Status</label>
-        <select class="form-control" id="listed_status" placeholder="Select a listed status">
+        <select class="form-control" id="listed_status" name="listed_status" placeholder="Select a listed status">
           <option></option>
           <option>None</option>
           <option>Grade I</option>
@@ -264,7 +256,7 @@
 
       <div class="form-group">
         <label for="year_built">Year Built</label>
-        <select class="form-control" id="year_built" placeholder="Select the age of property">
+        <select class="form-control" id="year_built" name="year_built" placeholder="Select the age of property">
           <option></option>
           <option>Under 10 years ago</option>
           <option>Under 25 years ago</option>
@@ -278,7 +270,7 @@
 
       <div class="form-group">
         <label for="decorative_cond">Decorative Condition</label>
-        <select class="form-control" id="decorative_cond" placeholder="Select a decorative condition">
+        <select class="form-control" id="decorative_cond" name="decorative_condition" placeholder="Select a decorative condition">
           <option></option>
           <option>Newly refurbished</option>
           <option>Excellent</option>
@@ -290,7 +282,7 @@
 
       <div class="form-group">
         <label for="central_heating">Central Heating</label>
-        <select class="form-control" id="central_heating" placeholder="Select a central heating system">
+        <select class="form-control" id="central_heating" name="central_heating" placeholder="Select a central heating system">
           <option></option>
           <option>None</option>
           <option>Partial</option>
@@ -304,28 +296,28 @@
         <label for="outside_space">Outside spaces</label>
           
           <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
-            <input type="checkbox">Private garden
+            <input type="checkbox" checkboxname="outside_spaces">Private garden
           </label>
 
           <label class="checkbox" style="font-weight: 400; margin-left: 1.8%;">
-            <input type="checkbox">Communal garden
+            <input type="checkbox" checkboxname="outside_spaces">Communal garden
           </label>
           
           <label class="checkbox" style="font-weight: 400; margin-left: 1.8%;">
-            <input type="checkbox">Roof terrace
+            <input type="checkbox" checkboxname="outside_spaces">Roof terrace
           </label>
 
           <label class="checkbox" style="font-weight: 400; margin-left: 1.8%;">
-            <input type="checkbox">Terrace
+            <input type="checkbox" checkboxname="outside_spaces">Terrace
           </label>
           
           <label class="checkbox" style="font-weight: 400; margin-left: 1.8%;">
-            <input type="checkbox">Balcony
+            <input type="checkbox" checkboxname="outside_spaces">Balcony
           </label>
           
-          <label class="checkbox" style="font-weight: 400; margin-left: 1.8%;">
-            <input type="checkbox">None
-          </label>
+          <!-- <label class="checkbox" style="font-weight: 400; margin-left: 1.8%;"> -->
+            <!-- <input type="checkbox" name="none">None -->
+          <!-- </label> -->
       </div>
 
       <div class="form-group">
@@ -333,90 +325,90 @@
         <div class="row"></div>
         <div class="col-sm-2">
           <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
-             <input type="checkbox">Attractive views
+             <input type="checkbox" checkboxname="additional_features">Attractive views
           </label>
 
           <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
-             <input type="checkbox">Ensuite bathroom
+             <input type="checkbox" checkboxname="additional_features">Ensuite bathroom
           </label>
 
           <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
-             <input type="checkbox">Loft/attic
+             <input type="checkbox" checkboxname="additional_features">Loft/attic
           </label>
 
           <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
-             <input type="checkbox">Rural/secluded
+             <input type="checkbox" checkboxname="additional_features">Rural/secluded
           </label>
 
           <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
-             <input type="checkbox">Basement/cellar
-          </label>
-        </div>
-
-        <div class="col-sm-2">
-          <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
-             <input type="checkbox">Fireplace
-          </label>
-
-          <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
-             <input type="checkbox">Outbuildings/stables
-          </label>
-
-          <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
-             <input type="checkbox">Swimming pool
-          </label>
-
-          <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
-             <input type="checkbox">Bespoke fixtures
-          </label>
-
-          <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
-             <input type="checkbox">Gated
+             <input type="checkbox" checkboxname="additional_features">Basement/cellar
           </label>
         </div>
 
         <div class="col-sm-2">
           <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
-             <input type="checkbox">Penthouse
+             <input type="checkbox" checkboxname="additional_features">Fireplace
           </label>
 
           <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
-             <input type="checkbox">Tennis court
+             <input type="checkbox" checkboxname="additional_features">Outbuildings/stables
           </label>
 
           <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
-             <input type="checkbox">Conservatory
+             <input type="checkbox" checkboxname="additional_features">Swimming pool
           </label>
 
           <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
-             <input type="checkbox">Gym/sauna
+             <input type="checkbox" checkboxname="additional_features">Bespoke fixtures
           </label>
 
           <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
-             <input type="checkbox">Period features
+             <input type="checkbox" checkboxname="additional_features">Gated
+          </label>
+        </div>
+
+        <div class="col-sm-2">
+          <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+             <input type="checkbox" checkboxname="additional_features">Penthouse
+          </label>
+
+          <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+             <input type="checkbox" checkboxname="additional_features">Tennis court
+          </label>
+
+          <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+             <input type="checkbox" checkboxname="additional_features">Conservatory
+          </label>
+
+          <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+             <input type="checkbox" checkboxname="additional_features">Gym/sauna
+          </label>
+
+          <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+             <input type="checkbox" checkboxname="additional_features">Period features
           </label>
 
         </div>
 
         <div class="col-sm-2">
           <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
-             <input type="checkbox">Waterfront
+             <input type="checkbox" checkboxname="additional_features">Waterfront
           </label>
 
           <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
-             <input type="checkbox">Double glazing
+             <input type="checkbox" checkboxname="additional_features">Double glazing
           </label>
 
           <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
-             <input type="checkbox">Laundry/utility room
+             <input type="checkbox" checkboxname="additional_features">Laundry/utility room
           </label>
 
           <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
-             <input type="checkbox">Porter/security
+             <input type="checkbox" checkboxname="additional_features">Porter/security
           </label>
 
           <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
-             <input type="checkbox">Wood floors
+             <input type="checkbox" checkboxname="additional_features">Wood floors
           </label>
         </div>
         <div class="row"></div>
@@ -425,7 +417,7 @@
 
         <div class="form-group">
           <label for="internal_property_size">Internal space size</label>
-          <select class="form-control" id="internal_property_size" placeholder="Select the internal property size">
+          <select class="form-control" id="internal_property_size" placeholder="Select the internal property size" name="internal_property_size">
             <option></option>
             <option>I know approx</option>
             <option>I know exactly</option>
@@ -436,7 +428,7 @@
         
         <div class="form-group">
           <label for="external_property_size">Outside space size</label>
-          <select class="form-control" id="external_property_size" placeholder="Select an external property size">
+          <select class="form-control" id="external_property_size" placeholder="Select an external property size" name="external_property_size">
             <option></option>
             <option>I know approx</option>
             <option>I know exactly</option>
@@ -447,7 +439,7 @@
         
 
         <div data-role="dynamic-fields" style="margin-bottom: 3%;" class="form-group">
-          <button class="btn btn-primary" data-role="add" id="add_improvement">
+          <button class="btn btn-primary" data-role="add" id="add_improvement" name="add_improvement">
             Add a new improvement
           </button>
           <div class="row"></div>
@@ -458,12 +450,12 @@
           <div style="margin-left: 3%;">
             <div class="form-group" id='current_agent_details'>
               <label for="current_agent_valuation" style="font-weight: 500;">Value</label>
-              <input type="number" class="form-control" id="current_agent_valuation" placeholder='Enter value in pounds'/>
+              <input type="number" class="form-control" id="current_agent_valuation" name="current_agent_valuation" placeholder='Enter value in pounds'/>
             </div>
 
             <div class="form-group">
               <label for="current_agent_valuation_date" style="font-weight: 500;">Date of valuation</label>
-              <input type="date" class="form-control" id="current_agent_valuation_date" placeholder='Select a date'/>
+              <input type="date" class="form-control" id="current_agent_valuation_date" name="current_agent_valuation_date" placeholder='Select a date'/>
             </div>
           </div>
         </div>
@@ -473,19 +465,19 @@
           <div style="margin-left: 3%;">
             <div class="form-group" id='vendor_personal_details'>
               <label for="vendor_personal_valuation" style="font-weight: 500;">Value</label>
-              <input type="number" class="form-control" id="vendor_personal_valuation" placeholder='Enter value in pounds'/>
+              <input type="number" class="form-control" id="vendor_personal_valuation" name="vendor_personal_valuation" placeholder='Enter value in pounds'/>
             </div>
 
             <div class="form-group">
               <label for="vendor_valuation_date">Date of valuation</label>
-              <input type="date" class="form-control" id="vendor_valuation_date" placeholder='Select a date'/>
+              <input type="date" class="form-control" id="vendor_valuation_date" name="vendor_valuation_date" placeholder='Select a date'/>
             </div>
           </div>
         </div>
 
         <div class="form-group">
           <label for="offers_above_x">Most recent sale price</label>
-          <input type="number" class="form-control" id="offers_above_x" placeholder='Amount in pounds'/>
+          <input type="number" class="form-control" id="offers_above_x" name="offers_above_x" placeholder='Amount in pounds'/>
         </div>
 
         <div class="form-group">
@@ -493,12 +485,12 @@
           <div style="margin-left: 3%;">
             <div class="form-group" id='most_recent_price'>
               <label for="most_recent_price_value" style="font-weight: 500;">Value</label>
-              <input type="number" class="form-control" id="most_recent_price_value" placeholder='Enter value in pounds'/>
+              <input type="number" class="form-control" id="most_recent_price_value" name="most_recent_price_value" placeholder='Enter value in pounds'/>
             </div>
 
             <div class="form-group">
               <label for="most_recent_price_date">Last sale date</label>
-              <input type="date" class="form-control" id="most_recent_price_date" placeholder='Select a date'/>
+              <input type="date" class="form-control" id="most_recent_price_date" name="most_recent_price_date" placeholder='Select a date'/>
             </div>
           </div>
         </div>
@@ -508,12 +500,12 @@
           <div style="margin-left: 3%;">
             <div class="form-group" id='rental'>
               <label for="montly_rent_value" style="font-weight: 500;">Monthly rent value</label>
-              <input type="number" class="form-control" id="montly_rent_value" placeholder='Enter value in pounds'/>
+              <input type="number" class="form-control" id="montly_rent_value" name="montly_rent_value" placeholder='Enter value in pounds'/>
             </div>
 
             <div class="form-group">
               <label for="montly_rent_value_agent"> Monthly rent valuation (agent)</label>
-              <input type="date" class="form-control" id="montly_rent_value_agent" placeholder='Enter a value'/>
+              <input type="date" class="form-control" id="montly_rent_value_agent" name="montly_rent_value_agent" placeholder='Enter a value'/>
             </div>
           </div>
         </div>
@@ -523,14 +515,14 @@
           <div style="margin-left: 3%;">
             <div class="form-group">
               <div class="fileinput fileinput-new" data-provides="fileinput">
-                <span class="btn btn-default btn-file"><span>Front house</span><input type="file" /></span>
+                <span class="btn btn-default btn-file"><span>Front house</span><input type="file" name="front_house_photo" /></span>
                 <span class="fileinput-filename"></span><span class="fileinput-new">No file chosen</span>
               </div>
             </div>
 
             <div class="form-group">
               <div class="fileinput fileinput-new" data-provides="fileinput">
-                <span class="btn btn-default btn-file"><span>Garden</span><input type="file" /></span>
+                <span class="btn btn-default btn-file"><span>Garden</span><input type="file" name="garden_photo" /></span>
                 <span class="fileinput-filename"></span><span class="fileinput-new">No file chosen</span>
               </div>
             </div>
@@ -540,13 +532,13 @@
         
         <div class="form-group">
           <label for="description"> Property Description</label>
-          <textarea class = "form-control" rows = "3"></textarea>
+          <textarea class = "form-control" rows = "3" name="description"></textarea>
         </div>
 
         <div class="form-group">
           <label for="add_room">Room details</label>
           <div data-role="dynamic-fields" style="margin-bottom: 3%;" class="form-group">
-            <button class="btn btn-primary" data-role="add" id="add_room">
+            <button class="btn btn-primary" data-role="add" id="add_room" name="add_room">
               Add details of a room
             </button>
             <div class="row"></div>
@@ -557,22 +549,21 @@
         <div class="form-group">
           <label for="add_photo_room">Room photos</label>
           <div data-role="dynamic-fields" style="margin-bottom: 3%;" class="form-group">
-            <button class="btn btn-primary" data-role="add" id="add_photo_room">
+            <button class="btn btn-primary" data-role="add" id="add_photo_room" name="add_room_photo">
               Add photos of a room
             </button>
             <div class="row"></div>
           </div>
         </div>
-
     </fieldset>
     <button type="submit" class="btn btn-default">Submit</button>
   </form>
 </script>
 
 <script type="text/html" id="epc_file_form">
-  <div class="form-group" style="margin-left: 1%; margin-top: 2px;">
+  <div class="form-group" style="margin-left: 1%; margin-top: 2px;" formname="epc_file_form">
     <div class="fileinput fileinput-new" data-provides="fileinput">
-      <span class="btn btn-default btn-file"><span>Choose file</span><input type="file" /></span>
+      <span class="btn btn-default btn-file"><span>Choose file</span><input type="file" name="epc_file_form" class="form-control"/></span>
       <span class="fileinput-filename"></span><span class="fileinput-new">No file chosen</span>
     </div>
   </div>
@@ -580,23 +571,23 @@
 
 <script type="text/html" id="inp_text">
   <div class="form-group" style="margin-left: 1%; margin-top: 4px;">
-    <input type="text" class="form-control"/>
+    <input type="text" class="form-control" name="inp_text" />
   </div>
 </script>
 
 <script type="text/html" id="prop_size_details">
-  <div class="form-inline" style="margin-left: 1%; margin-top: 4px;">
+  <div class="form-inline" style="margin-left: 1%; margin-top: 4px;" formname="property_size">
     <label for="prop_size"> Choose area type</label>
       <div class="btn-group prop_size" id="prop_size" data-toggle="buttons">
           <label class="btn btn-default active">
-            <input type="radio" name="options" id="option1"/>Sq. ft</label>
+            <input type="radio" name="options" id="option1" name="prop_size_unit" class="form-control" />Sq. ft</label>
           <label class="btn btn-default">
-            <input type="radio" name="options" id="option2"/>Sq. Meters</label>
+            <input type="radio" name="options" id="option2"  class="form-control" name="prop_size_unit"/>Sq. Meters</label>
       </div>
 
     <div class="form-group">
       <label for="prop_size_text"> Area</label>
-      <input type="text" class="form-control" id="prop_size_text" placeholder="Enter area"/>
+      <input type="text" class="form-control" id="prop_size_text"  class="form-control" placeholder="Enter area" name="prop_area"/>
     </div>
 
   </div>
@@ -605,12 +596,12 @@
 <script type="text/html" id="improvement_spend">
   <div class="container">
     <fieldset style="border-bottom: 1px solid #F37622; margin-top: 5px; margin-bottom: 15px;" class="col-xs-10 fieldset">
-      <div class="form-inline">
+      <div class="form-inline" formname="improvement_spend">
         <div class="row">
           <div class="col-xs-10">
             <div class="form-group" style="width: 100%;">
                 <label for="field-name" >Value(in Pounds)</label>
-                <input type="text" class="form-control" id="field-name" placeholder="Enter the improvement expenses" style="width: 100%;" name="name">
+                <input type="text" class="form-control" id="field-name" placeholder="Enter the improvement expenses" style="width: 100%;" name="improvement_value">
             </div>
           </div>
         </div>
@@ -619,7 +610,7 @@
             <div class="col-xs-10">
               <div class="form-group" style="width: 100%;">
                   <label for="field-value">Date</label>
-                  <input type="date" class="form-control" id="field-value" placeholder="Select a date" style="width: 100%;padding-left: 15px;" name="value">
+                  <input type="date" class="form-control" id="field-value" placeholder="Select a date" style="width: 100%;padding-left: 15px;" name="improvement_date">
               </div>
             </div>
         </div>
@@ -629,7 +620,7 @@
               <div class="form-group" style="width: 100%;">
                   <label for="improvements_list">Select the type of improvement</label>
                   <div class="row"></div>
-                  <select class="form-control improvements_list" id="improvements_list">
+                  <select class="form-control improvements_list" id="improvements_list" name="improvements_list">
                     <option></option>
                     <option>Total refurbishment</option>
                     <option>General maintenance</option>
@@ -667,7 +658,7 @@
 
 
 <script type="text/html" id="room_details">
-  <div class="container">
+  <div class="container" formname="room_details">
     <fieldset style="border-bottom: 1px solid #F37622; border-top: 1px solid #F37622; margin-bottom: 15px;" class="col-xs-10 fieldset">
       
       <div class="form-group">
@@ -675,9 +666,9 @@
         <div id="dimension_type">
           <div class="btn-group prop_size" data-toggle="buttons">
               <label class="btn btn-default active">
-                <input type="radio" name="options" id="option1"/>Feet</label>
+                <input type="radio" name="options" id="option1" name="dimension_type" />Feet</label>
               <label class="btn btn-default">
-                <input type="radio" name="options" id="option2"/>Meter</label>
+                <input type="radio" name="options" id="option2" name="dimension_type"/>Meter</label>
           </div>
         </div>
       </div>
@@ -686,11 +677,11 @@
           <div class="form-inline">
             <div class="form-group">
               <label for="length">Length</label>
-              <input type="text" class="form-control" id="length" placeholder="Enter length"/>
+              <input type="text" class="form-control" id="length" placeholder="Enter length" name="room_length" />
             </div>
             <div class="form-group">
               <label for="width">Width</label>
-              <input type="text" class="form-control" id="width" placeholder="Enter width"/>
+              <input type="text" class="form-control" id="width" placeholder="Enter width" name="room_width"/>
             </div>
           </div>
         </div>
@@ -704,12 +695,27 @@
   </div>
 </script>
 
+<script type="text/html" id="file_view_epc_form">
+  <fieldset style="border-bottom: 1px solid #F37622; margin-top: 5px; margin-bottom: 15px;" class="col-xs-10 fieldset">
+    <div class="container">
+      <div class="form-group" formname="epc_form">
+        <div class="fileinput fileinput-new" data-provides="fileinput">
+          <span class="btn btn-default btn-file"><span>Choose photo</span><input type="file" name="room_photo" class="form-control"/></span>
+          <span class="fileinput-filename"></span><span class="fileinput-new">No file chosen</span>
+          <span class="fileinput-remove"></span>
+        </div>
+      </div>
+    </div>
+  </fieldset>
+</script>
+
+
 <script type="text/html" id="room_photos">
   <fieldset style="border-bottom: 1px solid #F37622; margin-top: 5px; margin-bottom: 15px;" class="col-xs-10 fieldset">
     <div class="container">
-      <div class="form-group">
+      <div class="form-group" formname="room_photos">
         <div class="fileinput fileinput-new" data-provides="fileinput">
-          <span class="btn btn-default btn-file"><span>Choose photo</span><input type="file" /></span>
+          <span class="btn btn-default btn-file"><span>Choose photo</span><input type="file" name="room_photo" class="form-control"/></span>
           <span class="fileinput-filename"></span><span class="fileinput-new">No file chosen</span>
           <span class="fileinput-remove"></span>
         </div>
@@ -757,7 +763,10 @@ $(function() {
       var val = $(e.target).text().replace(/^\s+|\s+$/g, '');
       var parentElem = e.target.parentElement.parentElement;
       if (val == 'Yes') {
-        parentElem.appendChild(fileView.el);
+        var html = _.template($('#file_view_epc_form').html())();
+        parser = new DOMParser(), doc = parser.parseFromString(html, "text/html");
+        var inp = doc.children[0].children[1].children[0].children[0];
+        parentElem.appendChild(doc.children[0].children[1].children[0]);
       }
       else if (parentElem.children.length > 3){
           var lastElem = parentElem.lastElementChild;
@@ -887,6 +896,91 @@ $(function() {
         }
     );
 
+  $('#main_form').on('submit', function(e){
+      var outside_spaces = [];
+
+      $.each($("input[checkboxname='outside_spaces']:checked"), function(){            
+          outside_spaces.push(this.parentElement.textContent.trim());
+      });
+
+      var additional_features = [];
+      $.each($("input[checkboxname='additional_features']:checked"), function(){            
+          additional_features.push(this.parentElement.textContent.trim());
+      });
+
+      room_details = [];
+      $.each($('[formname=room_details]'), function(index, form){
+        room_map = {};
+        $.each($(form).find('.form-control'), function(ind, value){
+          room_map[$(value).attr('name')] = $(value).val();
+        });
+        room_details.push(room_map)
+      });
+
+
+      room_photos = [];
+      $.each($('[formname=room_photos]'), function(index, form){
+        room_photo_map = {};
+        $.each($(form).find('.form-control'), function(ind, value){
+          room_photo_map[$(value).attr('name')] = $(value).val();
+        });
+        room_photos.push(room_photo_map)
+      });
+
+
+      improvement_spends = [];
+
+      $.each($('[formname=improvement_spend]'), function(index, form){
+        improvement_spend_map = {};
+        $.each($(form).find('.form-control'), function(ind, value){
+          improvement_spend_map[$(value).attr('name')] = $(value).val();
+        });
+        improvement_spends.push(improvement_spend_map);
+      });
+
+
+      
+      property_sizes = [];
+
+      $.each($('[formname=property_size]'), function(index, form){
+        property_size_map = {};
+        $.each($(form).find('.form-control'), function(ind, value){
+          property_size_map[$(value).attr('name')] = $(value).val();
+        });
+        property_sizes.push(property_size_map);
+      });
+
+
+      epc_file_map = {};
+      $.each($('[formname=epc_file_form]'), function(index, form){
+        $.each($(form).find('.form-control'), function(ind, value){
+          epc_file_map[$(value).attr('name')] = $(value).val();
+        });
+      });
+      console.log(epc_file_map);
+
+      var search = $('#main_form').serialize();
+      JSON.parse('{"' + decodeURI(search).replace(/"/g, '\\"').replace(/&/g, '","').replace(/=/g,'":"') + '"}')
+      search["epc_file_map"] = epc_file_map;
+      search["property_sizes"] = property_sizes;
+      search["improvement_spends"] = improvement_spends;
+      search["room_photos"] = room_photos;
+      search["room_details"] = room_details;
+      search["additional_features"] = additional_features;
+      search["outside_spaces"] = outside_spaces;
+      
+      e.preventDefault();
+
+      $.post( "http://localhost:3000/api/v0/properties", search )
+        .done(function( data ) {
+          console.log(data);
+      });
+
+  });
+
+  
+
 });
 
 </script>
+<!-- title=Mr&name=Abhijit+Pratap+Singh&email=singh.abhijitpratap%40gmail.com&house_no=406%2F4B&postcode=400097&title=Tenant&property_type=Bungalow&options=on&tenure=Share+of+freehold&bedroom=1&bathroom=2&reception=2&water_cost=1&lighting_cost=1&heating_cost=1&water_cost=1&council_cost=1&ground_rent_cost=1&annual_service_cost=1&parking_cost=1&property_style=New+build&floor=2&listed_status=Grade+II&year_built=Under+50+years+ago&decorative_condition=Excellent&central_heating=Partial&internal_property_size=I+know+approx&prop_area=11&external_property_size=I+know+approx&prop_area=12&improvement_value=12&improvement_date=2016-03-10&improvements_list=Total+refurbishment&current_agent_valuation=123&current_agent_valuation_date=2016-03-03&vendor_personal_valuation=1&vendor_valuation_date=2016-03-10&offers_above_x=12&most_recent_price_value=12&most_recent_price_date=2016-03-17&montly_rent_value=1&montly_rent_value_agent=2016-03-16&description=sdsffefre&room_length=12&room_width=12 -->
