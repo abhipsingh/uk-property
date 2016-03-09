@@ -1,0 +1,111 @@
+{
+  "property_detail" : {
+    "properties" : {
+      "property_type" : {
+        "type" : "string",
+        "index" : "not_analyzed"
+      },
+       "match_type" : {
+        "type" : "string",
+        "index" : "not_analyzed"
+      },
+       "monitoring_type" : {
+        "type" : "string",
+        "index" : "not_analyzed"
+      },
+       "property_status_type" : {
+        "type" : "string",
+        "index" : "not_analyzed"
+      },
+       "parking_type" : {
+        "type" : "string",
+        "index" : "not_analyzed"
+      },
+       "outside_space_type" : {
+        "type" : "string",
+        "index" : "not_analyzed"
+      },
+       "additional_features_type" : {
+        "type" : "string",
+        "index" : "not_analyzed"
+      },
+       "tenure" : {
+        "type" : "string",
+        "index" : "not_analyzed"
+      },
+       "epc" : {
+        "type" : "string",
+        "index" : "not_analyzed"
+      },
+       "property_style" : {
+        "type" : "string",
+        "index" : "not_analyzed"
+      },
+       "listed_status" : {
+        "type" : "string",
+        "index" : "not_analyzed"
+      },
+       "decorative_condition" : {
+        "type" : "string",
+        "index" : "not_analyzed"
+      },
+       "central_heating" : {
+        "type" : "string",
+        "index" : "not_analyzed"
+      },
+       "photos" : {
+        "type" : "string",
+        "index" : "not_analyzed"
+      },
+       "floorplan" : {
+        "type" : "string",
+        "index" : "not_analyzed"
+      },
+       "chain_free" : {
+        "type" : "string",
+        "index" : "not_analyzed"
+      },
+      "budget" : {
+        "type" : "integer"
+      },
+      "cost_per_month" : {
+        "type" : "integer"
+      },
+      "date_added" : {
+        "type" : "date",
+        "format": "yyyy-MM-dd HH:mm:ss"
+      },
+      "floors" : {
+        "type" : "integer"
+      },
+      "year_built" : {
+        "type" : "integer"
+      },
+      "internal_property_size" : {
+        "type" : "integer"
+      },
+      "external_property_size" : {
+        "type" : "integer"
+      },
+      "total_property_size" : {
+        "type" : "integer"
+      },
+      "improvement_spend" : {
+        "type" : "integer"
+      },
+      "time_frame" : {
+        "type" : "date",
+        "format": "yyyy-MM-dd"
+        },
+      "beds" : {
+        "type" : "integer"
+      },
+      "baths" : {
+        "type" : "integer"
+      },
+      "receptions" : {
+        "type" : "integer"
+      }
+    }
+  }
+}
