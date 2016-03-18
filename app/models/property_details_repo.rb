@@ -44,8 +44,6 @@ class PropertyDetailsRepo
     floorplan: ["Yes", "No"]
   }
 
-  klass PropertyDetails
-
   def initialize(options={})
     index  options[:index] || 'property_details'
     client Elasticsearch::Client.new url: options[:url], log: options[:log]
@@ -56,14 +54,25 @@ class PropertyDetailsRepo
 
   def filter
     inst = self
+    inst = inst.append_hash_filter
     inst = inst.append_pagination_filter
     inst = inst.append_terms_filters
     inst = inst.append_term_filters
     inst = inst.append_range_filters
     inst = inst.append_sort_filters
-    body, status = post_url(inst.query)
+    body, status = post_url(inst.query, 'addresses', 'address')
     body = JSON.parse(body)['hits']['hits'].map { |t| t['_source'] }
     return { results: body }, status
+  end
+
+  def append_hash_filter
+    inst = self
+    if filtered_params[:hash_type] == 'postcode'
+      inst = form_query(filtered_params[:hash_str])
+    else
+      inst = inst.append_terms_filter_query('hashes', filtered_params[:hash_str].split('|'))
+    end
+    return inst
   end
 
   def append_term_filters
@@ -137,19 +146,34 @@ class PropertyDetailsRepo
     characters = (1..10).to_a
     alphabets = ('A'..'Z').to_a
     addresses = get_bulk_addresses
-
-    2.times do
-      10000.times do |k|
+    names = ['John Doe', 'John Smith', 'Garry Edwards']
+    scroll_id = 'cXVlcnlUaGVuRmV0Y2g7NTs5NzY6VmtJQjVxWUhTdmUxU04zeTEzTGs0QTs5Nzg6VmtJQjVxWUhTdmUxU04zeTEzTGs0QTs5Nzc6VmtJQjVxWUhTdmUxU04zeTEzTGs0QTs5Nzk6VmtJQjVxWUhTdmUxU04zeTEzTGs0QTs5ODA6VmtJQjVxWUhTdmUxU04zeTEzTGs0QTswOw=='
+    glob_counter = 0
+    loop do
+      get_records_url = 'http://localhost:9200/_search/scroll'
+      scroll_hash = { scroll: '1m', scroll_id: scroll_id }
+      response , status = post_url_new(scroll_hash)
+      udprns = JSON.parse(response)["hits"]["hits"].map { |t| t['_source']['udprn']  }
+      break if udprns.length == 0
+      
+      body = []
+      udprns.each do |udprn|
         doc = {}
         RANDOM_SEED_MAP.each do |key, values|
           doc[key] = values.sample(1).first
         end
+        doc[:year_built] = doc[:year_built].to_s+"-01-01"
         doc[:date_added] = Time.at((start_date.to_f - ending_date.to_f)*rand + start_date.to_f).utc.strftime('%Y-%m-%d %H:%M:%S')
         doc[:time_frame] = time_frame_years.sample(1).first.to_s + "-01-01"
         doc[:external_property_size] = doc[:internal_property_size] + 100
         doc[:total_property_size] = doc[:external_property_size] + 100
         doc[:budget] = doc[:price]
-
+        doc[:valuation] = 1.3 * doc[:price]
+        doc[:broker_name] = nil
+        doc[:broker_name_new] = names.sample(1).first
+        doc[:broker_branch_image] = "http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/prop.jpg"
+        doc[:broker_branch_contact] = "020 3641 4259"
+        doc[:date_updated] = 3.days.ago.to_date.to_s
         if doc[:photos] == "Yes"
           doc[:photo_count] = 3
           doc[:photo_urls] = [
@@ -168,12 +192,22 @@ class PropertyDetailsRepo
           description += alphabets.sample(1).first
         end
 
-        doc.merge!(addresses[k]['_source'].as_json(only: ['dependent_thoroughfare_description', 'post_town', 'district', 'dependent_locality', 'county', 'post_code']))
-        body.push({ index:  { _index: 'property_details', _type: 'property_detail', data: doc }})
+        body.push({ update:  { _index: 'addresses', _type: 'address', _id: udprn, data: { doc: doc } }})
       end
-      client.bulk body: body
+      client.bulk body: body unless body.empty?
+      p "#{glob_counter} pASS completed"
+      glob_counter+=1
     end
-    p "BODY"
+  end
+
+  def self.post_url_new(query = {}, index_name='property_details', type_name='property_detail')
+    uri = URI.parse(URI.encode("http://localhost:9200/_search/scroll"))
+    query = (query == {}) ? "" : query.to_json
+    http = Net::HTTP.new(uri.host, uri.port)
+    result = http.post(uri,query)
+    body = result.body
+    status = result.code
+    return body,status
   end
 
   def self.test_search
@@ -263,5 +297,37 @@ class PropertyDetailsRepo
     p code
     JSON.parse(response)['hits']['hits']
   end
+
+  def form_query(str)
+    inst = self
+    area, sector, district, unit = search_flats_for_postcodes(str)
+    if area
+      inst.append_term_filter_query('area', area) unless area.nil?
+    end
+    if district
+      inst.append_term_filter_query('district', district) unless area.nil?
+    end
+    if sector
+      inst.append_term_filter_query('sector', sector) unless area.nil?
+    end
+    if unit
+      inst.append_term_filter_query('unit', unit) unless area.nil?
+    end
+    return inst
+  end
+
+  def search_flats_for_postcodes(str)
+    area_unit, sector_unit = str.split(' ')
+    regexes = [ /^([A-Z]{1,2})([0-9]{0,3})$/, /^([0-9]{1,2})([A-Z]{0,3})$/]
+    area = area_unit.match(regexes[0])[1]
+    district = area_unit unless area_unit.match(regexes[0])[2].empty?
+    sector, unit = nil
+    if  sector_unit && sector_unit.match(regexes[1])
+      sector = district + sector_unit.match(regexes[1])[1]
+      unit = area_unit + sector_unit unless sector_unit.match(regexes[1])[2].empty?
+    end
+    return area, sector, district, unit
+  end
+
 end
 

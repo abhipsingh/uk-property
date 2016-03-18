@@ -37,9 +37,9 @@ $(function() {
       };
       
       $.get( "http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/addresses/search", { str: this.value },  function( data ) {
-        for (var i = data.length - 1; i >= 0; i--) {
-          var edit_url = "http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/properties/"+ data[i].udprn + "/edit";
-          var html = '<li class="list-group-item"><a href="'+edit_url+'">'+ data[i].vanity_url+'</a></li>';
+        for (var i = data.result.length - 1; i >= 0; i--) {
+          var edit_url = "http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/properties/"+ data.result[i].udprn + "/edit";
+          var html = '<li class="list-group-item"><a href="'+edit_url+'">'+ data.result[i].vanity_url+'</a></li>';
           parser = new DOMParser(), doc = parser.parseFromString(html, "text/html");
           $('#list_view')[0].appendChild(doc.children[0].children[1].children[0]);
         };

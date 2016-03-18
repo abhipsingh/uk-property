@@ -27,6 +27,7 @@ gem 'sdoc', '~> 0.4.0', group: :doc
 gem 'rack-cors'
 gem 'actionmailer'
 
+gem 'pg'
 gem 'bootstrap-sass'
 gem 'omniauth-facebook'
 gem 'omniauth-twitter'

@@ -11,6 +11,7 @@ class ApplicationController < ActionController::Base
       res, code = post_url('addresses', query_str, '_search')
       res = JSON.parse(res)["hits"]["hits"].map{ |t| t["_source"] }
       res.map{ |t| add_new_keys(t) }
+      res = { result: res, hash_str: params[:str], hash_type: 'postcode' }
       render json: res, status: code
     elsif !(params[:str].upcase).match(/([A-Z]{0,3})([0-9]{0,6})([A-Z]{0,3})/).captures.any?{|t| !t.empty?}
       matches =  (params[:str].upcase).match(/([A-Z]{0,3})([0-9]{0,6})([A-Z]{0,3})/)
@@ -64,8 +65,9 @@ class ApplicationController < ActionController::Base
       str = params[:str].gsub(',',' ').downcase
       results, code = get_results_from_es_suggest(str)
       results, code = get_results_for_search_term(results)
-      results = JSON.parse(results)["hits"]["hits"].map{ |t| t["_source"] }
-      results.map{ |t| add_new_keys(t) }
+      results_new = results[:result]["hits"]["hits"].map{ |t| t["_source"] }
+      results_new.map{ |t| add_new_keys(t) }
+      results = { result: results_new, hash_type: results[:hash_type], hash_str: results[:hash_str] }
       render json: results, status: code
     end
   end
@@ -134,7 +136,7 @@ class ApplicationController < ActionController::Base
   end
 
   def get_results_for_search_term(res)
-    filters = { size: 10, filter:
+    filters = { size: 100, filter:
                 {
       terms: {
         hashes: []
@@ -156,7 +158,10 @@ class ApplicationController < ActionController::Base
 
     hashes = hashes.uniq
     filters[:filter][:terms][:hashes] = hashes
-    post_url('addresses', filters, '_search')
+    result, status = post_url('addresses', filters, '_search')
+    result = JSON.parse(result)
+    result = { result: result, hash_type: 'Text', hash_str: hashes.join("|") }
+    return result, status
   end
 
   def get_results_from_es_suggest(query_str)
