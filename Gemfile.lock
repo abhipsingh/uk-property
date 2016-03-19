@@ -95,10 +95,13 @@ GEM
       treetop (~> 1.4.8)
     method_source (0.8.2)
     mime-types (1.25.1)
+    mini_portile2 (2.0.0)
     minitest (5.8.4)
     multi_json (1.11.2)
     multi_xml (0.5.5)
     multipart-post (2.0.0)
+    nokogiri (1.6.7.1)
+      mini_portile2 (~> 2.0.0.rc2)
     oauth (0.4.7)
     oauth2 (1.0.0)
       faraday (>= 0.8, < 0.10)
@@ -198,6 +201,7 @@ DEPENDENCIES
   elasticsearch-persistence
   elasticsearch-rails
   jquery-rails
+  nokogiri
   omniauth-facebook
   omniauth-twitter
   pg
@@ -211,6 +215,3 @@ DEPENDENCIES
   turbolinks
   unicorn
   webmock
-
-BUNDLED WITH
-   1.11.2
