@@ -68,9 +68,12 @@ module ZooplaCrawler
 
   def self.perform_crawling_sale_properties
     url_prefix = "http://www.zoopla.co.uk/for-sale/branch/"
-    Agents::Branch.select([:id, :property_urls]).all.each do |branch|
+    p 'started'
+    Agents::Branch.select([:id, :property_urls]).find_each do |branch|
       branch_suffix = branch.property_urls.split("/").last
+      p "CRAWLED_Strted#{branch.id}"
       perform_each_branch_crawl(branch_suffix, branch.id)
+      p "CRAWLED_ended#{branch.id}"
     end
   end
 
