@@ -34,7 +34,7 @@ module ZooplaCrawler
     if response.code.to_i == 200
       return response.body
     else
-      Rails.logger.info("FAILURE_TO_CRAWL_#{url}")
+      Rails.logger.info("FAILURE_TO_CRAWL_#{url}_#{response.code}")
       return nil
     end
   end
@@ -76,15 +76,17 @@ module ZooplaCrawler
 
   def self.perform_each_branch_crawl(branch_suffix, branch_id)
     page_size = 100
+    url_prefix = "http://www.zoopla.co.uk/for-sale/branch/"
     page = 1
     loop do
-      url = url_prefix + branch_suffix + "?page_size=#{page_size}&pn=#{page}"
+      url = url_prefix + branch_suffix + "/?page_size=#{page_size}&pn=#{page}"
       response = generic_url_processor(url)
       if response
-        property_urls = Nokogiri::HTML(response.body).css('div.listing-results-right').css('a').map{|t| t['href']}
+        property_urls = Nokogiri::HTML(response).css('div.listing-results-right').css('a').map{|t| t['href']}
+        property_urls = property_urls.uniq
         break if property_urls.empty?
         sale_urls = property_urls.select{ |t| t.split("/").second=='for-sale' }
-        sale_urls.map { |e| crawl_property(each_sale_url) }
+        sale_urls.map { |each_sale_url| crawl_property(each_sale_url, branch_id) }
         page += 1
       else
         break
@@ -92,10 +94,52 @@ module ZooplaCrawler
     end
   end
 
-  def self.crawl_property(property_url)
+  def self.crawl_property(property_url, branch_id)
     url = BASE_URL + property_url
     response = generic_url_processor(url)
+    stored_response = {}
+    if response
+      html = Nokogiri::HTML(response)
+      html.css('script').remove
+      html.css('style').remove
+      title = html.css('div#listing-details').css('h2')[0].text rescue nil
+      address = html.css('div.listing-details-address').css('h2').text rescue nil
+      street_address = html.css('div.listing-details-address').css('meta')[0]['content'] rescue nil
+      address_locality = html.css('div.listing-details-address').css('meta')[1]['content'] rescue nil
+      address_region = html.css('div.listing-details-address').css('meta')[2]['content'] rescue nil
+      latitude = html.css('meta[itemprop="latitude"]')[0]['content'].to_f rescue nil
+      longitude = html.css('meta[itemprop="latitude"]')[0]['content'].to_f rescue nil
+      beds = html.css('div.listing-details-attr').css('span.num-beds')[0].text.to_i rescue nil
+      baths = html.css('div.listing-details-attr').css('span.num-baths')[0].text.to_i rescue nil
+      receptions = html.css('div.listing-details-attr').css('span.num-reception')[0].text.to_i rescue nil
+      images_original_prefix = html.css('ul#images_original').css('a')[0]['href'] rescue nil
+      original_images_url = BASE_URL + images_original_prefix.to_s
+      images_response = generic_url_processor(original_images_url)
+      image_urls = []
+      if images_response
+        images_html = Nokogiri::HTML(images_response)
+        image_urls = images_html.css('a').css('img').map{ |t| t['src'] } rescue []
+      end
+      stored_response[:title] = title
+      stored_response[:address] = address
+      stored_response[:street_address] = street_address
+      stored_response[:address_locality] = address_locality
+      stored_response[:address_region] = address_region
+      stored_response[:latitude] = latitude
+      stored_response[:longitude] = longitude
+      stored_response[:beds] = beds
+      stored_response[:baths] = baths
+      stored_response[:receptions] = receptions
+      stored_response[:image_urls] = image_urls
+      # p stored_response
+      res = nil
+      if title && address && latitude && longitude
+        res = Agents::Branches::CrawledProperty.create(stored_response: stored_response, html: html.to_s, branch_id: branch_id, latitude: latitude, longitude: longitude) rescue nil
+      end
+      Rails.logger.info("CRAWLING_FAILED_FOR_#{branch_id}_#{url}") if res.nil?
+    end
   end
+
 
 end
 

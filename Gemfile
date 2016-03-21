@@ -1,7 +1,7 @@
 source 'https://rubygems.org'
 # Bundle edge Rails instead: gem 'rails', github: 'rails/rails'
-gem 'activemodel', '4.1.0'
-gem 'railties', '4.1.0'
+gem 'activemodel', '4.2.0'
+gem 'railties', '4.2.0'
 
 # Use SCSS for stylesheets
 gem 'sass-rails', '~> 4.0.0'
@@ -12,6 +12,7 @@ gem 'elasticsearch-persistence'
 # Use Uglifier as compressor for JavaScript assets
 
 gem 'sprockets', '2.11.0'
+gem 'minitest'
 
 # # See https://github.com/sstephenson/execjs#readme for more supported runtimes
 # gem 'therubyracer', platforms: :ruby
@@ -40,5 +41,5 @@ group :test do
   gem 'webmock'
 end
 gem 'sqlite3'
-gem 'activerecord', '4.1.0'
+gem 'activerecord', '4.2.0'
 gem 'unicorn'
