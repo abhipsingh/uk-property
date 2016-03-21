@@ -11,27 +11,39 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20160319120750) do
+ActiveRecord::Schema.define(version: 20160321153329) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
-  create_table "agents", force: true do |t|
-    t.string "name"
-    t.string "branches_url"
+  create_table "agents", force: :cascade do |t|
+    t.string "name",         limit: 255
+    t.string "branches_url", limit: 255
   end
 
-  create_table "agents_branches", force: true do |t|
-    t.string  "name"
-    t.string  "property_urls"
+  create_table "agents_branches", force: :cascade do |t|
+    t.string  "name",          limit: 255
+    t.string  "property_urls", limit: 255
     t.integer "agent_id"
-    t.string  "address"
+    t.string  "address",       limit: 255
   end
 
-  create_table "users_email_users", force: true do |t|
+  create_table "agents_branches_crawled_properties", force: :cascade do |t|
+    t.text     "html"
+    t.jsonb    "stored_response"
+    t.integer  "branch_id"
+    t.datetime "created_at"
+    t.datetime "updated_at"
+    t.decimal  "latitude"
+    t.decimal  "longitude"
+  end
+
+  add_index "agents_branches_crawled_properties", ["latitude", "longitude"], name: "uniq_property", unique: true, using: :btree
+
+  create_table "users_email_users", force: :cascade do |t|
     t.datetime "created_at",                     null: false
     t.datetime "updated_at",                     null: false
-    t.string   "email",                          null: false
+    t.string   "email",              limit: 255, null: false
     t.string   "encrypted_password", limit: 128, null: false
     t.string   "confirmation_token", limit: 128
     t.string   "remember_token",     limit: 128, null: false
