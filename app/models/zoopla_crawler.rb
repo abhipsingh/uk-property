@@ -111,7 +111,7 @@ module ZooplaCrawler
       address_locality = html.css('div.listing-details-address').css('meta')[1]['content'] rescue nil
       address_region = html.css('div.listing-details-address').css('meta')[2]['content'] rescue nil
       latitude = html.css('meta[itemprop="latitude"]')[0]['content'].to_f rescue nil
-      longitude = html.css('meta[itemprop="latitude"]')[1]['content'].to_f rescue nil
+      longitude = html.css('meta[itemprop="longitude"]')[0]['content'].to_f rescue nil
       beds = html.css('div.listing-details-attr').css('span.num-beds')[0].text.to_i rescue nil
       baths = html.css('div.listing-details-attr').css('span.num-baths')[0].text.to_i rescue nil
       receptions = html.css('div.listing-details-attr').css('span.num-reception')[0].text.to_i rescue nil
@@ -138,6 +138,7 @@ module ZooplaCrawler
       res = nil
       if title && address && latitude && longitude
         res = Agents::Branches::CrawledProperty.create(stored_response: stored_response, html: html.to_s, branch_id: branch_id, latitude: latitude, longitude: longitude) rescue nil
+       
       end
       Rails.logger.info("CRAWLING_FAILED_FOR_#{branch_id}_#{url}") if res.nil?
     end

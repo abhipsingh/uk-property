@@ -23,6 +23,7 @@ module TestApp
         resource '*', :headers => :any, :methods => [:get, :post, :put, :delete, :options]
       end
     end
+    config.active_record.logger = nil
   end
   
 end
