@@ -119,6 +119,9 @@ module ZooplaCrawler
       original_images_url = BASE_URL + images_original_prefix.to_s
       images_response = generic_url_processor(original_images_url)
       image_urls = []
+      features = html.css('div#listing-details').css('h3').map{|t| t.parent}.first.css('li').map{|t| t.text} rescue []
+      description = html.css('div#listing-details').css('h3').map{|t| t.parent}.second.css('div.top').text.strip rescue ''
+      agent_logo = html.css('img.agent_logo')[0]['src'] rescue nil
       if images_response
         images_html = Nokogiri::HTML(images_response)
         image_urls = images_html.css('a').css('img').map{ |t| t['src'] } rescue []
@@ -134,11 +137,13 @@ module ZooplaCrawler
       stored_response[:baths] = baths
       stored_response[:receptions] = receptions
       stored_response[:image_urls] = image_urls
+      stored_response[:description] = description
+      stored_response[:features] = features
+      stored_response[:agent_logo] = agent_logo
       # p stored_response
       res = nil
       if title && address && latitude && longitude
-        res = Agents::Branches::CrawledProperty.create(stored_response: stored_response, html: html.to_s, branch_id: branch_id, latitude: latitude, longitude: longitude) rescue nil
-       
+        res = Agents::Branches::CrawledProperty.create(stored_response: stored_response, html: nil, branch_id: branch_id, latitude: latitude, longitude: longitude) rescue nil
       end
       Rails.logger.info("CRAWLING_FAILED_FOR_#{branch_id}_#{url}") if res.nil?
     end
