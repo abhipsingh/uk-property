@@ -4,4 +4,9 @@ namespace :zoopla_crawl do
     ZooplaCrawler.perform_agent_crawling
   end
 
+  desc "Crawl images and store it in S3"
+  task images: :environment do
+    ZooplaCrawler.crawl_images
+  end
+
 end
