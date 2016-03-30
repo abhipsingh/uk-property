@@ -4,6 +4,7 @@ Rails.application.routes.draw do
   get 'addresses/search', to: 'application#search_address'
   get 'properties/:udprn/edit', to: 'properties#edit'
   get 'addresses/matrix_view', to: 'application#matrix_view'
+  get 'addresses/predictions', to: 'application#predictive_search'
   namespace :api do
     namespace :v0 do
       get 'properties/search',        to: 'property_search#search'

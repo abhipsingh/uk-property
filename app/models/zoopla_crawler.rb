@@ -2,6 +2,8 @@
 
 require 'net/http'
 require 'nokogiri'
+require 'open-uri'
+
 
 module ZooplaCrawler
   CHARACTERS = (14...36).map{ |i| i.to_s 36}
@@ -149,6 +151,21 @@ module ZooplaCrawler
     end
   end
 
+  def self.crawl_images
+    Agents::Branches::CrawledProperty.select([:id, :stored_response]).find_each do |property|
+      property.stored_response["image_urls"].each do |url|
+        file_name = url.split("/").last
+        open(url) {|f|
+           File.open(file_name,"wb") do |file|
+             file.puts f.read
+           end
+        }
+        s3 = Aws::S3::Resource.new
+        obj = s3.bucket('propertyuk').object(file_name)
+        obj.upload_file(file_name, acl: 'public-read')
+      end
+    end
+  end
 
 end
 
