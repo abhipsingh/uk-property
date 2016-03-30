@@ -72,6 +72,12 @@ class ApplicationController < ActionController::Base
     end
   end
 
+  def predictive_search
+    str = params[:str].gsub(',',' ').downcase
+    results, code = get_results_from_es_suggest(str)
+    render json: results, status: code
+  end
+
   def add_new_keys(result)
     characters = (1..10).to_a
     alphabets = ('A'..'Z').to_a
