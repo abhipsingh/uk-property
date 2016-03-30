@@ -152,6 +152,7 @@ module ZooplaCrawler
   end
 
   def self.crawl_images
+    counter = 0
     Agents::Branches::CrawledProperty.select([:id, :stored_response]).find_each do |property|
       property.stored_response["image_urls"].each do |url|
         file_name = url.split("/").last
@@ -164,6 +165,8 @@ module ZooplaCrawler
         obj = s3.bucket('propertyuk').object(file_name)
         obj.upload_file(file_name, acl: 'public-read')
       end
+      p counter
+      counter += 1
     end
   end
 
