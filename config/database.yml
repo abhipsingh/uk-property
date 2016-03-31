@@ -7,6 +7,14 @@ development:
   username: ec2_user
   password: property_services
 
+production:
+  adapter: postgresql
+  encoding: unicode
+  database: property_services_production
+  pool: 5
+  username: ec2_user
+  password: property_services
+
 test:
   adapter: postgresql
   encoding: unicode
