@@ -75,8 +75,25 @@ class ApplicationController < ActionController::Base
   def predictive_search
     str = params[:str].gsub(',',' ').downcase
     results, code = get_results_from_es_suggest(str)
+    results = Oj.load(results)['postcode_suggest'].map { |e| e['options'].map{ |t| { hash: t['payload']['hash'], output: t['payload']['hierarchy_str'].split('|').join(', ') } } }.flatten
     render json: results, status: code
   end
+
+  def get_results_from_hashes
+    hash = params[:hash]
+    filters = { 
+      size: 100, 
+      filter: {
+        term: {
+          hashes: hash
+        }
+      }
+    }
+    result, status = post_url('addresses', filters, '_search')
+    result = JSON.parse(result)["hits"]["hits"].map { |e| e["_source"] }
+    result = { result: result, hash_type: 'Text', hash_str: hash }
+    render json: result, status: 200
+  end 
 
   def add_new_keys(result)
     characters = (1..10).to_a
