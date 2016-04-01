@@ -28,6 +28,7 @@ gem 'turbolinks'
 gem 'sdoc', '~> 0.4.0', group: :doc
 gem 'rack-cors'
 gem 'actionmailer'
+gem 'io-console'
 
 gem 'pg'
 gem 'bootstrap-sass'

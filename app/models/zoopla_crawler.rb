@@ -71,7 +71,7 @@ module ZooplaCrawler
   def self.perform_crawling_sale_properties
     url_prefix = "http://www.zoopla.co.uk/for-sale/branch/"
     p 'started'
-    Agents::Branch.select([:id, :property_urls]).find_each do |branch|
+    Agents::Branch.where("id > ?", 240).select([:id, :property_urls]).find_each do |branch|
       branch_suffix = branch.property_urls.split("/").last
       p "CRAWLED_Strted#{branch.id}"
       perform_each_branch_crawl(branch_suffix, branch.id)
@@ -152,21 +152,24 @@ module ZooplaCrawler
   end
 
   def self.crawl_images
-    counter = 0
-    Agents::Branches::CrawledProperty.select([:id, :stored_response]).find_each do |property|
+    Agents::Branches::CrawledProperty.where("id>?", 1685).select([:id, :stored_response]).find_each do |property|
       property.stored_response["image_urls"].each do |url|
         file_name = url.split("/").last
-        open(url) {|f|
-           File.open(file_name,"wb") do |file|
-             file.puts f.read
-           end
-        }
-        s3 = Aws::S3::Resource.new
-        obj = s3.bucket('propertyuk').object(file_name)
-        obj.upload_file(file_name, acl: 'public-read')
+        begin
+          open(url,"User-Agent" => "Whatever you want here") {|f|
+            File.open(file_name,"wb") do |file|
+              file.puts f.read
+            end
+          }
+          s3 = Aws::S3::Resource.new
+          obj = s3.bucket('propertyuk').object(file_name)
+          obj.upload_file(file_name, acl: 'public-read')
+          File.delete(file_name)
+        rescue OpenURI::HTTPError => e
+          Rails.logger.info("FAILED_TO_CRAWL_IMAGE_WITH_URL_#{url}")
+        end
       end
-      p counter
-      counter += 1
+      p property.id
     end
   end
 
