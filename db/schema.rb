@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20160401110812) do
+ActiveRecord::Schema.define(version: 20160401112003) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -45,6 +45,8 @@ ActiveRecord::Schema.define(version: 20160401110812) do
     t.integer "price"
     t.string  "date"
   end
+
+  add_index "property_historical_details", ["uuid"], name: "index_property_historical_details_on_uuid", unique: true, using: :btree
 
   create_table "users_email_users", force: :cascade do |t|
     t.datetime "created_at",                     null: false

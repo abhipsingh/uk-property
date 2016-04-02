@@ -1,9 +1,7 @@
-
-
 require 'net/http'
 require 'nokogiri'
 require 'open-uri'
-
+require 'csv'
 
 module ZooplaCrawler
   CHARACTERS = (14...36).map{ |i| i.to_s 36}
@@ -152,24 +150,53 @@ module ZooplaCrawler
   end
 
   def self.crawl_images
-    Agents::Branches::CrawledProperty.where("id>?", 1685).select([:id, :stored_response]).find_each do |property|
+    Agents::Branches::CrawledProperty.where("id>?", 10383).select([:id, :stored_response]).find_each do |property|
+      threads = []
       property.stored_response["image_urls"].each do |url|
-        file_name = url.split("/").last
-        begin
-          open(url,"User-Agent" => "Whatever you want here") {|f|
-            File.open(file_name,"wb") do |file|
-              file.puts f.read
-            end
-          }
-          s3 = Aws::S3::Resource.new
-          obj = s3.bucket('propertyuk').object(file_name)
-          obj.upload_file(file_name, acl: 'public-read')
-          File.delete(file_name)
-        rescue OpenURI::HTTPError => e
-          Rails.logger.info("FAILED_TO_CRAWL_IMAGE_WITH_URL_#{url}")
+        threads << Thread.new do
+          file_name = url.split("/").last
+          begin
+            open(url,"User-Agent" => "Whatever you want here") {|f|
+              File.open(file_name,"wb") do |file|
+                file.puts f.read
+              end
+            }
+            s3 = Aws::S3::Resource.new
+            obj = s3.bucket('propertyuk').object(file_name)
+            obj.upload_file(file_name, acl: 'public-read')
+            File.delete(file_name)
+          rescue OpenURI::HTTPError => e
+            Rails.logger.info("FAILED_TO_CRAWL_IMAGE_WITH_URL_#{url}")
+          end
         end
       end
+      threads.map(&:join)
       p property.id
+    end
+  end
+
+  def self.store_historical_prices
+    counter = 0
+    glob_counter = 0
+    array_of_hashes = []
+    CSV.foreach('/mnt3/flat_transactions.csv',  :encoding => 'ISO-8859-1') do |row|
+      price = row[1].to_i
+      uuid = row[0]
+      date = row[2]
+      array_of_hashes.push({ uuid: uuid, price: price, date: date })
+      if counter == 10000
+        PropertyHistoricalDetail.bulk_insert do |worker|
+          array_of_hashes.each do |each_hash|
+            worker.add(each_hash)
+          end
+        end
+        counter = 0
+        array_of_hashes = []
+        p glob_counter
+        glob_counter += 1
+        next
+      end
+      counter += 1
     end
   end
 

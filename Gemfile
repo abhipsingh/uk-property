@@ -29,6 +29,7 @@ gem 'sdoc', '~> 0.4.0', group: :doc
 gem 'rack-cors'
 gem 'actionmailer'
 gem 'io-console'
+gem 'bulk_insert'
 
 gem 'pg'
 gem 'bootstrap-sass'

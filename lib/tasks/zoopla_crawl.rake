@@ -14,4 +14,9 @@ namespace :zoopla_crawl do
     ZooplaCrawler.crawl_images
   end
 
+
+	desc "Store historical prices in postgres"
+  task store_historical_prices: :environment do
+    ZooplaCrawler.store_historical_prices
+  end
 end
