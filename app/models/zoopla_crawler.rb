@@ -200,6 +200,13 @@ module ZooplaCrawler
     end
   end
 
+  def self.associate_udprn_to_uuids
+    redis = Redis.new
+    PropertyHistoricalDetail.select([:id, :udprn]).find_each do |historical_detail|
+      
+    end
+  end
+
 end
 
 
