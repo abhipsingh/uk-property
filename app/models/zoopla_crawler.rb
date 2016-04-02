@@ -213,7 +213,7 @@ module ZooplaCrawler
 
   def self.associate_udprn_to_uuids
     redis = Redis.new
-    offset = 100000
+    offset = 100
     counter = 0
     loop do
       property_sql = PropertyHistoricalDetail.select([:id, :udprn]).where('id > ?', (counter*offset)).limit(offset).to_sql
@@ -222,6 +222,29 @@ module ZooplaCrawler
         each_counter += 1
       end
       counter += 1
+      break if each_counter == 0
+    end
+  end
+
+  def self.attach_historical_details_to_udprns
+    offset = 10000
+    counter = 0
+    client = Elasticsearch::Client.new
+    loop do
+      property_sql = PropertyHistoricalDetail.select([:id, :udprn, :date, :price]).where.not(udprn: nil).where('id > ?', (counter*offset)).limit(offset).to_sql
+      each_counter = 0
+      es_addresses_buffer = []
+      p "Before sql"
+
+      PropertyHistoricalDetail.connection.execute(property_sql).each do |result|
+        each_counter += 1
+        date = result['date'].split(' ')[0]
+        es_addresses_buffer.push({ update: { _index: 'addresses', _type: 'address', _id: result['udprn'], data: { doc: { last_sale_price: result['price'], last_sale_date: date } } } })
+      end
+      p "After sql"
+      client.bulk body: es_addresses_buffer
+      counter += 1
+      p counter
       break if each_counter == 0
     end
   end

@@ -37,6 +37,7 @@ gem 'omniauth-facebook'
 gem 'omniauth-twitter'
 gem 'aws-sdk'
 gem 'figaro'
+gem 'stripe'
 
 group :development, :test do
   gem 'pry-rails'
