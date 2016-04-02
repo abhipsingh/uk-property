@@ -30,7 +30,7 @@ gem 'rack-cors'
 gem 'actionmailer'
 gem 'io-console'
 gem 'bulk_insert'
-
+gem 'redis'
 gem 'pg'
 gem 'bootstrap-sass'
 gem 'omniauth-facebook'

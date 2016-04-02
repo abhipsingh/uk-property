@@ -179,17 +179,28 @@ module ZooplaCrawler
     counter = 0
     glob_counter = 0
     array_of_hashes = []
+    redis = Redis.new
     CSV.foreach('/mnt3/flat_transactions.csv',  :encoding => 'ISO-8859-1') do |row|
       price = row[1].to_i
       uuid = row[0]
       date = row[2]
       array_of_hashes.push({ uuid: uuid, price: price, date: date })
       if counter == 10000
-        PropertyHistoricalDetail.bulk_insert do |worker|
+        futures = []
+        redis.pipelined do
           array_of_hashes.each do |each_hash|
-            worker.add(each_hash)
+            futures.push(redis.hget('uuid_udprn_map_new', each_hash[:uuid]))
           end
         end
+        futures.map(&:value).each_with_index do |value, index|
+          array_of_hashes[index][:udprn] = value
+        end
+        futures = []
+         PropertyHistoricalDetail.bulk_insert do |worker|
+           array_of_hashes.each do |each_hash|
+             worker.add(each_hash)
+           end
+         end
         counter = 0
         array_of_hashes = []
         p glob_counter
@@ -202,8 +213,16 @@ module ZooplaCrawler
 
   def self.associate_udprn_to_uuids
     redis = Redis.new
-    PropertyHistoricalDetail.select([:id, :udprn]).find_each do |historical_detail|
-      
+    offset = 100000
+    counter = 0
+    loop do
+      property_sql = PropertyHistoricalDetail.select([:id, :udprn]).where('id > ?', (counter*offset)).limit(offset).to_sql
+      each_counter = 0
+      PropertyHistoricalDetail.connection.execute(property_sql).each do |result|
+        each_counter += 1
+      end
+      counter += 1
+      break if each_counter == 0
     end
   end
 
