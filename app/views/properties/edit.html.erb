@@ -31,13 +31,18 @@
 
 <script type="text/html" id="historical_form">
   <div id="historical_form_details">
-    <div class="panel panel-info">
-      <ul class="panel">
-        <li>AAA</li>
-        <li>AAA</li>
-        <li>AAA</li>
-      </ul>
-    </div>
+    <table class="table table-striped">
+      <tr>
+        <th>Sale Price</th>
+        <th>Sale Date</th>
+      </tr>
+      <%@historical_details.each do |historical_detail| %>
+        <tr>
+          <td><%= historical_detail.price %></td>
+          <td><%= historical_detail.date %></td>
+        </tr>
+      <% end %>
+    </table>
     
   </div>
 </script>
@@ -88,15 +93,56 @@
       </div>
 
       <div class="form-group">
-        <label for="title">Owner Type</label>
-        <select class="form-control" id="title" name="title" placeholder="Select a title">
-          <option></option>
-          <option>Owner/Occupier</option>
-          <option>Tenant</option>
-          <option>Agent</option>
-          <option>Landlord</option>
-        </select>
+        <label for="current_agent_details">Current agent valuation</label>
+        <div style="margin-left: 3%;">
+          <div class="form-group" id='current_agent_details'>
+            <label for="current_agent_valuation" style="font-weight: 500;">Value</label>
+            <input type="number" class="form-control" id="current_agent_valuation" name="current_agent_valuation" placeholder='Enter value in pounds'/>
+          </div>
+
+          <div class="form-group">
+            <label for="current_agent_valuation_date" style="font-weight: 500;">Date of valuation</label>
+            <input type="date" class="form-control" id="current_agent_valuation_date" name="current_agent_valuation_date" placeholder='Select a date'/>
+          </div>
+        </div>
       </div>
+
+      <div class="form-group">
+        <label for="vendor_personal_details">Vendor personal valuation (based on any improvements etc)</label>
+        <div style="margin-left: 3%;">
+          <div class="form-group" id='vendor_personal_details'>
+            <label for="vendor_personal_valuation" style="font-weight: 500;">Value</label>
+            <input type="number" class="form-control" id="vendor_personal_valuation" name="vendor_personal_valuation" placeholder='Enter value in pounds'/>
+          </div>
+
+          <div class="form-group">
+            <label for="vendor_valuation_date">Date of valuation</label>
+            <input type="date" class="form-control" id="vendor_valuation_date" name="vendor_valuation_date" placeholder='Select a date'/>
+          </div>
+        </div>
+      </div>
+
+
+      <div class="form-group">
+          <label for="internal_property_size">Internal space size</label>
+          <select class="form-control" id="internal_property_size" placeholder="Select the internal property size" name="internal_property_size">
+            <option></option>
+            <option>I know approx</option>
+            <option>I know exactly</option>
+            <option>Don't know</option>
+          </select>
+        </div>
+          <!-- <input type="number" class="form-control" id="internal_property_size" placeholder="Select an internal property size"> -->
+        
+        <div class="form-group">
+          <label for="external_property_size">Outside space size</label>
+          <select class="form-control" id="external_property_size" placeholder="Select an external property size" name="external_property_size">
+            <option></option>
+            <option>I know approx</option>
+            <option>I know exactly</option>
+            <option>Don't know</option>
+          </select>
+        </div>
 
       <div class="form-group">
         <label for="property_type">Property Type</label>
@@ -128,28 +174,6 @@
           <option>Town house</option>
           <option>Land with planning permission</option>
           <option>Land without planning permission</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="epc"> Epc</label></br>
-        <div class="btn-group epc" id="epc" name="epc" data-toggle="buttons">
-            <label class="btn btn-default">
-              <input type="radio" name="options" id="option1" name="epc" class="form-control"/>Yes</label>
-            <label class="btn btn-default active">
-              <input type="radio" name="options" id="option2" name="epc" class="form-control" checked/>No
-            </label>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="tenure">Tenure</label>
-        <select class="form-control" id="tenure" name="tenure" placeholder="Select a property type">
-          <option></option>
-          <option>Freehold</option>
-          <option>Share of freehold</option>
-          <option>Leasehold</option>
-          <option>Don’t know</option>
         </select>
       </div>
 
@@ -190,6 +214,28 @@
       </div>
 
       <div class="form-group">
+        <label for="title">Owner Type</label>
+        <select class="form-control" id="title" name="title" placeholder="Select a title">
+          <option></option>
+          <option>Owner/Occupier</option>
+          <option>Tenant</option>
+          <option>Agent</option>
+          <option>Landlord</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="epc"> Epc</label></br>
+        <div class="btn-group epc" id="epc" name="epc" data-toggle="buttons">
+            <label class="btn btn-default">
+              <input type="radio" name="options" id="option1" name="epc" class="form-control"/>Yes</label>
+            <label class="btn btn-default active">
+              <input type="radio" name="options" id="option2" name="epc" class="form-control" checked/>No
+            </label>
+        </div>
+      </div>
+
+      <div class="form-group">
         <label for="reception">Receptions</label>
         <select class="form-control" id="reception" name="receptions" placeholder="Select number of receptions">
           <option></option>
@@ -207,6 +253,17 @@
         </select>
       </div>
 
+
+      <div class="form-group">
+        <label for="tenure">Tenure</label>
+        <select class="form-control" id="tenure" name="tenure" placeholder="Select a property type">
+          <option></option>
+          <option>Freehold</option>
+          <option>Share of freehold</option>
+          <option>Leasehold</option>
+          <option>Don’t know</option>
+        </select>
+      </div>
 
       <div class="form-group">
         <label for="reception">Running Costs</label>
@@ -460,27 +517,6 @@
 
       </div>
 
-        <div class="form-group">
-          <label for="internal_property_size">Internal space size</label>
-          <select class="form-control" id="internal_property_size" placeholder="Select the internal property size" name="internal_property_size">
-            <option></option>
-            <option>I know approx</option>
-            <option>I know exactly</option>
-            <option>Don't know</option>
-          </select>
-        </div>
-          <!-- <input type="number" class="form-control" id="internal_property_size" placeholder="Select an internal property size"> -->
-        
-        <div class="form-group">
-          <label for="external_property_size">Outside space size</label>
-          <select class="form-control" id="external_property_size" placeholder="Select an external property size" name="external_property_size">
-            <option></option>
-            <option>I know approx</option>
-            <option>I know exactly</option>
-            <option>Don't know</option>
-          </select>
-        </div>
-
         
 
         <div data-role="dynamic-fields" style="margin-bottom: 3%;" class="form-group">
@@ -488,36 +524,6 @@
             Add a new improvement
           </button>
           <div class="row"></div>
-        </div>
-
-        <div class="form-group">
-          <label for="current_agent_details">Current agent valuation</label>
-          <div style="margin-left: 3%;">
-            <div class="form-group" id='current_agent_details'>
-              <label for="current_agent_valuation" style="font-weight: 500;">Value</label>
-              <input type="number" class="form-control" id="current_agent_valuation" name="current_agent_valuation" placeholder='Enter value in pounds'/>
-            </div>
-
-            <div class="form-group">
-              <label for="current_agent_valuation_date" style="font-weight: 500;">Date of valuation</label>
-              <input type="date" class="form-control" id="current_agent_valuation_date" name="current_agent_valuation_date" placeholder='Select a date'/>
-            </div>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label for="vendor_personal_details">Vendor personal valuation (based on any improvements etc)</label>
-          <div style="margin-left: 3%;">
-            <div class="form-group" id='vendor_personal_details'>
-              <label for="vendor_personal_valuation" style="font-weight: 500;">Value</label>
-              <input type="number" class="form-control" id="vendor_personal_valuation" name="vendor_personal_valuation" placeholder='Enter value in pounds'/>
-            </div>
-
-            <div class="form-group">
-              <label for="vendor_valuation_date">Date of valuation</label>
-              <input type="date" class="form-control" id="vendor_valuation_date" name="vendor_valuation_date" placeholder='Select a date'/>
-            </div>
-          </div>
         </div>
 
         <div class="form-group">

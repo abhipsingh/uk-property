@@ -11,6 +11,7 @@ class PropertiesController < ActionController::Base
     @building_unit += ', ' + property['sub_building_name'] if property.has_key?('sub_building_name')
     @building_unit += ', ' + property['building_name'] if property.has_key?('building_name')
     @postcode = property['postcode']
+    @historical_details = PropertyHistoricalDetail.where(udprn: udprn).select([:price, :date])
     render 'edit'
   end
 
