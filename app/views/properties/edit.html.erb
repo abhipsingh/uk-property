@@ -1,11 +1,47 @@
-<script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.2.3/backbone-min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/backbone-forms/0.14.0/backbone-forms.min.js"></script>
-<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/assets/bootstrap.min.js"></script>
-<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/assets/jasny-bootstrap.js"></script>
-<link rel="stylesheet" type="text/css" href="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/assets/bootstrap.min.css"/>
-<link rel="stylesheet" type="text/css" href="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/assets/jasny-bootstrap.css"/>
+
+<script src="http://localhost:3000/underscore.min.js"></script>
+<script src="http://localhost:3000/jquery.min.js"></script>
+<script src="http://localhost:3000/backbone.min.js"></script>
+<script src="http://localhost:3000/backbone-forms.min.js"></script>
+<script src="http://localhost:3000/bootstrap.min.js"></script>
+<script src="http://localhost:3000/jasny-bootstrap.js"></script>
+<link rel="stylesheet" type="text/css" href="http://localhost:3000/bootstrap.min.css"/>
+<link rel="stylesheet" type="text/css" href="http://localhost:3000/jasny-bootstrap.css"/>
+
+<div class="top_navbar">
+  <div class="collapse navbar-collapse" id="navbar-collapse-1">
+    <ul class="nav navbar-nav navbar-left">
+      <li><a href="agent_form">Agent Form</a></li>
+      <li><a href="historical_details">Historical Details</a></li>
+      <li><a href="ads_payment">Ads Payment</a></li>
+    </ul>
+  </div>
+</div>
+
+<script type="text/html" id="ads_payment_form">
+  <div id="ads_payment_form_charges">
+    <%= form_tag charges_path do -%>
+      <article>
+           <%= label_tag 'amount', 'To Pay', class: 'amount' %>
+           <%= label_tag 'amount', "$#{@amount}.00", class: 'amount-figure' %>
+      </article>
+    <% end %>
+  </div>
+</script>
+
+<script type="text/html" id="historical_form">
+  <div id="historical_form_details">
+    <div class="panel panel-info">
+      <ul class="panel">
+        <li>AAA</li>
+        <li>AAA</li>
+        <li>AAA</li>
+      </ul>
+    </div>
+    
+  </div>
+</script>
+
 
 <script type="text/html" id="main">
   <form class="form-right" style="margin-left: 15%; margin-right: 10%;" id="main_form">
@@ -43,6 +79,12 @@
             <input type="text" class="form-control" name="postcode" placeholder="Postcode" value="<%=@postcode %>" disabled/>
           </div>
         </div>
+      </div>
+
+
+      <div class="form-group">
+        <label for="dream_price">Dream Price</label>
+        <input type="number" class="form-control" id="dream_price" name="dream_price" placeholder="Please enter a dream price">
       </div>
 
       <div class="form-group">
@@ -756,8 +798,37 @@ $(function() {
         template: _.template($('#main').html()),
         submitButton: 'Submit'
     }).render();
+
+    $('.top_navbar [href=agent_form]').click(function(e){
+      e.preventDefault();
+      $($(event.target).closest('.top_navbar')[0].parentElement).find('#ads_payment_form_charges').remove();
+      $($(event.target).closest('.top_navbar')[0].parentElement).find('#historical_form_details').remove();
+      $('body').append(form.el);
+    });
+
+    $('.top_navbar [href=historical_details]').click(function(e){
+      e.preventDefault();
+      $($(event.target).closest('.top_navbar')[0].parentElement).find('#main_form').remove();
+      $($(event.target).closest('.top_navbar')[0].parentElement).find('#ads_payment_form_charges').remove();
+      var ads_html = _.template($('#historical_form').html())();
+      var ads_parser = new DOMParser();
+      var doc = ads_parser.parseFromString(ads_html, "text/html");
+      var ads_inp = doc.children[0].children[1].children[0].children[0];
+      $('body').append(doc.children[0].children[1].children[0]);
+    });
+
+    $('.top_navbar [href=ads_payment]').click(function(e){
+      e.preventDefault();
+      $($(event.target).closest('.top_navbar')[0].parentElement).find('#main_form').remove();
+      $($(event.target).closest('.top_navbar')[0].parentElement).find('#historical_form_details').remove();
+      var ads_html = _.template($('#ads_payment_form').html())();
+      var ads_parser = new DOMParser();
+      var doc = ads_parser.parseFromString(ads_html, "text/html");
+      var ads_inp = doc.children[0].children[1].children[0].children[0];
+      $('body').append(doc.children[0].children[1].children[0]);
+      console.log('hi there');
+    });
     
-    $('body').append(form.el);
 
     $(document).on('click', '#epc', function(e) {
       var val = $(e.target).text().replace(/^\s+|\s+$/g, '');

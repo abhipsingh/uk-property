@@ -14,4 +14,5 @@ Rails.application.routes.draw do
       post 'properties',              to: 'property_search#new_property'
     end
   end
+  resources :charges
 end

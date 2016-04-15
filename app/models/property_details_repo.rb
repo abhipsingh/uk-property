@@ -12,7 +12,7 @@ class PropertyDetailsRepo
   FIELDS = {
     terms: [:property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_features_types],
     term:  [:tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :listing_type],
-    range: [:budget, :cost_per_month, :date_added, :floors, :year_built, :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, :time_frame],
+    range: [:budget, :cost_per_month, :date_added, :floors, :year_built, :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, :time_frame, :dream_price],
   }
 
   RANDOM_SEED_MAP = {

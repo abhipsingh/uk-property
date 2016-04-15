@@ -317,8 +317,8 @@ class ApplicationController < ActionController::Base
       post_code = post_code.first
     end
     if first_type == 'county'
-      insert_terms_aggs(aggs, 'area')
-      inner_aggs = insert_terms_aggs(aggs, 'post_town')
+      insert_terms_nested_aggs(aggs, 'county', 'area')
+      inner_aggs = insert_terms_nested_aggs(aggs, 'post_town', 'area')
       insert_term_filters(filters, 'county', hash_value)
       query[:size] = 1
       query[:aggs] = aggs
@@ -327,14 +327,18 @@ class ApplicationController < ActionController::Base
       response = Oj.load(body).with_indifferent_access
       response_hash = Hash.new { [] }
       response_hash[:type] = first_type
-      response[:aggregations][:post_town_aggs][:buckets].each do |value|
-        response_hash[:post_towns] = response_hash[:post_towns].push({ post_town: value[:key].capitalize, flat_count: value[:doc_count] })
+      response[:aggregations][:area_post_town_aggs][:buckets].each do |nested_value|
+        nested_value[:post_town_aggs][:buckets].each do |value|
+          response_hash[:post_towns] = response_hash[:post_towns].push({ post_town: value[:key].capitalize, flat_count: value[:doc_count], scoped_postcode: nested_value[:key] })
+        end
       end
       response_hash[:areas] = []
-      response[:aggregations][:area_aggs][:buckets].each do |value|
-        response_hash[:areas] = response_hash[:areas].push({ area: value[:key], flat_count: value[:doc_count] })
+      response[:aggregations][:area_county_aggs][:buckets].each do |nested_value|
+        nested_value[:county_aggs][:buckets].each do |value|
+          response_hash[:areas] = response_hash[:areas].push({ area: nested_value[:key], flat_count: nested_value[:doc_count], scoped_postcode: nested_value[:key] })
+        end
       end
-      response_hash[:counties] = [ {county: hash_value, flat_count: response[:hits][:total]} ]
+      response_hash[:counties] = [ {county: hash_value, flat_count: response[:hits][:total], scoped_postcode: response[:hits][:hits].first[:_source][:area]} ]
       response_hash[:units] = []
       response_hash[:dependent_thoroughfare_descriptions] = []
       response_hash[:sectors] = []
@@ -350,38 +354,38 @@ class ApplicationController < ActionController::Base
       response_hash[:area] = response[:hits][:hits].first[:_source][:area]
       body = response_hash
     elsif first_type == 'post_town'
-      insert_terms_aggs(aggs, 'district')
-      inner_aggs = insert_terms_aggs({}, 'dependent_locality')
-      aggs['district_aggs']['aggs'] = inner_aggs
+      append_nested_filtered_aggs(aggs, 'dependent_locality', 'county', county_value, 'district')
+      append_nested_filtered_aggs(aggs, 'post_town', 'county', county_value, 'area')
+      append_nested_filtered_aggs(aggs, 'district', 'county', county_value, 'area')
       insert_term_filters(filters, first_type, hash_value)
-
-      filtered_inner_aggs = {}
-      insert_terms_aggs(filtered_inner_aggs, 'area')
-      nested_aggs = {}
-      insert_terms_aggs(nested_aggs, first_type)
-      filtered_inner_aggs['area_aggs']['aggs'] = nested_aggs
-
-      insert_global_aggs(aggs, 'post_town', append_filtered_aggs({}, 'post_town', 'county', county_value, filtered_inner_aggs))
       query[:size] = 1
       query[:aggs] = aggs
-      query[:query] = { filtered: { filter: filters } }
+      query[:filter] = filters
       body, status = post_url('addresses', query, '_search')
       response = Oj.load(body).with_indifferent_access
       response_hash = Hash.new { [] }
       response_hash[:type] = first_type
-      response[:aggregations][:global_post_town_aggs][:post_town_aggs][:area_aggs][:buckets].each do |value|
-        response_hash[:areas] = response_hash[:areas].push({ area: value[:key], flat_count: value[:doc_count] })
-        value[:post_town_aggs][:buckets].each do |inner_value|
-          response_hash[:post_towns] = response_hash[:post_towns].push({ post_town: inner_value[:key].capitalize, flat_count: inner_value[:doc_count] })
+      response_hash[:post_towns] = []
+      response_hash[:areas] = []
+      response_hash[:dependent_localities] = []
+      response_hash[:districts] = []
+      response[:aggregations][:post_town_aggs][:area_post_town_aggs][:buckets].each do |nested_value|
+        nested_value[:post_town_aggs][:buckets].each do |value|
+          response_hash[:post_towns] = response_hash[:post_towns].push({ post_town: value[:key].capitalize, flat_count: value[:doc_count], scoped_postcode: nested_value[:key] })
+        end
+        response_hash[:areas] = response_hash[:areas].push({ area: nested_value[:key], flat_count: nested_value[:doc_count], scoped_postcode: nested_value[:key] })
+      end
+      response[:aggregations][:district_aggs][:area_district_aggs][:buckets].each do |nested_value|
+        nested_value[:district_aggs][:buckets].each do |value|
+          response_hash[:districts] = response_hash[:districts].push({ district: value[:key], flat_count: value[:doc_count], scoped_postcode: nested_value[:key] })
         end
       end
-       response[:aggregations][:district_aggs][:buckets].each do |value|
-        response_hash[:districts] = response_hash[:districts].push({ district: value[:key], flat_count: value[:doc_count] })
-        value[:dependent_locality_aggs][:buckets].each do |inner_value|
-          response_hash[:dependent_localities] = response_hash[:dependent_localities].push({ dependent_locality: inner_value[:key].capitalize, flat_count: inner_value[:doc_count] })
+      response[:aggregations][:dependent_locality_aggs][:district_dependent_locality_aggs][:buckets].each do |nested_value|
+        nested_value[:dependent_locality_aggs][:buckets].each do |value|
+          response_hash[:dependent_localities] = response_hash[:dependent_localities].push({ dependent_locality: value[:key], flat_count: value[:doc_count], scoped_postcode: nested_value[:key] })
         end
       end
-      response_hash[:counties] = [{county: response[:hits][:hits].first[:_source][:county], flat_count: response[:hits][:total]}]
+      response_hash[:counties] = [{county: response[:hits][:hits].first[:_source][:county], flat_count: response[:hits][:total], scoped_postcode: response[:hits][:hits].first[:_source][:area]}]
       response_hash[:units] = []
       response_hash[:dependent_thoroughfare_descriptions] = []
       response_hash[:sectors] = []
@@ -403,13 +407,13 @@ class ApplicationController < ActionController::Base
       insert_term_filters(filters, 'hashes', hash_value)
 
       append_filtered_aggs(aggs, 'district', 'area', area)
-      append_filtered_aggs(aggs, 'dependent_locality', 'area', area)
-      append_filtered_aggs(aggs, 'sector', 'area', area)
+      append_nested_filtered_aggs(aggs, 'dependent_locality', 'area', area, 'district')
+      append_nested_filtered_aggs(aggs, 'unit', 'district', district, 'sector')
+      append_nested_filtered_aggs(aggs, 'sector', 'area', area, 'district')
       append_filtered_aggs(aggs, 'post_town', 'area', area)
-      append_filtered_aggs(aggs, 'unit', 'district', district)
       append_filtered_aggs(aggs, 'area', 'area', area)
       append_filtered_aggs(aggs, 'county', 'area', area)
-      append_filtered_aggs(aggs, 'dependent_thoroughfare_description', 'area', area)
+      append_nested_filtered_aggs(aggs, 'dependent_thoroughfare_description', 'district', district, 'sector')
       # p filtered_inner_aggs
       # insert_global_aggs(aggs, first_type, append_filtered_aggs({}, first_type, 'area', area, filtered_inner_aggs))
       query[:size] = 1
@@ -419,29 +423,37 @@ class ApplicationController < ActionController::Base
       response = Oj.load(body).with_indifferent_access
       response_hash = Hash.new { [] }
       response_hash[:type] = first_type
-      response[:aggregations][:dependent_thoroughfare_description_aggs][:dependent_thoroughfare_description_aggs][:buckets].each do |value|
-        response_hash[:dependent_thoroughfare_descriptions] = response_hash[:dependent_thoroughfare_descriptions].push({ dependent_thoroughfare_description: value[:key], flat_count: value[:doc_count] })
+      response[:aggregations][:dependent_thoroughfare_description_aggs]["sector_dependent_thoroughfare_description_aggs"][:buckets].each do |nested_value|
+        nested_value[:dependent_thoroughfare_description_aggs][:buckets].each do |value|
+          response_hash[:dependent_thoroughfare_descriptions] = response_hash[:dependent_thoroughfare_descriptions].push({ dependent_thoroughfare_description: value[:key], flat_count: value[:doc_count], scoped_postcode: nested_value[:key] })
+        end
       end
-      response[:aggregations][:dependent_locality_aggs][:dependent_locality_aggs][:buckets].each do |value|
-        response_hash[:dependent_localities] = response_hash[:dependent_localities].push({ dependent_locality: value[:key], flat_count: value[:doc_count] })
+      response[:aggregations][:dependent_locality_aggs]["district_dependent_locality_aggs"][:buckets].each do |nested_value|
+        nested_value[:dependent_locality_aggs][:buckets].each do |value|
+          response_hash[:dependent_localities] = response_hash[:dependent_localities].push({ dependent_locality: value[:key], flat_count: value[:doc_count], scoped_postcode: nested_value[:key] })
+        end
       end
       response[:aggregations][:district_aggs][:district_aggs][:buckets].each do |value|
-        response_hash[:districts] = response_hash[:districts].push({ district: value[:key], flat_count: value[:doc_count] })
+        response_hash[:districts] = response_hash[:districts].push({ district: value[:key], flat_count: value[:doc_count], scoped_postcode: area })
       end      
       response[:aggregations][:post_town_aggs][:post_town_aggs][:buckets].each do |value|
-        response_hash[:post_towns] = response_hash[:post_towns].push({ post_town: value[:key].capitalize, flat_count: value[:doc_count] })
+        response_hash[:post_towns] = response_hash[:post_towns].push({ post_town: value[:key].capitalize, flat_count: value[:doc_count], scoped_postcode: area })
       end
-      response[:aggregations][:unit_aggs][:unit_aggs][:buckets].each do |value|
-        response_hash[:units] = response_hash[:units].push({ unit: value[:key], flat_count: value[:doc_count] })
+      response[:aggregations][:unit_aggs]["sector_unit_aggs"][:buckets].each do |nested_value|
+        nested_value[:unit_aggs][:buckets].each do |value|
+          response_hash[:units] = response_hash[:units].push({ unit: value[:key], flat_count: value[:doc_count], scoped_postcode: nested_value[:key] })
+        end
       end
-      response[:aggregations][:sector_aggs][:sector_aggs][:buckets].each do |value|
-        response_hash[:sectors] = response_hash[:sectors].push({ sector: value[:key], flat_count: value[:doc_count] })
+      response[:aggregations][:sector_aggs]["district_sector_aggs"][:buckets].each do |nested_value|
+        nested_value[:sector_aggs][:buckets].each do |value|
+          response_hash[:sectors] = response_hash[:sectors].push({ sector: value[:key], flat_count: value[:doc_count], scoped_postcode: nested_value[:key] })
+        end
       end
       response[:aggregations][:area_aggs][:area_aggs][:buckets].each do |value|
-        response_hash[:areas] = response_hash[:areas].push({ area: value[:key], flat_count: value[:doc_count] })
+        response_hash[:areas] = response_hash[:areas].push({ area: value[:key], flat_count: value[:doc_count], scoped_postcode: area })
       end
       response[:aggregations][:county_aggs][:county_aggs][:buckets].each do |value|
-        response_hash[:counties] = response_hash[:counties].push({ county: value[:key], flat_count: value[:doc_count] })
+        response_hash[:counties] = response_hash[:counties].push({ county: value[:key], flat_count: value[:doc_count], scoped_postcode: area })
       end
       response_hash[:county] = response[:hits][:hits].first[:_source][:county]
       response_hash[:post_town] = response[:hits][:hits].first[:_source][:post_town]
@@ -460,51 +472,59 @@ class ApplicationController < ActionController::Base
       area = district.match(/([A-Z]{0,3})([0-9]{0,3})/)[1]
       sector = sector_unit.match(/([0-9]{0,3})([A-Z]{0,3})/)[1]
       append_filtered_aggs(aggs, 'district', 'area', area)
-      append_filtered_aggs(aggs, 'dependent_locality', 'area', area)
-      append_filtered_aggs(aggs, 'sector', 'area', area)
-      append_filtered_aggs(aggs, 'unit', 'district', district)
+      append_nested_filtered_aggs(aggs, 'dependent_locality', 'area', area, 'district')
+      append_nested_filtered_aggs(aggs, 'unit', 'district', district, 'sector')
+      append_nested_filtered_aggs(aggs, 'sector', 'area', area, 'district')
       append_filtered_aggs(aggs, 'post_town', 'area', area)
       append_filtered_aggs(aggs, 'area', 'area', area)
       append_filtered_aggs(aggs, 'county', 'area', area)
-      append_filtered_aggs(aggs, 'dependent_thoroughfare_description', 'area', area)
+      append_nested_filtered_aggs(aggs, first_type, 'district', district, 'sector')
       query[:size] = 1
       query[:aggs] = aggs
-      query[:query] = filters
+      query[:filter] = filters
       body, status = post_url('addresses', query, '_search')
       response = Oj.load(body).with_indifferent_access
       response_hash = Hash.new { [] }
       response_hash[:type] = first_type
       response_hash[:dependent_thoroughfare_descriptions] = []
-      response[:aggregations][:dependent_thoroughfare_description_aggs][:dependent_thoroughfare_description_aggs][:buckets].each do |value|
-        response_hash[:dependent_thoroughfare_descriptions] = response_hash[:dependent_thoroughfare_descriptions].push({ dependent_thoroughfare_description: value[:key], flat_count: value[:doc_count] })
+      response[:aggregations]["#{first_type}_aggs"]["sector_#{first_type}_aggs"][:buckets].each do |nested_value|
+        nested_value["#{first_type}_aggs"][:buckets].each do |value|
+          response_hash["#{first_type}s"] = response_hash["#{first_type}s"].push({ first_type => value[:key], flat_count: value[:doc_count], scoped_postcode: nested_value[:key] })
+        end
       end
       response_hash[:dependent_localities] = []
-      response[:aggregations][:dependent_locality_aggs][:dependent_locality_aggs][:buckets].each do |value|
-        response_hash[:dependent_localities] = response_hash[:dependent_localities].push({ dependent_locality: value[:key], flat_count: value[:doc_count] })
+      response[:aggregations][:dependent_locality_aggs]["district_dependent_locality_aggs"][:buckets].each do |nested_value|
+        nested_value[:dependent_locality_aggs][:buckets].each do |value|
+          response_hash[:dependent_localities] = response_hash[:dependent_localities].push({ dependent_locality: value[:key], flat_count: value[:doc_count], scoped_postcode: nested_value[:key] })
+        end
       end
       response_hash[:districts] = []
       response[:aggregations][:district_aggs][:district_aggs][:buckets].each do |value|
-        response_hash[:districts] = response_hash[:districts].push({ district: value[:key], flat_count: value[:doc_count] })
+        response_hash[:districts] = response_hash[:districts].push({ district: value[:key], flat_count: value[:doc_count], scoped_postcode: area })
       end      
       response_hash[:post_towns] = []
       response[:aggregations][:post_town_aggs][:post_town_aggs][:buckets].each do |value|
-        response_hash[:post_towns] = response_hash[:post_towns].push({ post_town: value[:key].capitalize, flat_count: value[:doc_count] })
+        response_hash[:post_towns] = response_hash[:post_towns].push({ post_town: value[:key].capitalize, flat_count: value[:doc_count], scoped_postcode: area })
       end
       response_hash[:units] = []
-      response[:aggregations][:unit_aggs][:unit_aggs][:buckets].each do |value|
-        response_hash[:units] = response_hash[:units].push({ unit: value[:key], flat_count: value[:doc_count] })
+      response[:aggregations][:unit_aggs]["sector_unit_aggs"][:buckets].each do |nested_value|
+        nested_value[:unit_aggs][:buckets].each do |value|
+          response_hash[:units] = response_hash[:units].push({ unit: value[:key], flat_count: value[:doc_count], scoped_postcode: nested_value[:key] })
+        end
       end
       response_hash[:sectors] = []
-      response[:aggregations][:sector_aggs][:sector_aggs][:buckets].each do |value|
-        response_hash[:sectors] = response_hash[:sectors].push({ sector: value[:key], flat_count: value[:doc_count] })
+      response[:aggregations][:sector_aggs]["district_sector_aggs"][:buckets].each do |nested_value|
+        nested_value[:sector_aggs][:buckets].each do |value|
+          response_hash[:sectors] = response_hash[:sectors].push({ sector: value[:key], flat_count: value[:doc_count], scoped_postcode: nested_value[:key] })
+        end
       end
       response_hash[:areas] = []
       response[:aggregations][:area_aggs][:area_aggs][:buckets].each do |value|
-        response_hash[:areas] = response_hash[:areas].push({ area: value[:key], flat_count: value[:doc_count] })
+        response_hash[:areas] = response_hash[:areas].push({ area: value[:key], flat_count: value[:doc_count], scoped_postcode: value[:key] })
       end
       response_hash[:counties] = []
       response[:aggregations][:county_aggs][:county_aggs][:buckets].each do |value|
-        response_hash[:counties] = response_hash[:counties].push({ county: value[:key], flat_count: value[:doc_count] })
+        response_hash[:counties] = response_hash[:counties].push({ county: value[:key], flat_count: value[:doc_count], scoped_postcode: area })
       end
       response_hash[first_type] = response[:hits][:hits].first[:_source][first_type]
       response_hash[:county] = response[:hits][:hits].first[:_source][:county]
@@ -764,6 +784,24 @@ class ApplicationController < ActionController::Base
     aggs
   end
 
+  def insert_terms_nested_aggs(aggs, term, nested_term)
+    aggs["#{nested_term}_#{term}_aggs"] = {
+      terms: {
+        field: nested_term,
+        size: 0
+      },
+      aggs: {
+        "#{term}_aggs" => {
+          terms: {
+            field: term,
+            size: 0
+          }
+        }
+      }
+    }
+    aggs
+  end
+
   def insert_global_aggs(aggs, term, inner_aggs)
     aggs["global_#{term}_aggs"] = {
       global: {},
@@ -776,6 +814,17 @@ class ApplicationController < ActionController::Base
     aggs["#{term}_aggs"]["aggs"] = {}
     if optional_aggs.empty?
       aggs["#{term}_aggs"]["aggs"]["#{term}_aggs"] = insert_terms_aggs({}, term)["#{term}_aggs"]
+    else
+      aggs["#{term}_aggs"]["aggs"].merge!(optional_aggs)
+    end
+    aggs
+  end
+
+  def append_nested_filtered_aggs(aggs, term, filter_term, filter_value, nested_term, optional_aggs={})
+    aggs["#{term}_aggs"] = { filter: append_term_filter(filter_term, filter_value) }
+    aggs["#{term}_aggs"]["aggs"] = {}
+    if optional_aggs.empty?
+      aggs["#{term}_aggs"]["aggs"]["#{nested_term}_#{term}_aggs"] = insert_terms_nested_aggs({}, term, nested_term)["#{nested_term}_#{term}_aggs"]
     else
       aggs["#{term}_aggs"]["aggs"].merge!(optional_aggs)
     end
