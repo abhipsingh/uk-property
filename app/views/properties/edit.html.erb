@@ -1,13 +1,13 @@
 
-<script src="http://localhost:3000/underscore.min.js"></script>
-<script src="http://localhost:3000/jquery.min.js"></script>
-<script src="http://localhost:3000/backbone.min.js"></script>
-<script src="http://localhost:3000/backbone-forms.min.js"></script>
-<script src="http://localhost:3000/bootstrap.min.js"></script>
-<script src="http://localhost:3000/jasny-bootstrap.js"></script>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/underscore.min.js"></script>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/jquery.min.js"></script>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/backbone.min.js"></script>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/backbone-forms.min.js"></script>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/bootstrap.min.js"></script>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/jasny-bootstrap.js"></script>
 <script src="https://checkout.stripe.com/checkout.js"></script>
-<link rel="stylesheet" type="text/css" href="http://localhost:3000/bootstrap.min.css"/>
-<link rel="stylesheet" type="text/css" href="http://localhost:3000/jasny-bootstrap.css"/>
+<link rel="stylesheet" type="text/css" href="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/bootstrap.min.css"/>
+<link rel="stylesheet" type="text/css" href="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/jasny-bootstrap.css"/>
 
 <div class="top_navbar">
   <div class="collapse navbar-collapse" id="navbar-collapse-1">
@@ -908,7 +908,7 @@ $(function() {
           var addresses = address.split(',');
           var addresses_without_postcode = addresses.slice(0, (addresses.length - 1));
           var ad_type = $(this);
-          var url = 'http://localhost:3000/api/v0/ads/availability';
+          var url = 'http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/api/v0/ads/availability';
           var inventory_html = _.template($('#ad_inventory_table').html())();
           var inventory_table_node = $.parseHTML(inventory_html);
           var arr_users = ['DEFAULT1'];
@@ -1051,7 +1051,7 @@ $(function() {
                 locale: 'auto',
                 token: function(token) {
                   console.log("token received"+token)
-                  var update_url = 'http://localhost:3000/api/v0/ads/availability/update';
+                  var update_url = 'http://http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/api/v0/ads/availability/update';
                   url_params = {stripeEmail: token.email, stripeToken: token.id, arr_of_locations: arr_of_locations, users: users}
                   // Use the token to create the charge with a server-side script.
                   // You can access the token ID with `token.id`
@@ -1339,7 +1339,7 @@ $(function() {
       
       e.preventDefault();
 
-      $.post( "http://localhost:3000/api/v0/properties", search_map )
+      $.post( "http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/api/v0/properties", search_map )
         .done(function( data ) {
          alert("Updated successfully");
       });
