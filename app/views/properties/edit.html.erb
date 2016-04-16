@@ -19,17 +19,6 @@
   </div>
 </div>
 
-<script type="text/html" id="ads_payment_form">
-  <div id="ads_payment_form_charges">
-    <%= form_tag charges_path do -%>
-      <article>
-           <%= label_tag 'amount', 'To Pay', class: 'amount' %>
-           <%= label_tag 'amount', "$#{@amount}.00", class: 'amount-figure' %>
-      </article>
-    <% end %>
-  </div>
-</script>
-
 <script type="text/html" id="historical_form">
   <div id="historical_form_details">
     <table class="table table-striped">
@@ -922,6 +911,14 @@ $(function() {
             var addresses1 = addresses;
             var ad_type1 = ad_type;
             var unit_type_map = {};
+            var locality_unit_map = {
+              'county': 0,
+              'post_town': 1,
+              'dependent_locality' : 2,
+              'double_dependent_locality' : 2,
+              'dependent_thoroughfare_description' : 3,
+              'thoroughfare_descriptor' : 3,
+            };
             for (var i = data.availability_count.length - 1; i >= 0; i--) {
               var premium_count = data.availability_count[i]._source.premium_count;
               var featured_count = data.availability_count[i]._source.featured_count;
@@ -932,43 +929,51 @@ $(function() {
               var matched_index = parseInt(data.availability_count[i].matched_queries[0]);
               var table1 = inventory_table_node1[1];
               var _id = data.availability_count[i]._id;
-              var body = '<tr><td>' + addresses[matched_index].toString() + ' ('+type_value + ')'+ '</td><td>';
-
-              if (data.availability_count[i]._source.featured_booked == true) {
-                var key =  'entity_ads_featured_' + data.availability_count[i]._id + users;
-                var val = data.ads_availability[key]._source.created_at;
-                body = body + 'Already booked '+ val + ' for expiry </td><td>';
-              } else if (data.availability_count[i]._source.featured_count == 0) {
-                var key =  data.availability_count[i]._id;
-                var val = data.ads_availability[key+'|featured']._source.created_at;
-                body = body + val + ' for earliest expiry' + '</td><td>';
+              var body;
+              var body_dom;
+              if (data.availability_count[i].dummy) {
+                body =  '<tr style="height: 40px;"><td></td><td></td><td></td><td></td></tr>';
+                body_dom = $.parseHTML(body);
               } else {
-                body = body +featured_count +'<div class="checkbox-inline" style="margin-top: -24px;margin-left: 5px;"><input type="checkbox" value="" class="featured_booking_link"></div> ' + '</td><td>';
+                body = '<tr><td>' + addresses[matched_index].toString() + ' ('+type_value + ')'+ '</td><td>';
+
+                if (data.availability_count[i]._source.featured_booked == true) {
+                  var key =  'entity_ads_featured_' + data.availability_count[i]._id + users;
+                  var val = data.ads_availability[key]._source.created_at;
+                  body = body + 'Already booked '+ val + ' for expiry </td><td>';
+                } else if (data.availability_count[i]._source.featured_count == 0) {
+                  var key =  data.availability_count[i]._id;
+                  var val = data.ads_availability[key+'|featured']._source.created_at;
+                  body = body + val + ' for earliest expiry' + '</td><td>';
+                } else {
+                  body = body +featured_count +'<div class="checkbox-inline" style="margin-top: -24px;margin-left: 5px;"><input type="checkbox" value="" class="featured_booking_link"></div> ' + '</td><td>';
+                }
+
+                if (data.availability_count[i]._source.premium_booked == true) {
+                  var key =  'entity_ads_premium_' + data.availability_count[i]._id + users;
+                  var val = data.ads_availability[key]._source.created_at;
+                  body = body + 'Already booked '+ val + ' for expiry </td><td>';
+                } else if (data.availability_count[i]._source.premium_count == 0) {
+                  var key =  data.availability_count[i]._id;
+                  var val = data.ads_availability[key+'|premium']._source.created_at;
+                  body = body + val + ' for earliest expiry' + '</td><td>';
+                } else {
+                  body = body + premium_count + '<div class="checkbox-inline" style="margin-top: -24px;margin-left: 5px;"><input type="checkbox" value="" class="premium_booking_link"></div>' + '</td>';
+                }
+
+                body += '<td>2.00$</td>' 
+              
+
+                body_dom = $.parseHTML(body);
+                $(body_dom[0]).attr('_id', _id);
+                if (version==undefined) {version = 0};
+                $(body_dom[0]).attr('version', version);
+                $(body_dom[0]).attr('premium_buyers', premium_buyers.join(','));
+                $(body_dom[0]).attr('featured_buyers', featured_buyers.join(','));
+                if (i == data.availability_count.length - 1) {
+                  table1.firstChild.remove();
+                }; 
               }
-
-              if (data.availability_count[i]._source.premium_booked == true) {
-                var key =  'entity_ads_premium_' + data.availability_count[i]._id + users;
-                var val = data.ads_availability[key]._source.created_at;
-                body = body + 'Already booked '+ val + ' for expiry </td><td>';
-              } else if (data.availability_count[i]._source.premium_count == 0) {
-                var key =  data.availability_count[i]._id;
-                var val = data.ads_availability[key+'|premium']._source.created_at;
-                body = body + val + ' for earliest expiry' + '</td><td>';
-              } else {
-                body = body + premium_count + '<div class="checkbox-inline" style="margin-top: -24px;margin-left: 5px;"><input type="checkbox" value="" class="premium_booking_link"></div>' + '</td>';
-              }
-
-              body += '<td>2.00$</td>' 
-
-              var body_dom = $.parseHTML(body);
-              $(body_dom[0]).attr('_id', _id);
-              if (version==undefined) {version = 0};
-              $(body_dom[0]).attr('version', version);
-              $(body_dom[0]).attr('premium_buyers', premium_buyers.join(','));
-              $(body_dom[0]).attr('featured_buyers', featured_buyers.join(','));
-              if (i == data.availability_count.length - 1) {
-                table1.firstChild.remove();
-              };
               $(table1).find('tbody')[0].appendChild(body_dom[0]);
             };
             var external_body = '<tr><td></td><td></td><td>Total</td><td id="total_ad_price">0.00$</td></tr>'
@@ -1020,13 +1025,14 @@ $(function() {
               for (var i = 0; i < featured_booking_links.length; i++) {
                 if (featured_booking_links[i].checked) {
                   var row_elem = $(featured_booking_links[i].parentElement.parentElement.parentElement);
+                  var elem_price = parseInt(row_elem[0].lastChild.innerText);
                   var elem_id = row_elem.attr('_id');
                   var elem_version = parseInt(row_elem.attr('version'));
                   var premium_buyers = row_elem.attr('premium_buyers');
                   var featured_buyers = row_elem.attr('featured_buyers');
                   var elem_value = parseInt(featured_booking_links[i].parentElement.parentElement.firstChild.textContent);
                   var type = 'featured_count';
-                  var url_params = { id: elem_id, type: type, value: elem_value, version: elem_version, premium_buyers: premium_buyers, featured_buyers: featured_buyers};
+                  var url_params = { id: elem_id, type: type, value: elem_value, version: elem_version, premium_buyers: premium_buyers, featured_buyers: featured_buyers, elem_price: elem_price };
                   arr_of_locations.push(url_params);
                 }
               };
@@ -1035,13 +1041,14 @@ $(function() {
               for (var i = 0; i < premium_booking_links.length; i++) {
                 if (premium_booking_links[i].checked) {
                   var row_elem = $(premium_booking_links[i].parentElement.parentElement.parentElement);
+                  var elem_price = parseInt(row_elem[0].lastChild.innerText);
                   var elem_id = row_elem.attr('_id');
                   var elem_version = parseInt(row_elem.attr('version'));
                   var premium_buyers = row_elem.attr('premium_buyers');
                   var featured_buyers = row_elem.attr('featured_buyers');
                   var elem_value = parseInt(premium_booking_links[i].parentElement.parentElement.firstChild.textContent);
                   var type = 'premium_count';
-                  var url_params = { id: elem_id, type: type, value: elem_value, version: elem_version, premium_buyers: premium_buyers, featured_buyers: featured_buyers};
+                  var url_params = { id: elem_id, type: type, value: elem_value, version: elem_version, premium_buyers: premium_buyers, featured_buyers: featured_buyers, elem_price: elem_price };
                   arr_of_locations.push(url_params);
                 }
               };
@@ -1050,71 +1057,78 @@ $(function() {
                 image: '/2f81498e7c6b673f33db172c33f016f8f38aa0aa.jpg',
                 locale: 'auto',
                 token: function(token) {
-                  var new_payment_url = 'http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/api/v0/ads/payments/new';
-                  var payment_url_params = {stripeEmail: token.email, stripeToken: token.id};
-                  $.post(new_payment_url, payment_url_params).done(function(data){
-                    console.log('payment received');
+                  var update_url = 'http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/api/v0/ads/availability/update';
+                  url_params = {stripeEmail: token.email, stripeToken: token.id, arr_of_locations: arr_of_locations, users: users}
+                  // Use the token to create the charge with a server-side script.
+                  // You can access the token ID with `token.id`
+                  $.post(update_url, url_params).done(function(data){
+                    if (data.message == 'Successful') {
+                      for (var i = 0; i < premium_booking_links.length; i++) {
+                        if (premium_booking_links[i].checked) {
+                          var main_row_elem = $(premium_booking_links[i].parentElement.parentElement.parentElement);
+                          premium_booking_links[i].parentElement.parentElement.innerHTML = 'Expires on ' + data.expiry_date;
+                          if (!(data.versions[main_row_elem.attr('_id')]==undefined)) {
+                            main_row_elem.attr('version', data.versions[main_row_elem.attr('_id')]);
+                          };
+                          
+                          premium_booking_links[i].checked = false;
+                        }
+                      }
+                      for (var i = 0; i < featured_booking_links.length; i++) {
+                        if (featured_booking_links[i].checked) {
+                          var main_row_elem = $(featured_booking_links[i].parentElement.parentElement.parentElement);
+                          featured_booking_links[i].parentElement.parentElement.innerHTML = 'Expires on ' + data.expiry_date;
+                          if (!(data.versions[main_row_elem.attr('_id')]==undefined)) {
+                            main_row_elem.attr('version', data.versions[main_row_elem.attr('_id')]);
+                          };
+                          
+                          featured_booking_links[i].checked = false;
+                        }
+                      }
+                      $('#total_ad_price')[0].innerHTML = "0.00$";
+                    };
+                  })
+                  .fail(function(data){
+                    var response_data = JSON.parse(data.responseText);
+                    for (var i = 0; i < premium_booking_links.length; i++) {
+                      if (premium_booking_links[i].checked) {
+                        var main_row_elem = $(premium_booking_links[i].parentElement.parentElement.parentElement);
+                        if (!(response_data.versions[main_row_elem.attr('_id')]==undefined)) {
+                          main_row_elem.attr('version', response_data.versions[main_row_elem.attr('_id')]);
+                        };
+                        if (!response_data.rows[main_row_elem.attr('_id')].result) {
+                        } else{
+                          total_payment = total_payment - response_data.rows[main_row_elem.attr('_id')].elem_price;
+                          premium_booking_links[i].parentElement.parentElement.innerHTML = 'Expires on ' + response_data.expiry_date;
+                          premium_booking_links[i].checked = false;
+                        };
+                      }
+                    }
+                    for (var i = 0; i < featured_booking_links.length; i++) {
+                      if (featured_booking_links[i].checked) {
+                        var main_row_elem = $(featured_booking_links[i].parentElement.parentElement.parentElement);
+                        if (!(response_data.versions[main_row_elem.attr('_id')]==undefined)) {
+                          main_row_elem.attr('version', response_data.versions[main_row_elem.attr('_id')]);
+                        };
+                        if (!response_data.rows[main_row_elem.attr('_id')].result) {
+                        } else{
+                            total_payment = total_payment - response_data.rows[main_row_elem.attr('_id')].elem_price;
+                          featured_booking_links[i].parentElement.parentElement.innerHTML = 'Expires on ' + response_data.expiry_date;
+                          featured_booking_links[i].checked = false;
+                        };
+                      }
+                    }
+                    $('#total_ad_price')[0].innerHTML = total_payment + '.00$';
+                    alert('Pls retry the operation');
                   });
                 }
               });
 
-              var update_url = 'http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/api/v0/ads/availability/update';
-              url_params = {arr_of_locations: arr_of_locations, users: users}
-              // Use the token to create the charge with a server-side script.
-              // You can access the token ID with `token.id`
-              $.post(update_url, url_params).done(function(data){
-                if (data.message == 'Successful') {
-                  for (var i = 0; i < premium_booking_links.length; i++) {
-                    if (premium_booking_links[i].checked) {
-                      var main_row_elem = $(premium_booking_links[i].parentElement.parentElement.parentElement);
-                      premium_booking_links[i].parentElement.parentElement.innerHTML = 'Expires on ' + data.expiry_date;
-                      if (!(data.versions[main_row_elem.attr('_id')]==undefined)) {
-                        main_row_elem.attr('version', data.versions[main_row_elem.attr('_id')]);
-                      };
-                      premium_booking_links[i].checked = false;
-                    }
-                  }
-                  for (var i = 0; i < featured_booking_links.length; i++) {
-                    if (featured_booking_links[i].checked) {
-                      var main_row_elem = $(featured_booking_links[i].parentElement.parentElement.parentElement);
-                      featured_booking_links[i].parentElement.parentElement.innerHTML = 'Expires on ' + data.expiry_date;
-                      if (!(data.versions[main_row_elem.attr('_id')]==undefined)) {
-                        main_row_elem.attr('version', data.versions[main_row_elem.attr('_id')]);
-                      };
-                      featured_booking_links[i].checked = false;
-                    }
-                  }
-                  $('#total_ad_price')[0].innerHTML = "0.00$";
-                  
-                  handler.open({
-                    name: 'Stripe.com',
-                    description: 'Ads subscription',
-                    amount: total_payment*100
-                  });
-
-                };
-              })
-              .fail(function(data){
-                var response_data = JSON.parse(data.responseText);
-                for (var i = 0; i < premium_booking_links.length; i++) {
-                  if (premium_booking_links[i].checked) {
-                    var main_row_elem = $(premium_booking_links[i].parentElement.parentElement.parentElement);
-                    if (!(response_data.versions[main_row_elem.attr('_id')]==undefined)) {
-                      main_row_elem.attr('version', response_data.versions[main_row_elem.attr('_id')]);
-                    };
-                  }
-                }
-                for (var i = 0; i < featured_booking_links.length; i++) {
-                  if (featured_booking_links[i].checked) {
-                    var main_row_elem = $(featured_booking_links[i].parentElement.parentElement.parentElement);
-                    if (!(response_data.versions[main_row_elem.attr('_id')]==undefined)) {
-                      main_row_elem.attr('version', response_data.versions[main_row_elem.attr('_id')]);
-                    };
-                  }
-                }
-                alert('Pls retry the operation');
+              handler.open({
+                name: 'Stripe.com',
+                description: 'Ads subscription',
+                amount: total_payment*100
               });
-
               // Open Checkout with further options
 
               e.preventDefault();
