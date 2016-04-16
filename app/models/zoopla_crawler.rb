@@ -150,7 +150,7 @@ module ZooplaCrawler
   end
 
   def self.crawl_images
-    Agents::Branches::CrawledProperty.where("id>?", 76742).select([:id, :stored_response]).find_each do |property|
+    Agents::Branches::CrawledProperty.where("id>?", 87792).select([:id, :stored_response]).find_each do |property|
       threads = []
       property.stored_response["image_urls"].each do |url|
         threads << Thread.new do
@@ -169,11 +169,15 @@ module ZooplaCrawler
             Rails.logger.info("FAILED_TO_CRAWL_IMAGE_WITH_URL_#{url}")
           rescue Errno::ENOENT => e
             Rails.logger.info("FILE_ERROR_#{property.id}")
+          rescue URI::InvalidURIError => e
+            Rails.logger.info("URI_ERROR_#{property.id}")
+          rescue Aws::S3::Errors::XAmzContentSHA256Mismatch => e
           end
         end
       end
       threads.map(&:join)
       p property.id
+      GC.start
     end
   end
 
@@ -230,7 +234,7 @@ module ZooplaCrawler
 
   def self.attach_historical_details_to_udprns
     offset = 1000
-    counter = 21013
+    counter = 78401
     client = Elasticsearch::Client.new
     loop do
       property_sql = PropertyHistoricalDetail.select([:id, :udprn, :date, :price]).where.not(udprn: nil).where('id > ?', (counter*offset)).limit(offset).to_sql
