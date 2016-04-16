@@ -145,30 +145,6 @@ module Api
       end
 
       def update_availability
-        begin
-          params[:stripeAmount] = 100
-          amount = params[:stripeAmount].to_i * 100
-       
-          # Create the customer in Stripe
-          customer = Stripe::Customer.create(
-            email: params[:stripeEmail],
-            card: params[:stripeToken]
-          )
-       
-          # Create the charge using the customer data returned by Stripe API
-          charge = Stripe::Charge.create(
-            customer: customer.id,
-            amount: amount,
-            description: 'Rails Stripe customer',
-            currency: 'usd'
-          )
-       
-          # place more code upon successfully creating the charge
-        rescue Stripe::CardError => e
-          # flash[:error] = e.message
-          # redirect_to charges_path
-          # flash[:notice] = "Please try again"
-        end
         client = Elasticsearch::Client.new
         message, status = nil
         arr_of_details = params[:arr_of_locations]
@@ -202,6 +178,7 @@ module Api
               else
                 version_id_map[id] = version + 1
               end
+              versions[id] = version_id_map[id]
               response = client.update index: 'locations', type: 'location', id: id, version: version_id_map[id], 
                                        body: { doc: { type => (value - 1), version: version_id_map[id],
                                                featured_buyers: featured_buyers_id_map[id], premium_buyers: premium_buyers_id_map[id] } }
@@ -214,15 +191,14 @@ module Api
               }
               response = client.index index: 'property_ads', type: 'property_ad', body: new_ad
               expriry_date = 30.days.from_now.to_date.to_s
-              versions[id] = version_id_map[id]
               message = { message: 'Successful', expiry_date: expriry_date, versions:  versions}
               status = 200
             rescue Elasticsearch::Transport::Transport::Errors::Conflict => e
-              indexes.push(key)
               doc = client.get index: 'locations', type: 'location', id: id
               res = client.update index: 'locations', type: 'location', id: id, version: doc['_version'],
                             body: { doc: { version: doc['_version'] } }
-              message = { message: 'Conflict', indexes: indexes }
+              versions[id] = doc['_version']
+              message = { message: 'Conflict', versions: versions }
               status = 400
             rescue Exception => e
               Rails.logger.info(e)
@@ -235,8 +211,9 @@ module Api
             break
           end
         end
-        p message
+        # p message
         render json: message, status: status
+
 
       end
 
@@ -245,6 +222,32 @@ module Api
         res = Net::HTTP.get(URI.parse('http://localhost:9200/locations/location/'+id))
         render json: res['version'], status: 200
       end
+
+      def new_payment
+        params[:stripeAmount] = 100
+        amount = params[:stripeAmount].to_i * 100
+     
+        # Create the customer in Stripe
+        customer = Stripe::Customer.create(
+          email: params[:stripeEmail],
+          card: params[:stripeToken]
+        )
+     
+        # Create the charge using the customer data returned by Stripe API
+        charge = Stripe::Charge.create(
+          customer: customer.id,
+          amount: amount,
+          description: 'Rails Stripe customer',
+          currency: 'usd'
+        )
+        render json: { message: 'Payment received' }, status: 200
+          
+          # place more code upon successfully creating the charge
+      rescue Stripe::CardError => e
+        flash[:error] = e.message
+        redirect_to charges_path
+        flash[:notice] = "Please try again"
+      end 
 
       private
 
