@@ -1051,7 +1051,7 @@ $(function() {
                 locale: 'auto',
                 token: function(token) {
                   console.log("token received"+token)
-                  var update_url = 'http://http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/api/v0/ads/availability/update';
+                  var update_url = 'http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/api/v0/ads/availability/update';
                   url_params = {stripeEmail: token.email, stripeToken: token.id, arr_of_locations: arr_of_locations, users: users}
                   // Use the token to create the charge with a server-side script.
                   // You can access the token ID with `token.id`
