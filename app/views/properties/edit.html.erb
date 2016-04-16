@@ -888,6 +888,14 @@ $(function() {
 
     $('.top_navbar [href=ads_payment]').click(function(e){
       e.preventDefault();
+      var window_url = window.location.pathname;
+      var parts = window_url.split("/");
+      var property_id;
+      for (var i = 0; i < parts.length; i++) {
+        if(!isNaN(parseInt(parts[i]))){
+          property_id = parts[i];
+        }
+      };
       $($(event.target).closest('.top_navbar')[0].parentElement).find('#main_form').remove();
       $($(event.target).closest('.top_navbar')[0].parentElement).find('#historical_form_details').remove();
       if ($($(event.target).closest('.top_navbar')[0].parentElement).find('#ads_form_main_details').length == 0) {
@@ -904,7 +912,11 @@ $(function() {
           var inventory_html = _.template($('#ad_inventory_table').html())();
           var inventory_table_node = $.parseHTML(inventory_html);
           var arr_users = ['DEFAULT1'];
+          for (var i = 0; i < arr_users.length; i++) {
+            arr_users[i] = arr_users[i] + '|' + property_id;
+          };
           users = arr_users[Math.floor(Math.random()*arr_users.length)];
+          console.log(users);
           $.get( url, { addresses: addresses_without_postcode, users: users }, function( data ) {
             var inventory_table_node1 = inventory_table_node;
             var addresses1 = addresses;
@@ -1002,7 +1014,6 @@ $(function() {
 
             // Callback when pay now is clicked
             $('#pay_now_url').on('click', function(event1){
-              // debugger;
               var total_payment = parseInt($('#total_ad_price')[0].innerHTML);
               var arr_of_locations = [];
               var featured_booking_links = $(event1.target.parentElement.parentElement.parentElement).find('.featured_booking_link');
@@ -1048,13 +1059,21 @@ $(function() {
                     if (data.message == 'Successful') {
                       for (var i = 0; i < premium_booking_links.length; i++) {
                         if (premium_booking_links[i].checked) {
+                          var main_row_elem = $(premium_booking_links[i].parentElement.parentElement.parentElement);
                           premium_booking_links[i].parentElement.parentElement.innerHTML = 'Expires on ' + data.expiry_date;
+                          if (!(data.versions[main_row_elem.attr('_id')]==undefined)) {
+                            main_row_elem.attr('version', data.versions[main_row_elem.attr('_id')]);
+                          };
                           premium_booking_links[i].checked = false;
                         }
                       }
                       for (var i = 0; i < featured_booking_links.length; i++) {
                         if (featured_booking_links[i].checked) {
+                          var main_row_elem = $(featured_booking_links[i].parentElement.parentElement.parentElement);
                           featured_booking_links[i].parentElement.parentElement.innerHTML = 'Expires on ' + data.expiry_date;
+                          if (!(data.versions[main_row_elem.attr('_id')]==undefined)) {
+                            main_row_elem.attr('version', data.versions[main_row_elem.attr('_id')]);
+                          };
                           featured_booking_links[i].checked = false;
                         }
                       }

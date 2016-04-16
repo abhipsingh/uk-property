@@ -176,6 +176,7 @@ module Api
         featured_buyers_id_map = {}
         premium_buyers_id_map = {}
         indexes = []
+        versions = {}
         arr_of_details.each do |key, each_detail|
           id = each_detail[:id]
           type = each_detail[:type]
@@ -213,7 +214,8 @@ module Api
               }
               response = client.index index: 'property_ads', type: 'property_ad', body: new_ad
               expriry_date = 30.days.from_now.to_date.to_s
-              message = { message: 'Successful', expiry_date: expriry_date }
+              versions[id] = version_id_map[id]
+              message = { message: 'Successful', expiry_date: expriry_date, versions:  versions}
               status = 200
             rescue Elasticsearch::Transport::Transport::Errors::Conflict => e
               indexes.push(key)
@@ -233,6 +235,7 @@ module Api
             break
           end
         end
+        p message
         render json: message, status: status
 
       end
