@@ -10,6 +10,7 @@ Rails.application.routes.draw do
     namespace :v0 do
       get 'properties/search',        to: 'property_search#search'
       get 'ads/availability',         to: 'vendor_ad#ads_availablity'
+      get 'locations/:id/version',         to: 'vendor_ad#correct_version'
       post 'ads/availability/update', to: 'vendor_ad#update_availability'
       post 'properties',              to: 'property_search#new_property'
     end
