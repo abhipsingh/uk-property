@@ -2,6 +2,14 @@ module Api
   module V0
     class VendorAdController < ActionController::Base
       def ads_availablity
+        score_map = {
+          'county' => 6,
+          'post_town' => 5,
+          'dependent_locality' => 4,
+          'double_dependent_locality' => 4,
+          'thoroughfare_descriptor' => 3,
+          'dependent_thoroughfare_description' => 3
+        }
         users = params[:users]
         location_parameters = params.deep_dup
         location_parameters["addresses"].map { |t| t.strip! }
@@ -17,7 +25,11 @@ module Api
           if count == 0
             text_val = value
           else
-            text_val = init_values[(len - 1 - count), (len - 1)].join(' ')
+            if count > 1
+              text_val = init_values[(len - 1 - count), (len - 2)].join(' ')
+            else
+              text_val = init_values[(len - 1 - count), (len - 1)].join(' ')
+            end
           end
           query[(values.length - count - 1).to_s] = {
             text: text_val,
@@ -51,7 +63,6 @@ module Api
 
         response.each do |key, value|
           if value[0]["options"].length > 0
-            
             new_and_filter = and_filter.deep_dup
             hash = value[0]["options"].first["payload"]["hash"]
             type = value[0]["options"].first["payload"]["type"]
@@ -125,7 +136,24 @@ module Api
         end
 
         final_response = {}
-        final_response[:availability_count] = response
+        response.each do |inner_response|
+          inner_response[:score] = score_map[inner_response['_source']['type_value']]
+        end
+        entries = response.select{|t| ['dependent_thoroughfare_description', 'thoroughfare_descriptor'].include?(t['_source']['type_value']) }
+        if entries.empty?
+          cloned_response = response.first.clone
+          cloned_response[:dummy] = true
+          cloned_response[:score] = 3
+          response.push(cloned_response)
+        end
+        entries = response.select{|t| ['dependent_locality', 'double_dependent_locality'].include?(t['_source']['type_value']) }
+        if entries.empty?
+          cloned_response = response.first.clone
+          cloned_response[:dummy] = true
+          cloned_response[:score] = 4
+          response.push(cloned_response)
+        end
+        final_response[:availability_count] = response.sort_by{|t| t[:score]}
         if ads_query[:filter][:or][:filters].empty?
           final_response['ads_availablity'] = {}
         else
@@ -145,14 +173,40 @@ module Api
       end
 
       def update_availability
+        charge = nil
+        begin
+          params[:stripeAmount] = 100
+          amount = params[:stripeAmount].to_i * 100
+       
+          # Create the customer in Stripe
+          customer = Stripe::Customer.create(
+            email: params[:stripeEmail],
+            card: params[:stripeToken]
+          )
+       
+          # Create the charge using the customer data returned by Stripe API
+          charge = Stripe::Charge.create(
+            customer: customer.id,
+            amount: amount,
+            description: 'Rails Stripe customer',
+            currency: 'usd'
+          )
+            # place more code upon successfully creating the charge
+        rescue Stripe::CardError => e
+          # flash[:error] = e.message
+          # redirect_to charges_path
+          # flash[:notice] = "Please try again"
+        end
         client = Elasticsearch::Client.new
-        message, status = nil
+        message = {} 
+        status = nil
         arr_of_details = params[:arr_of_locations]
         version_id_map = {}
         featured_buyers_id_map = {}
         premium_buyers_id_map = {}
         indexes = []
         versions = {}
+        row_responses = {}
         arr_of_details.each do |key, each_detail|
           id = each_detail[:id]
           type = each_detail[:type]
@@ -179,9 +233,13 @@ module Api
                 version_id_map[id] = version + 1
               end
               versions[id] = version_id_map[id]
+              row_responses[id] = each_detail
               response = client.update index: 'locations', type: 'location', id: id, version: version_id_map[id], 
                                        body: { doc: { type => (value - 1), version: version_id_map[id],
                                                featured_buyers: featured_buyers_id_map[id], premium_buyers: premium_buyers_id_map[id] } }
+
+              row_responses[id][:result] = true
+              
               new_ad = {
                 location_id: id,
                 property_id: users,
@@ -191,18 +249,31 @@ module Api
               }
               response = client.index index: 'property_ads', type: 'property_ad', body: new_ad
               expriry_date = 30.days.from_now.to_date.to_s
-              message = { message: 'Successful', expiry_date: expriry_date, versions:  versions}
-              status = 200
+              message[:message] = 'Successful'
+              message[:expiry_date] = expriry_date
+              message[:versions] = versions
+              message[:rows] = row_responses
+              status = 200 unless status
             rescue Elasticsearch::Transport::Transport::Errors::Conflict => e
               doc = client.get index: 'locations', type: 'location', id: id
               res = client.update index: 'locations', type: 'location', id: id, version: doc['_version'],
                             body: { doc: { version: doc['_version'] } }
               versions[id] = doc['_version']
-              message = { message: 'Conflict', versions: versions }
+
+              row_responses[id][:result] = false
+
+              re = Stripe::Refund.create(
+                charge: charge.id,
+                amount: each_detail[:elem_price]
+              )
+              p re.as_json
+              message[:message] = 'Conflict'
+              message[:versions] = versions
+              message[:rows] = row_responses
               status = 400
             rescue Exception => e
               Rails.logger.info(e)
-              message = { message: 'Some error occured' }
+              message = { message: 'Some error occured', rows: row_responses }
               status = 400
             end
           else
@@ -224,29 +295,7 @@ module Api
       end
 
       def new_payment
-        params[:stripeAmount] = 100
-        amount = params[:stripeAmount].to_i * 100
-     
-        # Create the customer in Stripe
-        customer = Stripe::Customer.create(
-          email: params[:stripeEmail],
-          card: params[:stripeToken]
-        )
-     
-        # Create the charge using the customer data returned by Stripe API
-        charge = Stripe::Charge.create(
-          customer: customer.id,
-          amount: amount,
-          description: 'Rails Stripe customer',
-          currency: 'usd'
-        )
-        render json: { message: 'Payment received' }, status: 200
-          
-          # place more code upon successfully creating the charge
-      rescue Stripe::CardError => e
-        flash[:error] = e.message
-        redirect_to charges_path
-        flash[:notice] = "Please try again"
+        
       end 
 
       private
