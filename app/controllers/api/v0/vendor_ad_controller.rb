@@ -48,14 +48,19 @@ module Api
           }
         }
 
+
         response.each do |key, value|
-          new_and_filter = and_filter.deep_dup
-          hash = value[0]["options"].first["payload"]["hash"]
-          type = value[0]["options"].first["payload"]["type"]
-          new_and_filter[:and][:filters].push( { term: { hashes: hash } } )
-          new_and_filter[:and][:filters].push( { term: { type_value: type } } )
-          new_and_filter[:and]['_name'] = key
-          filter_query[:filter][:or][:filters].push( new_and_filter )
+          if value[0]["options"].length > 0
+            
+            new_and_filter = and_filter.deep_dup
+            hash = value[0]["options"].first["payload"]["hash"]
+            type = value[0]["options"].first["payload"]["type"]
+            new_and_filter[:and][:filters].push( { term: { hashes: hash } } )
+            new_and_filter[:and][:filters].push( { term: { type_value: type } } )
+            new_and_filter[:and]['_name'] = key
+            filter_query[:filter][:or][:filters].push( new_and_filter )
+          end
+
         end
         response, code = post_url('locations', '_search', filter_query)
         response = JSON.parse(response)['hits']['hits']
@@ -140,43 +145,105 @@ module Api
       end
 
       def update_availability
-        client = Elasticsearch::Client.new
-        id = params[:id]
-        type = params[:type]
-        version = params[:version].to_i
-        value = params[:value].to_i
-        users = params[:users]
-        premium_buyers = params[:premium_buyers].split(',')
-        featured_buyers = params[:featured_buyers].split(',')
-        if value > 0
-          if type == 'featured_count'
-            featured_buyers |= [users]
-          else
-            premium_buyers |= [users]
-          end
-          begin
-            response = client.update index: 'locations', type: 'location', id: id, version: version, 
-                                     body: { doc: { type => (value - 1), version: (version + 1),
-                                             featured_buyers: featured_buyers, premium_buyers: premium_buyers } }
-            new_ad = {
-              location_id: id,
-              property_id: users,
-              type_of_ad: type,
-              entity_id: users,
-              created_at: 30.days.from_now.to_date.to_s
-            }
-            response = client.index index: 'property_ads', type: 'property_ad', body: new_ad
-            expriry_date = 30.days.from_now.to_date.to_s
-            render json: { message: 'Successful', expiry_date: expriry_date }, status: 200
-          rescue Elasticsearch::Transport::Transport::Errors::Conflict => e
-            render json: { message: 'Conflict' }, status: 400
-          rescue Exception => e
-            Rails.logger.info(e)
-            render json: { message: 'Some error occured' }, status: 400
-          end
-        else
-          render json: { status: 'All slots full' }, status: 400
+        begin
+          params[:stripeAmount] = 100
+          amount = params[:stripeAmount].to_i * 100
+       
+          # Create the customer in Stripe
+          customer = Stripe::Customer.create(
+            email: params[:stripeEmail],
+            card: params[:stripeToken]
+          )
+       
+          # Create the charge using the customer data returned by Stripe API
+          charge = Stripe::Charge.create(
+            customer: customer.id,
+            amount: amount,
+            description: 'Rails Stripe customer',
+            currency: 'usd'
+          )
+       
+          # place more code upon successfully creating the charge
+        rescue Stripe::CardError => e
+          # flash[:error] = e.message
+          # redirect_to charges_path
+          # flash[:notice] = "Please try again"
         end
+        client = Elasticsearch::Client.new
+        message, status = nil
+        arr_of_details = params[:arr_of_locations]
+        version_id_map = {}
+        featured_buyers_id_map = {}
+        premium_buyers_id_map = {}
+        indexes = []
+        versions = {}
+        arr_of_details.each do |key, each_detail|
+          id = each_detail[:id]
+          type = each_detail[:type]
+          version = each_detail[:version].to_i
+          value = each_detail[:value].to_i
+          users = params[:users]
+          premium_buyers = each_detail[:premium_buyers].split(',')
+          featured_buyers = each_detail[:featured_buyers].split(',')
+          if value > 0
+            if type == 'featured_count'
+              featured_buyers |= [users]
+              featured_buyers_id_map[id] = featured_buyers
+              premium_buyers_id_map[id] ||= premium_buyers
+            else
+              premium_buyers |= [users]
+              premium_buyers_id_map[id] = premium_buyers
+              featured_buyers_id_map[id] ||= featured_buyers
+            end
+            begin
+              p "#{version}_#{id}"
+              if version_id_map[id]
+                version_id_map[id] += 1
+              else
+                version_id_map[id] = version + 1
+              end
+              response = client.update index: 'locations', type: 'location', id: id, version: version_id_map[id], 
+                                       body: { doc: { type => (value - 1), version: version_id_map[id],
+                                               featured_buyers: featured_buyers_id_map[id], premium_buyers: premium_buyers_id_map[id] } }
+              new_ad = {
+                location_id: id,
+                property_id: users,
+                type_of_ad: type,
+                entity_id: users,
+                created_at: 30.days.from_now.to_date.to_s
+              }
+              response = client.index index: 'property_ads', type: 'property_ad', body: new_ad
+              expriry_date = 30.days.from_now.to_date.to_s
+              versions[id] = version_id_map[id]
+              message = { message: 'Successful', expiry_date: expriry_date, versions:  versions}
+              status = 200
+            rescue Elasticsearch::Transport::Transport::Errors::Conflict => e
+              indexes.push(key)
+              doc = client.get index: 'locations', type: 'location', id: id
+              res = client.update index: 'locations', type: 'location', id: id, version: doc['_version'],
+                            body: { doc: { version: doc['_version'] } }
+              message = { message: 'Conflict', indexes: indexes }
+              status = 400
+            rescue Exception => e
+              Rails.logger.info(e)
+              message = { message: 'Some error occured' }
+              status = 400
+            end
+          else
+            message = { status: 'All slots full' }
+            status = 400
+            break
+          end
+        end
+        p message
+        render json: message, status: status
+
+      end
+
+      def correct_version
+        id = params[:id]
+        res = Net::HTTP.get(URI.parse('http://localhost:9200/locations/location/'+id))
+        render json: res['version'], status: 200
       end
 
       private
