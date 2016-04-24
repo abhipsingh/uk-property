@@ -126,7 +126,7 @@ module Api
         client = Elasticsearch::Client.new
         vendor_doc = client.get index: 'vendors', type: 'vendor', id: vendor_id
         #### Notify vendor and update the backend
-        render json: { message: 'Vendor notified' }, status: 200
+        render json: { message: 'Vendor notified', email: vendor_doc[:email], number: vendor_doc[:number] }, status: 200
       rescue Elasticsearch::Transport::Transport::Errors::NotFound
         render json: { message: 'Vendor not found' }, status: 404
       end
