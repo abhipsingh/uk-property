@@ -17,13 +17,22 @@ module TestApp
     config.generators do |g|
       g.test_framework :mini_test, spec: true, fixture: false
     end
-        config.middleware.insert_after 0, "Rack::Cors" do
+    config.to_prepare do
+        Devise::SessionsController.layout 'login'
+        Devise::RegistrationsController.layout 'login'
+        Devise::PasswordsController.layout 'login'
+        Devise::ConfirmationsController.layout 'login'
+      end
+    config.middleware.insert_after 0, "Rack::Cors" do
       allow do
         origins '*'
         resource '*', :headers => :any, :methods => [:get, :post, :put, :delete, :options]
       end
     end
     config.active_record.logger = nil
+    config.assets.initialize_on_precompile = false
+    config.assets.paths << "#{Rails.root}/vendor/assets/fonts"
+    
   end
   
 end

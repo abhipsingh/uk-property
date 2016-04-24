@@ -3,19 +3,19 @@ module Elasticsearch::Search::Filter
   included do
 
     # basic filters
-    def append_term_filter_query(field,value)
+    def append_term_filter_query(field,value, flag=:or)
       unless @is_query_custom 
-        build_filter_hash(field,{term: {field => value}}) 
+        build_filter_hash(field,{term: {field => value}}, flag) 
         return self
       else
         raise "Cannot append term #{field} query since the query is custom"
       end
     end
 
-    def append_terms_filter_query(field,values)
+    def append_terms_filter_query(field,values, flag=:or)
       unless @is_query_custom
         if values.is_a?(Array)
-          build_filter_hash(field,{terms: {field => values}})
+          build_filter_hash(field,{terms: {field => values}}, flag)
           return self
         else
           raise "Cannot append terms query to #{values} which is not an array"
@@ -25,7 +25,7 @@ module Elasticsearch::Search::Filter
       end
     end
 
-    def append_range_filter_query(field,min_value = nil,max_value = nil)
+    def append_range_filter_query(field, min_value = nil, max_value = nil)
       unless @is_query_custom
         if min_value.nil? && max_value
           build_filter_hash(field,{ range: { field => { to: max_value}}}) 
@@ -40,9 +40,10 @@ module Elasticsearch::Search::Filter
       end
     end
 
-    def build_filter_hash(field,filter)
-      @query[:filter] = { and: { filters: [] } }  if @query[:filter].blank?
-      @query[:filter][:and][:filters].push(filter)
+    def build_filter_hash(field, filter, flag=:or)
+      @query[:filter] = { and: { filters: [], or: { filters: [] } } }  if @query[:filter].blank?
+      filter[filter.keys.first][:_name] = field
+      @query[:filter][flag][:filters].push(filter)
       append_filter_aggregation(field,filter) if @is_agg_filtered
     end
 
