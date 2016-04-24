@@ -14,12 +14,13 @@ gem 'elasticsearch-persistence'
 gem 'oj'
 gem 'sprockets', '2.11.0'
 gem 'minitest'
+gem 'devise'
 
 # # See https://github.com/sstephenson/execjs#readme for more supported runtimes
 # gem 'therubyracer', platforms: :ruby
 
 # Use jquery as the JavaScript library
-gem 'jquery-rails'
+gem 'jquery-rails', '4.0.4'
 
 # Turbolinks makes following links in your web application faster. Read more: https://github.com/rails/turbolinks
 gem 'turbolinks'
@@ -32,12 +33,26 @@ gem 'io-console'
 gem 'bulk_insert'
 gem 'redis'
 gem 'pg'
-gem 'bootstrap-sass'
-gem 'omniauth-facebook'
-gem 'omniauth-twitter'
 gem 'aws-sdk'
 gem 'figaro'
 gem 'stripe'
+
+### For views
+gem 'bootstrap-sass', '~> 3.3.4.1'
+gem 'haml-rails'
+gem 'adminlte2-rails', '~> 0.0.6'
+gem 'sass-rails', '~> 4.0.0'
+###
+
+
+###### For Login
+gem 'omniauth'
+gem 'omniauth-google-oauth2'
+gem 'omniauth-facebook'
+gem 'omniauth-twitter'
+gem 'rename'
+
+######
 
 group :development, :test do
   gem 'pry-rails'

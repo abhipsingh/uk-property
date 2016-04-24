@@ -1,0 +1,77 @@
+/ Main Header
+%header.main-header
+  / Logo
+  %a.logo{:href => '/'}
+    / mini logo for sidebar mini 50x50 pixels
+    %span.logo-mini
+      %b
+        %i.fa.fa-microphone
+    / logo for regular state and mobile devices
+    %span.logo-lg
+      MyApp&nbsp;&nbsp;
+      %b
+        %i.fa.fa-microphone
+  / Header Navbar
+  %nav.navbar.navbar-static-top{:role => 'navigation'}
+    / Sidebar toggle button
+    %a.sidebar-toggle{"data-toggle" => 'offcanvas', :href => "#", :role => 'button'}
+      %span.sr-only Toggle navigation
+    / Navbar Right Menu
+    .navbar-custom-menu
+      %ul.nav.navbar-nav
+        / Messages: style can be found in dropdown.less
+        %li.dropdown.messages-menu
+          / Menu toggle button
+          %a.dropdown-toggle{"data-toggle" => 'dropdown', :href => "#"}
+            %i.fa.fa-envelope-o
+            %span.label.label-success 4
+          %ul.dropdown-menu
+            %li.header You have 4 messages
+            %li
+              / inner menu: contains the messages
+            / end message
+            / /.menu
+            %li.footer
+              %a{:href => "#"} See All Messages
+        / /.messages-menu
+        / Notifications Menu
+        %li.dropdown.notifications-menu
+          / Menu toggle button
+          %a.dropdown-toggle{"data-toggle" => "dropdown", :href => "#"}
+            %i.fa.fa-bell-o
+            %span.label.label-warning 10
+          %ul.dropdown-menu
+            %li.header You have 10 notifications
+            %li
+              / Inner Menu: contains the notifications
+              %ul.menu
+                %li
+                  / start notification
+                  %a{:href => "#"}
+                    %i.fa.fa-users.text-aqua
+                    5 new members joined today
+            / end notification
+            %li.footer
+              %a{:href => "#"} View all
+        / Tasks Menu
+        %li.dropdown.tasks-menu
+          / Menu Toggle Button
+          = link_to 'Sign out', destroy_property_user_session_path, :method => :delete, class: 'btn btn-default btn-flat'
+        - if property_user_signed_in?
+          /User Account Menu
+          %li.dropdown.user.user-menu
+            / Menu Toggle Button
+            
+            %ul.dropdown-menu
+              / The user image in the menu
+              / Menu Body
+              %li.user-body
+              / Menu Footer
+              %li.user-footer
+                .pull-left
+                  %a.btn.btn-default.btn-flat{:href => "#"} Profile
+                .pull-right
+                  = link_to 'Sign out', destroy_property_user_session_path, :method => :delete, class: 'btn btn-default btn-flat'
+        %li
+          %a{"data-toggle" => "control-sidebar", :href => "#"}
+            %i.fa.fa-gears

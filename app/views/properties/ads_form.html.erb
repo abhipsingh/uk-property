@@ -1,0 +1,65 @@
+<script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.2.3/backbone-min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/backbone-forms/0.14.0/backbone-forms.min.js"></script>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/assets/bootstrap.min.js"></script>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/assets/jasny-bootstrap.js"></script>
+<link rel="stylesheet" type="text/css" href="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/assets/bootstrap.min.css"/>
+<link rel="stylesheet" type="text/css" href="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/assets/jasny-bootstrap.css"/>
+
+<script type="text/html" id="main">
+  <div>
+    
+    <h1 class="center">
+      Place an ad on any of your 3 properties
+    </h1>
+
+    <div class="container">
+      <div class="panel panel-default panel-info">
+        <div class="panel-heading">
+          <div class="address">
+            <p>Medhurst Close, London, London, E3 5DE</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="row">
+            <div class="col-md-4">
+              <img data-ajax="39642767" src="http://li.zoocdn.com/a40b51a55b719c2a445e5dc5503d17c6710c3b39_354_255.jpg" alt="Thumbnail 4 bed property for sale in Alric Avenue, London" itemprop="contentUrl">
+            </div>
+            <div class="col-md-8 content">
+              <div class="ad_type_group">
+                <label for="year" class="control-label input-group">Please select the type of ad you want to place</label>
+                <div class="btn-group ad_type" data-toggle="buttons">
+                  <label class="btn btn-default">
+                    <input name="ad_type" value="Featured" type="radio">Featured
+                  </label>
+                  <label class="btn btn-default">
+                    <input name="ad_type" value="Premium" type="radio">Premium
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</script>
+
+<script type="text/html" id="ad_inventory_table">
+  <div class="table-content">
+    <table class="table table-striped table-hover">
+      <thead>
+        <tr>
+          <th>Search Text</th>
+          <th>Featured remaining</th>
+          <th>Premium Remaining </th>
+        </tr>
+      </thead>>
+      <tbody>
+      </tbody>
+    </table>
+  </div>
+</script>

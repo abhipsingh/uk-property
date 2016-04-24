@@ -61,7 +61,7 @@ class PropertyDetailsRepo
     inst = inst.append_range_filters
     inst = inst.append_sort_filters
     body, status = post_url(inst.query, 'addresses', 'address')
-    body = JSON.parse(body)['hits']['hits'].map { |t| t['_source'] }
+    body = JSON.parse(body)['hits']['hits'].map { |t| t['_source']['score'] = t['matched_queries'].count ;t['_source']; }
     return { results: body }, status
   end
 
@@ -70,7 +70,7 @@ class PropertyDetailsRepo
     if filtered_params[:hash_type] == 'postcode'
       inst = form_query(filtered_params[:hash_str])
     else
-      inst = inst.append_terms_filter_query('hashes', filtered_params[:hash_str].split('|'))
+      inst = inst.append_terms_filter_query('hashes', filtered_params[:hash_str].split('|'), :and)
     end
     return inst
   end
