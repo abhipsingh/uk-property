@@ -150,7 +150,7 @@ module ZooplaCrawler
   end
 
   def self.crawl_images
-    Agents::Branches::CrawledProperty.where("id>?", 87792).select([:id, :stored_response]).find_each do |property|
+    Agents::Branches::CrawledProperty.where("id>?", 76742).select([:id, :stored_response]).find_each do |property|
       threads = []
       property.stored_response["image_urls"].each do |url|
         threads << Thread.new do
@@ -169,15 +169,11 @@ module ZooplaCrawler
             Rails.logger.info("FAILED_TO_CRAWL_IMAGE_WITH_URL_#{url}")
           rescue Errno::ENOENT => e
             Rails.logger.info("FILE_ERROR_#{property.id}")
-          rescue URI::InvalidURIError => e
-            Rails.logger.info("URI_ERROR_#{property.id}")
-          rescue Aws::S3::Errors::XAmzContentSHA256Mismatch => e
           end
         end
       end
       threads.map(&:join)
       p property.id
-      GC.start
     end
   end
 
@@ -234,7 +230,7 @@ module ZooplaCrawler
 
   def self.attach_historical_details_to_udprns
     offset = 1000
-    counter = 78401
+    counter = 21013
     client = Elasticsearch::Client.new
     loop do
       property_sql = PropertyHistoricalDetail.select([:id, :udprn, :date, :price]).where.not(udprn: nil).where('id > ?', (counter*offset)).limit(offset).to_sql
@@ -252,6 +248,49 @@ module ZooplaCrawler
       counter += 1
       p counter
       break if each_counter == 0
+    end
+  end
+
+  def self.extract_uuids
+    scroll_id = 'c2Nhbjs1OzQ2OnJaRjRpZWFqUVh5a0pXeGJLaVpEUUE7NDg6clpGNGllYWpRWHlrSld4YktpWkRRQTs0OTpyWkY0aWVhalFYeWtKV3hiS2laRFFBOzUwOnJaRjRpZWFqUVh5a0pXeGJLaVpEUUE7NDc6clpGNGllYWpRWHlrSld4YktpWkRRQTsxO3RvdGFsX2hpdHM6Mjk2ODgzNDM7'
+    get_url = 'http://localhost:9200/_search/scroll' + "?scroll_id=#{scroll_id}"
+    loop do
+      response = Net::HTTP.get(URI.parse(get_url))
+      udprns = JSON.parse(response)["hits"]["hits"].map { |t| [ t['_source']['udprn'], t['_source']['post_town'] ] }
+      break if udprns.length == 0
+      udprns.each do |udprn|
+        File.open('random_uuids.log', 'a'){ |t| t.puts("#{udprn[0]}|#{udprn[1]}") }
+      end
+    end
+  end
+
+  def self.post_url_new(query = {}, index_name='property_details', type_name='property_detail')
+    uri = URI.parse(URI.encode("http://localhost:9200/_search/scroll"))
+    query = (query == {}) ? "" : query.to_json
+    http = Net::HTTP.new(uri.host, uri.port)
+    result = http.post(uri,query)
+    body = result.body
+    status = result.code
+    return body,status
+  end
+
+  def self.extract_daily_uuids
+    uuids = []
+    counter = 0
+    glob_counter = 0
+    File.foreach('random_uuids_new.log').each do |line|
+      uuids << line.to_i
+      counter += 1
+      if counter > 25000
+        file_name = '/mnt3/random_uuids_' + glob_counter.to_s + '.log'
+        file = File.open(file_name, 'w')
+        uuids.map { |t| file.puts(t) }
+        file.close
+        counter = 0
+        uuids = []
+        glob_counter += 1
+        p "#{glob_counter} PASS"
+      end
     end
   end
 
