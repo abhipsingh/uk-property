@@ -7,7 +7,7 @@ class Registration < ActiveRecord::Base
     Stripe::Charge.create customer: customer.id,
                           amount: course.price * 100,
                           description: course.name,
-                          currency: currency
+                          currency: currency,
                           currency: 'euros'
 
   end

@@ -1,0 +1,46 @@
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/bootstrap.min.js"></script>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/underscore.min.js"></script>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/jquery.min.js"></script>
+<link rel="stylesheet" type="text/css" href="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/bootstrap.min.css"/>
+<% if @stored_response %>
+  <div class="container">
+    <h2>Stored property response</h2>
+
+    <div class="panel panel-default">
+      <div class="panel-heading beds">Beds</div>
+      <div class="panel-body beds-response"><%= @stored_response['beds'] %></div>
+    </div>
+
+    <div class="panel panel-default">
+      <div class="panel-heading baths">Baths</div>
+      <div class="panel-body baths-response"><%= @stored_response['baths'] %></div>
+    </div>
+
+    <div class="panel panel-default">
+      <div class="panel-heading address">Address</div>
+      <div class="panel-body address-response"><%= @stored_response['address'] %></div>
+    </div>
+
+    <div class="panel panel-default">
+      <div class="panel-heading features">Features</div>
+      <div class="panel-body features-response"><%= @stored_response['features'] %></div>
+    </div>
+
+    <div class="panel panel-default">
+      <div class="panel-heading latitude">Latitude</div>
+      <div class="panel-body latitude-response"><%= @stored_response['latitude'] %></div>
+    </div>
+
+    <div class="panel panel-default">
+      <div class="panel-heading longitude">Longitude</div>
+      <div class="panel-body longitude-response"><%= @stored_response['longitude'] %></div>
+    </div>
+
+    <div class="panel panel-default">
+      <div class="panel-heading receptions-logo">Receptions</div>
+      <div class="panel-body receptions-response"><%= @stored_response['receptions'] %> </div>
+    </div>
+</div>
+<% else %>
+  <p> Details not found for this particular id </p>
+<% end %>

@@ -1,0 +1,49 @@
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/jquery.min.js"></script>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/bootstrap.min.js"></script>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/underscore.min.js"></script>
+<link rel="stylesheet" type="text/css" href="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/bootstrap.min.css"/>
+<div class="container">
+  <div class="row">
+        <div class="col-md-6">
+        <h2>Posttown or a dependent locality/street search for crawled properties from Zoopla</h2>
+            <div id="custom-search-input">
+                <div class="input-group col-md-12">
+                    <input type="text" class="form-control input-lg entity_value" placeholder="Post Town/ Street/ Locality" />
+                    <span class="input-group-btn">
+                        <button class="btn btn-info btn-lg crawled_property_search_button" type="button">
+                            <i class="glyphicon glyphicon-search"></i>
+                        </button>
+                    </span>
+
+                </div>
+                <div class="input-group col-md-12">
+                  <ul class="list-group" id="list_view">
+                  </ul>
+                </div>
+            </div>
+        </div>
+  </div>
+</div>
+
+<script type="text/javascript">
+$(function() {
+  $('.crawled_property_search_button').click(function(e){
+    e.preventDefault();
+    var val = $('.entity_value').val();
+    var url = 'http://' + window.location.hostname
+    if (window.location.port != null) {
+      url = url + ':' + window.location.port;
+    };
+    url = url + '/crawled_properties/search_results?str=' + val;
+    $.get( url, function( data ) {
+      for (var i = data.length - 1; i >= 0; i--) {
+          var edit_url = data[i];
+          var html = '<li><a href="'+'http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com' + edit_url+'">'+ 'http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com' + edit_url+'</a></li>';
+          parser = new DOMParser(), doc = parser.parseFromString(html, "text/html");
+          $('#list_view')[0].appendChild(doc.children[0].children[1].children[0]);
+        };
+    });
+
+  });
+})
+</script>
