@@ -21,17 +21,20 @@ Rails.application.routes.draw do
   get 'addresses/matrix_view', to: 'application#matrix_view'
   get 'addresses/predictions', to: 'application#predictive_search'
   get 'addresses/predictions/results', to: 'application#get_results_from_hashes'
+  post 'addresses/follow', to: 'application#follow'
   namespace :api do
     namespace :v0 do
-      get 'properties/search',        to: 'property_search#search'
-      get 'ads/availability',         to: 'vendor_ad#ads_availablity'
-      get 'locations/:id/version',    to: 'vendor_ad#correct_version'
-      post 'ads/payments/new',        to: 'vendor_ad#new_payment'
-      post 'ads/availability/update', to: 'vendor_ad#update_availability'
-      post 'properties',              to: 'property_search#new_property'
-      post 'property_users/update/udprns', to: 'property_search#update_viewed_flats'
+      get  'properties/search',                      to: 'property_search#search'
+      get  'ads/availability',                       to: 'vendor_ad#ads_availablity'
+      get  'locations/:id/version',                  to: 'vendor_ad#correct_version'
+      post 'ads/payments/new',                       to: 'vendor_ad#new_payment'
+      post 'ads/availability/update',                to: 'vendor_ad#update_availability'
+      post 'properties',                             to: 'property_search#new_property'
+      post 'property_users/update/udprns',           to: 'property_search#update_viewed_flats'
       post 'property_users/update/udprns/shortlist', to: 'property_search#update_shortlisted_udprns'
-      post 'vendors/update/property_users', to: 'property_search#notify_vendor_of_users'
+      post 'vendors/update/property_users',          to: 'property_search#notify_vendor_of_users'
+      post 'buyers/new/search',                      to: 'property_search#save_searches'
+      get  'buyers/searches',                        to: 'property_search#show_save_searches'
     end
   end
   resources :charges

@@ -1,11 +1,15 @@
-<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/jquery.min.js"></script>
-<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/bootstrap.min.js"></script>
-<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/underscore.min.js"></script>
-<link rel="stylesheet" type="text/css" href="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/bootstrap.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.2.3/backbone-min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/backbone-forms/0.14.0/backbone-forms.min.js"></script>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/assets/bootstrap.min.js"></script>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com//assets/jasny-bootstrap.js"></script>
+<link rel="stylesheet" type="text/css" href="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/assets/bootstrap.min.css"/>
+<link rel="stylesheet" type="text/css" href="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/assets/jasny-bootstrap.css"/>
 <div class="container">
   <div class="row">
         <div class="col-md-6">
-        <h2>Posttown or a dependent locality/street search for crawled properties from Zoopla</h2>
+        <h2>Pre-loaded agent properties</h2>
             <div id="custom-search-input">
                 <div class="input-group col-md-12">
                     <input type="text" class="form-control input-lg entity_value" placeholder="Post Town/ Street/ Locality" />
@@ -27,23 +31,52 @@
 
 <script type="text/javascript">
 $(function() {
-  $('.crawled_property_search_button').click(function(e){
-    e.preventDefault();
-    var val = $('.entity_value').val();
-    var url = 'http://' + window.location.hostname
-    if (window.location.port != null) {
-      url = url + ':' + window.location.port;
-    };
-    url = url + '/crawled_properties/search_results?str=' + val;
-    $.get( url, function( data ) {
-      for (var i = data.length - 1; i >= 0; i--) {
+  // $('.crawled_property_search_button').click(function(e){
+  //   e.preventDefault();
+  //   var val = $('.entity_value').val();
+  //   var url = 'http://' + window.location.hostname
+  //   if (window.location.port != null) {
+  //     url = url + ':' + window.location.port;
+  //   };
+  //   url = url + '/crawled_properties/search_results?str=' + val;
+  //   $.get( url, function( data ) {
+  //     for (var i = data.length - 1; i >= 0; i--) {
+  //         var edit_url = data[i];
+  //         var html = '<li><a href="'+'http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com' + edit_url+'">'+ 'http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com' + edit_url+'</a></li>';
+  //         parser = new DOMParser(), doc = parser.parseFromString(html, "text/html");
+  //         $('#list_view')[0].appendChild(doc.children[0].children[1].children[0]);
+  //       };
+  //   });
+
+  // });
+
+    $('.entity_value').keypress(function(e) {
+    var key = e.which
+    if(key == 13)  // the enter key code
+    {
+      e.preventDefault();
+      if ($('#list_view')[0].children.length > 1) {
+        for (var i = $('#list_view')[0].children.length - 1; i >= 0; i--) {
+          $('#list_view')[0].children[i].remove();
+        };
+      };
+
+      var val = $('.entity_value').val();
+      var url = 'http://' + window.location.hostname
+      if (window.location.port != null) {
+        url = url + ':' + window.location.port;
+      };
+
+      url = url + '/crawled_properties/search_results?str=' + val;
+      $.get( url,  function( data ) {
+        for (var i = data.length - 1; i >= 0; i--) {
           var edit_url = data[i];
           var html = '<li><a href="'+'http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com' + edit_url+'">'+ 'http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com' + edit_url+'</a></li>';
           parser = new DOMParser(), doc = parser.parseFromString(html, "text/html");
           $('#list_view')[0].appendChild(doc.children[0].children[1].children[0]);
         };
-    });
-
+      });
+    }
   });
 })
 </script>

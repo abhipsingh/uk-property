@@ -4,7 +4,6 @@ module Api
       def search
         response = Hash.new
         api = ::PropertyDetailsRepo.new(filtered_params: params)
-
         result, status = api.filter
         result[:results].map{ |t| add_new_keys(t) }
         result = result[:results].sort_by{|t| t[:score]}.reverse
@@ -39,12 +38,29 @@ module Api
           result[:photo_urls] = []
         end
 
-        result[:broker_logo] = "http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/prop3.jpg"
-        result[:broker_contact] = "020 3641 4259"
+        result[:agent_logo] = "http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/prop3.jpg"
+        result[:agent_contact] = "020 3641 4259"
+        result[:agent_branch_name] = "XYZ Branch"
+        result[:assigned_agent_employee_name] = "John Smith"
+        result[:assigned_agent_employee_address] = "5 Bina Gardens"
+        result[:assigned_agent_employee_image] = nil
+        result[:last_updated_date] = "2015-09-21"
+        result[:assigned_agent_employee_number] = "9999999999"
+        result[:added_by_name] = "Agent 1"
+        result[:verification] = true
+        result[:title] = "Random title"
+        result[:dream_price] = 100000
+        result[:valuation] = '2014-09-12'
+        result[:valuation_date] = 5000
+        result[:last_sale_price] = 1600
+        result[:last_sale_price_date] = '2014-09-12'
         description = ''
-        result[:description] = characters.sample(1).first.times do
-          description += alphabets.sample(1).first
-        end
+        result[:description] = "Lorem ipsum"
+        result[:interested_in_view] = '/api/v0/vendors/update/property_users?action_type=interested_in_view'
+        result[:request_a_view] = '/api/v0/vendors/update/property_users?action_type=request_a_view'
+        result[:make_offer] = '/api/v0/vendors/update/property_users?action_type=make_offer'
+        result[:follow_street] = '/addresses/follow?location_type=dependent_thoroughfare_description'
+        result[:follow_locality] = '/addresses/follow?location_type =dependent_locality'
       end
 
       def new_property
@@ -121,7 +137,7 @@ module Api
         udprn = params[:udprn]
         email = params[:email]
         number = params[:number]
-        schedule_viewing = params[:schedule_viewing]
+        action_type = params[:action_type]
         vendor_id = params[:vendor_id]
         client = Elasticsearch::Client.new
         vendor_doc = client.get index: 'vendors', type: 'vendor', id: vendor_id
@@ -143,6 +159,50 @@ module Api
         render json: { message: 'User successfully updated' }
       rescue Elasticsearch::Transport::Transport::Errors::NotFound
         render json: { message: 'User Not found' }, status: 404
+      end
+
+      def save_searches
+        saved_flag = true
+        messages = [],
+        searches = nil
+        PropertyBuyer.where(email_id: params[:email_id]).each do |property_buyer|
+          searches = property_buyer.searches
+          new_search_hash = params[:new_search]
+          if validate_search_hash(new_search_hash)
+            searches.push(new_search_hash)
+            property_buyer.searches = searches
+            saved_flag = property_buyer.save
+            messages = property_buyer.errors.messages
+          end
+        end
+        if saved_flag
+          render json: {searches: searches}, status: 200
+        else
+          render json: {errors: messages}, status: 400
+        end
+      end
+
+      def show_save_searches
+        searches, name, email_id = nil
+        PropertyBuyer.where(email_id: params[:email_id]).select([:email_id, :name, :searches]).each do |property_buyer|
+          searches = property_buyer.searches
+          name = property_buyer.name
+          email_id = property_buyer.email_id
+        end
+        if searches.nil?
+          render json: {message: 'Email not found'}, status: 404
+        else
+          render json: { searches: searches, email_id: email_id, name: name }
+        end
+      end
+
+      def validate_search_hash(search_hash)
+        result = true
+        result = result && search_hash.is_a?(Hash)
+        result = result && search_hash.keys.count == 2 if result
+        result = result && search_hash.keys.include?('name') if result
+        result = result && search_hash.keys.include?('search_hash') if result
+        result
       end
 
     end

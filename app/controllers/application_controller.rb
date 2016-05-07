@@ -2,7 +2,12 @@
 class ApplicationController < ActionController::Base
   # Prevent CSRF attacks by raising an exception.
   # For APIs, you may want to use :null_session instead.
+  before_action :authenticate_property_user!
   protect_from_forgery with: :exception
+
+  def after_sign_in_path_for(resource)
+    stored_location_for(resource) || (root_path)
+  end
 
   def search_address
     regexes = [ /^([A-Z]{1,2})([0-9]{0,3})$/, /^([0-9]{1,2})([A-Z]{0,3})$/]
@@ -74,7 +79,7 @@ class ApplicationController < ActionController::Base
 
   def predictive_search
     str = params[:str].gsub(',',' ').downcase
-    results, code = get_results_from_es_suggest(str)
+    results, code = get_results_from_es_suggest(str, 50)
     results = Oj.load(results)['postcode_suggest'].map { |e| e['options'].map{ |t| { hash: t['payload']['hash'], output: t['payload']['hierarchy_str'].split('|').join(', ') } } }.flatten
     render json: results, status: code
   end
@@ -187,13 +192,13 @@ class ApplicationController < ActionController::Base
     return result, status
   end
 
-  def get_results_from_es_suggest(query_str)
+  def get_results_from_es_suggest(query_str, size=10)
     query_str = {
       postcode_suggest: {
         text: query_str,
         completion: {
           field: 'suggest',
-          size: 10
+          size: size
         }
       }
     }
@@ -837,5 +842,12 @@ class ApplicationController < ActionController::Base
 
   def append_term_filter(term, value)
     { term: { term => value } }
+  end
+
+  def follow
+    location_type = params[:location_type]
+    location_text = params[:location_text]
+    ## Process afterwards
+    render json: "Location #{location_text} followed", status: 200
   end
 end

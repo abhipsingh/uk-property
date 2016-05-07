@@ -43,7 +43,11 @@ module Elasticsearch::Search::Filter
     def build_filter_hash(field, filter, flag=:or)
       @query[:filter] = { and: { filters: [], or: { filters: [] } } }  if @query[:filter].blank?
       filter[filter.keys.first][:_name] = field
-      @query[:filter][flag][:filters].push(filter)
+      if flag == :and
+        @query[:filter][flag][:filters].push(filter)
+      else
+        @query[:filter][:and][:or][:filters].push(filter)
+      end
       append_filter_aggregation(field,filter) if @is_agg_filtered
     end
 
