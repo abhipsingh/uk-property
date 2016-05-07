@@ -19,5 +19,7 @@ class CrawledPropertiesController < ActionController::Base
   def show
     @stored_response = Agents::Branches::CrawledProperty.where(id: params[:id].to_i).first.stored_response rescue nil
     @iframe_url = PropertyDetails.get_iframe_url_for_address(@stored_response['address'])
+    @images = Agents::Branches::CrawledProperty.images_from_aws(@stored_response) if @stored_response
   end
+
 end

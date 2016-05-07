@@ -77,12 +77,58 @@
   </div>
 </script>
 
+<script type="text/html" id="images_view_html">
+  <div id="images_view_details">
+    <div id="myCarousel" class="carousel slide" data-ride="carousel">
+      <ol class="carousel-indicators">
+        <% counter = 0 %>
+        <% @images.each do |each_image| %>
+          <%if counter == 0 %>
+            <li data-target="#myCarousel" data-slide-to="<%=counter%>" class="active"></li>
+          <% else %>
+            <li data-target="#myCarousel" data-slide-to="<%=counter%>"></li>
+          <% end %>
+          <% counter += 1 %>
+        <% end %>
+      </ol>
+
+      <!-- Wrapper for slides -->
+      <div class="carousel-inner" role="listbox">
+        <% counter = 0 %>
+        <% @images.each do |each_image| %>
+          <%if counter == 0 %>
+            <div class="item active">
+          <% else %>
+            <div class="item">
+          <% end %>
+              <img src="<%=each_image%>" alt="Image <%=counter%>">
+            </div>
+          <% counter += 1 %>
+        <% end %>
+
+      </div>
+
+      <!-- Left and right controls -->
+      <a class="left carousel-control" href="#myCarousel" role="button" data-slide="prev">
+        <span class="glyphicon glyphicon-chevron-left" aria-hidden="true"></span>
+        <span class="sr-only">Previous</span>
+      </a>
+      <a class="right carousel-control" href="#myCarousel" role="button" data-slide="next">
+        <span class="glyphicon glyphicon-chevron-right" aria-hidden="true"></span>
+        <span class="sr-only">Next</span>
+      </a>
+    </div>
+    
+  </div>
+</script>
+
 <script type="text/javascript">
   $(function() {
 
     $('.top_navbar [href=property_html]').click(function(e){
       e.preventDefault();
       $($(event.target).closest('.top_navbar')[0].parentElement).find('#map_view_details').remove();
+      $($(event.target).closest('.top_navbar')[0].parentElement).find('#images_view_details').remove();
       if ($($(event.target).closest('.top_navbar')[0].parentElement).find('#property_details').length == 0) {
         var ads_html = _.template($('#property_html').html())();
         var ads_parser = new DOMParser();
@@ -95,8 +141,22 @@
     $('.top_navbar [href=map_view_html]').click(function(e){
       e.preventDefault();
       $($(event.target).closest('.top_navbar')[0].parentElement).find('#property_details').remove();
+      $($(event.target).closest('.top_navbar')[0].parentElement).find('#images_view_details').remove();
       if ($($(event.target).closest('.top_navbar')[0].parentElement).find('#map_view_details').length == 0) {
         var ads_html = _.template($('#map_view_html').html())();
+        var ads_parser = new DOMParser();
+        var doc = ads_parser.parseFromString(ads_html, "text/html");
+        var ads_inp = doc.children[0].children[1].children[0].children[0];
+        $('body').append(doc.children[0].children[1].children[0]);
+      };
+    });
+
+    $('.top_navbar [href=images_view_html]').click(function(e){
+      e.preventDefault();
+      $($(event.target).closest('.top_navbar')[0].parentElement).find('#property_details').remove();
+      $($(event.target).closest('.top_navbar')[0].parentElement).find('#map_view_details').remove();
+      if ($($(event.target).closest('.top_navbar')[0].parentElement).find('#images_view_details').length == 0) {
+        var ads_html = _.template($('#images_view_html').html())();
         var ads_parser = new DOMParser();
         var doc = ads_parser.parseFromString(ads_html, "text/html");
         var ads_inp = doc.children[0].children[1].children[0].children[0];
