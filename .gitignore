@@ -19,3 +19,4 @@
 /config/application.yml
 /config/database.yml
 /config/stripe.yml
+/public/assets/
