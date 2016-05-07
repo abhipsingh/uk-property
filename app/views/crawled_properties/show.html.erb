@@ -8,6 +8,7 @@
     <ul class="nav navbar-nav navbar-left">
       <li><a href="property_html">Property details</a></li>
       <li><a href="map_view_html">Map View</a></li>
+      <li><a href="images_view_html">Images View</a></li>
     </ul>
   </div>
 </div>
@@ -79,46 +80,11 @@
 
 <script type="text/html" id="images_view_html">
   <div id="images_view_details">
-    <div id="myCarousel" class="carousel slide" data-ride="carousel">
-      <ol class="carousel-indicators">
-        <% counter = 0 %>
-        <% @images.each do |each_image| %>
-          <%if counter == 0 %>
-            <li data-target="#myCarousel" data-slide-to="<%=counter%>" class="active"></li>
-          <% else %>
-            <li data-target="#myCarousel" data-slide-to="<%=counter%>"></li>
-          <% end %>
-          <% counter += 1 %>
-        <% end %>
-      </ol>
-
-      <!-- Wrapper for slides -->
-      <div class="carousel-inner" role="listbox">
-        <% counter = 0 %>
-        <% @images.each do |each_image| %>
-          <%if counter == 0 %>
-            <div class="item active">
-          <% else %>
-            <div class="item">
-          <% end %>
-              <img src="<%=each_image%>" alt="Image <%=counter%>">
-            </div>
-          <% counter += 1 %>
-        <% end %>
-
-      </div>
-
-      <!-- Left and right controls -->
-      <a class="left carousel-control" href="#myCarousel" role="button" data-slide="prev">
-        <span class="glyphicon glyphicon-chevron-left" aria-hidden="true"></span>
-        <span class="sr-only">Previous</span>
-      </a>
-      <a class="right carousel-control" href="#myCarousel" role="button" data-slide="next">
-        <span class="glyphicon glyphicon-chevron-right" aria-hidden="true"></span>
-        <span class="sr-only">Next</span>
-      </a>
-    </div>
-    
+    <% counter = 0 %>
+    <% @images.each do |each_image| %>
+      <img src="<%=each_image%>" alt="Image <%=counter%>">
+      <% counter += 1 %>
+    <% end %>
   </div>
 </script>
 
