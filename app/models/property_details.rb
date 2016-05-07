@@ -23,5 +23,21 @@ class PropertyDetails
     published_address += ', ' + details[:postcode] if details.has_key?(:postcode)
     published_address[1, published_address.length-1]
   end
+
+  def self.get_signed_url(udprn)
+    s3 = Aws::S3::Resource.new
+    object = s3.bucket('propertyuk').object("#{udprn}_street_view.jpg")
+    object.presigned_url(:get, expires_in: 300)
+  end
+
+  def self.get_map_view_iframe_url(details)
+    location_address = address(details)
+    get_iframe_url_for_address(location_address)
+  end
+
+  def self.get_iframe_url_for_address(address)
+    "https://www.google.com/maps/embed/v1/place?key=#{ENV['GOOGLE_API_BROWSER_KEY']}&q=#{address}"
+  end
+
 end
 

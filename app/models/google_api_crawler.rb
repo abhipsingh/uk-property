@@ -85,11 +85,11 @@ class GoogleApiCrawler
           end
         end
       end
-
       s3 = Aws::S3::Resource.new
       obj = s3.bucket('propertyuk').object(file_name)
       res = obj.upload_file(file_name, acl: 'public-read')
       File.delete(file_name) if res
+      File.open('successful_street_view.txt', 'a') { |f| f.puts udprn }
     rescue StandardError => e
       Rails.logger.info("STREET_VIEW_CRAWLING_FAILED_FOR_#{udprn}")
     end

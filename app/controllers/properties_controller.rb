@@ -13,6 +13,7 @@ class PropertiesController < ActionController::Base
     @postcode = property['postcode']
     @historical_details = PropertyHistoricalDetail.where(udprn: udprn).select([:price, :date])
     @address = PropertyDetails.address(property)
+    @map_view_url = PropertyDetails.get_map_view_iframe_url(property)
     render 'edit'
   end
 
