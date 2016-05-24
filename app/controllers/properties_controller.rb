@@ -21,15 +21,18 @@ class PropertiesController < ActionController::Base
   end
 
   def short_form
+    @udprn = params[:udprn]
     render 'short_form'
   end
 
   def claim_property
-    @detail = TempPropertyDetail.create(details: short_form_params, udprn: params[:udprn]) if params[:udprn]
-    @udprn = params[:udprn]
-    @user = params[:user]
-    @detail_id = params[:detail_id]
-    render 'short_contact_form'
+    if params[:udprn]
+      @detail = TempPropertyDetail.create(details: short_form_params, udprn: params[:udprn]) if params[:udprn]
+      @udprn = params[:udprn]
+      @user = params[:user]
+      @detail_id = params[:detail_id]
+      render 'short_contact_form'
+    end
   end
 
   def complete_profile

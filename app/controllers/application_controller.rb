@@ -127,7 +127,7 @@ class ApplicationController < ActionController::Base
     else
       result[:photo_urls] = []
     end
-
+    result[:new_property_link] = "http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/properties/new/#{result['udprn']}/short"
     result[:broker_logo] = "http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/prop3.jpg"
     result[:broker_contact] = "020 3641 4259"
     description = ''
