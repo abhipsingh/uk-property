@@ -1,0 +1,248 @@
+<script src="http://localhost:3000/underscore.min.js"></script>
+<script src="http://localhost:3000/jquery.min.js"></script>
+<script src="http://localhost:3000/backbone.min.js"></script>
+<script src="http://localhost:3000/backbone-forms.min.js"></script>
+<script src="http://localhost:3000/bootstrap.min.js"></script>
+<script src="http://localhost:3000/jasny-bootstrap.js"></script>
+<script src="http://localhost:3000/selectize.js"></script>
+<link rel="stylesheet" type="text/css" href="http://localhost:3000/bootstrap.min.css"/>
+<link rel="stylesheet" type="text/css" href="http://localhost:3000/jasny-bootstrap.css"/>
+<link rel="stylesheet" type="text/css" href="http://localhost:3000/selectize.min.css"/>
+
+<div class="col-md-6">
+  <div class="row" style="margin: auto;text-align: center;">
+    <h1>Step 1 out of 3</h1>
+    <h2 id="page_header"></h2>
+    <p>
+      Please provide the following details about your property
+    </p>
+  </div>
+
+  <div id="content">
+    <form id="main_form" action="/properties/claim/short" method="post">
+      <fieldset>
+        
+        <div class="form-group">
+          <label for="dream_price">Dream Price</label>
+          <input type="number" class="form-control" id="dream_price" name="dream_price" placeholder="Enter your dream price in pounds" required>
+          <input type="hidden" class="form-control" id="udprn" name="udprn" value="2926026" required>
+        </div>
+
+
+        <div class="form-group">
+          <label for="property_type">Property Type</label>
+          <select class="form-control" id="property_type" name="property_type" placeholder="Select a property type" required>
+            <option></option>
+            <option>Barn conversion</option>
+            <option>Bungalow</option>
+            <option>Cottage</option>
+            <option>Country house</option>
+            <option>Detached house</option>
+            <option>Detached bungalow</option>
+            <option>End terrace house</option>
+            <option>Equestrian property</option>
+            <option>Farm</option>
+            <option>Barn conversion/farmhouse</option>
+            <option>Farmhouse</option>
+            <option>Flat</option>
+            <option>Houseboat</option>
+            <option>Link­detached house</option>
+            <option>Lodge</option>
+            <option>Maisonnette</option>
+            <option>Mews house</option>
+            <option>Mobile/park home</option>
+            <option>Semi­detached house</option>
+            <option>Semi­detached bungalow</option>
+            <option>Studio</option>
+            <option>Terraced house</option>
+            <option>Terraced bungalow</option>
+            <option>Town house</option>
+            <option>Land with planning permission</option>
+            <option>Land without planning permission</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="bedroom">Bedrooms</label>
+          <select class="form-control" id="bedroom" name="beds" placeholder="Select number of bedroom" required>
+            <option></option>
+            <option>0</option>
+            <option>1</option>
+            <option>2</option>
+            <option>3</option>
+            <option>4</option>
+            <option>5</option>
+            <option>6</option>
+            <option>7</option>
+            <option>8</option>
+            <option>9</option>
+            <option>10+</option>
+          </select>
+        </div>
+
+
+        <div class="form-group">
+          <label for="baths">Bathrooms</label>
+          <select class="form-control" id="baths" name="baths" placeholder="Select number of bathrooms" required>
+            <option></option>
+            <option>0</option>
+            <option>1</option>
+            <option>2</option>
+            <option>3</option>
+            <option>4</option>
+            <option>5</option>
+            <option>6</option>
+            <option>7</option>
+            <option>8</option>
+            <option>9</option>
+            <option>10+</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="receptions">Receptions</label>
+          <select class="form-control" id="receptions" name="receptions" placeholder="Select number of receptions" required>
+            <option></option>
+            <option>0</option>
+            <option>1</option>
+            <option>2</option>
+            <option>3</option>
+            <option>4</option>
+            <option>5</option>
+            <option>6</option>
+            <option>7</option>
+            <option>8</option>
+            <option>9</option>
+            <option>10+</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="property_status">Property Status</label>
+          <div class="row"></div>
+          <div class="radio">
+            <label><input type="radio" name="property_status" value="Green" required>Green</label>
+          </div>
+          <div class="radio">
+            <label><input type="radio" name="property_status"  value="Amber">Amber</label>
+          </div>
+          <div class="radio">
+            <label><input type="radio" name="property_status"  value="Red">Red</label>
+          </div>
+        </div>
+
+        <div class="form-group control-group">
+          <label for='select-agency'>Agency</label>
+          <select id="select-agency" class="agency" placeholder="Type the name of an agency" name="agent" values="" required></select>
+        </div>
+       
+        <div class="form-group control-group">
+          <label for='select-branch'>Branch</label>
+          <select id="select-branch" class="branch" placeholder="Type the name of a branch" name="branch" values="" required></select>
+        </div>
+
+      </fieldset>
+      <button type="submit" class="btn btn-default">Next(Your contact info)</button>
+    </form>
+  </div>
+</div>
+
+<script type="text/javascript">
+  $(function() {
+    $('#select-agency').selectize({
+      valueField: 'id',
+      labelField: 'name',
+      searchField: 'name',
+      options: [],
+      create: false,
+      render: {
+        option: function(item, escape) {
+            return '<div>' +
+                '<span class="title">' +
+                    '<span class="name">'+ escape(item.name) + '</span>' +
+                '</span>' +
+              '</div>';
+          }
+      },
+      load: function(query, callback) {
+        if (!query.length) return callback();
+        $.ajax({
+          url: 'http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/api/v0/agents/search/?name=' + encodeURIComponent(query) + '&type=agent',
+          type: 'GET',
+          error: function() {
+            callback();
+          },
+          success: function(res) {
+            callback(res.slice(0, 10));
+          }
+        });
+      },
+      onInitialize: function(){
+        console.log(this.$input.attr('values'));
+        // var items = JSON.parse(this.$input.attr('values'));
+        // if (items != null) {
+        //   for (var i = items.length - 1; i >= 0; i--) {
+        //     this.addOption(items[i]);
+        //     this.addItem(items[i].id);
+        //   };
+        // };
+        
+      },
+      onItemAdd: function(e){
+        $.ajax({
+          url: 'http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/api/v0/agents/search/?type=branch&branch_id=' + e,
+          type: 'GET',
+          error: function() {
+            console.log('Error in getting branches');
+          },
+          success: function(res) {
+            child_selectize = $('#select-branch')[0].selectize;
+            for (var i = res.length - 1; i >= 0; i--) {
+              child_selectize.addOption(res[i]);
+              child_selectize.addItem(res[i].id);
+            };
+          }
+        });
+      }
+
+    });
+  
+    $('#select-branch').selectize({
+      valueField: 'id',
+      labelField: 'name',
+      searchField: 'name',
+      options: [],
+      create: false,
+      render: {
+        option: function(item, escape) {
+            return '<div>' +
+                '<span class="title">' +
+                    '<span class="name">'+ escape(item.name) + '</span>' +
+                '</span>' +
+              '</div>';
+          }
+      },
+      load: function(query, callback) {
+        if (!query.length) return callback();
+
+      },
+      onInitialize: function(){
+        console.log(this.$input.attr('values'));
+        // var items = JSON.parse(this.$input.attr('values'));
+        // if (items != null) {
+        //   for (var i = items.length - 1; i >= 0; i--) {
+        //     this.addOption(items[i]);
+        //     this.addItem(items[i].id);
+        //   };
+        // };
+
+      }
+
+    });
+
+
+});
+
+
+
+</script>

@@ -12,10 +12,10 @@ Devise.setup do |config|
   # Configure the e-mail address which will be shown in Devise::Mailer,
   # note that it will be overwritten if you use your own mailer class
   # with default "from" parameter.
-  config.mailer_sender = 'please-change-me-at-config-initializers-devise@example.com'
+  config.mailer_sender = 'residentevil293@gmail.com'
 
   # Configure the class responsible to send e-mails.
-  # config.mailer = 'Devise::Mailer'
+  config.mailer = 'Devise::Mailer'
 
   # ==> ORM configuration
   # Load and configure the ORM. Supports :active_record (default) and
@@ -241,7 +241,7 @@ Devise.setup do |config|
   config.omniauth :twitter, ENV['twitter_api_key'], ENV['twitter_api_secret'],
                   {image_size: 'original', provider_ignores_state: true}
   config.omniauth :facebook, ENV['facebook_app_id'], ENV['facebook_app_secret'],
-                  {scope: 'email', info_fields: 'email, name', provider_ignores_state: true}
+                  {scope: 'email', info_fields: 'email, name, first_name, last_name, picture', provider_ignores_state: true}
   OpenSSL::SSL::VERIFY_PEER = OpenSSL::SSL::VERIFY_NONE if Rails.env.development? 
   config.omniauth :google_oauth2, ENV['google_app_id'], ENV['google_app_secret'],
                   {scope: 'email, profile', image_aspect_ratio: 'square',  image_size: 90, provider_ignores_state: true, access_type: 'online' }

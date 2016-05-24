@@ -1,0 +1,61 @@
+<script src="http://localhost:3000/underscore.min.js"></script>
+<script src="http://localhost:3000/jquery.min.js"></script>
+<script src="http://localhost:3000/backbone.min.js"></script>
+<script src="http://localhost:3000/backbone-forms.min.js"></script>
+<script src="http://localhost:3000/bootstrap.min.js"></script>
+<script src="http://localhost:3000/jasny-bootstrap.js"></script>
+<script src="http://localhost:3000/selectize.js"></script>
+<script src="http://localhost:3000/bootstrapValidator.min.js"></script>
+<link rel="stylesheet" type="text/css" href="http://localhost:3000/bootstrap.min.css"/>
+<link rel="stylesheet" type="text/css" href="http://localhost:3000/jasny-bootstrap.css"/>
+<link rel="stylesheet" type="text/css" href="http://localhost:3000/selectize.min.css"/>
+
+<div class="col-md-6">
+  <div class="row" style="margin: auto;text-align: center;">
+    <h1>Step 1 out of 1</h1>
+    <p>We ask that you update the status of this property as soon as it changes. For example, if your status is red and you decide to move it to amber, buyers and agents will see this change and it will improve your chances of securing enquiries and ultimately the best possible sale price when you do decide to sell.</p>
+  </div>
+
+  <div id="content">
+    <form id="contact_form" action="/properties/change/status" method="post" role="form" data-toggle="validator">
+      <fieldset>
+
+        <input type="hidden" class="form-control" id="property_id" name="property_id" value="<%=@property_id%>">
+        <input type="hidden" class="form-control" id="property_status_value" name="property_status_value" value="<%=@property_status%>">
+        <div class="form-group">
+          <label for="property_status">Property Status</label>
+          <div class="row"></div>
+          <div class="radio">
+            <label><input type="radio" name="property_status" value="Green" required>Green</label>
+          </div>
+          <div class="radio">
+            <label><input type="radio" name="property_status"  value="Amber">Amber</label>
+          </div>
+          <div class="radio">
+            <label><input type="radio" name="property_status"  value="Red">Red</label>
+          </div>
+        </div>
+
+
+      </fieldset>
+      <button type="submit" class="btn btn-default">Confirm</button>
+    </form>
+  </div>
+</div>
+
+<script type="text/javascript">
+  $(function() {
+  
+    var elems = $('[name=property_status]');
+    var property_status_value = $('#property_status_value').attr('value');
+    for (var i = elems.length - 1; i >= 0; i--) {
+      if ($(elems[i]).attr('value') == property_status_value) {
+        $(elems[i]).attr('checked', true);
+      };
+    };
+
+});
+
+
+
+</script>

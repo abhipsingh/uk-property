@@ -2,7 +2,7 @@ Rails.application.routes.draw do
   devise_for :property_users,
              path_names: { sign_in: 'login', sign_out: 'logout', password: 'secret', confirmation: 'verification',
                            unlock: 'unblock', sign_up: 'register' },
-             :controllers => { :omniauth_callbacks => 'property_users/omniauth_callbacks', registrations: 'property_users/registrations'}
+             :controllers => { :omniauth_callbacks => 'property_users/omniauth_callbacks', registrations: 'property_users/registrations', confirmations: 'confirmations'}
 
   get 'welcome/index'
   # The priority is based upon order of creation: first created -> highest priority.
@@ -23,6 +23,13 @@ Rails.application.routes.draw do
   get 'addresses/predictions', to: 'application#predictive_search'
   get 'addresses/predictions/results', to: 'application#get_results_from_hashes'
   post 'addresses/follow', to: 'application#follow'
+  get 'properties/claim/short/callback', to: 'properties#claim_property'
+  post  'properties/claim/short', to: 'properties#claim_property'
+  post 'properties/profile/submit', to: 'properties#complete_profile'
+  get 'properties/sign/confirm', to: 'properties#signup_after_confirmation'
+  post 'properties/sign/confirm', to: 'properties#property_status'
+  post 'properties/change/status', to: 'properties#custom_agent_service'
+  post 'properties/agents/services', to: 'properties#final_quotes'
   namespace :api do
     namespace :v0 do
       get  'properties/search',                      to: 'property_search#search'
