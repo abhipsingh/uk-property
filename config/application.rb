@@ -9,6 +9,7 @@ require 'rack/cors'
 # Require the gems listed in Gemfile, including any gems
 # you've limited to :test, :development, or :production.
 Bundler.require(*Rails.groups)
+require 'rails/all'
 
 module TestApp
   ### Application level configs
@@ -32,6 +33,7 @@ module TestApp
     config.active_record.logger = nil
     config.assets.initialize_on_precompile = false
     config.assets.paths << "#{Rails.root}/vendor/assets/fonts"
+    config.active_record.raise_in_transactional_callbacks = true
     
   end
   

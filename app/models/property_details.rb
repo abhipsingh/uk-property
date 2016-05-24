@@ -17,7 +17,11 @@ class PropertyDetails
     published_address += ', ' + details[:building_name] if details.has_key?(:building_name)
     published_address += ', ' + details[:building_number] if details.has_key?(:building_number)
     published_address += ', ' + details[:dependent_thoroughfare_description] if details.has_key?(:dependent_thoroughfare_description)
-    published_address += ', ' + details[:dependent_locality] if details.has_key?(:dependent_locality)
+    if details.has_key?(:dependent_locality) && details[:dependent_locality].is_a?(Array)
+      published_address += ', ' + details[:dependent_locality].join(',')  
+    else
+      published_address += ', ' + details[:dependent_locality] if details.has_key?(:dependent_locality)
+    end
     published_address += ', ' + details[:post_town] if details.has_key?(:post_town)
     published_address += ', ' + details[:county] if details.has_key?(:county)
     published_address += ', ' + details[:postcode] if details.has_key?(:postcode)

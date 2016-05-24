@@ -1,0 +1,30 @@
+%script(src="http://localhost:3000/underscore.min.js")
+%script(src="http://localhost:3000/jquery.min.js")
+%script(src="http://localhost:3000/backbone.min.js")
+%script(src="http://localhost:3000/backbone-forms.min.js")
+%script(src="http://localhost:3000/bootstrap.min.js")
+%script(src="http://localhost:3000/jasny-bootstrap.js")
+%link{:rel => :stylesheet, :type => :"text/css", :href => "http://localhost:3000/bootstrap.min.css"}
+%link{:rel => :stylesheet, :type => :"text/css", :href => "http://localhost:3000/jasny-bootstrap.css"}
+.login-box-body
+  .container.container-table
+    .row.vertical-center-row
+      .text-center.col-xs-4.col-md-offset-4
+        %p.login-box-msg Sign in to start your session
+        = form_for(@property_user, url: '/properties/sign/confirm', method: 'post') do |f|
+          = devise_error_messages!
+          .form-group.has-feedback
+            = f.text_field :email, class: 'form-control', placeholder: 'Email', autofocus: true, value: @email
+            %span.glyphicon.glyphicon-envelope.form-control-feedback
+          .form-group.has-feedback
+            = f.password_field :password, class: 'form-control', placeholder: 'Password', autocomplete: 'off'
+            %span.glyphicon.glyphicon-lock.form-control-feedback
+          .checkbox.icheck
+            %label
+              %input{:type => 'checkbox'}
+                Remember Me
+          / /.col
+          = f.submit 'Sign in', class: 'btn btn-primary btn-block btn-flat'
+        / /.col
+        = render 'devise/shared/links'
+  / /.login-box-body

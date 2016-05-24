@@ -1,0 +1,215 @@
+<script src="http://localhost:3000/underscore.min.js"></script>
+<script src="http://localhost:3000/jquery.min.js"></script>
+<script src="http://localhost:3000/backbone.min.js"></script>
+<script src="http://localhost:3000/backbone-forms.min.js"></script>
+<script src="http://localhost:3000/bootstrap.min.js"></script>
+<script src="http://localhost:3000/jasny-bootstrap.js"></script>
+<script src="http://localhost:3000/selectize.js"></script>
+<script src="http://localhost:3000/bootstrapValidator.min.js"></script>
+<link rel="stylesheet" type="text/css" href="http://localhost:3000/bootstrap.min.css"/>
+<link rel="stylesheet" type="text/css" href="http://localhost:3000/jasny-bootstrap.css"/>
+<link rel="stylesheet" type="text/css" href="http://localhost:3000/selectize.min.css"/>
+
+<div class="col-md-12">
+  <div class="row" style="margin: auto;text-align: center;">
+    <h1>Service Options</h1>
+  </div>
+
+  <div class="col-md-6">
+    <form class="form-right" id="main_form" action="/properties/agents/services" method="post">
+      <fieldset>
+        <input type="hidden" class="form-control" id="property_id" name="property_id" value="<%=@property_id%>">
+        <input type="hidden" class="form-control" id="action_type" name="action_type" value="">
+        <div class="panel panel-default">
+          <div class="panel-heading">Setup</div>
+          <div class="panel-body">
+            <div class="form-group">
+              <div class="row"></div>
+                <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+                   <input type="checkbox" name="setup[]" checkboxname="setup" value="Market valuation">Market valuation
+                </label>
+
+                <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+                   <input type="checkbox" name="setup[]"  checkboxname="setup" value="Photographs">Photographs
+                </label>
+
+                <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+                   <input type="checkbox" name="setup[]"  checkboxname="setup" value="Floor plan">Floor plan
+                </label>
+
+                <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+                   <input type="checkbox" name="setup[]"  checkboxname="setup" value="Property description">Property description
+                </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel panel-default">
+          <div class="panel-heading">Advertising</div>
+          <div class="panel-body">
+            <div class="form-group">
+              <div class="row"></div>
+                <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+                   <input type="checkbox" checkboxname="advertising" name="advertising[]" value="For sale board">For sale board
+                </label>
+
+                <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+                   <input type="checkbox" checkboxname="advertising" name="advertising[]" value="Featured property for 30 days">Featured property for 30 days
+                </label>
+
+                <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+                   <input type="checkbox" checkboxname="advertising" name="advertising[]" value="Premium property for 30 days">Premium property for 30 days
+                </label>
+
+                <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+                   <input type="checkbox" checkboxname="advertising"  name="advertising[]" value="Rightmove listing">Rightmove listing
+                </label>
+
+                <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+                   <input type="checkbox" checkboxname="advertising"  name="advertising[]" value="Zoopla listing">Zoopla listing
+                </label>
+
+                <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+                   <input type="checkbox" checkboxname="advertising"  name="advertising[]" value="Primelocation listing">Primelocation listing
+                </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel panel-default">
+          <div class="panel-heading">Viewings</div>
+          <div class="panel-body">
+            <div class="form-group">
+              <div class="row"></div>
+
+                <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+                   <input type="checkbox" checkboxname="viewings" name="viewings[]" value="Buyer qualification">Buyer qualification
+                </label>
+
+                <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+                   <input type="checkbox" checkboxname="viewings" name="viewings[]" value="Schedule viewings">Schedule viewings
+                </label>
+                <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+                   <input type="checkbox" checkboxname="viewings" name="viewings[]" value="Conduct viewings">Conduct viewings
+                </label>
+
+            </div>
+          </div>
+        </div>
+
+        <div class="panel panel-default">
+          <div class="panel-heading">Negotiation</div>
+          <div class="panel-body">
+            <div class="form-group">
+              <div class="row"></div>
+
+                <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+                   <input type="checkbox" checkboxname="negotiation" name="negotiation[]" value="Buyer negotiation">Buyer negotiation
+                </label>
+
+            </div>
+          </div>
+        </div>
+
+        <div class="panel panel-default">
+          <div class="panel-heading">Sales progression</div>
+          <div class="panel-body">
+            <div class="form-group">
+              <div class="row"></div>
+
+                <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+                   <input type="checkbox" checkboxname="sales_progression" value="Under offer" name="sales_progression[]">Under offer
+                </label>
+
+                <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+                   <input type="checkbox" checkboxname="sales_progression" value="Memorandum of sale" name="sales_progression[]">Memorandum of sale
+                </label>
+
+                <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+                   <input type="checkbox" checkboxname="sales_progression" value="Mortgage valuation" name="sales_progression[]">Mortgage valuation
+                </label>
+
+                <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+                   <input type="checkbox" checkboxname="sales_progression" value="Conveyance" name="sales_progression[]">Conveyance
+                </label>
+
+                <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+                   <input type="checkbox" checkboxname="sales_progression" value="Exchange" name="sales_progression[]">Exchange
+                </label>
+
+                <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+                   <input type="checkbox" checkboxname="sales_progression" value="Complete" name="sales_progression[]">Complete
+                </label>
+
+            </div>
+          </div>
+        </div>
+
+        <div class="panel panel-default">
+          <div class="panel-heading">Other</div>
+          <div class="panel-body">
+            <div class="form-group">
+              <div class="row"></div>
+
+                <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+                   <input type="checkbox" checkboxname="other" name="other[]" value="EPC Certification">EPC Certification
+                </label>
+
+            </div>
+          </div>
+        </div>
+        <input type="hidden" class="form-control" id="agent_id" name="agent_id" value="<%= @agent_id %>">
+       
+      </fieldset>
+      <button type="submit" class="btn btn-default" id="all_agents_custom">Quote from agents</button>
+      <button type="submit" class="btn btn-default" id="first_agent_custom">I just need a quote from <%= @agent_name %></button>
+    </form>
+  </div>
+
+  <div class="col-md-6">
+    <form class="form-left" id="main_form2" action="/properties/agents/services" method="post">
+      <fieldset>
+
+        <div class="panel panel-default">
+          <div class="panel-heading">Fixed Setup</div>
+          <div class="panel-body">
+            <div class="form-group">
+              <div class="row"></div>
+                <label class="checkbox form-group" style="font-weight: 400; margin-left: 1.8%;">
+                   <input type="checkbox" checkboxname="full_service">Just quote me for the full service
+                </label>
+            </div>
+          </div>
+        </div>
+        <input type="hidden" class="form-control" id="action_type" name="action_type" value="">
+        <input type="hidden" class="form-control" id="property_id" name="property_id" value="<%=@property_id%>">
+        <input type="hidden" class="form-control" id="agent_id" name="agent_id" value="<%= @agent_id %>">
+      </fieldset>
+      <button type="submit" class="btn btn-default" id="all_agents_full">Quote from agents</button>
+      <button type="submit" class="btn btn-default" id="first_agent_full">I just need a quote from <%= @agent_name %></button>
+    </form>
+  </div>
+</div>
+
+
+<script type="text/javascript">
+  $(function() {
+
+    function post_agents_services(action, params, type){
+
+    };
+
+    $('#all_agents_custom').click(function(e){
+      $('#main_form').find('[name=action_type]').attr('value', 'all_agents_custom');
+    });
+    $('#all_agents_full').click(function(e){
+      $('#main_form2').find('[name=action_type]').attr('value', 'all_agents_full');
+    });
+    $('#first_agent_custom').click(function(e){
+      $('#main_form').find('[name=action_type]').attr('value', 'first_agent_custom');
+    });
+    $('#first_agent_full').click(function(e){
+      $('#main_form2').find('[name=action_type]').attr('value', 'first_agent_full');
+    });
+});
+</script>

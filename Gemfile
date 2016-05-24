@@ -1,6 +1,7 @@
 source 'https://rubygems.org'
 # Bundle edge Rails instead: gem 'rails', github: 'rails/rails'
 gem 'activemodel', '4.2.0'
+gem 'actionmailer', '4.2.0'
 gem 'railties', '4.2.0'
 
 # Use SCSS for stylesheets
@@ -15,6 +16,7 @@ gem 'oj'
 gem 'sprockets', '2.11.0'
 gem 'minitest'
 gem 'devise'
+gem 'httparty'
 
 # # See https://github.com/sstephenson/execjs#readme for more supported runtimes
 # gem 'therubyracer', platforms: :ruby
@@ -28,7 +30,6 @@ gem 'turbolinks'
 # bundle exec rake doc:rails generates the API under doc/api.
 gem 'sdoc', '~> 0.4.0', group: :doc
 gem 'rack-cors'
-gem 'actionmailer'
 gem 'io-console'
 gem 'bulk_insert'
 gem 'redis'
@@ -42,6 +43,7 @@ gem 'bootstrap-sass', '~> 3.3.4.1'
 gem 'haml-rails'
 gem 'adminlte2-rails', '~> 0.0.6'
 gem 'sass-rails', '~> 4.0.0'
+gem 'selectize-rails'
 ###
 
 

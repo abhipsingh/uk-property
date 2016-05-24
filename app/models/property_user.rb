@@ -16,13 +16,16 @@ class PropertyUser < ActiveRecord::Base
   end
 
   def self.from_omniauth(auth)
-    provider, uid, email, full_name, image= nil
+    provider, uid, email, full_name, first_name, last_name, profile_type, image= nil
     if auth.is_a?(Hash)
       provider = auth['provider']
       uid = auth['uid']
-      email = auth['info']['email'] if auth['info']['email']
-      full_name = auth['info']['name']
-      image = auth['info']['image']
+      email = auth['email']
+      full_name = auth['first_name'] + '|' + auth['last_name']
+      first_name = auth['first_name']
+      last_name = auth['last_name']
+      profile_type = auth['profile_type']
+      image = "aaa"
     else
       provider = auth.provider
       uid = auth.uid
@@ -38,11 +41,22 @@ class PropertyUser < ActiveRecord::Base
       user.image = image
       user.provider = provider
       user.uid = uid
+      user.first_name = first_name
+      user.last_name = last_name
+      user.profile_type = profile_type
       user.password = Devise.friendly_token[0,20]
-      user.skip_confirmation!
+      # user.skip_confirmation!
     end
 
     user
+  end
+
+  def self.image(user_data, provider)
+    if provider == 'facebook'
+      # user_data['info']['picture']
+    else
+      # user_data['info']['image']
+    end
   end
 
   def send_devise_notification(notification, *args)
