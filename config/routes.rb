@@ -12,6 +12,7 @@ Rails.application.routes.draw do
   root 'welcome#index'
 
   get '/auth/:provider/callback', to: 'sessions#create'
+  get 'properties/new/short', to: 'properties#short_form'
   get 'postcodes/search', to: 'application#search_postcode'
   get 'addresses/search', to: 'application#search_address'
   get 'properties/:udprn/edit', to: 'properties#edit'
@@ -25,6 +26,7 @@ Rails.application.routes.draw do
   namespace :api do
     namespace :v0 do
       get  'properties/search',                      to: 'property_search#search'
+      get  'agents/search',                          to: 'agents#search'
       get  'ads/availability',                       to: 'vendor_ad#ads_availablity'
       get  'locations/:id/version',                  to: 'vendor_ad#correct_version'
       post 'ads/payments/new',                       to: 'vendor_ad#new_payment'

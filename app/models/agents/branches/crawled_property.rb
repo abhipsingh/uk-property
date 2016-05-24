@@ -7,7 +7,7 @@ module Agents
         s3 = Aws::S3::Resource.new
         images = []
         stored_response['image_urls'].map{ |t| File.basename(t) }.each do |image|
-          obj = s3.bucket('propertyuk').object(file_name)
+          obj = s3.bucket('propertyuk').object(image)
           images.push(obj.presigned_url(:get, expires_in: 300))
         end
         images
