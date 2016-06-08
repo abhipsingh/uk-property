@@ -30,6 +30,7 @@ module TestApp
         resource '*', :headers => :any, :methods => [:get, :post, :put, :delete, :options]
       end
     end
+    # config.load_paths << "#{Rails.root}/app/services"
     config.active_record.logger = nil
     config.assets.initialize_on_precompile = false
     config.assets.paths << "#{Rails.root}/vendor/assets/fonts"

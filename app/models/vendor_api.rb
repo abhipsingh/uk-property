@@ -75,14 +75,14 @@ class VendorApi
   end
 
   def calculate_price_info(price, sale_info, first_sale_info)
-    if sale_info
+    if price && sale_info && sale_info[:price_paid] && first_sale_info[:price_paid]
       {
         price: price,
         inflation_price: sale_info[:inflation_adjusted_price],
         inflation_price_diff:   (price.to_f - sale_info[:inflation_adjusted_price].to_f),
         inflation_price_diff_percent:   ((price.to_f - sale_info[:inflation_adjusted_price].to_f)/(sale_info[:inflation_adjusted_price].to_f)).round(2)*100,
         last_sale_price: sale_info[:price_paid],
-        last_sale_price_diff: price - sale_info[:price_paid],
+        last_sale_price_diff: price_paid - sale_info[:price_paid],
         last_sale_price_diff_percent: ((price - sale_info[:price_paid])/sale_info[:price_paid]).round(2)*100,
         first_sale_price: first_sale_info[:price_paid],
         first_sale_price_diff: price - first_sale_info[:price_paid],

@@ -26,13 +26,11 @@ class PropertiesController < ActionController::Base
   end
 
   def claim_property
-    if params[:udprn]
-      @detail = TempPropertyDetail.create(details: short_form_params, udprn: params[:udprn]) if params[:udprn]
-      @udprn = params[:udprn]
-      @user = params[:user]
-      @detail_id = params[:detail_id]
-      render 'short_contact_form'
-    end
+    @detail = TempPropertyDetail.create(details: short_form_params, udprn: params[:udprn]) if params[:udprn]
+    @udprn = params[:udprn]
+    @user = params[:user]
+    @detail_id = params[:detail_id]
+    render 'short_contact_form'
   end
 
   def complete_profile
@@ -44,7 +42,7 @@ class PropertiesController < ActionController::Base
     if @user.profile_type == 'Vendor'
       @temp.vendor_id = @user.id
     else
-      @temp.agent_id = @temp['details']['branch']
+      @temp.agent_id = @temp['details']['branch'].to_i
     end
     @temp.user_id = @user.id
     @temp.save
@@ -64,7 +62,8 @@ class PropertiesController < ActionController::Base
   def property_status
     user = PropertyUser.find_by_email(params['property_user']['email'])
     if user && user.valid_password?(params['property_user']['password'])
-      temp_detail = TempPropertyDetail.where('vendor_id = ? OR agent_id = ?', user.id, user.id).last
+      Rails.logger.info("INFOO_#{user.id}")
+      temp_detail = TempPropertyDetail.where('user_id = ?', user.id).last
       if temp_detail
         @property_status = temp_detail.details['property_status']
         @property_id = temp_detail.id
@@ -85,7 +84,6 @@ class PropertiesController < ActionController::Base
   end
 
   def final_quotes
-    p params
     agent_services = params.except(:controller, :action, :property_id, :agent_id)
     property_id = params[:property_id]
     temp_property = TempPropertyDetail.where(id: property_id.to_i).last

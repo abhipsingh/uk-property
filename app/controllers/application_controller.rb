@@ -2,9 +2,11 @@
 class ApplicationController < ActionController::Base
   # Prevent CSRF attacks by raising an exception.
   # For APIs, you may want to use :null_session instead.
-	#  before_action :authenticate_property_user!
+  before_action :authenticate_property_user!, except: [:follow]
   protect_from_forgery with: :exception
-#
+
+  skip_before_action :verify_authenticity_token
+
   def after_sign_in_path_for(resource)
     stored_location_for(resource) || (root_path)
   end
@@ -845,8 +847,8 @@ class ApplicationController < ActionController::Base
   end
 
   def follow
-    location_type = params[:location_type]
-    location_text = params[:location_text]
+    location_type = params[:entity_type]
+    location_text = params[:entity_id]
     ## Process afterwards
     render json: "Location #{location_text} followed", status: 200
   end
