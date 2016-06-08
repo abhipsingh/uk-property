@@ -42,9 +42,23 @@ Rails.application.routes.draw do
       post 'property_users/update/udprns',           to: 'property_search#update_viewed_flats'
       post 'property_users/update/udprns/shortlist', to: 'property_search#update_shortlisted_udprns'
       post 'vendors/update/property_users',          to: 'property_search#notify_vendor_of_users'
-      post 'buyers/new/search',                      to: 'property_search#save_searches'
-      get  'buyers/searches',                        to: 'property_search#show_save_searches'
     end
   end
+  post 'buyers/new/search',                       to: 'property_users/searches#new_saved_search'
+  post 'buyers/override/search',                  to: 'property_users/searches#override_saved_searches'
+  get  'buyers/searches',                         to: 'property_users/searches#saved_searches'
+  get  'buyers/shortlist',                        to: 'property_users/searches#shortlisted_udprns'
+  post 'buyers/new/shortlist',                    to: 'property_users/searches#new_shortlist'
+  post 'buyers/delete/shortlist',                 to: 'property_users/searches#delete_shortlist'
+  get  'buyers/callbacks',                        to: 'property_users/searches#callbacks'
+  post 'buyers/new/callbacks',                    to: 'property_users/searches#new_callbacks'
+  get  'buyers/viewings',                         to: 'property_users/searches#viewings'
+  post 'buyers/new/viewings',                     to: 'property_users/searches#new_viewings'
+  get  'buyers/offers',                           to: 'property_users/searches#offers'
+  post 'buyers/new/offers',                       to: 'property_users/searches#new_offers'
+  get  'buyers/messages',                         to: 'property_users/searches#messages'
+  post 'buyers/new/message',                      to: 'property_users/searches#new_message'
+  get  'buyers/matrix/searches',                  to: 'property_users/searches#matrix_searches'
+  post 'buyers/new/matrix/search',                to: 'property_users/searches#new_matrix_search'
   resources :charges
 end

@@ -21,9 +21,9 @@
   <div id="content">
       <% if !(@user && @user['info']['email']) %>
     <div class="text-center">
-      <%= link_to ('Sign in using Facebook', property_user_facebook_omniauth_authorize_path+ "?detail_id=#{((@detail.id) rescue "")}") %>
+      <%= link_to ('Sign in using Facebook', property_user_facebook_omniauth_authorize_path+ "?detail_id=#{((@detail.id) rescue "")}&udprn=#{@udprn}") %>
     
-      <%= link_to('Sign in using Google+', property_user_google_oauth2_omniauth_authorize_path+"?detail_id=#{((@detail.id) rescue "")}") %>
+      <%= link_to('Sign in using Google+', property_user_google_oauth2_omniauth_authorize_path+"?detail_id=#{((@detail.id) rescue "")}&udprn=#{@udprn}") %>
     
 
     </div>

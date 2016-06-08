@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20160524122702) do
+ActiveRecord::Schema.define(version: 20160607234403) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -42,6 +42,17 @@ ActiveRecord::Schema.define(version: 20160524122702) do
 
   add_index "agents_branches_crawled_properties", ["latitude", "longitude"], name: "uniq_property", unique: true, using: :btree
   add_index "agents_branches_crawled_properties", ["tags"], name: "index_agents_branches_crawled_properties_on_tags", using: :gin
+
+  create_table "messages", force: :cascade do |t|
+    t.text     "content"
+    t.integer  "from"
+    t.integer  "to"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  add_index "messages", ["from"], name: "index_messages_on_from", using: :btree
+  add_index "messages", ["to"], name: "index_messages_on_to", using: :btree
 
   create_table "property_buyers", force: :cascade do |t|
     t.jsonb    "searches",       default: [], null: false
@@ -88,6 +99,13 @@ ActiveRecord::Schema.define(version: 20160524122702) do
     t.string   "first_name"
     t.string   "last_name"
     t.string   "profile_type"
+    t.jsonb    "saved_searches",         default: []
+    t.integer  "shortlisted_flat_ids",   default: [],              array: true
+    t.jsonb    "messages",               default: []
+    t.jsonb    "callbacks",              default: []
+    t.jsonb    "viewings",               default: []
+    t.jsonb    "offers",                 default: []
+    t.jsonb    "matrix_searches",        default: []
   end
 
   add_index "property_users", ["confirmation_token"], name: "index_property_users_on_confirmation_token", unique: true, using: :btree

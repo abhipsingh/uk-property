@@ -1,4 +1,3 @@
-
 require 'base64'
 require 'elasticsearch/persistence'
 class PropertyDetailsRepo
@@ -10,8 +9,8 @@ class PropertyDetailsRepo
   RESULTS_PER_PAGE = 20
   MAX_RESULTS_PER_PAGE = 150
   FIELDS = {
-    terms: [:property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_features_types],
-    term:  [:tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :listing_type, :council_tax_band, :verification],
+    terms: [:property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :keyword_types],
+    term:  [:tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :listing_type, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off],
     range: [:budget, :cost_per_month, :date_added, :floors, :year_built, :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, :time_frame, :dream_price],
   }
 
@@ -60,6 +59,7 @@ class PropertyDetailsRepo
     inst = inst.append_term_filters
     inst = inst.append_range_filters
     inst = inst.append_sort_filters
+    Rails.logger.info(inst.query)
     body, status = post_url(inst.query, 'addresses', 'address')
     body = JSON.parse(body)['hits']['hits'].map { |t| t['_source']['score'] = t['matched_queries'].count ;t['_source']; }
     return { results: body }, status
@@ -78,7 +78,7 @@ class PropertyDetailsRepo
   def append_term_filters
     inst = self
     term_filters = @filtered_params.keys & FIELDS[:term]
-    term_filters.each{|t| inst = inst.append_term_filter_query(t,@filtered_params[t])}
+    term_filters.each{|t| inst = inst.append_term_filter_query(t,@filtered_params[t], :and)}
     inst
   end
 
@@ -97,7 +97,7 @@ class PropertyDetailsRepo
   def append_terms_filters
     inst = self
     terms_filters = @filtered_params.keys & FIELDS[:terms]
-    terms_filters.each{|t|  inst = inst.append_terms_filter_query(t.to_s.singularize, @filtered_params[t].split(","))}
+    terms_filters.each{|t|  inst = inst.append_terms_filter_query(t.to_s.singularize, @filtered_params[t].split(","), :and)}
     inst
   end
 
@@ -147,11 +147,12 @@ class PropertyDetailsRepo
     alphabets = ('A'..'Z').to_a
     addresses = get_bulk_addresses
     names = ['John Doe', 'John Smith', 'Garry Edwards']
-    scroll_id = 'cXVlcnlUaGVuRmV0Y2g7NTs5NzY6VmtJQjVxWUhTdmUxU04zeTEzTGs0QTs5Nzg6VmtJQjVxWUhTdmUxU04zeTEzTGs0QTs5Nzc6VmtJQjVxWUhTdmUxU04zeTEzTGs0QTs5Nzk6VmtJQjVxWUhTdmUxU04zeTEzTGs0QTs5ODA6VmtJQjVxWUhTdmUxU04zeTEzTGs0QTswOw=='
+    scroll_id = 'cXVlcnlUaGVuRmV0Y2g7NTs3MTk2OkNvamwtRG1oUnU2cl9GbC0zSHpFcXc7NzE5NzpDb2psLURtaFJ1NnJfRmwtM0h6RXF3OzcxOTg6Q29qbC1EbWhSdTZyX0ZsLTNIekVxdzs3MTk5OkNvamwtRG1oUnU2cl9GbC0zSHpFcXc7NzIwMDpDb2psLURtaFJ1NnJfRmwtM0h6RXF3OzA7'
     glob_counter = 0
     loop do
       get_records_url = 'http://localhost:9200/_search/scroll'
-      scroll_hash = { scroll: '1m', scroll_id: scroll_id }
+      p 'hello'
+      scroll_hash = { scroll: '15m', scroll_id: scroll_id }
       response , status = post_url_new(scroll_hash)
       udprns = JSON.parse(response)["hits"]["hits"].map { |t| t['_source']['udprn']  }
       break if udprns.length == 0
@@ -163,15 +164,24 @@ class PropertyDetailsRepo
           doc[key] = values.sample(1).first
         end
         doc[:year_built] = doc[:year_built].to_s+"-01-01"
-        doc[:date_added] = Time.at((start_date.to_f - ending_date.to_f)*rand + start_date.to_f).utc.strftime('%Y-%m-%d %H:%M:%S')
+        doc[:date_added] = Time.at((start_date.to_f - ending_date.to_f)*rand + start_date.to_f).utc.strftime('%Y-%m-%d')
         doc[:time_frame] = time_frame_years.sample(1).first.to_s + "-01-01"
         doc[:external_property_size] = doc[:internal_property_size] + 100
         doc[:total_property_size] = doc[:external_property_size] + 100
+        doc[:additional_features_type] = [doc[:additional_features_type]]
         doc[:budget] = doc[:price]
-        doc[:valuation] = 1.3 * doc[:price]
-        doc[:broker_name] = nil
-        doc[:broker_name_new] = names.sample(1).first
-        doc[:broker_branch_image] = "http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/prop.jpg"
+        doc[:valuation] = (doc[:price].to_f/(1.3)).to_i
+        doc[:valuation_date] = (1..30).to_a.sample(1).first.days.ago.to_date.to_s
+        doc[:dream_price] = doc[:price]
+        doc[:last_sale_price] = ((doc[:price].to_f)/(2.3)).to_f
+        doc[:last_sale_price_date] = (1..5).to_a.sample(1).first.years.ago.to_date.to_s
+        doc[:description] = 'Lorem Ipsum'
+        doc[:agent_branch_name] = names.sample(1).first
+        doc[:assigned_agent_employee_name] = "John Smith"
+        doc[:assigned_agent_employee_address] = "5 Bina Gardens"
+        doc[:assigned_agent_employee_image] = nil
+        doc[:last_updated_date] = "2015-09-21"
+        doc[:agent_logo] = "http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/prop.jpg"
         doc[:broker_branch_contact] = "020 3641 4259"
         doc[:date_updated] = 3.days.ago.to_date.to_s
         if doc[:photos] == "Yes"
@@ -186,17 +196,22 @@ class PropertyDetailsRepo
         end
 
         doc[:broker_logo] = "http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/prop3.jpg"
-        doc[:broker_contact] = "020 3641 4259"
+        doc[:agent_contact] = "020 3641 4259"
         description = ''
         doc[:description] = characters.sample(1).first.times do
           description += alphabets.sample(1).first
         end
-
+        doc[:interested_in_view] = "/api/v0/vendors/update/property_users?action_type=interested_in_view"
+        doc[:request_a_view] = "/api/v0/vendors/update/property_users?action_type=request_a_view"
+        doc[:make_offer] = "/api/v0/vendors/update/property_users?action_type=make_offer"
+        doc[:follow_street] = "/addresses/follow?location_type=dependent_thoroughfare_description"
+        doc[:follow_locality] = "/addresses/follow?location_type =dependent_locality"
         body.push({ update:  { _index: 'addresses', _type: 'address', _id: udprn, data: { doc: doc } }})
       end
-      client.bulk body: body unless body.empty?
+      response = client.bulk body: body unless body.empty?
+      p response['items'].first
       p "#{glob_counter} pASS completed"
-      glob_counter+=1
+      glob_counter += 1
     end
   end
 
@@ -207,7 +222,7 @@ class PropertyDetailsRepo
     result = http.post(uri,query)
     body = result.body
     status = result.code
-    return body,status
+    return body, status
   end
 
   def self.test_search
