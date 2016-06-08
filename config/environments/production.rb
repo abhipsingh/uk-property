@@ -4,6 +4,7 @@ Rails.application.configure do
 
   # Code is not reloaded between requests.
   config.cache_classes = true
+  Rails.logger = ActiveSupport::Logger.new(File.expand_path('/mnt3/rails_logs/production.log', __FILE__))
 
   # Eager load code on boot. This eager loads most of Rails and
   # your application in memory, allowing both threaded web servers
@@ -14,7 +15,16 @@ Rails.application.configure do
   # Full error reports are disabled and caching is turned on.
   config.consider_all_requests_local       = false
   config.action_controller.perform_caching = true
-
+  config.action_mailer.default_url_options = { :host => 'http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/' }
+	config.action_mailer.smtp_settings = {
+      :address              => "smtp.gmail.com",
+      :port                 => 587,
+      :domain               => "gmail.com",
+      :user_name            => ENV['SIGNUP_EMAIL'],
+      :password             => ENV['SIGNUP_PASSWORD'],
+      :authentication       => :login,
+      :enable_starttls_auto => true
+	}
 
   # Enable Rack::Cache to put a simple HTTP cache in front of your application
   # Add `rack-cache` to your Gemfile before enabling this.

@@ -1,14 +1,14 @@
-<script src="http://localhost:3000/underscore.min.js"></script>
-<script src="http://localhost:3000/jquery.min.js"></script>
-<script src="http://localhost:3000/backbone.min.js"></script>
-<script src="http://localhost:3000/backbone-forms.min.js"></script>
-<script src="http://localhost:3000/bootstrap.min.js"></script>
-<script src="http://localhost:3000/jasny-bootstrap.js"></script>
-<script src="http://localhost:3000/selectize.js"></script>
-<script src="http://localhost:3000/bootstrapValidator.min.js"></script>
-<link rel="stylesheet" type="text/css" href="http://localhost:3000/bootstrap.min.css"/>
-<link rel="stylesheet" type="text/css" href="http://localhost:3000/jasny-bootstrap.css"/>
-<link rel="stylesheet" type="text/css" href="http://localhost:3000/selectize.min.css"/>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/underscore.min.js"></script>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/jquery.min.js"></script>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/backbone.min.js"></script>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/backbone-forms.min.js"></script>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/bootstrap.min.js"></script>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/jasny-bootstrap.js"></script>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/selectize.js"></script>
+<script src="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/bootstrapValidator.min.js"></script>
+<link rel="stylesheet" type="text/css" href="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/bootstrap.min.css"/>
+<link rel="stylesheet" type="text/css" href="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/jasny-bootstrap.css"/>
+<link rel="stylesheet" type="text/css" href="http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/selectize.min.css"/>
 
 <div class="col-md-6">
   <div class="row" style="margin: auto;text-align: center;">
@@ -21,13 +21,11 @@
   <div id="content">
       <% if !(@user && @user['info']['email']) %>
     <div class="text-center">
-      <%= link_to ('Sign in using Facebook', property_user_facebook_omniauth_authorize_path+ "?detail_id=#{((@detail.id) rescue "")}") %>
+      <%= link_to('Sign in using Facebook',property_user_facebook_omniauth_authorize_path+ "?detail_id=#{((@detail.id) rescue "")}&udprn=#{@udprn}") %>
     
-      <%= link_to('Sign in using Google+', property_user_google_oauth2_omniauth_authorize_path+"?detail_id=#{((@detail.id) rescue "")}") %>
-    
-
-    </div>
+      <%= link_to('Sign in using Google+',property_user_google_oauth2_omniauth_authorize_path+"?detail_id=#{((@detail.id) rescue "")}&udprn=#{@udprn}") %>
   <% end %>
+    </div>
     <form id="contact_form" action="/properties/profile/submit" method="post" role="form" data-toggle="validator">
       <fieldset>
 
