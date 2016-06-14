@@ -11,7 +11,7 @@ class PropertyDetailsRepo
   FIELDS = {
     terms: [:property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :keyword_types],
     term:  [:tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :listing_type, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off],
-    range: [:budget, :cost_per_month, :date_added, :floors, :year_built, :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, :time_frame, :dream_price],
+    range: [:budget, :cost_per_month, :date_added, :floors, :year_built, :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, :time_frame, :dream_price, :valuation, :beds, :baths, :receptions],
   }
 
   RANDOM_SEED_MAP = {
@@ -43,6 +43,42 @@ class PropertyDetailsRepo
     floorplan: ["Yes", "No"]
   }
 
+  BUYER_STATUS_HASH = {
+    'Perfect' => {
+      'Green' => ['Green', 'Amber', 'Red'],
+      'Amber' => ['Amber', 'Red'],
+      'Red' => []
+    },
+    'Potential' => {
+      'Green' =>  ['Amber', 'Red'],
+      'Amber' => ['Amber', 'Red', 'Green'],
+      'Red' => []
+    },
+    'Unlikely' => {
+      'Green' => [],
+      'Amber' => [],
+      'Red' => ['Red', 'Green', 'Amber']
+    }
+  }
+
+  ### Type of match, Buyer status, Property status
+
+  PROPERTY_MATCH_HASH = {
+    'Perfect_Green_Green' => [],
+    'Perfect_Green_Amber' => [],
+    'Perfect_Green_Red' => [],
+    'Perfect_Amber_Amber' => [],
+    'Perfect_Amber_Red' => [],
+    'Potential_Green_Amber' => [:dream_price],
+    'Potential_Green_Red' => [:dream_price],
+    'Potential_Amber_Green' => [:dream_price],
+    'Potential_Amber_Amber' => [:dream_price],
+    'Potential_Amber_Red' => [:dream_price],
+    'Unlikely_Red_Green' => [:property_type, :beds],
+    'Unlikely_Red_Amber' => [:property_type, :beds, :dream_price],
+    'Unlikely_Red_Red' => [:property_type, :beds, :dream_price],
+  }
+
   def initialize(options={})
     index  options[:index] || 'property_details'
     client Elasticsearch::Client.new url: options[:url], log: options[:log]
@@ -60,9 +96,80 @@ class PropertyDetailsRepo
     inst = inst.append_range_filters
     inst = inst.append_sort_filters
     Rails.logger.info(inst.query)
+    inst = inst.modify_query
     body, status = post_url(inst.query, 'addresses', 'address')
     body = JSON.parse(body)['hits']['hits'].map { |t| t['_source']['score'] = t['matched_queries'].count ;t['_source']; }
     return { results: body }, status
+  end
+
+  def modify_query
+    inst = self
+    if @filtered_params.has_key?(:type_of_match)
+      type_of_match = @filtered_params[:type_of_match]
+      modify_type_of_match_query(type_of_match)
+    end
+    inst
+  end
+
+  def modify_type_of_match_query(type_of_match)
+    buyer_status = @filtered_params[:buyer_status]
+    if BUYER_STATUS_HASH[type_of_match][buyer_status].count > 0
+      property_status_types = BUYER_STATUS_HASH[type_of_match][buyer_status]
+      queries = []
+      property_status_types.each do |property_status_type|
+        queries.push(form_partial_query(property_status_type, buyer_status, type_of_match))
+      end
+      @query[:filter] = { or: { filters: queries }}
+    end
+      
+  end
+
+  def form_partial_query(property_status_type, buyer_status, type_of_match)
+    or_skeletion = basic_and_query.clone
+    fields = PROPERTY_MATCH_HASH["#{type_of_match}_#{buyer_status}_#{property_status_type}"]
+    fields ||= []
+    original_query = @query[:filter][:and][:filters]
+    new_query = original_query.clone
+    fields.map { |field| modify_query_for_field(field, original_query, new_query) }
+    property_status_query = { term: { property_status_type: property_status_type } }
+    new_query.push(property_status_query)
+    or_skeletion[:and][:filters] = new_query
+    or_skeletion
+  end
+
+  def modify_query_for_field(field, original_query, new_query)
+    field_query = new_query.select{ |v| v.values.first[:_name].to_s.to_sym == field.to_sym }.first
+    new_or_query = basic_or_query.clone
+    if field_query
+      new_query.reject!{ |v| v.values.first[:_name].to_s.to_sym == field.to_sym }
+      type_of_query = field_query.keys.first
+      negative_query_for_type(type_of_query.to_sym, field_query, new_or_query)
+      new_query.push(new_or_query)
+    end
+  end
+
+  def negative_query_for_type(type_of_query, field_query, new_or_query)
+    if type_of_query == :range
+      max_value = field_query[:range].values.first[:to]
+      min_value = field_query[:range].values.first[:from]
+      attribute = field_query[:range].keys.first
+      if max_value && min_value
+        new_or_query[:or][:filters].push({ range: { attribute => { to: min_value }}})
+        new_or_query[:or][:filters].push({ range: { attribute => { from: max_value }}})
+      elsif max_value
+        new_or_query[:or][:filters].push({ range: { attribute => { from: max_value }}})
+      elsif min_value
+        new_or_query[:or][:filters].push({ range: { attribute => { to: min_value }}})
+      end
+    elsif type_of_query == :term
+      value = field_query[:term].values.first
+      attribute = field_query[:term].keys.first
+      new_or_query[:or][:filters].push({ not: { filter: { term: { attribute => value }}}})
+    elsif type_of_query == :terms
+      values = field_query[:terms].values.first
+      attribute = field_query[:terms].keys.first
+      new_or_query[:or][:filters].push({ not: { filter: { terms: { attribute => values, execution: :and }}}})
+    end
   end
 
   def append_hash_filter
@@ -346,3 +453,5 @@ class PropertyDetailsRepo
 
 end
 
+### API calls for perfect, potential and unlikely matches
+### http://localhost:3000/api/v0/properties/search?property_style=Period&hash_str=LIVERPOOL&hash_type=Text&type_of_match=Unlikely&min_valuation=2&max_valuation=243000&min_total_property_size=240&max_total_property_size=3600000&property_types=Bungalow&min_beds=2&max_beds=3&min_receptions=2&max_receptions=3&min_baths=2&max_baths=3&buyer_status=Red&max_dream_price=240000&min_dream_price=100
