@@ -28,11 +28,11 @@ module Elasticsearch::Search::Filter
     def append_range_filter_query(field, min_value = nil, max_value = nil)
       unless @is_query_custom
         if min_value.nil? && max_value
-          build_filter_hash(field,{ range: { field => { to: max_value}}}) 
+          build_filter_hash(field,{ range: { field => { to: max_value}}}, :and) 
         elsif min_value && max_value.nil?
-          build_filter_hash(field,{ range: { field => { from: min_value}}}) 
+          build_filter_hash(field,{ range: { field => { from: min_value}}}, :and) 
         elsif max_value && min_value
-          build_filter_hash(field,{ range: { field => { from: min_value ,to: max_value}}}) 
+          build_filter_hash(field,{ range: { field => { from: min_value ,to: max_value}}}, :and) 
         end
         return self
       else
@@ -49,6 +49,14 @@ module Elasticsearch::Search::Filter
         @query[:filter][:and][:or][:filters].push(filter)
       end
       append_filter_aggregation(field,filter) if @is_agg_filtered
+    end
+
+    def basic_and_query
+       { and: { filters: [] }}
+    end
+
+    def basic_or_query
+       { or: { filters: [] }}
     end
 
   end 
