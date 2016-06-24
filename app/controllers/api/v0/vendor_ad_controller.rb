@@ -159,6 +159,7 @@ module Api
         else
           response, code = post_url('property_ads', '_search', ads_query)
           response = JSON.parse(response)['hits']['hits']
+          Rails.logger.info(response)
           modified_response = {}
           sorted_map = Hash.new { 0 }
           response.each do |value|

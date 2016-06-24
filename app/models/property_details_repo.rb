@@ -10,13 +10,30 @@ class PropertyDetailsRepo
   MAX_RESULTS_PER_PAGE = 150
   FIELDS = {
     terms: [:property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :keyword_types],
-    term:  [:tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :listing_type, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off],
+    term:  [:tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :listing_type, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status],
     range: [:budget, :cost_per_month, :date_added, :floors, :year_built, :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, :time_frame, :dream_price, :valuation, :beds, :baths, :receptions],
   }
+
+  STREET_VIEW_UDPRNS = [ 21724275, 53478695, 2962965, 25400727, 6711263, 26544243, 470169, 11292578, 4359896, 25867127 ]
+
+  AGENT_LOGOS = [ 4523, 4524, 4525, 4526, 4527, 4528, 4529, 4530, 4531, 4532 ]
+  TIMES = (1..10).to_a
+  UNITS = ['minutes', 'hours', 'seconds']
+
+  DESCRIPTIONS = ['We are delighted to offer this well maintained modern two bedroom purpose built flat situated within easy walking distance of Barking Town Centre. Property benefits from recent redecoration throughout and would idealy suit a professional couple or small working family.
+
+This two bedroom second floor flat has been lovingly redecorated throughout and boasts two double bedrooms, main bedroom is fitted, a luxury bathroom wc with shower over bath, modern fitted kitchen with appliances and a spacious L shaped lounge/ diner. The property benefits from allocated parking and communal gardens. Located just few minutes walk from Barking station. Your earliest inspection in advised.', 'This recently refurbished two double bedroom top floor flat with lift access offers spacious, bright and airy accomodation throughout. Located in this convenient position close to transport links with easy access to Barking town centre.
+
+Call now to view this recently renovated two bedroom flat which benefits from a new fitted kitchen and luxury bathroom wc. This property boasts two double bedrooms a spacious livingroom with direct access balcony, a newly kitchen with appliances, a luxury bathroom wc with shower over bath. Outside is communal gardens and own garage.', 'Call now to view this one bedroom first floor flat located in this popular location, opposite Barking Station, this property has been well maintained throughout and is available now.
+
+Bairstow Eves are pleased to offer this lovely one bedroom apartment located across the road from Barking station. The property benefits from a good size reception room open plan to kitchen area with direct access to the roof terrace. Other features include a fitted bathroom, electric heating, double glazing, security entry phone system and concierge service and the added benefit of secure underground parking.']
+
+  NAMES = ['Boris Stuart', 'John Smith', 'Adam Galloway']
 
   RANDOM_SEED_MAP = {
     property_type: ["Barn conversion","Bungalow","Cottage","Country house","Detached house","Detached bungalow","End terrace house","Equestrian property","Farm","Barn conversion/farmhouse","Farmhouse","Flat","Houseboat","Link-detached house","Lodge","Maisonnette","Mews house","Mobile/park home","Semi-detached house","Semi-detached bungalow","Studio","Terraced house","Terraced bungalow","Town house"],
     property_status_type: ["Green", "Amber", "Red"],
+    verification_status: [ true, false ]
     monitoring_type: ["Yes", 'No'],
     beds: (1..10).to_a,
     baths: (1..10).to_a,
@@ -253,7 +270,7 @@ class PropertyDetailsRepo
     characters = (1..10).to_a
     alphabets = ('A'..'Z').to_a
     addresses = get_bulk_addresses
-    names = ['John Doe', 'John Smith', 'Garry Edwards']
+    names = Agent.last(10).map{|t| t.name}
     scroll_id = 'cXVlcnlUaGVuRmV0Y2g7NTs3MTk2OkNvamwtRG1oUnU2cl9GbC0zSHpFcXc7NzE5NzpDb2psLURtaFJ1NnJfRmwtM0h6RXF3OzcxOTg6Q29qbC1EbWhSdTZyX0ZsLTNIekVxdzs3MTk5OkNvamwtRG1oUnU2cl9GbC0zSHpFcXc7NzIwMDpDb2psLURtaFJ1NnJfRmwtM0h6RXF3OzA7'
     glob_counter = 0
     loop do
@@ -284,7 +301,7 @@ class PropertyDetailsRepo
         doc[:last_sale_price_date] = (1..5).to_a.sample(1).first.years.ago.to_date.to_s
         doc[:description] = 'Lorem Ipsum'
         doc[:agent_branch_name] = names.sample(1).first
-        doc[:assigned_agent_employee_name] = "John Smith"
+        doc[:assigned_agent_employee_name] = NAMES.sample(1).first
         doc[:assigned_agent_employee_address] = "5 Bina Gardens"
         doc[:assigned_agent_employee_image] = nil
         doc[:last_updated_date] = "2015-09-21"
@@ -313,13 +330,111 @@ class PropertyDetailsRepo
         doc[:make_offer] = "/api/v0/vendors/update/property_users?action_type=make_offer"
         doc[:follow_street] = "/addresses/follow?location_type=dependent_thoroughfare_description"
         doc[:follow_locality] = "/addresses/follow?location_type =dependent_locality"
-        body.push({ update:  { _index: 'addresses', _type: 'address', _id: udprn, data: { doc: doc } }})
+        doc[:claim_property] = "http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/properties/new/#{doc[:udprn]}/short"
+        process_doc_with_conditions(doc)
+
+        doc[:added_by] = 'Us'
+
+        # body.push({ update:  { _index: 'addresses', _type: 'address', _id: udprn, data: { doc: doc } }})
       end
-      response = client.bulk body: body unless body.empty?
-      p response['items'].first
-      p "#{glob_counter} pASS completed"
+      p body
+      # response = client.bulk body: body unless body.empty?
+      # p response['items'].first
+      # p "#{glob_counter} pASS completed"
       glob_counter += 1
     end
+  end
+
+  def self.random_time
+    number = TIMES.sample(1).first
+    unit = UNITS.sample(1).first
+    str = "#{number} #{unit} ago"
+  end
+
+  def self.process_doc_with_conditions(doc)
+    #### Street view is common to all
+    street_view_updrn = STREET_VIEW_UDPRNS.sample(1).first
+    street_view_url = "https://s3-us-west-2.amazonaws.com/propertyuk/#{street_view_updrn}_street_view.jpg"
+      ### Street view url is random for both the images
+    doc[:photos] = [street_view_url]
+
+
+    ############### Generic for all verified and unverified properties
+    if doc[:verification_status] == true
+      ### Agent logo
+      agent_id =  AGENT_LOGOS.sample(1).first
+      doc[:agent_logo] = "https://s3-us-west-2.amazonaws.com/propertyuk/agent_logo_#{agent_id}.jpg"
+      doc[:broker_logo] = "https://s3-us-west-2.amazonaws.com/propertyuk/agent_logo_#{agent_id}.jpg"
+
+      ### property status updated
+      doc[:last_property_status_updated] = random_time
+
+      ### listing updated
+      doc[:last_listing_updated] = random_time
+
+
+      ### Types of property
+      property_types = [ 'Semi-detached house', 'Detached house', 'Flat', 'Terraced house' ]
+      doc[:property_type] = property_types.sample(1).first
+
+      ### Tenure
+      tenure = ['Freehold', 'Leasehold'].sample(1).first
+      doc[:tenure] = tenure
+
+      ### Descriptions
+      description = DESCRIPTIONS.sample(1).first
+      doc[:description] = description
+
+      ### Agent number
+      doc[:assigned_agent_employee_number] = '020 8128 4600'
+    else
+      ### Agent logo
+      doc[:agent_logo] = nil
+      doc[:broker_logo] = nil
+      
+      ### property status updated
+      doc[:last_property_status_updated] = nil
+
+      ### Valuation
+      historical_detail = PropertyHistoricalDetail.where(udprn: doc[:udprn]).last
+      doc[:valuation] = historical_detail.price
+      doc[:valuation_date] = historical_detail.date.split(' ')[0] rescue nil
+
+      ### Beds, baths and receptions
+      doc[:beds] = nil
+      doc[:baths] = nil
+      doc[:receptions] = nil
+
+      ### Types of property
+      doc[:property_type] = nil
+
+      ### Tenure
+      doc[:tenure] = nil
+
+      ### Property size
+      doc[:internal_property_size] = nil
+      doc[:external_property_size] = nil
+      doc[:total_property_size] = nil
+
+      ### Description
+      doc[:description] = nil
+
+      ### listing updated
+      doc[:last_listing_updated] = nil
+
+      ### Agent name
+      doc[:assigned_agent_employee_name] = nil
+      doc[:assigned_agent_employee_image] = nil
+      doc[:agent_branch_name] = nil
+      doc[:assigned_agent_employee_address] = nil
+      doc[:assigned_agent_employee_number] = nil
+
+      ### Claim property
+      doc[:claim_property] = nil
+
+
+    end
+    
   end
 
   def self.post_url_new(query = {}, index_name='property_details', type_name='property_detail')

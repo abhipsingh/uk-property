@@ -15,7 +15,7 @@ class ApplicationController < ActionController::Base
     regexes = [ /^([A-Z]{1,2})([0-9]{0,3})$/, /^([0-9]{1,2})([A-Z]{0,3})$/]
     if check_if_postcode?(params[:str].upcase, regexes)
       query_str = {filter: form_query(params[:str].upcase)}
-      res, code = post_url('addresses', query_str, '_search')
+      res, code = post_url('addresses', query_str, '_search', 'http://ec2-52-38-219-110.us-west-2.compute.amazonaws.com/')
       res = JSON.parse(res)["hits"]["hits"].map{ |t| t["_source"] }
       res.map{ |t| add_new_keys(t) }
       res = { result: res, hash_str: params[:str], hash_type: 'postcode' }
@@ -64,7 +64,7 @@ class ApplicationController < ActionController::Base
         filter[:and][:filters].push(first_or_filter)
       end
       query_str = {filter: filter}
-      res, code = post_url('addresses', query_str, '_search')
+      res, code = post_url('addresses', query_str, '_search','http://ec2-52-38-219-110.us-west-2.compute.amazonaws.com/')
       res = JSON.parse(res)["hits"]["hits"].map{ |t| t["_source"] }
       res.map{ |t| add_new_keys(t) }
       render json: res, status: code
@@ -82,6 +82,7 @@ class ApplicationController < ActionController::Base
   def predictive_search
     str = params[:str].gsub(',',' ').downcase
     results, code = get_results_from_es_suggest(str, 50)
+    Rails.logger.info(results)
     results = Oj.load(results)['postcode_suggest'].map { |e| e['options'].map{ |t| { hash: t['payload']['hash'], output: t['payload']['hierarchy_str'].split('|').join(', ') } } }.flatten
     render json: results, status: code
   end
@@ -96,7 +97,7 @@ class ApplicationController < ActionController::Base
         }
       }
     }
-    result, status = post_url('addresses', filters, '_search')
+    result, status = post_url('addresses', filters, '_search','http://ec2-52-38-219-110.us-west-2.compute.amazonaws.com/')
     result = JSON.parse(result)["hits"]["hits"].map { |e| e["_source"] }
     result = { result: result, hash_type: 'Text', hash_str: hash }
     render json: result, status: 200
@@ -188,7 +189,7 @@ class ApplicationController < ActionController::Base
 
     hashes = hashes.uniq
     filters[:filter][:terms][:hashes] = hashes
-    result, status = post_url('addresses', filters, '_search')
+    result, status = post_url('addresses', filters, '_search','http://ec2-52-38-219-110.us-west-2.compute.amazonaws.com/')
     result = JSON.parse(result)
     result = { result: result, hash_type: 'Text', hash_str: hashes.join("|") }
     return result, status
@@ -204,6 +205,7 @@ class ApplicationController < ActionController::Base
         }
       }
     }
+    Rails.logger.info(query_str)
     res, code = post_url('locations', query_str)
   end
 
@@ -223,8 +225,9 @@ class ApplicationController < ActionController::Base
     array_of_res = JSON.parse(res)['postcode_suggest'].map { |t| t['options'].map { |e| e[field]  } }.flatten
   end
 
-  def post_url(index, query = {}, type='_suggest')
-    uri = URI.parse(URI.encode("http://localhost:9200/#{index}/#{type}"))
+  def post_url(index, query = {}, type='_suggest', host='localhost')
+    uri = URI.parse(URI.encode("http://ec2-52-38-219-110.us-west-2.compute.amazonaws.com/#{index}/#{type}")) if host != 'localhost'
+    uri = URI.parse(URI.encode("http://#{host}:9200/#{index}/#{type}")) if host == 'localhost'
     query = (query == {}) ? "" : query.to_json
     http = Net::HTTP.new(uri.host, uri.port)
     result = http.post(uri,query)
@@ -330,7 +333,7 @@ class ApplicationController < ActionController::Base
       query[:size] = 1
       query[:aggs] = aggs
       query[:query] = { filtered: { filter: filters } }
-      body, status = post_url('addresses', query, '_search')
+      body, status = post_url('addresses', query, '_search','http://ec2-52-38-219-110.us-west-2.compute.amazonaws.com/')
       response = Oj.load(body).with_indifferent_access
       response_hash = Hash.new { [] }
       response_hash[:type] = first_type
@@ -368,7 +371,7 @@ class ApplicationController < ActionController::Base
       query[:size] = 1
       query[:aggs] = aggs
       query[:filter] = filters
-      body, status = post_url('addresses', query, '_search')
+      body, status = post_url('addresses', query, '_search','http://ec2-52-38-219-110.us-west-2.compute.amazonaws.com/')
       response = Oj.load(body).with_indifferent_access
       response_hash = Hash.new { [] }
       response_hash[:type] = first_type
@@ -426,7 +429,7 @@ class ApplicationController < ActionController::Base
       query[:size] = 1
       query[:aggs] = aggs
       query[:filter] = filters
-      body, status = post_url('addresses', query, '_search')
+      body, status = post_url('addresses', query, '_search','http://ec2-52-38-219-110.us-west-2.compute.amazonaws.com/')
       response = Oj.load(body).with_indifferent_access
       response_hash = Hash.new { [] }
       response_hash[:type] = first_type
@@ -489,7 +492,7 @@ class ApplicationController < ActionController::Base
       query[:size] = 1
       query[:aggs] = aggs
       query[:filter] = filters
-      body, status = post_url('addresses', query, '_search')
+      body, status = post_url('addresses', query, '_search','http://ec2-52-38-219-110.us-west-2.compute.amazonaws.com/')
       response = Oj.load(body).with_indifferent_access
       response_hash = Hash.new { [] }
       response_hash[:type] = first_type
@@ -578,7 +581,7 @@ class ApplicationController < ActionController::Base
       query[:size] = 1
       query[:aggs] = aggs
       query[:filter] = filters
-      body, status = post_url('addresses', query, '_search')
+      body, status = post_url('addresses', query, '_search', 'http://ec2-52-38-219-110.us-west-2.compute.amazonaws.com/')
       response = Oj.load(body).with_indifferent_access
       response_hash = Hash.new { [] }
       response_hash[:type] = 'unit'
@@ -632,7 +635,7 @@ class ApplicationController < ActionController::Base
       query[:size] = 1
       query[:aggs] = aggs
       query[:filter] = filters
-      body, status = post_url('addresses', query, '_search')
+      body, status = post_url('addresses', query, '_search', 'http://ec2-52-38-219-110.us-west-2.compute.amazonaws.com/')
       response = Oj.load(body).with_indifferent_access
       response_hash = Hash.new { [] }
       response_hash[:type] = 'sector'
@@ -689,7 +692,7 @@ class ApplicationController < ActionController::Base
       query[:size] = 1
       query[:aggs] = aggs
       query[:filter] = filters
-      body, status = post_url('addresses', query, '_search')
+      body, status = post_url('addresses', query, '_search', 'http://ec2-52-38-219-110.us-west-2.compute.amazonaws.com/')
       response = Oj.load(body).with_indifferent_access
       response_hash = Hash.new { [] }
       response_hash[:type] = 'district'
@@ -745,7 +748,7 @@ class ApplicationController < ActionController::Base
       query[:size] = 1
       query[:aggs] = aggs
       query[:filter] = filters
-      body, status = post_url('addresses', query, '_search')
+      body, status = post_url('addresses', query, '_search', 'http://ec2-52-38-219-110.us-west-2.compute.amazonaws.com/')
       response = Oj.load(body).with_indifferent_access
       response_hash = Hash.new { [] }
       response_hash[:type] = 'area'
