@@ -1,12 +1,11 @@
 source 'https://rubygems.org'
 # Bundle edge Rails instead: gem 'rails', github: 'rails/rails'
-ruby '2.2.0'
+ruby '2.3.0'
 gem 'activemodel', '4.2.0'
 gem 'actionmailer', '4.2.0'
 gem 'railties', '4.2.0'
 
 # Use SCSS for stylesheets
-gem 'sass-rails', '~> 4.0.0'
 gem 'nokogiri'
 gem 'elasticsearch-model'
 gem 'elasticsearch-rails'
