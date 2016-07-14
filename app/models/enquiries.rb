@@ -1,0 +1,2 @@
+module Enquiries
+end
