@@ -33,7 +33,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
   RANDOM_SEED_MAP = {
     property_type: ["Barn conversion","Bungalow","Cottage","Country house","Detached house","Detached bungalow","End terrace house","Equestrian property","Farm","Barn conversion/farmhouse","Farmhouse","Flat","Houseboat","Link-detached house","Lodge","Maisonnette","Mews house","Mobile/park home","Semi-detached house","Semi-detached bungalow","Studio","Terraced house","Terraced bungalow","Town house"],
     property_status_type: ["Green", "Amber", "Red"],
-    verification_status: [ true, false ]
+    verification_status: [ true, false ],
     monitoring_type: ["Yes", 'No'],
     beds: (1..10).to_a,
     baths: (1..10).to_a,
@@ -250,7 +250,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
   end
 
   def post_url(query = {}, index_name='property_details', type_name='property_detail')
-    uri = URI.parse(URI.encode("http://localhost:9200/#{index_name}/#{type_name}/_search"))
+    uri = URI.parse(URI.encode("http://ec2-52-38-219-110.us-west-2.compute.amazonaws.com/#{index_name}/#{type_name}/_search"))
     query = (query == {}) ? "" : query.to_json
     http = Net::HTTP.new(uri.host, uri.port)
     result = http.post(uri,query)
@@ -266,15 +266,15 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     time_frame_years = (2004..2016).step(1).to_a
     days = (1..24).to_a
     body = []
-    client = Elasticsearch::Client.new
+    client = Elasticsearch::Client.new host: 'ec2-52-38-219-110.us-west-2.compute.amazonaws.com:80'
     characters = (1..10).to_a
     alphabets = ('A'..'Z').to_a
     addresses = get_bulk_addresses
     names = Agent.last(10).map{|t| t.name}
-    scroll_id = 'cXVlcnlUaGVuRmV0Y2g7NTs3MTk2OkNvamwtRG1oUnU2cl9GbC0zSHpFcXc7NzE5NzpDb2psLURtaFJ1NnJfRmwtM0h6RXF3OzcxOTg6Q29qbC1EbWhSdTZyX0ZsLTNIekVxdzs3MTk5OkNvamwtRG1oUnU2cl9GbC0zSHpFcXc7NzIwMDpDb2psLURtaFJ1NnJfRmwtM0h6RXF3OzA7'
+    scroll_id = 'cXVlcnlUaGVuRmV0Y2g7NTsxMDgxOnUtUUgwSTNlUTFDU216cjhEOHNUeUE7MTA4Mjp1LVFIMEkzZVExQ1NtenI4RDhzVHlBOzEwODQ6dS1RSDBJM2VRMUNTbXpyOEQ4c1R5QTsxMDgzOnUtUUgwSTNlUTFDU216cjhEOHNUeUE7MTA4NTp1LVFIMEkzZVExQ1NtenI4RDhzVHlBOzA7'
     glob_counter = 0
     loop do
-      get_records_url = 'http://localhost:9200/_search/scroll'
+      get_records_url = 'http://ec2-52-38-219-110.us-west-2.compute.amazonaws.com/_search/scroll'
       p 'hello'
       scroll_hash = { scroll: '15m', scroll_id: scroll_id }
       response , status = post_url_new(scroll_hash)
@@ -335,12 +335,11 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
 
         doc[:added_by] = 'Us'
 
-        # body.push({ update:  { _index: 'addresses', _type: 'address', _id: udprn, data: { doc: doc } }})
+        body.push({ update:  { _index: 'addresses', _type: 'address', _id: udprn, data: { doc: doc } }})
       end
-      p body
-      # response = client.bulk body: body unless body.empty?
-      # p response['items'].first
-      # p "#{glob_counter} pASS completed"
+      response = client.bulk body: body unless body.empty?
+      p response['items'].first
+      p "#{glob_counter} pASS completed"
       glob_counter += 1
     end
   end
@@ -438,7 +437,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
   end
 
   def self.post_url_new(query = {}, index_name='property_details', type_name='property_detail')
-    uri = URI.parse(URI.encode("http://localhost:9200/_search/scroll"))
+    uri = URI.parse(URI.encode("http://ec2-52-38-219-110.us-west-2.compute.amazonaws.com/_search/scroll"))
     query = (query == {}) ? "" : query.to_json
     http = Net::HTTP.new(uri.host, uri.port)
     result = http.post(uri,query)
@@ -451,7 +450,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     errors = []
     FIELDS[:terms].each do |term|
       value = RANDOM_SEED_MAP[term.to_s.singularize.to_sym].sample(1).first rescue nil
-      url = "http://localhost/api/v0/properties/search?"
+      url = "http://ec2-52-38-219-110.us-west-2.compute.amazonaws.com/api/v0/properties/search?"
       if value
         query_params = {}
         query_params[term] = value

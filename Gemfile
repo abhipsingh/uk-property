@@ -17,7 +17,7 @@ gem 'sprockets', '2.11.0'
 gem 'minitest'
 gem 'devise'
 gem 'httparty'
-
+gem 'cassandra-driver', '~> 3.0.2'
 # # See https://github.com/sstephenson/execjs#readme for more supported runtimes
 # gem 'therubyracer', platforms: :ruby
 
@@ -25,7 +25,7 @@ gem 'httparty'
 gem 'jquery-rails', '4.0.4'
 
 # Turbolinks makes following links in your web application faster. Read more: https://github.com/rails/turbolinks
-gem 'turbolinks'
+#gem 'turbolinks'
 
 # bundle exec rake doc:rails generates the API under doc/api.
 gem 'sdoc', '~> 0.4.0', group: :doc

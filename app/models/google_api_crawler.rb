@@ -96,26 +96,28 @@ class GoogleApiCrawler
   end
 
   def address(doc_source)
-    dependent_locality = doc_source['dependent_locality']
-    dependent_thoroughfare_description = doc_source['dependent_thoroughfare_description']
-    thoroughfare_descriptor = doc_source['thoroughfare_descriptor']
-    building_number = doc_source['building_number']
-    building_name = doc_source['building_name']
-    sub_building_name = doc_source['sub_building_name']
-    post_town = doc_source['post_town']
-    address = append_unit('', sub_building_name)
-    address = append_unit(address, building_name)
-    address = append_unit(address, building_number)
-    street = (thoroughfare_descriptor || dependent_thoroughfare_description)
-    address = append_unit(address, street)
-    if street.nil?
-      if dependent_locality.is_a?(String)
-        address = append_unit(address, dependent_locality)
-      elsif dependent_locality.is_a?(Array)
-        address = append_unit(address, dependent_locality[0])
+    if doc_source
+      dependent_locality = doc_source['dependent_locality']
+      dependent_thoroughfare_description = doc_source['dependent_thoroughfare_description']
+      thoroughfare_descriptor = doc_source['thoroughfare_descriptor']
+      building_number = doc_source['building_number']
+      building_name = doc_source['building_name']
+      sub_building_name = doc_source['sub_building_name']
+      post_town = doc_source['post_town']
+      address = append_unit('', sub_building_name)
+      address = append_unit(address, building_name)
+      address = append_unit(address, building_number)
+      street = (thoroughfare_descriptor || dependent_thoroughfare_description)
+      address = append_unit(address, street)
+      if street.nil?
+        if dependent_locality.is_a?(String)
+          address = append_unit(address, dependent_locality)
+        elsif dependent_locality.is_a?(Array)
+          address = append_unit(address, dependent_locality[0])
+        end
       end
+      address = append_unit(address, post_town.capitalize)
     end
-    address = append_unit(address, post_town.capitalize)
     address
   end
 
