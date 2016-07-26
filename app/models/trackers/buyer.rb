@@ -39,6 +39,14 @@ module Trackers
       unlikely: 3
     }
 
+    STATUS_MAP = {
+      'Green' => 1,
+      'Amber' => 2,
+      'Red'   => 3
+    }
+
+    REVERSE_STATUS_MAP = STATUS_MAP.invert
+
     REVERSE_TYPE_OF_MATCH = TYPE_OF_MATCH.invert
 
     REVERSE_EVENTS = EVENTS.invert
@@ -455,12 +463,12 @@ CREATE TABLE Simple.property_events_buyers_dated (
     event int,
     message text,
     type_of_match int,
-    PRIMARY KEY ((date), property_id, buyer_id, event)
+    PRIMARY KEY ((date, property_id), buyer_id, event)
 );
 
 CREATE TABLE Simple.buyer_events (
     date text,
-    buyer_id text,
+    buyer_id int,
     property_id text,
     status_id int,
     event int,
@@ -495,6 +503,12 @@ CREATE TABLE Simple.property_events_buyers_non_dated (
 
 
 INSERT INTO Simple.property_events_buyers (date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 1, NULL, 1 );
+INSERT INTO Simple.property_events_buyers_dated (date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 1, NULL, 1 );
+INSERT INTO Simple.property_events_buyers_non_dated (date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 1, NULL, 1 );
+INSERT INTO Simple.buyer_events (date, buyer_id, status_id, property_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 1, NULL, 1 );
+INSERT INTO Simple.buyer_events_non_dated (date, buyer_id, status_id, property_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 1, NULL, 1 );
+
+
 INSERT INTO Simple.property_events_buyers (date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 2, NULL, 1  );
 INSERT INTO Simple.property_events_buyers (date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 4, NULL, 1  );
 INSERT INTO Simple.property_events_buyers (date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 8 , NULL, 1 );

@@ -4,6 +4,7 @@ ruby '2.3.0'
 gem 'activemodel', '4.2.0'
 gem 'actionmailer', '4.2.0'
 gem 'railties', '4.2.0'
+gem 'cassandra-driver'
 
 # Use SCSS for stylesheets
 gem 'nokogiri'
