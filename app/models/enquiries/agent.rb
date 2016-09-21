@@ -36,8 +36,9 @@ def longest_palindrome(str, start, ending)
   else
     str1 = longest_palindrome(str, start+1, ending)
     str2 = longest_palindrome(str, start, ending-1)
-
-    str1.length > str2.length ? return str1 : return str2
+    str = nil
+    str1.length > str2.length ? str = str1 : str = str2
+    str
   end
 
 
@@ -59,9 +60,3 @@ end
 
 def derangements(length)
 end
-
-key cipher hash
-
-
-
-
