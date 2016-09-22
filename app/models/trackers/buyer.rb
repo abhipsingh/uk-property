@@ -1,450 +1,366 @@
-require 'cassandra'
-module Trackers
+class Trackers::Agent
 
   def self.session
-    cluster = Cassandra.cluster
-    keyspace = 'simple'
-    cluster.connect(keyspace)
+    Rails.configuration.cassandra_session
   end
 
-  class Buyer
-    EVENTS = {
-      impressions: 1,
-      views: 2,
-      property_tracking: 3,
-      street_tracking: 4,
-      locality_tracking: 5,
-      would_view_if_green: 6,
-      would_make_offer_if_green: 7,
-      requested_message: 8,
-      requested_callback: 9,
-      requested_viewing: 10,
-      deleted: 11,
-      responded_to_email_request: 12,
-      responded_to_callback_request: 13,
-      responded_to_viewing_request: 14,
-      qualifying_stage: 15,
-      viewing_stage: 16,
-      negotiating_stage: 17,
-      offer_made_stage: 18,
-      offer_accepted_stage: 19,
-      closed_lost_stage: 20,
-      closed_won_stage: 21,
-      confidence_level: 20
-    }
+  EVENTS = {
+    impressions: 1,
+    views: 2,
+    property_tracking: 3,
+    street_tracking: 4,
+    locality_tracking: 5,
+    would_view_if_green: 6,
+    would_make_offer_if_green: 7,
+    requested_message: 8,
+    requested_callback: 9,
+    requested_viewing: 10,
+    deleted: 11,
+    responded_to_email_request: 12,
+    responded_to_callback_request: 13,
+    responded_to_viewing_request: 14,
+    qualifying_stage: 15,
+    viewing_stage: 16,
+    negotiating_stage: 17,
+    offer_made_stage: 18,
+    offer_accepted_stage: 19,
+    closed_lost_stage: 20,
+    closed_won_stage: 21,
+    confidence_level: 22,
+    visits: 23,
+    contract_exchange_stage: 24,
+    conveyance_stage: 25,
+    completion_stage: 26,
+  }
 
-    TYPE_OF_MATCH = {
-      perfect: 1,
-      potential: 2,
-      unlikely: 3
-    }
+  TYPE_OF_MATCH = {
+    perfect: 1,
+    potential: 2,
+    unlikely: 3
+  }
 
-    STATUS_MAP = {
-      'Green' => 1,
-      'Amber' => 2,
-      'Red'   => 3
-    }
+  REVERSE_TYPE_OF_MATCH = TYPE_OF_MATCH.invert
 
-    REVERSE_STATUS_MAP = STATUS_MAP.invert
+  REVERSE_EVENTS = EVENTS.invert
 
-    REVERSE_TYPE_OF_MATCH = TYPE_OF_MATCH.invert
+  CONFIDENCE_ROWS = (1..5).to_a
 
-    REVERSE_EVENTS = EVENTS.invert
+  ENQUIRY_EVENTS = [
+    :would_view_if_green,
+    :would_make_offer_if_green,
+    :requested_message,
+    :requested_callback,
+    :requested_viewing
+  ]
 
-    CONFIDENCE_ROWS = (1..5).to_a
+  TRACKING_EVENTS = [
+    :property_tracking,
+    :locality_tracking,
+    :street_tracking
+  ]
 
-    ENQUIRY_EVENTS = [
-      :would_view_if_green,
-      :would_make_offer_if_green,
-      :requested_message,
-      :requested_callback,
-      :requested_viewing
-    ]
+  QUALIFYING_STAGE_EVENTS = [
+    :qualifying_stage,
+    :viewing_stage,
+    :offer_made_stage,
+    :negotiating_stage,
+    :offer_accepted_stage,
+    :conveyance_stage,
+    :contract_exchange_stage,
+    :completion_stage,
+    :closed_won_stage,
+    :closed_lost_stage
+  ]
 
-    def track(event: event_id, property: property_id, buyer: buyer_id)
-      session = Trackers.session
-      session.execute("INSERT INTO buyer_events_buyer (buyer_id, property_id, event, time, status_id) VALUES (#{buyer_id}, #{property_id}, #{EVENTS[event_id]}, #{Date.today.to_s} )")
-      session.execute("INSERT INTO property_events_buyer (buyer_id, property_id, event, time, status_id) VALUES (#{buyer_id}, #{property_id}, #{EVENTS[event_id]}, #{Date.today.to_s} )")
-      session.execute("INSERT INTO time_events_buyer (buyer_id, property_id, event, time, status_id) VALUES (#{buyer_id}, #{property_id}, #{EVENTS[event_id]}, #{Date.today.to_s} )")
-    end
-
+  def track(agent: agent_id, event: event_id, property: property_id, buyer: buyer_id)
+    session = Trackers.session
+    session.execute("INSERT INTO buyer_events_agents (agent_id, buyer_id, property_id, event_id, time) VALUES ( #{agent_id}, #{buyer_id}, #{property_id}, #{EVENTS[event_id]}, #{Date.today.to_s} )")
+    session.execute("INSERT INTO property_events_agents (agent_id, buyer_id, property_id, event_id, time) VALUES (#{agent_id},  #{buyer_id}, #{property_id}, #{EVENTS[event_id]}, #{Date.today.to_s} )")
+    session.execute("INSERT INTO time_events_agents (agent_id, buyer_id, property_id, event_id, time) VALUES (#{agent_id},  #{buyer_id}, #{property_id}, #{EVENTS[event_id]}, #{Date.today.to_s} )")
   end
 
-  class Agent
 
-    EVENTS = {
-      impressions: 1,
-      views: 2,
-      property_tracking: 3,
-      street_tracking: 4,
-      locality_tracking: 5,
-      would_view_if_green: 6,
-      would_make_offer_if_green: 7,
-      requested_message: 8,
-      requested_callback: 9,
-      requested_viewing: 10,
-      deleted: 11,
-      responded_to_email_request: 12,
-      responded_to_callback_request: 13,
-      responded_to_viewing_request: 14,
-      qualifying_stage: 15,
-      viewing_stage: 16,
-      negotiating_stage: 17,
-      offer_made_stage: 18,
-      offer_accepted_stage: 19,
-      closed_lost_stage: 20,
-      closed_won_stage: 21,
-      confidence_level: 20
-    }
+  #### API Responses for tables
 
-    TYPE_OF_MATCH = {
-      perfect: 1,
-      potential: 2,
-      unlikely: 3
-    }
-
-    REVERSE_TYPE_OF_MATCH = TYPE_OF_MATCH.invert
-
-    REVERSE_EVENTS = EVENTS.invert
-
-    CONFIDENCE_ROWS = (1..5).to_a
-
-    ENQUIRY_EVENTS = [
-      :would_view_if_green,
-      :would_make_offer_if_green,
-      :requested_message,
-      :requested_callback,
-      :requested_viewing
-    ]
-
-    def track(agent: agent_id, event: event_id, property: property_id, buyer: buyer_id)
-      session = Trackers.session
-      session.execute("INSERT INTO buyer_events_agents (agent_id, buyer_id, property_id, event_id, time) VALUES ( #{agent_id}, #{buyer_id}, #{property_id}, #{EVENTS[event_id]}, #{Date.today.to_s} )")
-      session.execute("INSERT INTO property_events_agents (agent_id, buyer_id, property_id, event_id, time) VALUES (#{agent_id},  #{buyer_id}, #{property_id}, #{EVENTS[event_id]}, #{Date.today.to_s} )")
-      session.execute("INSERT INTO time_events_agents (agent_id, buyer_id, property_id, event_id, time) VALUES (#{agent_id},  #{buyer_id}, #{property_id}, #{EVENTS[event_id]}, #{Date.today.to_s} )")
-    end
-
-
-    #### API Responses for tables
-
-
-    #### Get enquiry date wise
-
-    #### Columns [:responded_to_email_request, :responded_to_callback_request, :responded_to_viewing_request, :deleted, 
-    ####          :qualifying, :viewing, :negotiating, :offer_made, :offer_accepted, :closed_lost, :closed_won, :confidence_level]
-
-    def buyer_enquiries_for_agents_green_properties(property_id)
-      cql = "SELECT * FROM Simple.property_events_buyers WHERE property_id = '#{property_id}';"
-      generic_execute_property_events_buyers(property_id, cql, :green)
-    end
-
-    def buyer_enquiries_for_agents_non_green_properties(property_id)
-      cql = "SELECT * FROM Simple.property_events_buyers WHERE property_id = '#{property_id}';"
-      generic_execute_property_events_buyers(property_id, cql, :non_green)
-    end
-
-    def generic_execute_property_events_buyers(property_id, cql, status)
-      # session = Trackers.session
-      # future = session.execute(cql)
-      result = []
-      present_buyer_id = nil
-      new_row = nil
-      res = []
-      future = [{"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>1, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
- {"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>2, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
- {"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>4, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
- {"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>8, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
- {"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>9, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
- {"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>10, "message"=>"2016-12-13", "status_id"=>1, "type_of_match"=>1},
- {"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>11, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
- {"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>14, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
- {"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>18, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
- {"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>19, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
- {"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>20, "message"=>4,   "status_id"=>1, "type_of_match"=>1},
- {"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>123, "event"=>1, "message"=>nil, "status_id"=>1, "type_of_match"=>1}]
-      future.each do |row|
-        if row['buyer_id'] != present_buyer_id
-          present_buyer_id = row['buyer_id']
-          new_row = {}
-          process_new_row(new_row, row, status)
-          result.push(new_row)
-        else
-          process_new_row(new_row, row, status)
-        end
-      end
-      p result
-    end
-
-    def process_new_row(new_row, row, status)
-      if status == :green
-        process_new_row_green(new_row, row)
+  def generic_execute_property_events_buyers(property_id, cql, status)
+    # session = Trackers.session
+    # future = session.execute(cql)
+    result = []
+    present_buyer_id = nil
+    new_row = nil
+    res = []
+    future = [{"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>1, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
+{"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>2, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
+{"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>4, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
+{"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>8, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
+{"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>9, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
+{"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>10, "message"=>"2016-12-13", "status_id"=>1, "type_of_match"=>1},
+{"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>11, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
+{"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>14, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
+{"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>18, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
+{"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>19, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
+{"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>20, "message"=>4,   "status_id"=>1, "type_of_match"=>1},
+{"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>123, "event"=>1, "message"=>nil, "status_id"=>1, "type_of_match"=>1}]
+    future.each do |row|
+      if row['buyer_id'] != present_buyer_id
+        present_buyer_id = row['buyer_id']
+        new_row = {}
+        process_new_row(new_row, row, status)
+        result.push(new_row)
       else
-        process_new_row_non_green(new_row, row)
+        process_new_row(new_row, row, status)
       end
     end
+    p result
+  end
 
-    def process_new_row_non_green(new_row, row)
-      (EVENTS[:would_view_if_green]..EVENTS[:closed_won_stage]).each do |event|
-        process_count_event(REVERSE_EVENTS[event], new_row, row)
-      end
-      new_row[REVERSE_EVENTS[row['event']]] += 1
-      set_count_confidence_level(new_row, row)
+  ###############################################################
+  ###############################################################
+  ###############################################################
+  ###############################################################
+  ###############################################################
+  ########## Property level enquiries ###########################
+
+  def property_and_enquiry_details(property_id)
+    url = "#{Rails.configuration.remote_es_url}/addresses/address/#{property_id}"
+    response = Net::HTTP.get(URI.parse(url))
+    details = response['_source']
+    details = {}
+    property_enquiry_details(property_id, details)
+  end
+
+  def property_enquiry_details(property_id, details)
+    result = []
+    res.each do |row|
+      new_row = {}
+      push_property_details(new_row, details)
+      add_details_to_enquiry_row(new_row, details)
+      result.push(new_row, details)
+    end
+    result
+  end
+
+  ### For every enquiry row, extract the info from details hash and merge it
+  ### with new row
+  def push_property_details(new_row, details)
+    new_row[:address] = details['address']
+    new_row[:image_url] = details['photos'][0]
+    new_row[:status] = details['status']
+    if details['status'] == 'Green'
+      new_row[:asking_price] = details['asking_price']
+      new_row[:offers_price] = details['offers_price']
+      new_row[:fixed_price] = details['fixed_price']
+    else
+      new_row[:latest_valuation] = details['valuations'][0]
+    end
+    new_row[:property_type] = details['property_type']
+    new_row[:beds] = details['beds']
+    new_row[:baths] = details['baths']
+    new_row[:recs] = details['receptions']
+    new_row[:completed_status] = details['agent_status']
+    new_row[:listed_since] = (Date.today - Date.parse(details['date_of_activation'])).to_i
+    new_row[:agent_profile_image] = details['agent_profile_image']
+    new_row[:advertised] = details['advertised']
+  end
+
+  def add_details_to_enquiry_row(new_row, details)
+    session = Trackers.session
+    table = 'Simple.property_events_buyers_events'
+    property_id = details['udprn']
+
+    ### Extra keys to be added
+    new_row['total_visits'] = generic_event_count(:visits, table, property_id, :single)
+    new_row['total_enquiries'] = generic_event_count(ENQUIRY_EVENTS, table, property_id, :multiple)
+    new_row['trackings'] = generic_event_count(TRACKING_EVENTS, table, property_id, :multiple)
+    new_row['requested_viewing'] = generic_event_count(:requested_viewing, table, property_id, :single)
+    new_row['offer_made'] = generic_event_count(:offer_made, table, property_id, :single)
+    new_row['requested_message'] = generic_event_count(:requested_message, table, property_id, :single)
+    new_row['requested_callback'] = generic_event_count(:requested_callback, table, property_id, :single)
+    new_row['impressions'] = generic_event_count(:impressions, table, property_id, :single)
+    new_row['deleted'] = generic_event_count(:deleted, table, property_id, :single)
+  end
+
+  ###############################################################
+  ###############################################################
+  ###############################################################
+  ###############################################################
+  ###############################################################
+  ########## Property level enquiries specific to a buyer #######
+
+  def property_and_enquiry_details_buyer(agent_id)
+    property_enquiry_details_buyer(agent_id)
+  end
+
+  def property_enquiry_details_buyer(agent_id)
+    result = []
+    agent_id = details['agent_id']
+    events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }.join(',')
+    table = 'Simple.timestamped_property_events'
+    received_cql = <<-SQL 
+                      SELECT event, type_of_match, time_of_event, stored_time
+                      FROM #{table} 
+                      WHERE agent_id = #{agent_id}
+                      AND event IN (#{events})
+                      ORDER BY time_of_event DESC
+                      LIMIT 20
+                      ALLOW FILTERING
+                    SQL
+    
+    session = Trackers.session
+    future = session.execute(event_sql)
+
+    agent_ids = []
+
+    future.rows do |each_row|
+      new_row = {}
+      new_row['received'] = each_row['stored_time']
+      new_row['type_of_enquiry'] = REVERSE_EVENTS[each_row['event']]
+      property_id = new_row['property_id']
+      push_property_details_row(new_row, property_id)
+      add_details_to_enquiry_row_buyer(new_row, property_id, each_row, agent_id)
+      agent_ids.push(agent_id)
+      result.push(new_row)
     end
 
-    def process_new_row_green(new_row, row)
-      process_boolean_event(:responded_to_email_request, new_row, row)
-      process_boolean_event(:responded_to_callback_request, new_row, row)
-      process_boolean_event(:responded_to_viewing_request, new_row, row)
-      process_boolean_event(:deleted, new_row, row)
-      process_boolean_event(:qualifying_stage, new_row, row)
-      process_boolean_event(:viewing_stage, new_row, row)
-      process_boolean_event(:negotiating_stage, new_row, row)
-      process_boolean_event(:offer_made_stage, new_row, row)
-      process_boolean_event(:offer_accepted_stage, new_row, row)
-      process_boolean_event(:closed_lost_stage, new_row, row)
-      process_boolean_event(:closed_won_stage, new_row, row)
-      set_qualifying_stage_value(new_row)
-      set_confidence_level(new_row, row)
+    result
+  end
+
+  def push_property_details_row(new_row, property_id)
+    url = "#{Rails.configuration.remote_es_url}/addresses/address/#{property_id}"
+    response = Net::HTTP.get(URI.parse(url))
+    details = response['_source']
+    push_property_enquiry_details_buyer(property_id, details)
+  end
+
+  ### For every enquiry row, extract the info from details hash and merge it
+  ### with new row
+  def push_property_enquiry_details_buyer(new_row, details)
+    new_row[:address] = details['address']
+    new_row[:status] = details['status']
+  end
+
+  def add_details_to_enquiry_row_buyer(new_row, property_id, event_details, agent_id)
+    new_row['type_of_match'] = event_details['type_of_match']
+    
+    #### Tracking property or not
+    tracking_property_event = EVENTS[:property_tracking]
+    buyer_id = event_details['buyer_id']
+    tracking_prop_cql = <<-SQL
+                        SELECT COUNT(*)
+                        FROM simple.buyer_property_events
+                        WHERE buyer_id = #{buyer_id}
+                        AND property_id = #{property_id}
+                        AND event = #{tracking_property_event}
+                        SQL
+    session = Trackers.session
+    future = session.execute(tracking_prop_cql)
+
+    future.rows do |each_row|
+      new_row[:property_tracking] = (each_row['count'] == 0 ? false : true)
     end
 
-    def process_count_event(event, new_row, row)
-      if new_row[REVERSE_EVENTS[row['event']]] == nil
-        new_row[REVERSE_EVENTS[row['event']]] = 0
-      end
+    table = 'simple.property_events_buyers_events'
+    #### Views
+    total_views = generic_event_count(EVENTS[:views], property_id, table, :single)
+    buyer_views = generic_event_count_buyer(EVENTS[:views], property_id, table, buyer_id)
+    new_row[:views] = buyer_views.to_i.to_s + '/' + total_views.to_i.to_s
+
+    #### Enquiries
+    total_enquiries = generic_event_count(ENQUIRY_EVENTS, table, property_id, :multiple)
+    buyer_enquiries = generic_event_count(ENQUIRY_EVENTS, table, property_id, :multiple)
+    new_row[:enquiries] = buyer_enquiries.to_i.to_s + '/' + total_enquiries.to_i.to_s
+
+    #### Qualifying Stage
+    qualifying_events = QUALIFYING_STAGE_EVENTS.map { |e| EVENTS[e] }.join(',')
+    qualifying_cql = <<-SQL
+                      SELECT event
+                      FROM Simple.agents_buyer_events_timestamped
+                      WHERE agent_id = #{agent_id} 
+                      AND event IN (#{qualifying_events})
+                      AND buyer_id = #{buyer_id}
+                      ORDER BY buyer_id DESC, event DESC, time_of_event DESC
+                      LIMIT 1;
+                     SQL
+    future = session.execute(qualifying_cql)
+
+    future.rows do |each_row|
+      new_row[:qualifying] = REVERSE_EVENTS[each_row['event']]
     end
-
-    def process_boolean_event(event, new_row, row)
-      if new_row[event] != true
-        new_row[event] = (REVERSE_EVENTS[row['event']] == event) ? true : false
-      end
-    end
-
-    def set_qualifying_stage_value(new_row)
-      max_true = (EVENTS[:qualifying_stage]..EVENTS[:offer_accepted_stage]).to_a.select{|t| new_row[REVERSE_EVENTS[t]] == true }.max
-      (EVENTS[:qualifying_stage]..(max_true - 1)).to_a.map { |e| new_row[REVERSE_EVENTS[e]] = false } if max_true
-    end
-
-    def set_confidence_level(new_row, row)
-      if REVERSE_EVENTS[row['event']] == :confidence_level
-        new_row["confidence_#{row['message']}"] = true
-        (CONFIDENCE_ROWS - [row['message']]).map { |e| new_row["confidence_#{e}"] = false }
-      end
-    end
-
-    def set_count_confidence_level(new_row, row)
-      if REVERSE_EVENTS[row['event']] == :confidence_level
-        if new_row["confidence_#{row['message']}"].nil?
-          new_row["confidence_#{row['message']}"] = 1
-        else
-          new_row["confidence_#{row['message']}"] += 1
-        end
-      end
-    end
-
-    ###############################################################
-    ###############################################################
-    ###############################################################
-    ### Property level enquiries ##################################
-
-    def property_and_enquiry_details(property_id)
-      # url = "#{Rails.configuration.remote_es_url}/addresses/address/#{property_id}"
-      # response = Net::HTTP.get(URI.parse(url))
-      # details = response['_source']
-      details = {}
-      property_enquiry_details(property_id, details)
-
-    end
-
-    def property_enquiry_details(property_id, details)
-      cql = "SELECT * FROM Simple.property_events_buyers WHERE property_id = #{property_id}"
-      # session = Trackers.session
-
-      # future = session.execute(cql) # fully asynchronous api
-      result = []
-      present_buyer_id = nil
-      present_date = nil
-      new_row = nil
-
-      perfect_matches = 0
-      potential_matches = 0
-
-      res =  [{"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>1, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
- {"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>2, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
- {"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>4, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
- {"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>8, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
- {"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>9, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
- {"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>10, "message"=>"2016-12-13", "status_id"=>1, "type_of_match"=>1},
- {"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>11, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
- {"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>14, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
- {"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>18, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
- {"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>19, "message"=>nil, "status_id"=>1, "type_of_match"=>1},
- {"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>12, "event"=>20, "message"=>4,   "status_id"=>1, "type_of_match"=>1},
- {"property_id"=>"12", "date"=>"2016-07-11", "buyer_id"=>123, "event"=>1, "message"=>nil, "status_id"=>1, "type_of_match"=>1}]
-
-      res.each do |row|
-        if row['date'] != present_date || row['buyer_id'] != present_buyer_id
-          present_buyer_id = row['buyer_id']
-          present_date = row['date']
-
-          new_row ||= {}
-          new_row[:views] = new_row[:buyer_views].to_s+'/'+new_row[:total_views].to_s
-          new_row[:enquiries] = new_row[:buyer_enquiries].to_s+'/'+new_row[:total_enquiries].to_s
-
-          perfect_matches += 1 if REVERSE_TYPE_OF_MATCH[row['type_of_match']] == :perfect
-          potential_matches += 1 if REVERSE_TYPE_OF_MATCH[row['type_of_match']] == :potential
-
-          result.push(new_row)
-          new_row = {}
-        end
-        if true # if details['status'] == 'GREEN'
-          process_row_enquiry_details_green(new_row, row, details)
-        else
-          process_row_enquiry_details_non_green(new_row, row, details)
-        end
-      end
-
-      result.each_with_index do |each_res, index|
-        result[index][:perfect] = perfect_matches
-        result[index][:potential_matches] = potential_matches
-      end
-
-    end
-
-    def process_row_enquiry_details_green(new_row, row, details)
-      if new_row.empty?
-        new_row[:date] = row['date']
-        new_row[:status] = details['status']
-        new_row[:photo_url] = details['photo_url']
-        # buyer = PropertyUser.find(row['buyer_id'])
-        # new_row[:contact_number] = buyer.contact_number rescue nil
-        new_row[:type_of_match] = REVERSE_TYPE_OF_MATCH[row['type_of_match']]
-        
-        new_row[:total_views] = 0 if new_row[:total_views].nil?
-        new_row[:total_enquiries] = 0 if new_row[:total_enquiries].nil?
-        ### new_row[:type_of_buyer] =  Nowhere being stored
-        ### new_row[:chain] =  Nowhere being stored
-
-        cql = "SELECT event FROM  Simple.buyer_events_non_dated WHERE buyer_id = #{row['buyer_id']} "
-        session = Trackers.session
-        future = session.execute(cql) 
-        future.rows do |buyer_row|
-          new_row[:total_views] += 1 if REVERSE_EVENTS[buyer_row['event']] == :views
-          new_row[:total_enquiries] += 1 if  ENQUIRY_EVENTS.include?(REVERSE_EVENTS[buyer_row['event']])
-        end
-        new_row[:replied] = false
-        new_row[:type_of_enquiry] = []
-
-      end
-      new_row[:buyer_views] = 0 if new_row[:buyer_views].nil?
-      new_row[:buyer_views] += 1 if REVERSE_EVENTS[row['event']] == :views
-
-      new_row[:buyer_enquiries] = 0 if new_row[:enquiries].nil?
-      new_row[:buyer_enquiries] += 1 if ENQUIRY_EVENTS.include?(REVERSE_EVENTS[row['event']])
-      new_row[:property_tracking] = false if new_row[:property_tracking].nil?
-      new_row[:property_tracking] = true if REVERSE_EVENTS[row['event']] == :property_tracking
-
-      new_row[:enquiry_status] = REVERSE_EVENTS[row['event']] if row['event'] <= EVENTS[:closed_won_stage] || row['event'] >= EVENTS[:qualifying_stage]
-      new_row[:confidence_level] = row['message'] if REVERSE_EVENTS[row['event']] == :confidence_level
-
-      if [:responded_to_email_request, :responded_to_callback_request, :responded_to_viewing_request].include?(REVERSE_EVENTS[row['event']])
-        new_row[:replied] = true
-      end
-
-      events = [:property_tracking, :requested_callback, :requested_message, :requested_viewing, :would_view_if_green, :would_make_offer_if_green]
-      if events.include?(REVERSE_EVENTS[row['event']])
-        new_row[:type_of_enquiry].push(REVERSE_EVENTS[row['event']])
-      end
-
-    end
-
-    def process_row_enquiry_details_non_green(new_row, row, details)
-      if new_row.empty?
-        new_row[:date] = row['date']
-        new_row[:status] = details['status']
-        new_row[:photo_url] = details['photo_url']
-        # buyer = PropertyUser.find(row['buyer_id'])
-        # new_row[:contact_number] = buyer.contact_number rescue nil
-        new_row[:type_of_match] = REVERSE_TYPE_OF_MATCH[row['type_of_match']]
-        
-        new_row[:total_views] ||= 0
-        new_row[:total_enquiries] ||= 0
-        new_row[:total_tracking] ||= 0
-        new_row[:total_enquiries] ||= 0
-        new_row[:total_would_view_if_green] ||= 0
-        new_row[:total_requested_callback] ||= 0
-        new_row[:total_would_make_offer_if_green] ||= 0
-        new_row[:total_requested_message] ||= 0
-        ### new_row[:type_of_buyer] =  Nowhere being stored
-        ### new_row[:chain] =  Nowhere being stored
-
-        cql = "SELECT event FROM Simple.buyer_events_non_dated WHERE buyer_id = #{row['buyer_id']} "
-        session = Trackers.session
-        future = session.execute(cql) 
-        new_row[:total_views] = new_row[:total_enquiries] = new_row[:total_tracking] = new_row[:total_would_view_if_green] = new_row[:total_would_make_offer_if_green] = 0
-        future.rows do |buyer_row|
-          new_row[:total_views] += 1 if REVERSE_EVENTS[buyer_row['event']] == :views
-          new_row[:total_enquiries] += 1 if  ENQUIRY_EVENTS.include?(REVERSE_EVENTS[buyer_row['event']])
-          new_row[:total_tracking] += 1 if REVERSE_EVENTS[buyer_row['event']] == :property_tracking
-          new_row[:total_would_view_if_green] += 1 if REVERSE_EVENTS[buyer_row['event']] == :would_view_if_green
-          new_row[:total_would_make_offer_if_green] += 1 if REVERSE_EVENTS[buyer_row['event']] == :would_make_offer_if_green
-          new_row[:total_requested_callback] += 1 if REVERSE_EVENTS[buyer_row['event']] == :requested_callback
-          new_row[:total_requested_message] += 1 if REVERSE_EVENTS[buyer_row['event']] == :requested_message
-        end
-        new_row[:replied] = false
-        new_row[:type_of_enquiry] = []
-        new_row[:perfect] = 0
-        new_row[:potential] = 0
-
-      end
-      new_row[:buyer_views] = 0 if new_row[:buyer_views].nil?
-      new_row[:buyer_views] += 1 if REVERSE_EVENTS[row['event']] == :views
-
-      new_row[:buyer_enquiries] = 0 if new_row[:enquiries].nil?
-      new_row[:buyer_enquiries] += 1 if ENQUIRY_EVENTS.include?(REVERSE_EVENTS[row['event']])
-
-      new_row[:property_tracking] = 0 if new_row[:property_tracking].nil?
-      new_row[:property_tracking] += 1 if REVERSE_EVENTS[row['event']] == :property_tracking
-
-      new_row[:would_view_if_green] = 0 if new_row[:would_view_if_green].nil?
-      new_row[:would_view_if_green] += 1 if REVERSE_EVENTS[row['event']] == :would_view_if_green
-
-      new_row[:would_make_offer_if_green] = 0 if new_row[:would_make_offer_if_green].nil?
-      new_row[:would_make_offer_if_green] += 1 if REVERSE_EVENTS[row['event']] == :would_make_offer_if_green
-
-      new_row[:requested_message] = 0 if new_row[:requested_message].nil?
-      new_row[:requested_message] += 1 if REVERSE_EVENTS[row['event']] == :requested_message
-
-      new_row[:requested_callback] = 0 if new_row[:requested_callback].nil?
-      new_row[:requested_callback] += 1 if REVERSE_EVENTS[row['event']] == :requested_callback
-
-      new_row[:enquiry_status] = REVERSE_EVENTS[row['event']] if row['event'] <= EVENTS[:closed_won_stage] || row['event'] >= EVENTS[:qualifying_stage]
-      new_row[:confidence_level] = row['message'] if REVERSE_EVENTS[row['event']] == :confidence_level
-
-      if [:responded_to_email_request, :responded_to_callback_request, :responded_to_viewing_request].include?(REVERSE_EVENTS[row['event']])
-        new_row[:replied] = true
-      end
-
-      events = [:property_tracking, :requested_callback, :requested_message, :requested_viewing, :would_view_if_green, :would_make_offer_if_green]
-      if events.include?(REVERSE_EVENTS[row['event']])
-        new_row[:type_of_enquiry].push(REVERSE_EVENTS[row['event']])
-      end
-
-    end
-
+    new_row
 
   end
+
+  private
+
+  def generic_event_count(event, property_id, table, type=:single)
+    event_sql = nil
+    if type == :single
+      event_type = EVENTS[:event]
+      event_sql = <<-SQL 
+                    SELECT COUNT(*)
+                    FROM #{table}
+                    WHERE property_id = '#{property_id}'
+                    AND event = #{event_type};
+                  SQL
+    else
+      event_types = event.map { |e| EVENTS[e].to_s }.join(',')
+      event_sql = <<-SQL
+                    SELECT COUNT(*)
+                    FROM #{table}
+                    WHERE property_id = '#{property_id}'
+                    AND event IN (#{event_types});
+                  SQL
+    end
+    execute_count(event_sql)
+  end
+
+  def execute_count(event_sql)
+    session = Trackers.session
+    future = session.execute(event_sql)
+    count = nil
+    future.rows do |each_row|
+      count = each_row['count']
+    end
+    count
+  end
+
+  def generic_event_count_buyer(event, property_id, buyer_id, table, type=:single)
+    event_sql = nil
+    if type == :single
+      event_type = EVENTS[:event]
+      event_sql = <<-SQL
+                    SELECT COUNT(*)
+                    FROM #{table}
+                    WHERE property_id='#{property_id}'
+                    AND buyer_id = #{buyer_id}
+                    AND event = #{event_type};
+                  SQL
+    else
+      event_types = event.map { |e| EVENTS[e].to_s }.join(',')
+      event_sql = <<-SQL
+                    SELECT COUNT(*)
+                    FROM #{table}
+                    WHERE property_id='#{property_id}'
+                    AND buyer_id = #{buyer_id}
+                    AND event IN (#{event_types});
+                  SQL
+    end
+    execute_count(event_sql)
+  end
+
 end
 
 #CREATE KEYSPACE Simple WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 3 };
 =begin
 
-DROP TABLE Simple.property_events_buyers ;
-DROP TABLE Simple.property_events_buyers_dated ;
-DROP TABLE Simple.buyer_events ;
-DROP TABLE Simple.property_events_buyers_non_dated;
-DROP TABLE Simple.buyer_events_non_dated;
 
-CREATE TABLE Simple.property_events_buyers (
+#####################################################
+#####################################################
+#####################################################
+#####################################################
+
+CREATE TABLE Simple.property_events_buyers_events (
+    stored_time timestamp,
     date text,
     property_id text,
     status_id int,
@@ -452,10 +368,39 @@ CREATE TABLE Simple.property_events_buyers (
     event int,
     message text,
     type_of_match int,
-    PRIMARY KEY ((property_id), date, buyer_id, event)
+    PRIMARY KEY ((property_id), event, buyer_id, date)
 );
 
-CREATE TABLE Simple.property_events_buyers_dated (
+CREATE TABLE Simple.agents_buyer_events_timestamped (
+    stored_time timestamp,
+    time_of_event timeuuid,
+    agent_id int,
+    property_id text,
+    status_id int,
+    buyer_id int,
+    event int,
+    message text,
+    type_of_match int,
+    PRIMARY KEY ((agent_id), buyer_id, event, time_of_event)
+);
+
+SELECT * FROM Simple.timestamped_property_events WHERE agent_id = 23 AND buyer_id =  23 AND event= 3 ORDER BY buyer_id DESC , event DESC , time_of_event DESC LIMIT 1 ;
+
+CREATE TABLE Simple.timestamped_property_events (
+    stored_time timestamp,
+    time_of_event timeuuid,
+    agent_id int,
+    property_id text,
+    status_id int,
+    buyer_id int,
+    event int,
+    message text,
+    type_of_match int,
+    PRIMARY KEY ((agent_id), time_of_event, buyer_id)
+);
+SELECT * FROM Simple.timestamped_property_events WHERE agent_id = 23 AND event =  3 ORDER BY  time_of_event DESC LIMIT 20 ALLOW FILTERING ;
+
+CREATE TABLE Simple.buyer_property_events (
     date text,
     property_id text,
     status_id int,
@@ -463,44 +408,12 @@ CREATE TABLE Simple.property_events_buyers_dated (
     event int,
     message text,
     type_of_match int,
-    PRIMARY KEY ((date, property_id), buyer_id, event)
-);
-
-CREATE TABLE Simple.buyer_events (
-    date text,
-    buyer_id int,
-    property_id text,
-    status_id int,
-    event int,
-    message text,
-    type_of_match int,
-    PRIMARY KEY ((date), buyer_id, property_id, event)
-);
-
-CREATE TABLE Simple.buyer_events_non_dated (
-    date text,
-    buyer_id int,
-    property_id text,
-    status_id int,
-    event int,
-    message text,
-    type_of_match int,
-    PRIMARY KEY ((buyer_id), date, property_id, event)
+    PRIMARY KEY ((buyer_id), property_id, event)
 );
 
 
-CREATE TABLE Simple.property_events_buyers_non_dated (
-    date text,
-    property_id text,
-    status_id int,
-    buyer_id int,
-    event int,
-    message text,
-    type_of_match int,
-    PRIMARY KEY ((property_id), buyer_id, event, date)
-);
-
-
+#####################################################
+#####################################################
 
 INSERT INTO Simple.property_events_buyers (date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 1, NULL, 1 );
 INSERT INTO Simple.property_events_buyers_dated (date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 1, NULL, 1 );
