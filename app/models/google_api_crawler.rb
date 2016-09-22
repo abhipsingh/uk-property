@@ -133,7 +133,7 @@ class GoogleApiCrawler
   end  
 
   def post_url(query = {}, index_name='property_details', type_name='property_detail', endpoint='_search')
-    uri = URI.parse(URI.encode("http://ec2-52-38-219-110.us-west-2.compute.amazonaws.com/#{index_name}/#{type_name}/#{endpoint}"))
+    uri = URI.parse(URI.encode("#{Rails.configuration.remote_es_url}/#{index_name}/#{type_name}/#{endpoint}"))
     query = (query == {}) ? "" : query.to_json
     http = Net::HTTP.new(uri.host, uri.port)
     result = http.post(uri,query)

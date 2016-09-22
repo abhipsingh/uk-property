@@ -8,6 +8,8 @@ class PropertyDetailsRepo
   NEARBY_MAX_RADIUS = 5000
   RESULTS_PER_PAGE = 20
   MAX_RESULTS_PER_PAGE = 150
+  ES_EC2_URL = 'http://172.31.3.99:9200'
+  ES_EC2_HOST = '172.31.3.99'
   FIELDS = {
     terms: [:property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :keyword_types],
     term:  [:tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :listing_type, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status],
@@ -250,7 +252,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
   end
 
   def post_url(query = {}, index_name='property_details', type_name='property_detail')
-    uri = URI.parse(URI.encode("http://ec2-52-38-219-110.us-west-2.compute.amazonaws.com/#{index_name}/#{type_name}/_search"))
+    uri = URI.parse(URI.encode("#{ES_EC2_URL}/#{index_name}/#{type_name}/_search"))
     query = (query == {}) ? "" : query.to_json
     http = Net::HTTP.new(uri.host, uri.port)
     result = http.post(uri,query)
@@ -266,7 +268,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     time_frame_years = (2004..2016).step(1).to_a
     days = (1..24).to_a
     body = []
-    client = Elasticsearch::Client.new host: 'ec2-52-38-219-110.us-west-2.compute.amazonaws.com:80'
+    client = Elasticsearch::Client.new host: ES_EC2_HOST
     characters = (1..10).to_a
     alphabets = ('A'..'Z').to_a
     addresses = get_bulk_addresses
@@ -274,7 +276,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     scroll_id = 'cXVlcnlUaGVuRmV0Y2g7NTsxMDgxOnUtUUgwSTNlUTFDU216cjhEOHNUeUE7MTA4Mjp1LVFIMEkzZVExQ1NtenI4RDhzVHlBOzEwODQ6dS1RSDBJM2VRMUNTbXpyOEQ4c1R5QTsxMDgzOnUtUUgwSTNlUTFDU216cjhEOHNUeUE7MTA4NTp1LVFIMEkzZVExQ1NtenI4RDhzVHlBOzA7'
     glob_counter = 0
     loop do
-      get_records_url = 'http://ec2-52-38-219-110.us-west-2.compute.amazonaws.com/_search/scroll'
+      get_records_url = ES_EC2_URL + '/_search/scroll'
       p 'hello'
       scroll_hash = { scroll: '15m', scroll_id: scroll_id }
       response , status = post_url_new(scroll_hash)
@@ -305,21 +307,21 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
         doc[:assigned_agent_employee_address] = "5 Bina Gardens"
         doc[:assigned_agent_employee_image] = nil
         doc[:last_updated_date] = "2015-09-21"
-        doc[:agent_logo] = "http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/prop.jpg"
+        doc[:agent_logo] = "http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/prop.jpg"
         doc[:broker_branch_contact] = "020 3641 4259"
         doc[:date_updated] = 3.days.ago.to_date.to_s
         if doc[:photos] == "Yes"
           doc[:photo_count] = 3
           doc[:photo_urls] = [
-            "http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/prop.jpg",
-            "http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/prop2.jpg",
-            "http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/prop3.jpg",
+            "http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/prop.jpg",
+            "http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/prop2.jpg",
+            "http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/prop3.jpg",
           ]
         else
           doc[:photo_urls] = []
         end
 
-        doc[:broker_logo] = "http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/prop3.jpg"
+        doc[:broker_logo] = "http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/prop3.jpg"
         doc[:agent_contact] = "020 3641 4259"
         description = ''
         doc[:description] = characters.sample(1).first.times do
@@ -330,7 +332,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
         doc[:make_offer] = "/api/v0/vendors/update/property_users?action_type=make_offer"
         doc[:follow_street] = "/addresses/follow?location_type=dependent_thoroughfare_description"
         doc[:follow_locality] = "/addresses/follow?location_type =dependent_locality"
-        doc[:claim_property] = "http://ec2-52-10-153-115.us-west-2.compute.amazonaws.com/properties/new/#{doc[:udprn]}/short"
+        doc[:claim_property] = "http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/properties/new/#{doc[:udprn]}/short"
         process_doc_with_conditions(doc)
 
         doc[:added_by] = 'Us'
@@ -437,7 +439,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
   end
 
   def self.post_url_new(query = {}, index_name='property_details', type_name='property_detail')
-    uri = URI.parse(URI.encode("http://ec2-52-38-219-110.us-west-2.compute.amazonaws.com/_search/scroll"))
+    uri = URI.parse(URI.encode("#{ES_EC2_URL}/_search/scroll"))
     query = (query == {}) ? "" : query.to_json
     http = Net::HTTP.new(uri.host, uri.port)
     result = http.post(uri,query)
@@ -450,7 +452,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     errors = []
     FIELDS[:terms].each do |term|
       value = RANDOM_SEED_MAP[term.to_s.singularize.to_sym].sample(1).first rescue nil
-      url = "http://ec2-52-38-219-110.us-west-2.compute.amazonaws.com/api/v0/properties/search?"
+      url = "#{ES_EC2_URL}/api/v0/properties/search?"
       if value
         query_params = {}
         query_params[term] = value

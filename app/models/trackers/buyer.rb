@@ -247,7 +247,7 @@ module Trackers
     ### Property level enquiries ##################################
 
     def property_and_enquiry_details(property_id)
-      # url = "http://ec2-52-38-219-110.us-west-2.compute.amazonaws.com/addresses/address/#{property_id}"
+      # url = "#{Rails.configuration.remote_es_url}/addresses/address/#{property_id}"
       # response = Net::HTTP.get(URI.parse(url))
       # details = response['_source']
       details = {}
