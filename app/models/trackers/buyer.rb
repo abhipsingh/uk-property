@@ -209,17 +209,27 @@ class Trackers::Agent
     session = Trackers.session
     future = session.execute(event_sql)
 
-    agent_ids = []
+    buyer_ids = []
 
     future.rows do |each_row|
       new_row = {}
       new_row['received'] = each_row['stored_time']
       new_row['type_of_enquiry'] = REVERSE_EVENTS[each_row['event']]
+      new_row['type_of_match'] = REVERSE_TYPE_OF_MATCH[each_row['type_of_match']]
       property_id = new_row['property_id']
       push_property_details_row(new_row, property_id)
       add_details_to_enquiry_row_buyer(new_row, property_id, each_row, agent_id)
-      agent_ids.push(agent_id)
+      buyer_ids.push(each_row['buyer_id'])
       result.push(new_row)
+    end
+
+    buyers = PropertyBuyer.where(id: buyer_ids).select([:id, :email, :full_name, :mobile, :status, :chain_free]).order("position(id::text in '#{buyer_ids.join(',')}')")
+
+    result.each_with_index do |each_row, index|
+      each_row['buyer_status'] = buyers[index]['buyer_status']
+      each_row['buyer_full_name'] = buyers[index]['buyer_full_name']
+      each_row['buyer_email'] = buyers[index]['email']
+      each_row['buyer_mobile'] = buyers[index]['mobile']
     end
 
     result
@@ -287,7 +297,6 @@ class Trackers::Agent
       new_row[:qualifying] = REVERSE_EVENTS[each_row['event']]
     end
     new_row
-
   end
 
   private
