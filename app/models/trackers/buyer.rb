@@ -198,25 +198,29 @@ class Trackers::Buyer
 
   def property_enquiry_details_buyer(agent_id)
     result = []
-    events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }.join(',')
-    table = 'Simple.timestamped_property_events'
-    event_query = compose_where_queries(events, 'event')
-    received_cql = <<-SQL 
-                      SELECT event, type_of_match, time_of_event, stored_time
-                      FROM #{table} 
-                      WHERE agent_id = #{agent_id}
-                      AND (#{event_query})
-                      ORDER BY time_of_event DESC
-                      LIMIT 20
-                      ALLOW FILTERING
-                    SQL
-    
-    session = self.class.session
-    future = session.execute(received_cql)
+    events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
+    total_rows = []
+    events.each do |event|
+      table = 'Simple.timestamped_property_events'
+      received_cql = <<-SQL
+                        SELECT event, type_of_match, time_of_event, stored_time
+                        FROM #{table}
+                        WHERE agent_id = #{agent_id}
+                        AND event = #{event}
+                        ORDER BY time_of_event DESC
+                        LIMIT 20
+                        ALLOW FILTERING
+                      SQL
 
+      session = self.class.session
+      future = session.execute(received_cql)
+      total_rows.push(future.rows)
+    end
     buyer_ids = []
 
-    future.rows do |each_row|
+    total_rows.sort_by!{ |t| Time.parse(t['stored_time']).to_i }.reverse
+
+    total_rows.first(20) do |each_row|
       new_row = {}
       new_row['received'] = each_row['stored_time']
       new_row['type_of_enquiry'] = REVERSE_EVENTS[each_row['event']]
