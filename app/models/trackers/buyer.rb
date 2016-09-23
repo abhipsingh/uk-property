@@ -200,18 +200,19 @@ class Trackers::Buyer
     result = []
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }.join(',')
     table = 'Simple.timestamped_property_events'
+    event_query = compose_where_queries(events, 'event')
     received_cql = <<-SQL 
                       SELECT event, type_of_match, time_of_event, stored_time
                       FROM #{table} 
                       WHERE agent_id = #{agent_id}
-                      AND event IN (#{events})
+                      AND (#{event_query})
                       ORDER BY time_of_event DESC
                       LIMIT 20
                       ALLOW FILTERING
                     SQL
     
     session = self.class.session
-    future = session.execute(event_sql)
+    future = session.execute(received_cql)
 
     buyer_ids = []
 
@@ -237,6 +238,44 @@ class Trackers::Buyer
     end
 
     result
+  end
+
+  def event_ranges(events)
+    ranges = []
+    new_range = []
+    last_event = nil
+    events.each do |event|
+      if new_range.empty?
+        new_range.push(event)
+      else
+        if (event - last_event.to_i) == 1
+        else
+          new_range.push(last_event)
+          ranges.push(new_range)
+          new_range = [event]
+        end
+      end
+      last_event = event
+    end
+
+    if !new_range.empty?
+      new_range.push(last_event)
+    end
+    ranges.push(new_range)
+    ranges
+  end
+
+  def compose_where_queries(events, column_name)
+    ranges = event_ranges(events)
+    queries = []
+    ranges.each do |each_range|
+      query = <<-SQL
+                (#{column_name} >= #{each_range.min} AND #{column_name} <= #{each_range.max})
+              SQL
+      queries.push(query)
+    end
+    queries = queries.map { |e| e.strip }
+    queries.join(' OR ')
   end
 
   def push_property_details_row(new_row, property_id)
