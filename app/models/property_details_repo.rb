@@ -307,21 +307,21 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
         doc[:assigned_agent_employee_address] = "5 Bina Gardens"
         doc[:assigned_agent_employee_image] = nil
         doc[:last_updated_date] = "2015-09-21"
-        doc[:agent_logo] = "http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/prop.jpg"
+        doc[:agent_logo] = "http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/prop.jpg"
         doc[:broker_branch_contact] = "020 3641 4259"
         doc[:date_updated] = 3.days.ago.to_date.to_s
         if doc[:photos] == "Yes"
           doc[:photo_count] = 3
           doc[:photo_urls] = [
-            "http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/prop.jpg",
-            "http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/prop2.jpg",
-            "http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/prop3.jpg",
+            "http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/prop.jpg",
+            "http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/prop2.jpg",
+            "http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/prop3.jpg",
           ]
         else
           doc[:photo_urls] = []
         end
 
-        doc[:broker_logo] = "http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/prop3.jpg"
+        doc[:broker_logo] = "http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/prop3.jpg"
         doc[:agent_contact] = "020 3641 4259"
         description = ''
         doc[:description] = characters.sample(1).first.times do
@@ -332,7 +332,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
         doc[:make_offer] = "/api/v0/vendors/update/property_users?action_type=make_offer"
         doc[:follow_street] = "/addresses/follow?location_type=dependent_thoroughfare_description"
         doc[:follow_locality] = "/addresses/follow?location_type =dependent_locality"
-        doc[:claim_property] = "http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/properties/new/#{doc[:udprn]}/short"
+        doc[:claim_property] = "http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/properties/new/#{doc[:udprn]}/short"
         process_doc_with_conditions(doc)
 
         doc[:added_by] = 'Us'

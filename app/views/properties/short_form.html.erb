@@ -1,13 +1,13 @@
-<script src="http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/underscore.min.js"></script>
-<script src="http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/jquery.min.js"></script>
-<script src="http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/backbone.min.js"></script>
-<script src="http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/backbone-forms.min.js"></script>
-<script src="http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/bootstrap.min.js"></script>
-<script src="http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/jasny-bootstrap.js"></script>
-<script src="http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/selectize.js"></script>
-<link rel="stylesheet" type="text/css" href="http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/bootstrap.min.css"/>
-<link rel="stylesheet" type="text/css" href="http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/jasny-bootstrap.css"/>
-<link rel="stylesheet" type="text/css" href="http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/selectize.min.css"/>
+<script src="http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/underscore.min.js"></script>
+<script src="http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/jquery.min.js"></script>
+<script src="http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/backbone.min.js"></script>
+<script src="http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/backbone-forms.min.js"></script>
+<script src="http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/bootstrap.min.js"></script>
+<script src="http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/jasny-bootstrap.js"></script>
+<script src="http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/selectize.js"></script>
+<link rel="stylesheet" type="text/css" href="http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/bootstrap.min.css"/>
+<link rel="stylesheet" type="text/css" href="http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/jasny-bootstrap.css"/>
+<link rel="stylesheet" type="text/css" href="http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/selectize.min.css"/>
 
 <div class="col-md-6">
   <div class="row" style="margin: auto;text-align: center;">
@@ -167,7 +167,7 @@
       load: function(query, callback) {
         if (!query.length) return callback();
         $.ajax({
-          url: 'http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/api/v0/agents/search/?name=' + encodeURIComponent(query) + '&type=agent',
+          url: 'http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/api/v0/agents/search/?name=' + encodeURIComponent(query) + '&type=agent',
           type: 'GET',
           error: function() {
             callback();
@@ -190,7 +190,7 @@
       },
       onItemAdd: function(e){
         $.ajax({
-          url: 'http://ec2-52-66-76-134.ap-south-1.compute.amazonaws.com/api/v0/agents/search/?type=branch&branch_id=' + e,
+          url: 'http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/api/v0/agents/search/?type=branch&branch_id=' + e,
           type: 'GET',
           error: function() {
             console.log('Error in getting branches');
