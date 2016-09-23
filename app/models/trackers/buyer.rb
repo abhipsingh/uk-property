@@ -73,7 +73,7 @@ class Trackers::Buyer
   ]
 
   def track(agent: agent_id, event: event_id, property: property_id, buyer: buyer_id)
-    session = self.session
+    session = self.class.session
     session.execute("INSERT INTO buyer_events_agents (agent_id, buyer_id, property_id, event_id, time) VALUES ( #{agent_id}, #{buyer_id}, #{property_id}, #{EVENTS[event_id]}, #{Date.today.to_s} )")
     session.execute("INSERT INTO property_events_agents (agent_id, buyer_id, property_id, event_id, time) VALUES (#{agent_id},  #{buyer_id}, #{property_id}, #{EVENTS[event_id]}, #{Date.today.to_s} )")
     session.execute("INSERT INTO time_events_agents (agent_id, buyer_id, property_id, event_id, time) VALUES (#{agent_id},  #{buyer_id}, #{property_id}, #{EVENTS[event_id]}, #{Date.today.to_s} )")
@@ -120,7 +120,7 @@ class Trackers::Buyer
       FROM system.schema_columns
       WHERE keyspace_name = 'simple' AND columnfamily_name = '#{table}';
     SQL
-    session = self.session
+    session = self.class.session
   end
 
   ###############################################################
@@ -173,7 +173,7 @@ class Trackers::Buyer
   end
 
   def add_details_to_enquiry_row(new_row, details)
-    session = self.session
+    session = self.class.session
     table = 'Simple.property_events_buyers_events'
     property_id = details['udprn']
 
@@ -198,7 +198,6 @@ class Trackers::Buyer
 
   def property_enquiry_details_buyer(agent_id)
     result = []
-    agent_id = details['agent_id']
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }.join(',')
     table = 'Simple.timestamped_property_events'
     received_cql = <<-SQL 
@@ -211,7 +210,7 @@ class Trackers::Buyer
                       ALLOW FILTERING
                     SQL
     
-    session = self.session
+    session = self.class.session
     future = session.execute(event_sql)
 
     buyer_ids = []
@@ -267,7 +266,7 @@ class Trackers::Buyer
                         AND property_id = #{property_id}
                         AND event = #{tracking_property_event}
                         SQL
-    session = self.session
+    session = self.class.session
     future = session.execute(tracking_prop_cql)
 
     future.rows do |each_row|
@@ -329,7 +328,7 @@ class Trackers::Buyer
   end
 
   def execute_count(event_sql)
-    session = self.session
+    session = self.class.session
     future = session.execute(event_sql)
     count = nil
     future.rows do |each_row|
