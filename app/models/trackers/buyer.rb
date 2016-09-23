@@ -1,4 +1,4 @@
-class Trackers::Agent
+class Trackers::Buyer
 
   def self.session
     Rails.configuration.cassandra_session
@@ -73,7 +73,7 @@ class Trackers::Agent
   ]
 
   def track(agent: agent_id, event: event_id, property: property_id, buyer: buyer_id)
-    session = Trackers.session
+    session = self.session
     session.execute("INSERT INTO buyer_events_agents (agent_id, buyer_id, property_id, event_id, time) VALUES ( #{agent_id}, #{buyer_id}, #{property_id}, #{EVENTS[event_id]}, #{Date.today.to_s} )")
     session.execute("INSERT INTO property_events_agents (agent_id, buyer_id, property_id, event_id, time) VALUES (#{agent_id},  #{buyer_id}, #{property_id}, #{EVENTS[event_id]}, #{Date.today.to_s} )")
     session.execute("INSERT INTO time_events_agents (agent_id, buyer_id, property_id, event_id, time) VALUES (#{agent_id},  #{buyer_id}, #{property_id}, #{EVENTS[event_id]}, #{Date.today.to_s} )")
@@ -112,6 +112,15 @@ class Trackers::Agent
       end
     end
     p result
+  end
+
+  def self.mock_insert(table, *col_values)
+    column_sql = <<-SQL
+      SELECT *
+      FROM system.schema_columns
+      WHERE keyspace_name = 'simple' AND columnfamily_name = '#{table}';
+    SQL
+    session = self.session
   end
 
   ###############################################################
@@ -164,7 +173,7 @@ class Trackers::Agent
   end
 
   def add_details_to_enquiry_row(new_row, details)
-    session = Trackers.session
+    session = self.session
     table = 'Simple.property_events_buyers_events'
     property_id = details['udprn']
 
@@ -187,10 +196,6 @@ class Trackers::Agent
   ###############################################################
   ########## Property level enquiries specific to a buyer #######
 
-  def property_and_enquiry_details_buyer(agent_id)
-    property_enquiry_details_buyer(agent_id)
-  end
-
   def property_enquiry_details_buyer(agent_id)
     result = []
     agent_id = details['agent_id']
@@ -206,7 +211,7 @@ class Trackers::Agent
                       ALLOW FILTERING
                     SQL
     
-    session = Trackers.session
+    session = self.session
     future = session.execute(event_sql)
 
     buyer_ids = []
@@ -262,7 +267,7 @@ class Trackers::Agent
                         AND property_id = #{property_id}
                         AND event = #{tracking_property_event}
                         SQL
-    session = Trackers.session
+    session = self.session
     future = session.execute(tracking_prop_cql)
 
     future.rows do |each_row|
@@ -324,7 +329,7 @@ class Trackers::Agent
   end
 
   def execute_count(event_sql)
-    session = Trackers.session
+    session = self.session
     future = session.execute(event_sql)
     count = nil
     future.rows do |each_row|
@@ -367,6 +372,10 @@ end
 #####################################################
 #####################################################
 #####################################################
+DROP TABLE Simple.property_events_buyers_events;
+DROP TABLE Simple.agents_buyer_events_timestamped;
+DROP TABLE Simple.timestamped_property_events;
+DROP TABLE Simple.buyer_property_events;
 
 CREATE TABLE Simple.property_events_buyers_events (
     stored_time timestamp,
@@ -407,13 +416,13 @@ CREATE TABLE Simple.timestamped_property_events (
     type_of_match int,
     PRIMARY KEY ((agent_id), time_of_event, buyer_id)
 );
-SELECT * FROM Simple.timestamped_property_events WHERE agent_id = 23 AND event =  3 ORDER BY  time_of_event DESC LIMIT 20 ALLOW FILTERING ;
 
 CREATE TABLE Simple.buyer_property_events (
+    stored_time timestamp,
     date text,
+    buyer_id int,
     property_id text,
     status_id int,
-    buyer_id int,
     event int,
     message text,
     type_of_match int,
@@ -424,39 +433,56 @@ CREATE TABLE Simple.buyer_property_events (
 #####################################################
 #####################################################
 
-INSERT INTO Simple.property_events_buyers (date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 1, NULL, 1 );
-INSERT INTO Simple.property_events_buyers_dated (date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 1, NULL, 1 );
-INSERT INTO Simple.property_events_buyers_non_dated (date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 1, NULL, 1 );
-INSERT INTO Simple.buyer_events (date, buyer_id, status_id, property_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 1, NULL, 1 );
-INSERT INTO Simple.buyer_events_non_dated (date, buyer_id, status_id, property_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 1, NULL, 1 );
+INSERT INTO Simple.property_events_buyers_events (stored_time, date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ('2016-07-11 01:01:01', '2016-07-11', '256070', 1, 1, 2, NULL, 1);
+INSERT INTO Simple.property_events_buyers_events (stored_time, date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ('2016-07-11 01:01:02', '2016-07-11', '256070', 1, 1, 3, NULL, 1);
+INSERT INTO Simple.property_events_buyers_events (stored_time, date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ('2016-07-11 01:02:03', '2016-07-11', '256070', 1, 1, 15, NULL, 1);
+INSERT INTO Simple.property_events_buyers_events (stored_time, date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ('2016-07-11 01:03:04', '2016-07-11', '256070', 1, 1, 16, NULL, 1);
+INSERT INTO Simple.property_events_buyers_events (stored_time, date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ('2016-07-11 01:04:05', '2016-07-11', '256070', 1, 1, 17, NULL, 1);
+INSERT INTO Simple.property_events_buyers_events (stored_time, date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ('2016-07-11 01:04:06', '2016-07-11', '256070', 1, 1, 18, NULL, 1);
+INSERT INTO Simple.property_events_buyers_events (stored_time, date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ('2016-07-11 01:05:07', '2016-07-11', '256070', 1, 1, 19, NULL, 1);
+INSERT INTO Simple.property_events_buyers_events (stored_time, date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ('2016-07-11 01:06:08', '2016-07-11', '256070', 1, 1, 23, NULL, 1);
+INSERT INTO Simple.property_events_buyers_events (stored_time, date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ('2016-07-11 01:07:09', '2016-07-11', '256070', 1, 1, 8, NULL, 1);
+INSERT INTO Simple.property_events_buyers_events (stored_time, date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ('2016-07-11 01:08:10', '2016-07-11', '256070', 1, 1, 9, NULL, 1);
+INSERT INTO Simple.property_events_buyers_events (stored_time, date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ('2016-07-11 01:09:11', '2016-07-11', '256070', 1, 1, 10, NULL, 1);
 
 
-INSERT INTO Simple.property_events_buyers (date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 2, NULL, 1  );
-INSERT INTO Simple.property_events_buyers (date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 4, NULL, 1  );
-INSERT INTO Simple.property_events_buyers (date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 8 , NULL, 1 );
-INSERT INTO Simple.property_events_buyers (date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 10 , '2016-12-13', 1 );
-INSERT INTO Simple.property_events_buyers (date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 9 , NULL, 1 );
-INSERT INTO Simple.property_events_buyers (date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 11 , NULL, 1 );
-INSERT INTO Simple.property_events_buyers (date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 14, NULL, 1  );
-INSERT INTO Simple.property_events_buyers (date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 19, NULL, 1  );
-INSERT INTO Simple.property_events_buyers (date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 12, 18 , NULL, 1 );
-INSERT INTO Simple.property_events_buyers (date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11', '12', 1, 123, 1 , NULL, 1 );
-INSERT INTO Simple.property_events_buyers (date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11', '123', 1, 12, 1 , NULL, 1 );
+INSERT INTO Simple.agents_buyer_events_timestamped (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11 01:01:01', now(), 4532, '256070', 1, 1,  2, NULL, 1);
+INSERT INTO Simple.agents_buyer_events_timestamped (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11 01:02:01', now(), 4532, '256070', 1, 1,  3, NULL, 1);
+INSERT INTO Simple.agents_buyer_events_timestamped (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11 01:03:01', now(), 4532, '256070', 1, 1,  15, NULL, 1);
+INSERT INTO Simple.agents_buyer_events_timestamped (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11 01:04:01', now(), 4532, '256070', 1, 1, 16, NULL, 1);
+INSERT INTO Simple.agents_buyer_events_timestamped (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11 01:05:01', now(), 4532, '256070', 1, 1, 17, NULL, 1);
+INSERT INTO Simple.agents_buyer_events_timestamped (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11 01:06:01', now(), 4532, '256070', 1, 1, 18, NULL, 1);
+INSERT INTO Simple.agents_buyer_events_timestamped (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11 01:07:01', now(), 4532, '256070', 1, 1, 19, NULL, 1);
+INSERT INTO Simple.agents_buyer_events_timestamped (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11 01:08:01', now(), 4532, '256070', 1, 1, 23, NULL, 1);
+INSERT INTO Simple.agents_buyer_events_timestamped (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11 01:09:01', now(), 4532, '256070', 1, 1,  8, NULL, 1);
+INSERT INTO Simple.agents_buyer_events_timestamped (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11 01:10:01', now(), 4532, '256070', 1, 1,  9, NULL, 1);
+INSERT INTO Simple.agents_buyer_events_timestamped (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11 01:11:01', now(), 4532, '256070', 1, 1, 10, NULL, 1);
 
 
-INSERT INTO Simple.buyer_events_non_dated (date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '2016-07-11', 12,  '12', 1, 1, NULL, 1 );
-INSERT INTO Simple.buyer_events_non_dated (date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '2016-07-11', 12,  '12', 1, 2, NULL, 1  );
-INSERT INTO Simple.buyer_events_non_dated (date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '2016-07-11', 12,  '12', 1, 4, NULL, 1  );
-INSERT INTO Simple.buyer_events_non_dated (date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '2016-07-11', 12, '12', 1, 8 , NULL, 1 );
-INSERT INTO Simple.buyer_events_non_dated (date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '2016-07-11', 12, '12', 1, 10 , '2016-12-13', 1 );
-INSERT INTO Simple.buyer_events_non_dated (date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '2016-07-11', 12, '12', 1, 9 , NULL, 1 );
-INSERT INTO Simple.buyer_events_non_dated (date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '2016-07-11', 12, '12', 1, 11 , NULL, 1 );
-INSERT INTO Simple.buyer_events_non_dated (date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '2016-07-11', 12, '12', 1, 14, NULL, 1  );
-INSERT INTO Simple.buyer_events_non_dated (date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '2016-07-11', 12, '12', 1, 19, NULL, 1  );
-INSERT INTO Simple.buyer_events_non_dated (date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '2016-07-11', 12, '12', 1, 18 , NULL, 1 );
-INSERT INTO Simple.buyer_events_non_dated (date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '2016-07-11', 12, '12', 1, 1 , NULL, 1 );
-INSERT INTO Simple.buyer_events_non_dated (date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '2016-07-11', 12, '123', 1, 1 , NULL, 1 );
+INSERT INTO Simple.timestamped_property_events (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11 01:01:01', now(), 4532, '256070', 1, 1,  2, NULL, 1);
+INSERT INTO Simple.timestamped_property_events (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11 01:02:01', now(), 4532, '256070', 1, 1,  3, NULL, 1);
+INSERT INTO Simple.timestamped_property_events (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11 01:03:01', now(), 4532, '256070', 1, 1,  15, NULL, 1);
+INSERT INTO Simple.timestamped_property_events (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11 01:04:01', now(), 4532, '256070', 1, 1, 16, NULL, 1);
+INSERT INTO Simple.timestamped_property_events (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11 01:05:01', now(), 4532, '256070', 1, 1, 17, NULL, 1);
+INSERT INTO Simple.timestamped_property_events (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11 01:06:01', now(), 4532, '256070', 1, 1, 18, NULL, 1);
+INSERT INTO Simple.timestamped_property_events (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11 01:07:01', now(), 4532, '256070', 1, 1, 19, NULL, 1);
+INSERT INTO Simple.timestamped_property_events (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11 01:08:01', now(), 4532, '256070', 1, 1, 23, NULL, 1);
+INSERT INTO Simple.timestamped_property_events (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11 01:09:01', now(), 4532, '256070', 1, 1,  8, NULL, 1);
+INSERT INTO Simple.timestamped_property_events (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11 01:10:01', now(), 4532, '256070', 1, 1,  9, NULL, 1);
+INSERT INTO Simple.timestamped_property_events (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11 01:11:01', now(), 4532, '256070', 1, 1, 10, NULL, 1);
 
+
+INSERT INTO Simple.buyer_property_events (stored_time, date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '2016-07-11 01:01:01', '2016-07-11', 1, '256070', 1, 2 , NULL, 1 );
+INSERT INTO Simple.buyer_property_events (stored_time, date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '2016-07-11 01:02:01', '2016-07-11', 1, '256070', 1, 3 , NULL, 1 );
+INSERT INTO Simple.buyer_property_events (stored_time, date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '2016-07-11 01:03:01', '2016-07-11', 1, '256070', 1, 15 , NULL, 1 );
+INSERT INTO Simple.buyer_property_events (stored_time, date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '2016-07-11 01:04:01', '2016-07-11', 1, '256070', 1, 16 , NULL, 1 );
+INSERT INTO Simple.buyer_property_events (stored_time, date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '2016-07-11 01:05:01', '2016-07-11', 1, '256070', 1, 17 , NULL, 1 );
+INSERT INTO Simple.buyer_property_events (stored_time, date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '2016-07-11 01:06:01', '2016-07-11', 1, '256070', 1, 18 , NULL, 1 );
+INSERT INTO Simple.buyer_property_events (stored_time, date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '2016-07-11 01:07:01', '2016-07-11', 1, '256070', 1, 19 , NULL, 1 );
+INSERT INTO Simple.buyer_property_events (stored_time, date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '2016-07-11 01:08:01', '2016-07-11', 1, '256070', 1, 23, NULL, 1 );
+INSERT INTO Simple.buyer_property_events (stored_time, date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '2016-07-11 01:09:01', '2016-07-11', 1, '256070', 1, 8, NULL, 1 );
+INSERT INTO Simple.buyer_property_events (stored_time, date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '2016-07-11 01:10:01', '2016-07-11', 1, '256070', 1, 9, NULL, 1 );
+INSERT INTO Simple.buyer_property_events (stored_time, date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '2016-07-11 01:11:01', '2016-07-11', 1, '256070', 1, 10, NULL, 1 );
 
 
 
