@@ -214,7 +214,7 @@ class Trackers::Buyer
 
       session = self.class.session
       future = session.execute(received_cql)
-      total_rows.push(future.rows)
+      total_rows |= future.rows.to_a if !future.rows.to_a.empty?
     end
     buyer_ids = []
 
@@ -305,8 +305,8 @@ class Trackers::Buyer
     tracking_prop_cql = <<-SQL
                         SELECT COUNT(*)
                         FROM simple.buyer_property_events
-                        WHERE buyer_id = #{buyer_id}
-                        AND property_id = #{property_id}
+                        WHERE buyer_id = #{buyer_id.to_i}
+                        AND property_id = '#{property_id.to_i}'
                         AND event = #{tracking_property_event}
                         SQL
     session = self.class.session

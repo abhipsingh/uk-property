@@ -11,9 +11,9 @@ class PropertyDetailsRepo
   ES_EC2_URL = 'http://172.31.3.99:9200'
   ES_EC2_HOST = '172.31.3.99'
   FIELDS = {
-    terms: [:property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :keyword_types],
-    term:  [:tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :listing_type, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status],
-    range: [:budget, :cost_per_month, :date_added, :floors, :year_built, :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, :time_frame, :dream_price, :valuation, :beds, :baths, :receptions],
+    terms: [ :property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :keyword_types ],
+    term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :listing_type, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status ],
+    range: [ :budget, :cost_per_month, :date_added, :floors, :year_built, :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, :time_frame, :dream_price, :valuation, :beds, :baths, :receptions ],
   }
 
   STREET_VIEW_UDPRNS = [ 21724275, 53478695, 2962965, 25400727, 6711263, 26544243, 470169, 11292578, 4359896, 25867127 ]
