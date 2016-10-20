@@ -111,7 +111,6 @@ class Trackers::Buyer
         process_new_row(new_row, row, status)
       end
     end
-    p result
   end
 
   def self.mock_insert(table, *col_values)
@@ -214,13 +213,11 @@ class Trackers::Buyer
 
       session = self.class.session
       future = session.execute(received_cql)
-      total_rows.push(future.rows)
+      total_rows |= future.rows.to_a if !future.rows.to_a.empty?
     end
     buyer_ids = []
-
-    total_rows.sort_by!{ |t| Time.parse(t['stored_time']).to_i }.reverse
-
-    total_rows.first(20) do |each_row|
+    total_rows.sort_by!{ |t| t['stored_time'].to_i }.reverse
+    total_rows.first(20).each do |each_row|
       new_row = {}
       new_row['received'] = each_row['stored_time']
       new_row['type_of_enquiry'] = REVERSE_EVENTS[each_row['event']]
@@ -305,8 +302,8 @@ class Trackers::Buyer
     tracking_prop_cql = <<-SQL
                         SELECT COUNT(*)
                         FROM simple.buyer_property_events
-                        WHERE buyer_id = #{buyer_id}
-                        AND property_id = #{property_id}
+                        WHERE buyer_id = #{buyer_id.to_i}
+                        AND property_id = '#{property_id.to_i}'
                         AND event = #{tracking_property_event}
                         SQL
     session = self.class.session
@@ -315,19 +312,22 @@ class Trackers::Buyer
     future.rows do |each_row|
       new_row[:property_tracking] = (each_row['count'] == 0 ? false : true)
     end
-
+    p 'hello'
     table = 'simple.property_events_buyers_events'
     #### Views
+    p property_id
     total_views = generic_event_count(EVENTS[:views], property_id, table, :single)
     buyer_views = generic_event_count_buyer(EVENTS[:views], property_id, table, buyer_id)
     new_row[:views] = buyer_views.to_i.to_s + '/' + total_views.to_i.to_s
 
     #### Enquiries
+    p 'hello2'
     total_enquiries = generic_event_count(ENQUIRY_EVENTS, table, property_id, :multiple)
     buyer_enquiries = generic_event_count(ENQUIRY_EVENTS, table, property_id, :multiple)
     new_row[:enquiries] = buyer_enquiries.to_i.to_s + '/' + total_enquiries.to_i.to_s
 
     #### Qualifying Stage
+    p 'hello3'
     qualifying_events = QUALIFYING_STAGE_EVENTS.map { |e| EVENTS[e] }.join(',')
     qualifying_cql = <<-SQL
                       SELECT event
@@ -351,7 +351,7 @@ class Trackers::Buyer
   def generic_event_count(event, property_id, table, type=:single)
     event_sql = nil
     if type == :single
-      event_type = EVENTS[:event]
+      event_type = event
       event_sql = <<-SQL 
                     SELECT COUNT(*)
                     FROM #{table}
@@ -367,6 +367,7 @@ class Trackers::Buyer
                     AND event IN (#{event_types});
                   SQL
     end
+    p event_sql
     execute_count(event_sql)
   end
 
