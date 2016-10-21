@@ -150,7 +150,9 @@ class ApplicationController < ActionController::Base
       str = params[:str].gsub(',',' ').downcase
       results, code= get_results_from_es_suggest(str)
       parsed_json = JSON.parse(results)
-      res, code = find_results(parsed_json)
+      api = ::PropertyDetailsRepo.new(filtered_params: params)
+      api.apply_filters
+      res, code = find_results(parsed_json, api.query[:filter][:and][:filters])
       res = JSON.parse(res) if res.is_a?(String)
       # add_new_keys(res["hits"]["hits"][0]["_source"]) if res["hits"]["hits"].length > 0
     end
@@ -300,6 +302,7 @@ class ApplicationController < ActionController::Base
     end
     return filters
   end
+
   def search_flats_for_postcodes(str)
     area_unit, sector_unit = str.split(' ')
     regexes = [ /^([A-Z]{1,2})([0-9]{0,3})$/, /^([0-9]{1,2})([A-Z]{0,3})$/]
@@ -312,15 +315,28 @@ class ApplicationController < ActionController::Base
     end
     return area, sector, district, unit
   end
-  def find_results(parsed_json)
+
+  def find_results(parsed_json, filter_hash)
     aggs = {}
     query = {}
+
     filters = {
       and: {
         filters: [
         ]
       }
     }
+
+    query[:query] = {
+      filtered: {
+        filter: {
+          and: {
+            filters: filter_hash
+          }
+        }
+      }
+    }
+
     first_type = parsed_json['postcode_suggest'][0]['options'][0]['payload']['type']
     hash_value = parsed_json['postcode_suggest'][0]['options'][0]['payload']['hash']
     county_value = parsed_json['postcode_suggest'][0]['options'][0]['payload']['county'].capitalize rescue nil
@@ -351,21 +367,25 @@ class ApplicationController < ActionController::Base
           response_hash[:areas] = response_hash[:areas].push({ area: nested_value[:key], flat_count: nested_value[:doc_count], scoped_postcode: nested_value[:key] })
         end
       end
-      response_hash[:counties] = [ {county: hash_value, flat_count: response[:hits][:total], scoped_postcode: response[:hits][:hits].first[:_source][:area]} ]
-      response_hash[:units] = []
-      response_hash[:dependent_thoroughfare_descriptions] = []
-      response_hash[:sectors] = []
-      response_hash[:dependent_localities] = []
-      response_hash[:districts] = []
-      response_hash[:county] = response[:hits][:hits].first[:_source][:county]
-      response_hash[:post_town] = response[:hits][:hits].first[:_source][:post_town]
-      response_hash[:unit] = response[:hits][:hits].first[:_source][:unit]
-      response_hash[:district] = response[:hits][:hits].first[:_source][:district]
-      response_hash[:dependent_locality] = response[:hits][:hits].first[:_source][:dependent_locality]
-      response_hash[:dependent_thoroughfare_description] = response[:hits][:hits].first[:_source][:dependent_thoroughfare_description]
-      response_hash[:sector] = response[:hits][:hits].first[:_source][:sector]
-      response_hash[:area] = response[:hits][:hits].first[:_source][:area]
-      body = response_hash
+
+      if response[:hits][:hits].first
+        response_hash[:counties] = [ {county: hash_value, flat_count: response[:hits][:total], scoped_postcode: response[:hits][:hits].first[:_source][:area]} ]
+        response_hash[:units] = []
+        response_hash[:dependent_thoroughfare_descriptions] = []
+        response_hash[:sectors] = []
+        response_hash[:dependent_localities] = []
+        response_hash[:districts] = []
+        response_hash[:county] = response[:hits][:hits].first[:_source][:county]
+        response_hash[:post_town] = response[:hits][:hits].first[:_source][:post_town]
+        response_hash[:unit] = response[:hits][:hits].first[:_source][:unit]
+        response_hash[:district] = response[:hits][:hits].first[:_source][:district]
+        response_hash[:dependent_locality] = response[:hits][:hits].first[:_source][:dependent_locality]
+        response_hash[:dependent_thoroughfare_description] = response[:hits][:hits].first[:_source][:dependent_thoroughfare_description]
+        response_hash[:sector] = response[:hits][:hits].first[:_source][:sector]
+        response_hash[:area] = response[:hits][:hits].first[:_source][:area]
+        body = response_hash
+      end
+
     elsif first_type == 'post_town'
       append_nested_filtered_aggs(aggs, 'dependent_locality', 'county', county_value, 'district')
       append_nested_filtered_aggs(aggs, 'post_town', 'county', county_value, 'area')
@@ -398,19 +418,23 @@ class ApplicationController < ActionController::Base
           response_hash[:dependent_localities] = response_hash[:dependent_localities].push({ dependent_locality: value[:key], flat_count: value[:doc_count], scoped_postcode: nested_value[:key] })
         end
       end
-      response_hash[:counties] = [{county: response[:hits][:hits].first[:_source][:county], flat_count: response[:hits][:total], scoped_postcode: response[:hits][:hits].first[:_source][:area]}]
-      response_hash[:units] = []
-      response_hash[:dependent_thoroughfare_descriptions] = []
-      response_hash[:sectors] = []
-      response_hash[:county] = response[:hits][:hits].first[:_source][:county]
-      response_hash[:post_town] = response[:hits][:hits].first[:_source][:post_town]
-      response_hash[:unit] = response[:hits][:hits].first[:_source][:unit]
-      response_hash[:district] = response[:hits][:hits].first[:_source][:district]
-      response_hash[:dependent_locality] = response[:hits][:hits].first[:_source][:dependent_locality]
-      response_hash[:dependent_thoroughfare_description] = response[:hits][:hits].first[:_source][:dependent_thoroughfare_description]
-      response_hash[:sector] = response[:hits][:hits].first[:_source][:sector]
-      response_hash[:area] = response[:hits][:hits].first[:_source][:area]
-      body = response_hash
+
+      if response[:hits][:hits].first
+        response_hash[:counties] = [{county: response[:hits][:hits].first[:_source][:county], flat_count: response[:hits][:total], scoped_postcode: response[:hits][:hits].first[:_source][:area]}]
+        response_hash[:units] = []
+        response_hash[:dependent_thoroughfare_descriptions] = []
+        response_hash[:sectors] = []
+        response_hash[:county] = response[:hits][:hits].first[:_source][:county]
+        response_hash[:post_town] = response[:hits][:hits].first[:_source][:post_town]
+        response_hash[:unit] = response[:hits][:hits].first[:_source][:unit]
+        response_hash[:district] = response[:hits][:hits].first[:_source][:district]
+        response_hash[:dependent_locality] = response[:hits][:hits].first[:_source][:dependent_locality]
+        response_hash[:dependent_thoroughfare_description] = response[:hits][:hits].first[:_source][:dependent_thoroughfare_description]
+        response_hash[:sector] = response[:hits][:hits].first[:_source][:sector]
+        response_hash[:area] = response[:hits][:hits].first[:_source][:area]
+        body = response_hash
+      end
+
     elsif first_type == 'dependent_locality' || first_type == 'double_dependent_locality'
       area = post_code.split(' ')[0].match(/([A-Z]{0,3})([0-9]{0,3})/)[1]
       district = post_code.split(' ')[0]
@@ -468,15 +492,18 @@ class ApplicationController < ActionController::Base
       response[:aggregations][:county_aggs][:county_aggs][:buckets].each do |value|
         response_hash[:counties] = response_hash[:counties].push({ county: value[:key], flat_count: value[:doc_count], scoped_postcode: area })
       end
-      response_hash[:county] = response[:hits][:hits].first[:_source][:county]
-      response_hash[:post_town] = response[:hits][:hits].first[:_source][:post_town]
-      response_hash[:unit] = response[:hits][:hits].first[:_source][:unit]
-      response_hash[:district] = response[:hits][:hits].first[:_source][:district]
-      response_hash[:dependent_locality] = response[:hits][:hits].first[:_source][:dependent_locality]
-      response_hash[:dependent_thoroughfare_description] = response[:hits][:hits].first[:_source][:dependent_thoroughfare_description]
-      response_hash[:sector] = response[:hits][:hits].first[:_source][:sector]
-      response_hash[:area] = response[:hits][:hits].first[:_source][:area]
-      body = response_hash
+
+      if response[:hits][:hits].first
+        response_hash[:county] = response[:hits][:hits].first[:_source][:county]
+        response_hash[:post_town] = response[:hits][:hits].first[:_source][:post_town]
+        response_hash[:unit] = response[:hits][:hits].first[:_source][:unit]
+        response_hash[:district] = response[:hits][:hits].first[:_source][:district]
+        response_hash[:dependent_locality] = response[:hits][:hits].first[:_source][:dependent_locality]
+        response_hash[:dependent_thoroughfare_description] = response[:hits][:hits].first[:_source][:dependent_thoroughfare_description]
+        response_hash[:sector] = response[:hits][:hits].first[:_source][:sector]
+        response_hash[:area] = response[:hits][:hits].first[:_source][:area]
+        body = response_hash
+      end
 
     elsif ['thoroughfare_descriptor', 'dependent_thoroughfare_description'].include?(first_type)
       district = post_code.split(' ')[0]
@@ -539,15 +566,19 @@ class ApplicationController < ActionController::Base
       response[:aggregations][:county_aggs][:county_aggs][:buckets].each do |value|
         response_hash[:counties] = response_hash[:counties].push({ county: value[:key], flat_count: value[:doc_count], scoped_postcode: area })
       end
-      response_hash[first_type] = response[:hits][:hits].first[:_source][first_type]
-      response_hash[:county] = response[:hits][:hits].first[:_source][:county]
-      response_hash[:post_town] = response[:hits][:hits].first[:_source][:post_town]
-      response_hash[:unit] = response[:hits][:hits].first[:_source][:unit]
-      response_hash[:district] = response[:hits][:hits].first[:_source][:district]
-      response_hash[:dependent_locality] = response[:hits][:hits].first[:_source][:dependent_locality]
-      response_hash[:dependent_thoroughfare_description] = response[:hits][:hits].first[:_source][:dependent_thoroughfare_description]
-      response_hash[:sector] = response[:hits][:hits].first[:_source][:sector]
-      response_hash[:area] = response[:hits][:hits].first[:_source][:area]
+
+      if response[:hits][:hits].first
+        response_hash[first_type] = response[:hits][:hits].first[:_source][first_type]
+        response_hash[:county] = response[:hits][:hits].first[:_source][:county]
+        response_hash[:post_town] = response[:hits][:hits].first[:_source][:post_town]
+        response_hash[:unit] = response[:hits][:hits].first[:_source][:unit]
+        response_hash[:district] = response[:hits][:hits].first[:_source][:district]
+        response_hash[:dependent_locality] = response[:hits][:hits].first[:_source][:dependent_locality]
+        response_hash[:dependent_thoroughfare_description] = response[:hits][:hits].first[:_source][:dependent_thoroughfare_description]
+        response_hash[:sector] = response[:hits][:hits].first[:_source][:sector]
+        response_hash[:area] = response[:hits][:hits].first[:_source][:area]
+      end
+      
       body = response_hash
     end
     return body, status

@@ -119,13 +119,13 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
 
   def initialize(options={})
     index  options[:index] || 'property_details'
-    client Elasticsearch::Client.new url: options[:url], log: options[:log]
+    client = Elasticsearch::Client.new url: options[:url], log: options[:log]
     @filtered_params = options[:filtered_params].symbolize_keys
     @query = self.class.append_empty_hash
     @query = options[:query] if @is_query_custom == true
   end
 
-  def filter
+  def apply_filters
     inst = self
     inst = inst.append_hash_filter
     inst = inst.append_pagination_filter
@@ -133,11 +133,21 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     inst = inst.append_term_filters
     inst = inst.append_range_filters
     inst = inst.append_sort_filters
-    Rails.logger.info(inst.query)
+    # Rails.logger.info(inst.query)
+  end
+
+  def filter
+    inst = self
+    inst = inst.apply_filters
     inst = inst.modify_query
-    body, status = post_url(inst.query, 'addresses', 'address')
-    body = JSON.parse(body)['hits']['hits'].map { |t| t['_source']['score'] = t['matched_queries'].count ;t['_source']; }
+    body = fetch_data_from_es
     return { results: body }, status
+  end
+
+  def fetch_data_from_es
+    inst = self
+    body, status = post_url(inst.query, 'addresses', 'address')
+    Oj.load(body)['hits']['hits'].map { |t| t['_source']['score'] = t['matched_queries'].count ;t['_source']; }
   end
 
   def modify_query
