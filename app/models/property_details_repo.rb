@@ -9,18 +9,31 @@ class PropertyDetailsRepo
   RESULTS_PER_PAGE = 20
   MAX_RESULTS_PER_PAGE = 150
   ES_EC2_URL = Rails.configuration.remote_es_url
-  ES_EC2_HOST = '172.31.3.99'
+  ES_EC2_HOST = Rails.configuration.remote_es_host
   FIELDS = {
     terms: [ :property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :keyword_types ],
     term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :listing_type, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status ],
     range: [ :budget, :cost_per_month, :date_added, :floors, :year_built, :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, :time_frame, :dream_price, :valuation, :beds, :baths, :receptions ],
   }
 
+  STREET_VIEW_URLS = [
+    "https://s3-us-west-2.amazonaws.com/propertyuk/0000196e88581b8e149fcdedfa2f09a63ac73886.jpg",
+    "https://s3-us-west-2.amazonaws.com/propertyuk/00001f4db96b63762cd64500458c6dedb22100a6.jpg",
+    "https://s3-us-west-2.amazonaws.com/propertyuk/00002f32044b5d8e6b6a4acc5a51afb3ecb75268.jpg",
+    "https://s3-us-west-2.amazonaws.com/propertyuk/0000316abcb9f9cac277ab59c63e975b4af40177.jpg"
+  ]
+
   STREET_VIEW_UDPRNS = [ 21724275, 53478695, 2962965, 25400727, 6711263, 26544243, 470169, 11292578, 4359896, 25867127 ]
 
   AGENT_LOGOS = [ 4523, 4524, 4525, 4526, 4527, 4528, 4529, 4530, 4531, 4532 ]
   TIMES = (1..10).to_a
   UNITS = ['minutes', 'hours', 'seconds']
+  PRICE_TYPES = [:fixed_price, :asking_price, :offers_over]
+
+  AGENT_PROFILE_IMAGE_URLS = [
+    "https://st.zoocdn.com/zoopla_static_agent_logo_(66951).png",
+    "https://st.zoocdn.com/zoopla_static_agent_logo_(44631).data"
+  ]
 
   DESCRIPTIONS = ['We are delighted to offer this well maintained modern two bedroom purpose built flat situated within easy walking distance of Barking Town Centre. Property benefits from recent redecoration throughout and would idealy suit a professional couple or small working family.
 
@@ -59,7 +72,13 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     year_built: (1955..2015).to_a,
     photos: ["Yes", "No"],
     listing_type: ["Basic", "Premium", "Featured"],
-    floorplan: ["Yes", "No"]
+    floorplan: ["Yes", "No"],
+    street_view_image_url: STREET_VIEW_URLS,
+    agent_employee_profile_image: AGENT_PROFILE_IMAGE_URLS,
+    agent_employee_name: ['John Adams', 'John Smith', 'John Clarke'],
+    agent_employee_mobile_number: ['9876543210', '4567890123', '345780921'],
+    agent_employee_email_address: ['a@b.com', 'b@c.com', 'c@d.com'],
+    added_by: ['Us']
   }
 
   BUYER_STATUS_HASH = {
@@ -258,7 +277,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     result = http.post(uri,query)
     body = result.body
     status = result.code
-    return body,status
+    return body, status
   end
 
   def self.index_es_records
@@ -272,23 +291,25 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     characters = (1..10).to_a
     alphabets = ('A'..'Z').to_a
     addresses = get_bulk_addresses
-    names = Agent.last(10).map{|t| t.name}
-    scroll_id = 'cXVlcnlUaGVuRmV0Y2g7NTsxMDgxOnUtUUgwSTNlUTFDU216cjhEOHNUeUE7MTA4Mjp1LVFIMEkzZVExQ1NtenI4RDhzVHlBOzEwODQ6dS1RSDBJM2VRMUNTbXpyOEQ4c1R5QTsxMDgzOnUtUUgwSTNlUTFDU216cjhEOHNUeUE7MTA4NTp1LVFIMEkzZVExQ1NtenI4RDhzVHlBOzA7'
+    names = Agent.last(10).map{ |t| t.name }
+    google_api_crawler = GoogleApiCrawler.new
+    scroll_id = 'cXVlcnlUaGVuRmV0Y2g7NTsxMjE6ZGJ6ZnE3bkxRNUMzb3Y1c3ZXNUE2UTsxMjI6ZGJ6ZnE3bkxRNUMzb3Y1c3ZXNUE2UTsxMjM6ZGJ6ZnE3bkxRNUMzb3Y1c3ZXNUE2UTsxMjQ6ZGJ6ZnE3bkxRNUMzb3Y1c3ZXNUE2UTsxMjU6ZGJ6ZnE3bkxRNUMzb3Y1c3ZXNUE2UTswOw=='
     glob_counter = 0
     loop do
       get_records_url = ES_EC2_URL + '/_search/scroll'
-      p 'hello'
       scroll_hash = { scroll: '15m', scroll_id: scroll_id }
       response , status = post_url_new(scroll_hash)
       udprns = JSON.parse(response)["hits"]["hits"].map { |t| t['_source']['udprn']  }
+      response_arr = Oj.load(response)['hits']['hits'].map { |e| e['_source'] }
       break if udprns.length == 0
       
       body = []
-      udprns.each do |udprn|
+      udprns.each_with_index do |udprn, index|
         doc = {}
         RANDOM_SEED_MAP.each do |key, values|
           doc[key] = values.sample(1).first
         end
+        doc[:address] = google_api_crawler.address(response_arr[index])
         doc[:year_built] = doc[:year_built].to_s+"-01-01"
         doc[:date_added] = Time.at((start_date.to_f - ending_date.to_f)*rand + start_date.to_f).utc.strftime('%Y-%m-%d')
         doc[:time_frame] = time_frame_years.sample(1).first.to_s + "-01-01"
@@ -307,35 +328,36 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
         doc[:assigned_agent_employee_address] = "5 Bina Gardens"
         doc[:assigned_agent_employee_image] = nil
         doc[:last_updated_date] = "2015-09-21"
-        doc[:agent_logo] = "http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/prop.jpg"
+        doc[:agent_logo] = "http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/prop.jpg"
         doc[:broker_branch_contact] = "020 3641 4259"
         doc[:date_updated] = 3.days.ago.to_date.to_s
         if doc[:photos] == "Yes"
           doc[:photo_count] = 3
           doc[:photo_urls] = [
-            "http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/prop.jpg",
-            "http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/prop2.jpg",
-            "http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/prop3.jpg",
+            "http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/prop.jpg",
+            "http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/prop2.jpg",
+            "http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/prop3.jpg",
           ]
         else
           doc[:photo_urls] = []
         end
 
-        doc[:broker_logo] = "http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/prop3.jpg"
+        doc[:broker_logo] = "http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/prop3.jpg"
         doc[:agent_contact] = "020 3641 4259"
         description = ''
         doc[:description] = characters.sample(1).first.times do
           description += alphabets.sample(1).first
         end
-        doc[:interested_in_view] = "/api/v0/vendors/update/property_users?action_type=interested_in_view"
-        doc[:request_a_view] = "/api/v0/vendors/update/property_users?action_type=request_a_view"
-        doc[:make_offer] = "/api/v0/vendors/update/property_users?action_type=make_offer"
-        doc[:follow_street] = "/addresses/follow?location_type=dependent_thoroughfare_description"
-        doc[:follow_locality] = "/addresses/follow?location_type =dependent_locality"
-        doc[:claim_property] = "http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/properties/new/#{doc[:udprn]}/short"
-        process_doc_with_conditions(doc)
+        ### Process last sale price
+        doc[:last_sale_price] = (doc[:price] * 0.7).to_i
 
-        doc[:added_by] = 'Us'
+        ### Status last updated
+        doc[:status_last_updated] = (150..365).to_a.sample.days.ago.to_time.strftime("%Y-%m-%d %H:%M:%S").to_s
+
+        ### Last verified on
+        doc[:verification_time] = (150..365).to_a.sample.days.ago.to_time.strftime("%Y-%m-%d %H:%M:%S").to_s
+
+        process_doc_with_conditions(doc)
 
         body.push({ update:  { _index: 'addresses', _type: 'address', _id: udprn, data: { doc: doc } }})
       end
@@ -356,23 +378,21 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     #### Street view is common to all
     street_view_updrn = STREET_VIEW_UDPRNS.sample(1).first
     street_view_url = "https://s3-us-west-2.amazonaws.com/propertyuk/#{street_view_updrn}_street_view.jpg"
-      ### Street view url is random for both the images
-    doc[:photos] = [street_view_url]
 
+    ### Street view url is random for both the images
+    doc[:photos] = [street_view_url]
+    doc[:street_view_image_url] = street_view_url
 
     ############### Generic for all verified and unverified properties
     if doc[:verification_status] == true
+
       ### Agent logo
       agent_id =  AGENT_LOGOS.sample(1).first
       doc[:agent_logo] = "https://s3-us-west-2.amazonaws.com/propertyuk/agent_logo_#{agent_id}.jpg"
       doc[:broker_logo] = "https://s3-us-west-2.amazonaws.com/propertyuk/agent_logo_#{agent_id}.jpg"
 
-      ### property status updated
-      doc[:last_property_status_updated] = random_time
-
       ### listing updated
       doc[:last_listing_updated] = random_time
-
 
       ### Types of property
       property_types = [ 'Semi-detached house', 'Detached house', 'Flat', 'Terraced house' ]
@@ -386,15 +406,25 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
       description = DESCRIPTIONS.sample(1).first
       doc[:description] = description
 
-      ### Agent number
-      doc[:assigned_agent_employee_number] = '020 8128 4600'
+      ### Green property status type specific fields
+      if doc[:property_status_type] == 'Green'
+        price_type = PRICE_TYPES.sample(1).first
+        doc[price_type] = doc[:price]
+      elsif doc[:property_status_type] == 'Amber'
+        doc[:current_valuation] = doc[:price]
+      end
+
+      ### Date of valuation
+      doc[:date_of_valuation] = (1..365).to_a.sample.days.ago.to_date.to_s
+
+      ### Price last updated
+      doc[:price_last_updated] = (1..365).to_a.sample.days.ago.to_time.strftime("%Y-%m-%d %H:%M:%S").to_s
+
+      ### Handle the case where verification status is still pending
     else
       ### Agent logo
       doc[:agent_logo] = nil
       doc[:broker_logo] = nil
-      
-      ### property status updated
-      doc[:last_property_status_updated] = nil
 
       ### Valuation
       historical_detail = PropertyHistoricalDetail.where(udprn: doc[:udprn]).last
@@ -423,16 +453,11 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
       ### listing updated
       doc[:last_listing_updated] = nil
 
-      ### Agent name
-      doc[:assigned_agent_employee_name] = nil
-      doc[:assigned_agent_employee_image] = nil
-      doc[:agent_branch_name] = nil
-      doc[:assigned_agent_employee_address] = nil
-      doc[:assigned_agent_employee_number] = nil
+      ### Last sale date
+      doc[:last_sale_date] = (1..365).to_a.sample.days.ago.to_date.to_s
 
-      ### Claim property
-      doc[:claim_property] = nil
-
+      ### Price last updated
+      doc[:price_last_updated] = nil
 
     end
     

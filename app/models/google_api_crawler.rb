@@ -124,7 +124,7 @@ class GoogleApiCrawler
   def append_unit(value, unit)
     if (!unit.nil?) && (!unit.empty?)
       if value.length > 0
-        value = value + ' ' + unit
+        value = value + ', ' + unit
       else
         value = unit
       end

@@ -2,11 +2,15 @@ require 'cassandra'
 
 class EventsController < ApplicationController
 
+
+  ### List of params
+  ### :property_id, :event, :message, :type_of_match, :buyer_id
   def process_event
     Trackers::Buyer
 
     session = Rails.configuration.cassandra_session
     date = Date.today.to_s
+    time = Time.now.to_s
     status_id = Trackers::Buyer::STATUS_MAP.with_indifferent_access[params[:status]]
     buyer_id = params[:buyer_id]
     event = Trackers::Buyer::EVENTS.with_indifferent_access[params[:event]]

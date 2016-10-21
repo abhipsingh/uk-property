@@ -5,13 +5,12 @@ class Trackers::Buyer
   end
 
   EVENTS = {
-    impressions: 1,
-    views: 2,
+    viewed: 2,
     property_tracking: 3,
     street_tracking: 4,
     locality_tracking: 5,
-    would_view_if_green: 6,
-    would_make_offer_if_green: 7,
+    interested_in_viewing: 6,
+    interested_in_making_an_offer: 7,
     requested_message: 8,
     requested_callback: 9,
     requested_viewing: 10,
@@ -46,8 +45,8 @@ class Trackers::Buyer
   CONFIDENCE_ROWS = (1..5).to_a
 
   ENQUIRY_EVENTS = [
-    :would_view_if_green,
-    :would_make_offer_if_green,
+    :interested_in_viewing,
+    :interested_in_making_an_offer,
     :requested_message,
     :requested_callback,
     :requested_viewing
