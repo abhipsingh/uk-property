@@ -11,6 +11,9 @@ Rails.application.routes.draw do
   # You can have the root of your site routed with "root"
   root 'welcome#index'
 
+  ### Post events to the server
+  post 'events/new',                              to: 'events#process_event'
+
   get '/auth/:provider/callback', to: 'sessions#create'
   get 'properties/new/:udprn/short', to: 'properties#short_form'
   get 'postcodes/search', to: 'application#search_postcode'
@@ -60,6 +63,5 @@ Rails.application.routes.draw do
   post 'buyers/new/message',                      to: 'property_users/searches#new_message'
   get  'buyers/matrix/searches',                  to: 'property_users/searches#matrix_searches'
   post 'buyers/new/matrix/search',                to: 'property_users/searches#new_matrix_search'
-  post 'events/new',                              to: 'events#process_event'
   resources :charges
 end

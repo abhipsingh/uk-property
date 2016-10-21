@@ -293,7 +293,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     addresses = get_bulk_addresses
     names = Agent.last(10).map{ |t| t.name }
     google_api_crawler = GoogleApiCrawler.new
-    scroll_id = 'cXVlcnlUaGVuRmV0Y2g7NTsxMjE6ZGJ6ZnE3bkxRNUMzb3Y1c3ZXNUE2UTsxMjI6ZGJ6ZnE3bkxRNUMzb3Y1c3ZXNUE2UTsxMjM6ZGJ6ZnE3bkxRNUMzb3Y1c3ZXNUE2UTsxMjQ6ZGJ6ZnE3bkxRNUMzb3Y1c3ZXNUE2UTsxMjU6ZGJ6ZnE3bkxRNUMzb3Y1c3ZXNUE2UTswOw=='
+    scroll_id = 'cXVlcnlUaGVuRmV0Y2g7NTsxNDY6ZGJ6ZnE3bkxRNUMzb3Y1c3ZXNUE2UTsxNDc6ZGJ6ZnE3bkxRNUMzb3Y1c3ZXNUE2UTsxNDg6ZGJ6ZnE3bkxRNUMzb3Y1c3ZXNUE2UTsxNDk6ZGJ6ZnE3bkxRNUMzb3Y1c3ZXNUE2UTsxNTA6ZGJ6ZnE3bkxRNUMzb3Y1c3ZXNUE2UTswOw=='
     glob_counter = 0
     loop do
       get_records_url = ES_EC2_URL + '/_search/scroll'
@@ -331,6 +331,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
         doc[:agent_logo] = "http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/prop.jpg"
         doc[:broker_branch_contact] = "020 3641 4259"
         doc[:date_updated] = 3.days.ago.to_date.to_s
+        doc[:agent_id] = 1234
         if doc[:photos] == "Yes"
           doc[:photo_count] = 3
           doc[:photo_urls] = [
