@@ -229,7 +229,7 @@ class ApplicationController < ActionController::Base
   end
 
   def post_url(index, query = {}, type='_suggest', host='localhost')
-    uri = URI.parse(URI.encode("#{ES_EC2_URL}/#{index}/#{type}")) if host != 'localhost'
+    uri = URI.parse(URI.encode("#{ES_EC2_URL}:9200/#{index}/#{type}")) if host != 'localhost'
     uri = URI.parse(URI.encode("http://#{host}:9200/#{index}/#{type}")) if host == 'localhost'
     query = (query == {}) ? "" : query.to_json
     http = Net::HTTP.new(uri.host, uri.port)

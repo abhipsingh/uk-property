@@ -1,12 +1,12 @@
-<script src="http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/underscore.min.js"></script>
-<script src="http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/jquery.min.js"></script>
-<script src="http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/backbone.min.js"></script>
-<script src="http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/backbone-forms.min.js"></script>
-<script src="http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/bootstrap.min.js"></script>
-<script src="http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/jasny-bootstrap.js"></script>
+<script src="http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/underscore.min.js"></script>
+<script src="http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/jquery.min.js"></script>
+<script src="http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/backbone.min.js"></script>
+<script src="http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/backbone-forms.min.js"></script>
+<script src="http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/bootstrap.min.js"></script>
+<script src="http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/jasny-bootstrap.js"></script>
 <script src="https://checkout.stripe.com/checkout.js"></script>
-<link rel="stylesheet" type="text/css" href="http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/bootstrap.min.css"/>
-<link rel="stylesheet" type="text/css" href="http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/jasny-bootstrap.css"/>
+<link rel="stylesheet" type="text/css" href="http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/bootstrap.min.css"/>
+<link rel="stylesheet" type="text/css" href="http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/jasny-bootstrap.css"/>
 
 <div class="top_navbar">
   <div class="collapse navbar-collapse" id="navbar-collapse-1">
@@ -1171,7 +1171,7 @@ $(function() {
         var addresses = address.split(',');
         var addresses_without_postcode = addresses.slice(0, (addresses.length - 1));
         var ad_type = $(value);
-        var url = 'http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/api/v0/ads/availability';
+        var url = 'http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/api/v0/ads/availability';
         var inventory_html = _.template($('#ad_inventory_table').html())();
         var inventory_table_node = $.parseHTML(inventory_html);
         var arr_users = ['DEFAULT1'];
@@ -1331,7 +1331,7 @@ $(function() {
               image: '/2f81498e7c6b673f33db172c33f016f8f38aa0aa.jpg',
               locale: 'auto',
               token: function(token) {
-                var update_url = 'http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/api/v0/ads/availability/update';
+                var update_url = 'http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/api/v0/ads/availability/update';
                 url_params = {stripeEmail: token.email, stripeToken: token.id, arr_of_locations: arr_of_locations, users: users}
                 // Use the token to create the charge with a server-side script.
                 // You can access the token ID with `token.id`
@@ -1653,7 +1653,7 @@ $(function() {
       
       e.preventDefault();
 
-      $.post( "http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/api/v0/properties", search_map )
+      $.post( "http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/api/v0/properties", search_map )
         .done(function( data ) {
          alert("Updated successfully");
       });

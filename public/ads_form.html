@@ -2,10 +2,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.2.3/backbone-min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/backbone-forms/0.14.0/backbone-forms.min.js"></script>
-<script src="http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/assets/bootstrap.min.js"></script>
-<script src="http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/assets/jasny-bootstrap.js"></script>
-<link rel="stylesheet" type="text/css" href="http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/assets/bootstrap.min.css"/>
-<link rel="stylesheet" type="text/css" href="http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/assets/jasny-bootstrap.css"/>
+<script src="http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/assets/bootstrap.min.js"></script>
+<script src="http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/assets/jasny-bootstrap.js"></script>
+<link rel="stylesheet" type="text/css" href="http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/assets/bootstrap.min.css"/>
+<link rel="stylesheet" type="text/css" href="http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/assets/jasny-bootstrap.css"/>
 
 <script type="text/html" id="main">
   <div>
@@ -138,7 +138,7 @@ $(function() {
       var addresses = address.split(',');
       var addresses_without_postcode = addresses.slice(0, (addresses.length - 1));
       var ad_type = $(this);
-      var url = 'http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/api/v0/ads/availability';
+      var url = 'http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/api/v0/ads/availability';
       var inventory_html = _.template($('#ad_inventory_table').html())();
       var inventory_table_node = $.parseHTML(inventory_html);
       var arr_users = ['DEFAULT1'];
@@ -211,7 +211,7 @@ $(function() {
           var elem_value = parseInt(event1.target.parentElement.firstChild.textContent);
           console.log(elem_value);
           var type = 'featured_count';
-          var update_url = 'http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/api/v0/ads/availability/update';
+          var update_url = 'http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/api/v0/ads/availability/update';
           var url_params = { id: elem_id, type: type, value: elem_value, version: elem_version, premium_buyers: premium_buyers, featured_buyers: featured_buyers, users: users };
           var availability_elem = $(this);
           $.post(update_url, url_params).done(function(data){
@@ -234,7 +234,7 @@ $(function() {
           console.log(elem_value);
           var type = 'premium_count';
           var url_params = { id: elem_id, type: type, value: elem_value, version: elem_version, premium_buyers: premium_buyers, featured_buyers: featured_buyers, users: users };
-          var update_url = 'http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/api/v0/ads/availability/update';
+          var update_url = 'http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/api/v0/ads/availability/update';
           var availability_elem = $(this);
           $.post(update_url, url_params).done(function(data){
             var availability_elem1 = availability_elem;

@@ -8,7 +8,7 @@ class PropertyDetailsRepo
   NEARBY_MAX_RADIUS = 5000
   RESULTS_PER_PAGE = 20
   MAX_RESULTS_PER_PAGE = 150
-  ES_EC2_URL = 'http://172.31.3.99:9200'
+  ES_EC2_URL = Rails.configuration.remote_es_url
   ES_EC2_HOST = '172.31.3.99'
   FIELDS = {
     terms: [ :property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :keyword_types ],

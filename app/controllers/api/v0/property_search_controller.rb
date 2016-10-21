@@ -31,15 +31,15 @@ module Api
         if result[:photos] == "Yes"
           result[:photo_count] = 3
           result[:photo_urls] = [
-            "http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/prop.jpg",
-            "http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/prop2.jpg",
-            "http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/prop3.jpg",
+            "http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/prop.jpg",
+            "http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/prop2.jpg",
+            "http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/prop3.jpg",
           ]
         else
           result[:photo_urls] = []
         end
 
-        result[:agent_logo] = "http://ec2-52-66-161-139.ap-south-1.compute.amazonaws.com/prop3.jpg"
+        result[:agent_logo] = "http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/prop3.jpg"
         result[:agent_contact] = "020 3641 4259"
         result[:agent_branch_name] = "XYZ Branch"
         result[:assigned_agent_employee_name] = "John Smith"
