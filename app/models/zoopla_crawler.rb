@@ -4,7 +4,7 @@ require 'open-uri'
 require 'csv'
 
 module ZooplaCrawler
-  CHARACTERS = (14...36).map{ |i| i.to_s 36}
+  CHARACTERS = (10...36).map{ |i| i.to_s 36}
 
 
   URL_PREFIX = 'http://www.zoopla.co.uk/find-agents/estate-agents/directory/'

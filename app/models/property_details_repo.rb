@@ -13,7 +13,7 @@ class PropertyDetailsRepo
   FIELDS = {
     terms: [ :property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :keyword_types ],
     term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :listing_type, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status ],
-    range: [ :budget, :cost_per_month, :date_added, :floors, :year_built, :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, :time_frame, :dream_price, :valuation, :beds, :baths, :receptions ],
+    range: [ :budget, :cost_per_month, :date_added, :floors, :year_built, :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, :time_frame, :dream_price, :beds, :baths, :receptions, :current_valuation, :dream_price ],
   }
 
   STREET_VIEW_URLS = [
@@ -91,11 +91,6 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
       'Green' =>  ['Amber', 'Red'],
       'Amber' => ['Amber', 'Red', 'Green'],
       'Red' => []
-    },
-    'Unlikely' => {
-      'Green' => [],
-      'Amber' => [],
-      'Red' => ['Red', 'Green', 'Amber']
     }
   }
 
@@ -111,10 +106,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     'Potential_Green_Red' => [:dream_price],
     'Potential_Amber_Green' => [:dream_price],
     'Potential_Amber_Amber' => [:dream_price],
-    'Potential_Amber_Red' => [:dream_price],
-    'Unlikely_Red_Green' => [:property_type, :beds],
-    'Unlikely_Red_Amber' => [:property_type, :beds, :dream_price],
-    'Unlikely_Red_Red' => [:property_type, :beds, :dream_price],
+    'Potential_Amber_Red' => [:dream_price]
   }
 
   def initialize(options={})
@@ -127,36 +119,68 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
 
   def apply_filters
     inst = self
+    modify_filtered_params(@filtered_params[:match_type])
     inst = inst.append_hash_filter
     inst = inst.append_pagination_filter
     inst = inst.append_terms_filters
     inst = inst.append_term_filters
     inst = inst.append_range_filters
     inst = inst.append_sort_filters
+    Rails.logger.info("HELLOOOOO")
+    Rails.logger.info(inst.query)
+    inst
     # Rails.logger.info(inst.query)
   end
 
   def filter
     inst = self
-    inst = inst.apply_filters
     inst = inst.modify_query
-    body = fetch_data_from_es
+    inst = inst.apply_filters
+    body, status = fetch_data_from_es
     return { results: body }, status
   end
 
   def fetch_data_from_es
     inst = self
     body, status = post_url(inst.query, 'addresses', 'address')
-    Oj.load(body)['hits']['hits'].map { |t| t['_source']['score'] = t['matched_queries'].count ;t['_source']; }
+    body = Oj.load(body)['hits']['hits'].map do |t|
+      t['_source']['score'] = t['matched_queries'].count
+      t['_source']
+    end
+    return body, status
   end
 
   def modify_query
     inst = self
-    if @filtered_params.has_key?(:type_of_match)
-      type_of_match = @filtered_params[:type_of_match]
+    if @filtered_params.has_key?(:match_type)
+      type_of_match = @filtered_params[:match_type]
       modify_type_of_match_query(type_of_match)
     end
     inst
+  end
+
+  def modify_filtered_params(type_of_match)
+    similar_names = {
+      budget: [:current_valuation, :dream_price]
+    }
+    similar_names.each do |key, similar_values|
+      similar_values.each do |similar_value|
+        modify_similar_value_in_params(key, similar_value)
+      end
+    end
+  end
+
+  def modify_similar_value_in_params(key, similar_value)
+    if @filtered_params.has_key?(key)
+      @filtered_params[similar_value] = @filtered_params[key]
+      @filtered_params.delete(key)
+    elsif @filtered_params.has_key?("max_#{key}".to_sym)
+      @filtered_params["max_#{similar_value}".to_sym] = @filtered_params["max_#{key}".to_sym].to_i
+      @filtered_params.delete("max_#{key}".to_sym)
+    elsif @filtered_params.has_key?("min_#{key}".to_sym)
+      @filtered_params["min_#{similar_value}".to_sym] = @filtered_params["min_#{key}".to_sym].to_i
+      @filtered_params.delete("min_#{key}".to_sym)
+    end
   end
 
   def modify_type_of_match_query(type_of_match)
@@ -169,7 +193,6 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
       end
       @query[:filter] = { or: { filters: queries }}
     end
-      
   end
 
   def form_partial_query(property_status_type, buyer_status, type_of_match)
@@ -266,6 +289,17 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     inst
   end
 
+  def append_premium_or_featured_filter
+    inst = self
+    if @filtered_params.has_key?(:hash_type) && @filtered_params.has_key?(:hash_str)
+      if @filtered_params[:listing_type] != 'Premium' || @filtered_params[:listing_type] != 'Featured'
+        @filtered_params[:listing_type] = 'Normal'
+      end
+      search_str = @filtered_params[:hash_str] + '|' + @filtered_params[:listing_type]
+      inst.append_term_filter_query(:match_type_str, search_str, :and)
+    end
+  end
+
   def append_sort_filters
     sort_keys = [:budget, :popularity, :rent, :date_added, :valuation, :dream_price]
     inst = self
@@ -338,22 +372,22 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
         doc[:assigned_agent_employee_address] = "5 Bina Gardens"
         doc[:assigned_agent_employee_image] = nil
         doc[:last_updated_date] = "2015-09-21"
-        doc[:agent_logo] = "http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/prop.jpg"
+        doc[:agent_logo] = "http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/prop.jpg"
         doc[:broker_branch_contact] = "020 3641 4259"
         doc[:date_updated] = 3.days.ago.to_date.to_s
         doc[:agent_id] = 1234
         if doc[:photos] == "Yes"
           doc[:photo_count] = 3
           doc[:photo_urls] = [
-            "http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/prop.jpg",
-            "http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/prop2.jpg",
-            "http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/prop3.jpg",
+            "http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/prop.jpg",
+            "http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/prop2.jpg",
+            "http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/prop3.jpg",
           ]
         else
           doc[:photo_urls] = []
         end
 
-        doc[:broker_logo] = "http://ec2-52-66-161-150.ap-south-1.compute.amazonaws.com/prop3.jpg"
+        doc[:broker_logo] = "http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/prop3.jpg"
         doc[:agent_contact] = "020 3641 4259"
         description = ''
         doc[:description] = characters.sample(1).first.times do
