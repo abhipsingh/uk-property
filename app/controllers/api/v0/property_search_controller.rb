@@ -1,14 +1,27 @@
+#### Potential results API
+#### http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/api/v0/properties/search?hash_str=HEREFORD_City%20Centre_Lingen%20Avenue&hash_type=text&match_type=Potential&buyer_status=Green&max_budget=130000
+#### --------------------------------------------------------------------------------------------------------------------------------------
+#### Matrix view API filtered by filters
+#### http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/addresses/matrix_view?str=Lingen%20Avenue&match_type=Potential&buyer_status=Green
+#### --------------------------------------------------------------------------------------------------------------------------------------
+#### Featured type APIs
+#### http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/api/v0/properties/search?hash_str=HEREFORD_City%20Centre_Lingen%20Avenue&hash_type=text&match_type=Potential&buyer_status=Amber&max_budget=160000&listing_type=Featured
+#### --------------------------------------------------------------------------------------------------------------------------------------
+#### Featured type APIs
+#### http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/addresses/predictions?str=Lingen%20Avenue
+#### --------------------------------------------------------------------------------------------------------------------------------------
+
+
 module Api
   module V0
     class PropertySearchController < ActionController::Base
       def search
         response = Hash.new
         api = ::PropertyDetailsRepo.new(filtered_params: params)
-        Rails.logger.info('LOGGING IN PROGRESS')
         result, status = api.filter
         #result[:results].map{ |t| add_new_keys(t) }
         result = result[:results].sort_by{|t| t[:score]}.reverse
-        result.first[:breadcrumb] = breadcrumb(result.first, params[:hash_str]) if result.count > 0
+        result.first[:breadcrumb] = params[:hash_str].split('_').join(', ')
         render :json => result, :status => status
       end
 
@@ -205,18 +218,6 @@ module Api
         result = result && search_hash.keys.include?('name') if result
         result = result && search_hash.keys.include?('search_hash') if result
         result
-      end
-
-      def breadcrumb(result, hash_str)
-        final_value = nil
-        if result
-          level = result.select{|k, v| v == hash_str }.keys.first
-          hierarchy = ['dependent_thoroughfare_description', 'dependent_locality', 'post_town', 'county']
-          sub_str = hierarchy[hierarchy.find_index(level)..-1]
-          value = sub_str.inject(''){ |value, elem|  value + ', ' + result[elem] }
-          final_value = value.split(',').select{|t| !t.blank?}.join(',').strip
-        end
-        final_value
       end
 
     end

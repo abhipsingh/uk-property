@@ -12,8 +12,8 @@ class PropertyDetailsRepo
   ES_EC2_HOST = Rails.configuration.remote_es_host
   FIELDS = {
     terms: [ :property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :keyword_types ],
-    term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :listing_type, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status ],
-    range: [ :budget, :cost_per_month, :date_added, :floors, :year_built, :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, :time_frame, :dream_price, :beds, :baths, :receptions, :current_valuation, :dream_price ],
+    term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status ],
+    range: [ :cost_per_month, :date_added, :floors, :year_built, :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, :time_frame, :beds, :baths, :receptions, :current_valuation, :dream_price ],
   }
 
   STREET_VIEW_URLS = [
@@ -91,6 +91,11 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
       'Green' =>  ['Amber', 'Red'],
       'Amber' => ['Amber', 'Red', 'Green'],
       'Red' => []
+    },
+    'Normal' => {
+      'Green' => ['Amber', 'Red', 'Green'],
+      'Amber' => ['Amber', 'Red', 'Green'],
+      'Red' => ['Amber', 'Red', 'Green']
     }
   }
 
@@ -119,29 +124,29 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
 
   def apply_filters
     inst = self
-    modify_filtered_params(@filtered_params[:match_type])
+    modify_filtered_params
+    append_premium_or_featured_filter
     inst = inst.append_hash_filter
     inst = inst.append_pagination_filter
     inst = inst.append_terms_filters
     inst = inst.append_term_filters
     inst = inst.append_range_filters
     inst = inst.append_sort_filters
-    Rails.logger.info("HELLOOOOO")
-    Rails.logger.info(inst.query)
     inst
     # Rails.logger.info(inst.query)
   end
 
   def filter
     inst = self
-    inst = inst.modify_query
-    inst = inst.apply_filters
+    inst.apply_filters
+    inst.modify_query
     body, status = fetch_data_from_es
     return { results: body }, status
   end
 
   def fetch_data_from_es
     inst = self
+    # Rails.logger.info(inst.query)
     body, status = post_url(inst.query, 'addresses', 'address')
     body = Oj.load(body)['hits']['hits'].map do |t|
       t['_source']['score'] = t['matched_queries'].count
@@ -156,10 +161,9 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
       type_of_match = @filtered_params[:match_type]
       modify_type_of_match_query(type_of_match)
     end
-    inst
   end
 
-  def modify_filtered_params(type_of_match)
+  def modify_filtered_params
     similar_names = {
       budget: [:current_valuation, :dream_price]
     }
@@ -173,26 +177,21 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
   def modify_similar_value_in_params(key, similar_value)
     if @filtered_params.has_key?(key)
       @filtered_params[similar_value] = @filtered_params[key]
-      @filtered_params.delete(key)
     elsif @filtered_params.has_key?("max_#{key}".to_sym)
       @filtered_params["max_#{similar_value}".to_sym] = @filtered_params["max_#{key}".to_sym].to_i
-      @filtered_params.delete("max_#{key}".to_sym)
     elsif @filtered_params.has_key?("min_#{key}".to_sym)
       @filtered_params["min_#{similar_value}".to_sym] = @filtered_params["min_#{key}".to_sym].to_i
-      @filtered_params.delete("min_#{key}".to_sym)
     end
   end
 
   def modify_type_of_match_query(type_of_match)
     buyer_status = @filtered_params[:buyer_status]
-    if BUYER_STATUS_HASH[type_of_match][buyer_status].count > 0
-      property_status_types = BUYER_STATUS_HASH[type_of_match][buyer_status]
-      queries = []
-      property_status_types.each do |property_status_type|
-        queries.push(form_partial_query(property_status_type, buyer_status, type_of_match))
-      end
-      @query[:filter] = { or: { filters: queries }}
+    property_status_types = ['Red', 'Amber', 'Green']
+    queries = []
+    property_status_types.each do |property_status_type|
+      queries.push(form_partial_query(property_status_type, buyer_status, type_of_match))
     end
+    @query[:filter] = { or: { filters: queries }}
   end
 
   def form_partial_query(property_status_type, buyer_status, type_of_match)
@@ -210,8 +209,8 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
 
   def modify_query_for_field(field, original_query, new_query)
     field_query = new_query.select{ |v| v.values.first[:_name].to_s.to_sym == field.to_sym }.first
-    new_or_query = basic_or_query.clone
     if field_query
+      new_or_query = basic_or_query.clone
       new_query.reject!{ |v| v.values.first[:_name].to_s.to_sym == field.to_sym }
       type_of_query = field_query.keys.first
       negative_query_for_type(type_of_query.to_sym, field_query, new_or_query)
@@ -292,9 +291,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
   def append_premium_or_featured_filter
     inst = self
     if @filtered_params.has_key?(:hash_type) && @filtered_params.has_key?(:hash_str)
-      if @filtered_params[:listing_type] != 'Premium' || @filtered_params[:listing_type] != 'Featured'
-        @filtered_params[:listing_type] = 'Normal'
-      end
+      @filtered_params[:listing_type] = 'Normal' if @filtered_params[:listing_type].nil?
       search_str = @filtered_params[:hash_str] + '|' + @filtered_params[:listing_type]
       inst.append_term_filter_query(:match_type_str, search_str, :and)
     end
@@ -337,7 +334,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     addresses = get_bulk_addresses
     names = Agent.last(10).map{ |t| t.name }
     google_api_crawler = GoogleApiCrawler.new
-    scroll_id = 'cXVlcnlUaGVuRmV0Y2g7NTsxNDY6ZGJ6ZnE3bkxRNUMzb3Y1c3ZXNUE2UTsxNDc6ZGJ6ZnE3bkxRNUMzb3Y1c3ZXNUE2UTsxNDg6ZGJ6ZnE3bkxRNUMzb3Y1c3ZXNUE2UTsxNDk6ZGJ6ZnE3bkxRNUMzb3Y1c3ZXNUE2UTsxNTA6ZGJ6ZnE3bkxRNUMzb3Y1c3ZXNUE2UTswOw=='
+    scroll_id = 'cXVlcnlUaGVuRmV0Y2g7NTs1NjY6bHBiZGlCcVFTYkNzNlRDckJGeHhQZzs1Njg6bHBiZGlCcVFTYkNzNlRDckJGeHhQZzs1Njc6bHBiZGlCcVFTYkNzNlRDckJGeHhQZzs1NzA6bHBiZGlCcVFTYkNzNlRDckJGeHhQZzs1Njk6bHBiZGlCcVFTYkNzNlRDckJGeHhQZzswOw=='
     glob_counter = 0
     loop do
       get_records_url = ES_EC2_URL + '/_search/scroll'
@@ -360,9 +357,14 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
         doc[:external_property_size] = doc[:internal_property_size] + 100
         doc[:total_property_size] = doc[:external_property_size] + 100
         doc[:additional_features_type] = [doc[:additional_features_type]]
-        doc[:budget] = doc[:price]
-        doc[:valuation] = (doc[:price].to_f/(1.3)).to_i
+        doc[:current_valuation] = (doc[:price].to_f/(1.3)).to_i
         doc[:valuation_date] = (1..30).to_a.sample(1).first.days.ago.to_date.to_s
+        dream_price_greater_than_valuation = [true, false].sample
+        if dream_price_greater_than_valuation
+          doc[:dream_price] = (1.1 * doc[:price]).to_i
+        else
+          doc[:dream_price] = (0.9 * doc[:price]).to_i
+        end
         doc[:dream_price] = doc[:price]
         doc[:last_sale_price] = ((doc[:price].to_f)/(2.3)).to_f
         doc[:last_sale_price_date] = (1..5).to_a.sample(1).first.years.ago.to_date.to_s
