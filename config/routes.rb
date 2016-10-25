@@ -2,7 +2,7 @@ Rails.application.routes.draw do
   devise_for :property_users,
              path_names: { sign_in: 'login', sign_out: 'logout', password: 'secret', confirmation: 'verification',
                            unlock: 'unblock', sign_up: 'register' },
-             :controllers => { :omniauth_callbacks => 'property_users/omniauth_callbacks', registrations: 'property_users/registrations', confirmations: 'confirmations'}
+             controllers: { omniauth_callbacks: 'property_users/omniauth_callbacks', registrations: 'property_users/registrations', confirmations: 'confirmations' }
 
   get 'welcome/index'
   # The priority is based upon order of creation: first created -> highest priority.
@@ -11,8 +11,19 @@ Rails.application.routes.draw do
   # You can have the root of your site routed with "root"
   root 'welcome#index'
 
+  ###### ENQUIRIES ####################################################
   ### Post events to the server
-  post 'events/new',                              to: 'events#process_event'
+  post 'events/new',                     to: 'events#process_event'
+
+  ### Get property enquiries
+  get 'property/enquiries/:property_id', to: 'events#property_enquiries'
+
+  ### Get agents enquiries
+  get 'agents/enquiries/:agent_id',      to: 'events#agent_enquiries'
+
+  ### Get buyer enquiries
+  get 'buyers/enquiries/:buyer_id',      to: 'events#buyer_enquiries'
+  #####################################################################
 
   get '/auth/:provider/callback', to: 'sessions#create'
   get 'properties/new/:udprn/short', to: 'properties#short_form'

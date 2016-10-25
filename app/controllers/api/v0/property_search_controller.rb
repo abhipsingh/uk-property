@@ -11,7 +11,6 @@
 #### http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/addresses/predictions?str=Lingen%20Avenue
 #### --------------------------------------------------------------------------------------------------------------------------------------
 
-
 module Api
   module V0
     class PropertySearchController < ActionController::Base
