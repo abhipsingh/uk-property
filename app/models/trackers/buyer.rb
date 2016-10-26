@@ -30,6 +30,9 @@ class Trackers::Buyer
     contract_exchange_stage: 24,
     conveyance_stage: 25,
     completion_stage: 26,
+    hot_property: 27,
+    warm_property: 28,
+    cold_property: 29
   }
 
   TYPE_OF_MATCH = {
@@ -167,7 +170,7 @@ class Trackers::Buyer
   ###############################################################
   ########## Property level enquiries specific to a buyer #######
 
-  ##### Agent level mock in console 
+  ##### Agent level mock in console for new enquries coming
   ##### Trackers::Buyer.new.property_enquiry_details_buyer(1234)
 
   def property_enquiry_details_buyer(agent_id)

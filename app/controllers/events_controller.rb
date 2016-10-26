@@ -13,7 +13,7 @@ class EventsController < ApplicationController
     property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[params[:property_status_type]]
     buyer_id = params[:buyer_id]
     event = Trackers::Buyer::EVENTS.with_indifferent_access[params[:event]]
-    
+
     #### Search hash of a message
     message = params[:message]
 
@@ -33,20 +33,48 @@ class EventsController < ApplicationController
 
     cqls.map { |each_cql| session.execute(each_cql)  }
 
-    render json: { 'message' => 'Successfully processed' }, status: 200
+    render json: { 'message' => 'Successfully processed the request' }, status: 200
   end
 
+  #### For agents implement filter of agents group wise, company wise, branch, location wise,
+  #### and agent_id wise
 
   def buyer_enquiries
-
   end
 
-  def agent_enquiries
 
+  #### For agents implement filter of agents group wise, company wise, branch wise, location wise,
+  #### and agent_id wise. The agent employee is the last missing layer.
+
+  def agent_enquiries_by_property
+    response = []
+    if !params[:agent_company_id].nil?
+      ### TO DO FOR COMPANY
+    elsif !params[:agent_id].nil?
+      response = Trackers::Buyer.new.all_property_enquiry_details(params[:agent_id].to_i)
+    elsif !params[:hash_str].nil?
+    elsif !params[:agent_branch_id].nil?
+      response = Agents::Branch
+    elsif !params[:agent_group_id].nil?
+      ### TO DO FOR AGENTS GROUP AS WELL
+    end
+        
+        
+      
+
+    render json: response, status: 200
+  end
+
+  #### For agents implement filter of agents group wise, company wise, branch, location wise,
+  #### and agent_id wise
+
+  def agent_new_enquiries
+    response = Trackers::Buyer.new.property_enquiry_details_buyer(params[:agent_id].to_i)
+    render json: response, status: 200
   end
 
   def property_enquiries
-    
+
   end
 
 end

@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20160923074905) do
+ActiveRecord::Schema.define(version: 20161026094728) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -33,6 +33,15 @@ ActiveRecord::Schema.define(version: 20160923074905) do
 
   add_index "agents_branches", ["district"], name: "index_agents_branches_on_district", using: :btree
   add_index "agents_branches", ["postcode"], name: "index_agents_branches_on_postcode", using: :btree
+
+  create_table "agents_branches_assigned_agents", force: :cascade do |t|
+    t.string  "name"
+    t.string  "email"
+    t.string  "mobile"
+    t.integer "branch_id"
+  end
+
+  add_index "agents_branches_assigned_agents", ["branch_id"], name: "index_agents_branches_assigned_agents_on_branch_id", using: :btree
 
   create_table "agents_branches_crawled_properties", force: :cascade do |t|
     t.text     "html"

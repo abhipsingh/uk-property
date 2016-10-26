@@ -12,17 +12,25 @@ Rails.application.routes.draw do
   root 'welcome#index'
 
   ###### ENQUIRIES ####################################################
+  #####################################################################
+  #####################################################################
+  #####################################################################
   ### Post events to the server
-  post 'events/new',                     to: 'events#process_event'
+  post 'events/new',                         to: 'events#process_event'
 
   ### Get property enquiries
-  get 'property/enquiries/:property_id', to: 'events#property_enquiries'
+  get 'property/enquiries/:property_id',     to: 'events#property_enquiries'
 
-  ### Get agents enquiries
-  get 'agents/enquiries/:agent_id',      to: 'events#agent_enquiries'
+  ### Get fresh enquiries for agents
+  get 'agents/enquiries/new/:agent_id',      to: 'events#agent_new_enquiries'
+
+  ### Get all enquiries for agents grouped by property
+  get 'agents/enquiries/property/:agent_id', to: 'events#agent_enquiries_by_property'
 
   ### Get buyer enquiries
-  get 'buyers/enquiries/:buyer_id',      to: 'events#buyer_enquiries'
+  get 'buyers/enquiries/:buyer_id',          to: 'events#buyer_enquiries'
+  #####################################################################
+  #####################################################################
   #####################################################################
 
   get '/auth/:provider/callback', to: 'sessions#create'
