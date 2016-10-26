@@ -12,7 +12,7 @@ class PropertyDetailsRepo
   ES_EC2_HOST = Rails.configuration.remote_es_host
   FIELDS = {
     terms: [ :property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :keyword_types ],
-    term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status ],
+    term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status, :agent_id ],
     range: [ :cost_per_month, :date_added, :floors, :year_built, :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, :time_frame, :beds, :baths, :receptions, :current_valuation, :dream_price ],
   }
 
@@ -124,8 +124,8 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
 
   def apply_filters
     inst = self
-    modify_filtered_params
-    append_premium_or_featured_filter
+    inst.adjust_size
+    inst.adjust_included_fields
     inst = inst.append_hash_filter
     inst = inst.append_pagination_filter
     inst = inst.append_terms_filters
@@ -138,10 +138,25 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
 
   def filter
     inst = self
+    modify_filtered_params
+    append_premium_or_featured_filter
     inst.apply_filters
     inst.modify_query
     body, status = fetch_data_from_es
     return { results: body }, status
+  end
+
+  def adjust_size
+    if @filtered_params.has_key?(:limit)
+      @filtered_params[:limit].to_i < 1000 ? limit = @filtered_params[:limit] : limit = 1000
+      @query[:size] = limit
+    end
+  end
+
+  def adjust_included_fields
+    if @filtered_params.has_key?(:fields)
+      @query[:_source] = { include: @filtered_params[:fields].split(',') }
+    end
   end
 
   def fetch_data_from_es
@@ -244,10 +259,12 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
 
   def append_hash_filter
     inst = self
-    if filtered_params[:hash_type] == 'postcode'
-      inst = form_query(filtered_params[:hash_str])
-    else
-      inst = inst.append_terms_filter_query('hashes', filtered_params[:hash_str].split('|'), :and)
+    if filtered_params[:hash_str]
+      if filtered_params[:hash_type] == 'postcode'
+        inst = form_query(filtered_params[:hash_str])
+      else
+        inst = inst.append_terms_filter_query('hashes', filtered_params[:hash_str].split('|'), :and)
+      end
     end
     return inst
   end

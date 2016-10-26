@@ -32,7 +32,8 @@ class Trackers::Buyer
     completion_stage: 26,
     hot_property: 27,
     warm_property: 28,
-    cold_property: 29
+    cold_property: 29,
+    save_search_hash: 30
   }
 
   TYPE_OF_MATCH = {
@@ -92,13 +93,24 @@ class Trackers::Buyer
   ########## Property level enquiries ###########################
 
   #### To mock this function try 
-  #### Trackers::Buyer.new.all_property_enquiry_details(1234)
+  #### Trackers::Buyer.new.all_property_enquiry_details(1234, nil, nil)
 
-  def all_property_enquiry_details(agent_id)
-    query_str = { size: 2, _source: { include: ['udprn'] } , filter: { term: { agent_id: agent_id } } }
-    body, status = post_url('addresses', query_str, '_search', Rails.configuration.remote_es_host)
-    property_ids = Oj.load(body)['hits']['hits'].map{|t| t['_source']['udprn']} rescue []
-    property_ids.map { |e| property_and_enquiry_details(e) }
+  def all_property_enquiry_details(agent_id=nil, hash_str=nil, hash_type=nil)
+    search_params = { limit: 2, fields: 'udprn' }
+    search_params[:hash_str] = hash_str if hash_str
+    search_params[:hash_type] = hash_type if hash_type
+    search_params[:agent_id] = agent_id if agent_id
+    result = []
+    if search_params[:agent_id] || search_params[:hash_str]
+      api = PropertyDetailsRepo.new(filtered_params: search_params)
+      api.apply_filters
+      body, status = api.fetch_data_from_es
+      if status.to_i == 200
+        property_ids = body.map{|t| t['udprn'] } rescue []
+        result = property_ids.map { |e| property_and_enquiry_details(e) }  
+      end
+    end
+    result
   end
 
   ##### To mock this in the console try 
@@ -281,6 +293,25 @@ class Trackers::Buyer
       new_row[:property_tracking] = (each_row['count'] == 0 ? false : true)
     end
     table = 'simple.property_events_buyers_events'
+
+    #### Property is hot or cold or warm
+    hotness_events = [ EVENTS[:hot_property], EVENTS[:cold_property], EVENTS[:warm_property] ]
+    hotness_event_cql = "SELECT * FROM simple.buyer_property_events WHERE buyer_id = #{buyer_id.to_i} AND property_id = '#{property_id.to_i}' AND event IN (#{hotness_events.join(',')});"
+    future = session.execute(hotness_event_cql)
+
+    hot_row = future.rows.sort_by{ |t| t['stored_time'] }.reverse.first
+    new_row[:hotness] = REVERSE_EVENTS[hot_row['event']]
+
+    ########## Property hotness section ends
+
+    ##### Saved search hashes in message section
+    save_search_event = EVENTS[:save_search_hash]
+    save_search_cql = "SELECT message, stored_time FROM simple.buyer_property_events WHERE buyer_id = #{buyer_id.to_i} AND property_id = '#{property_id.to_i}' AND event = #{save_search_event} ;"
+    future = session.execute(save_search_cql)
+
+    recent_search_row = future.rows.sort_by{ |t| t['stored_time'] }.reverse.first
+    new_row[:search_hash] = recent_search_row['message']
+    ##### Saved search hash ends
 
     #### Views
     total_views = generic_event_count(EVENTS[:viewed], table, property_id, :single)

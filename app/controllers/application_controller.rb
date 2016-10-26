@@ -155,6 +155,8 @@ class ApplicationController < ActionController::Base
       params[:hash_str] = hash_value
       params[:hash_type] = 'text'
       api = ::PropertyDetailsRepo.new(filtered_params: params)
+      api.modify_filtered_params
+      api.append_premium_or_featured_filter
       api.apply_filters
       api.modify_query
       res, code = nil
