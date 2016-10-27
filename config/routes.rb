@@ -32,7 +32,10 @@ Rails.application.routes.draw do
 
 
   ### Get all recently changed to Green properties for quotes for Agents
-  get 'agents/properties/recent',           to: 'events#recent_properties_for_quotes'
+  get 'agents/properties/recent/quotes',           to: 'events#recent_properties_for_quotes'
+
+   ### Get all recently changed to Green properties for quotes for Agents
+  get 'agents/properties/recent/claims',           to: 'events#recent_properties_for_claim'
   #####################################################################
   #####################################################################
   #####################################################################

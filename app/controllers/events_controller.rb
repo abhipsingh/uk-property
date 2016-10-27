@@ -98,7 +98,7 @@ class EventsController < ApplicationController
 
   #### For agents the quotes page has to be shown in which all his recent or the new properties in the area
   #### Will be published
-  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent?agent_id=1234'
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent/quotes?agent_id=1234'
   def recent_properties_for_quotes
     response = []
     if !params[:agent_company_id].nil?
@@ -115,16 +115,45 @@ class EventsController < ApplicationController
       if status.to_i == 200
         agents = body.map { |e| e['agent_id'] }.uniq rescue []
       end
-      response = agents.map { |e| Agents::Branches::AssignedAgent.find(e).recent_properties_for_quotes }.flatten.sort_by{ |t| t['status_last_updated'] }.reverse
+      response = agents.map { |e| Agents::Branches::AssignedAgent.find(e).recent_properties_for_quotes }.flatten.sort_by{ |t| t[:deadline] }.reverse
     elsif !params[:agent_branch_id].nil?
       agents = Agents::Branches::AssignedAgent.where(branch_id: params[:agent_branch_id].to_i).select(:id)
-      response = agents.map { |e| Agents::Branches::AssignedAgent.find(e).recent_properties_for_quotes }.flatten.sort_by{ |t| t['status_last_updated'] }.reverse
+      response = agents.map { |e| Agents::Branches::AssignedAgent.find(e).recent_properties_for_quotes }.flatten.sort_by{ |t| t[:deadline] }.reverse
     elsif !params[:agent_group_id].nil?
       ### TO DO FOR AGENTS GROUP AS WELL
     end
     render json: response, status: 200
   end
 
+
+  #### For agents the leads page has to be shown in which the recent properties have been claimed
+  #### Those properties have just been claimed recently in the area
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent/claims?agent_id=1234'
+  def recent_properties_for_claim
+    response = []
+    if !params[:agent_company_id].nil?
+      ### TODO FOR COMPANY
+    elsif !params[:agent_id].nil?
+      response = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i).recent_properties_for_claim
+    elsif !params[:hash_str].nil?
+      search_params = { limit: 100, fields: 'agent_id' }
+      search_params[:hash_str] = params[:hash_str]
+      search_params[:hash_type] = params[:hash_type]
+      api = PropertyDetailsRepo.new(filtered_params: search_params)
+      api.apply_filters
+      body, status = api.fetch_data_from_es
+      if status.to_i == 200
+        agents = body.map { |e| e['agent_id'] }.uniq rescue []
+      end
+      response = agents.map { |e| Agents::Branches::AssignedAgent.find(e).recent_properties_for_claim }.flatten.sort_by{ |t| t[:deadline] }.reverse
+    elsif !params[:agent_branch_id].nil?
+      agents = Agents::Branches::AssignedAgent.where(branch_id: params[:agent_branch_id].to_i).select(:id)
+      response = agents.map { |e| Agents::Branches::AssignedAgent.find(e).recent_properties_for_claim }.flatten.sort_by{ |t| t[:deadline] }.reverse
+    elsif !params[:agent_group_id].nil?
+      ### TODO FOR AGENTS GROUP AS WELL
+    end
+    render json: response, status: 200
+  end
 
   def property_enquiries
 

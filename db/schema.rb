@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20161027105158) do
+ActiveRecord::Schema.define(version: 20161027125701) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -42,6 +42,20 @@ ActiveRecord::Schema.define(version: 20161027105158) do
   end
 
   add_index "agents_branches_assigned_agents", ["branch_id"], name: "index_agents_branches_assigned_agents_on_branch_id", using: :btree
+
+  create_table "agents_branches_assigned_agents_leads", force: :cascade do |t|
+    t.integer  "property_id"
+    t.integer  "agent_id"
+    t.string   "district"
+    t.integer  "vendor_id"
+    t.datetime "created_at",  null: false
+    t.datetime "updated_at",  null: false
+  end
+
+  add_index "agents_branches_assigned_agents_leads", ["agent_id"], name: "index_agents_branches_assigned_agents_leads_on_agent_id", using: :btree
+  add_index "agents_branches_assigned_agents_leads", ["district"], name: "index_agents_branches_assigned_agents_leads_on_district", using: :btree
+  add_index "agents_branches_assigned_agents_leads", ["property_id", "agent_id", "vendor_id"], name: "prop_agent", unique: true, using: :btree
+  add_index "agents_branches_assigned_agents_leads", ["property_id"], name: "index_agents_branches_assigned_agents_leads_on_property_id", using: :btree
 
   create_table "agents_branches_assigned_agents_quotes", force: :cascade do |t|
     t.datetime "deadline"

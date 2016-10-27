@@ -3,6 +3,7 @@ module Agents
     class AssignedAgent < ActiveRecord::Base
 
       has_many :quotes, class_name: 'Agents::Branches::AssignedAgents::Quote', foreign_key: 'agent_id'
+      has_many :leads, class_name: 'Agents::Branches::AssignedAgents::Lead', foreign_key: 'agent_id'
 
       belongs_to :branch
 
@@ -73,16 +74,19 @@ module Agents
             ### TODO new_row[:payment_terms] =
 
             new_row[:quotes_received] = Agents::Branches::AssignedAgents::Quote.where(property_id: property_id).where('created_at > ?', 1.week.ago).count
-            new_row[:deadline] = Time.at(Time.parse(property_details['status_last_updated']) + 48.hours - Time.now).utc.strftime "%H:%M:%S"
 
             #### WINNING AGENT
             winning_quote = Agents::Branches::AssignedAgents::Quote.where(status: Agents::Branches::AssignedAgents::Quote::REVERSE_STATUS_HASH['Won'], property_id: property_id).first
             if winning_quote
               new_row[:winning_agent] = winning_quote.agent.name
               new_row[:quote_price] = winning_quote.compute_price
+              new_row[:deadline] = winning_quote.created_at.to_s 
+              new_row[:quote_accepted] = true
             else
               new_row[:winning_quote] = nil
               new_row[:quote_price] = nil
+              new_row[:deadline] = Time.at(Time.parse(property_details['status_last_updated']) + 48.hours - Time.now).utc.strftime "%H:%M:%S"
+              new_row[:quote_accepted] = false
             end
 
             results.push(new_row)
@@ -91,6 +95,98 @@ module Agents
         end
         results
       end
+
+
+      ##### All leads for agents will be fetched using this method
+      #### To try this in console
+      #### Agents::Branches::AssignedAgent.last.recent_properties_for_claim
+      def recent_properties_for_claim
+        district = self.branch.district
+        leads = Agents::Branches::AssignedAgents::Lead.where(district: district).where('created_at > ?', 24.hours.ago).order('created_at DESC').limit(20)
+        results = []
+        leads.each do |lead|
+          new_row = {}
+
+          #### Submitted on
+          new_row[:submittted_on] = lead.created_at.to_s
+
+          ### Status of the lead
+          if lead.agent_id.nil?
+            new_row[:status] = 'PENDING'
+          elsif lead.agent_id == self.id
+            new_row[:status] = 'Won'
+          else
+            new_row[:status] = 'Lost'
+          end
+
+          ### address of the property
+          details = PropertyDetails.details(lead.property_id)
+          details = details['_source']
+          new_row[:address] = PropertyDetails.address(details)
+
+          ### Property type
+          new_row[:property_type] = details['property_type']
+
+          ### beds
+          new_row[:beds] = details['beds']
+
+          ### dream price
+          new_row[:baths] = details['baths']
+
+          ### receptions
+          new_row[:receptions] = details['receptions']
+
+          ### dream_price
+          new_row[:dream_price] = details['dream_price']
+
+          ### last sale price
+          new_row[:last_sale_price] = details['last_sale_price']
+
+          #### Vendor details
+          if lead.agent_id == self.id
+            vendor = Vendor.where(property_id: lead.vendor_id).first
+            new_row[:vendor_name] = vendor.full_name
+            new_row[:email] = vendor.email
+            new_row[:mobile] = vendor.mobile
+          else
+            new_row[:vendor_name] = nil
+            new_row[:email] = nil
+            new_row[:mobile] = nil
+          end
+
+          ### Deadline
+          if lead.agent_id.nil?
+            new_row[:deadline] = Time.at(lead.created_at + 24.hours - Time.now).utc.strftime "%H:%M:%S"
+            new_row[:claimed] = false
+          else
+            new_row[:deadline] = lead.updated_at.to_s
+            new_row[:claimed] = true
+          end
+
+          ### Winning agent name
+          if !lead.agent_id.nil?
+            new_row[:winning_agent] = lead.agent.name
+          else
+            new_row[:winning_agent] = nil
+          end
+
+
+          ### Status of the link
+          if lead.agent_id == self.id
+            new_row[:status] = 'Won'
+          elsif lead.agent_id.nil?
+            new_row[:status] = 'Pending'
+          else
+            new_row[:status] = 'Lost'
+          end
+
+          results.push(new_row)
+            
+        end
+
+        results
+      end
+
 
 
     end
