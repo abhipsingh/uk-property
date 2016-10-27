@@ -12,7 +12,7 @@ class PropertyDetailsRepo
   ES_EC2_HOST = Rails.configuration.remote_es_host
   FIELDS = {
     terms: [ :property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :keyword_types ],
-    term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status, :agent_id ],
+    term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status, :agent_id, :district, :udprn ],
     range: [ :cost_per_month, :date_added, :floors, :year_built, :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, :time_frame, :beds, :baths, :receptions, :current_valuation, :dream_price ],
   }
 
@@ -315,7 +315,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
   end
 
   def append_sort_filters
-    sort_keys = [:budget, :popularity, :rent, :date_added, :valuation, :dream_price]
+    sort_keys = [:budget, :popularity, :rent, :date_added, :valuation, :dream_price, :status_last_updated]
     inst = self
     sort_key = @filtered_params[:sort_key].to_sym rescue nil
     if sort_keys.include? sort_key

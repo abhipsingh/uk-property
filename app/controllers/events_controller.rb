@@ -49,7 +49,7 @@ class EventsController < ApplicationController
   def agent_enquiries_by_property
     response = []
     if !params[:agent_company_id].nil?
-      ### TO DO FOR COMPANY
+      ### TODO FOR COMPANY
     elsif !params[:agent_id].nil?
       response = Trackers::Buyer.new.all_property_enquiry_details(params[:agent_id], params[:hash_str], params[:hash_type])
     elsif !params[:hash_str].nil?
@@ -59,7 +59,7 @@ class EventsController < ApplicationController
       buyer = Trackers::Buyer.new
       response = agents.map { |e| buyer.all_property_enquiry_details(e.id, nil, nil) }.flatten
     elsif !params[:agent_group_id].nil?
-      ### TO DO FOR AGENTS GROUP AS WELL
+      ### TODO FOR AGENTS GROUP AS WELL
     end
     render json: response, status: 200
   end
@@ -70,7 +70,7 @@ class EventsController < ApplicationController
   def agent_new_enquiries
     response = []
     if !params[:agent_company_id].nil?
-      ### TO DO FOR COMPANY
+      ### TODO FOR COMPANY
     elsif !params[:agent_id].nil?
       response = Trackers::Buyer.new.property_enquiry_details_buyer(params[:agent_id].to_i)
     elsif !params[:hash_str].nil?
@@ -90,10 +90,41 @@ class EventsController < ApplicationController
       buyer = Trackers::Buyer.new
       response = agents.map { |e| buyer.property_enquiry_details_buyer(e) }.flatten.sort_by{ |t| t['time_of_event'] }.reverse
     elsif !params[:agent_group_id].nil?
+      ### TODO FOR AGENTS GROUP AS WELL
+    end
+    render json: response, status: 200
+  end
+
+
+  #### For agents the quotes page has to be shown in which all his recent or the new properties in the area
+  #### Will be published
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent?agent_id=1234'
+  def recent_properties_for_quotes
+    response = []
+    if !params[:agent_company_id].nil?
+      ### TODO FOR COMPANY
+    elsif !params[:agent_id].nil?
+      response = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i).recent_properties_for_quotes
+    elsif !params[:hash_str].nil?
+      search_params = { limit: 10000, fields: 'agent_id' }
+      search_params[:hash_str] = params[:hash_str]
+      search_params[:hash_type] = params[:hash_type]
+      api = PropertyDetailsRepo.new(filtered_params: search_params)
+      api.apply_filters
+      body, status = api.fetch_data_from_es
+      if status.to_i == 200
+        agents = body.map { |e| e['agent_id'] }.uniq rescue []
+      end
+      response = agents.map { |e| Agents::Branches::AssignedAgent.find(e).recent_properties_for_quotes }.flatten.sort_by{ |t| t['status_last_updated'] }.reverse
+    elsif !params[:agent_branch_id].nil?
+      agents = Agents::Branches::AssignedAgent.where(branch_id: params[:agent_branch_id].to_i).select(:id)
+      response = agents.map { |e| Agents::Branches::AssignedAgent.find(e).recent_properties_for_quotes }.flatten.sort_by{ |t| t['status_last_updated'] }.reverse
+    elsif !params[:agent_group_id].nil?
       ### TO DO FOR AGENTS GROUP AS WELL
     end
     render json: response, status: 200
   end
+
 
   def property_enquiries
 

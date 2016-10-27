@@ -62,4 +62,7 @@ class AgentApi
     end
   end
 
+  def recent_quotes
+  end
+
 end

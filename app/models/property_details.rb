@@ -43,5 +43,13 @@ class PropertyDetails
     "https://www.google.com/maps/embed/v1/place?key=#{ENV['GOOGLE_API_BROWSER_KEY']}&q=#{address}"
   end
 
+  def self.details(udprn)
+    remote_es_url = Rails.configuration.remote_es_url
+    response = Net::HTTP.get(URI.parse(remote_es_url + '/addresses/address/' + udprn.to_s))
+    response = Oj.load(response) rescue {}
+    response['address'] = address(response)
+    response
+  end
+
 end
 
