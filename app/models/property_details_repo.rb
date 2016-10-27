@@ -515,7 +515,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
       doc[:description] = nil
 
       ### listing updated
-      doc[:last_listing_updated] = nil
+      doc[:last_listing_updated] = random_time
 
       ### Last sale date
       doc[:last_sale_date] = (1..365).to_a.sample.days.ago.to_date.to_s

@@ -155,8 +155,33 @@ class EventsController < ApplicationController
     render json: response, status: 200
   end
 
+  #### When an agent wants to see the property specific statistics(trackings,
+  #### views, etc), this API is called.
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/enquiries/properties?agent_id=1234'
   def property_enquiries
-
+    response = []
+    if !params[:agent_company_id].nil?
+      ### TODO FOR COMPANY
+    elsif !params[:agent_id].nil?
+      response = Trackers::Buyer.new.property_enquiry_details_buyer(params[:agent_id].to_i)
+    elsif !params[:hash_str].nil?
+      search_params = { limit: 100, fields: 'agent_id' }
+      search_params[:hash_str] = params[:hash_str]
+      search_params[:hash_type] = params[:hash_type]
+      api = PropertyDetailsRepo.new(filtered_params: search_params)
+      api.apply_filters
+      body, status = api.fetch_data_from_es
+      if status.to_i == 200
+        agents = body.map { |e| e['agent_id'] }.uniq rescue []
+      end
+      response = agents.map { |e| Trackers::Buyer.new.property_enquiry_details_buyer(e) }.flatten.sort_by{ |t| t['status_last_updated'] }.reverse
+    elsif !params[:agent_branch_id].nil?
+      agents = Agents::Branches::AssignedAgent.where(branch_id: params[:agent_branch_id].to_i).select(:id)
+      response = agents.map { |e| Trackers::Buyer.new.property_enquiry_details_buyer(e) }.flatten.sort_by{ |t| t['status_last_updated'] }.reverse
+    elsif !params[:agent_group_id].nil?
+      ### TODO FOR AGENTS GROUP AS WELL
+    end
+    render json: response, status: 200
   end
 
 end

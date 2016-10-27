@@ -30,12 +30,14 @@ Rails.application.routes.draw do
   ### Get buyer enquiries
   get 'buyers/enquiries/:buyer_id',          to: 'events#buyer_enquiries'
 
+  ### Get all recently changed to Green properties for quotes for Agents
+  get 'agents/properties/recent/quotes',     to: 'events#recent_properties_for_quotes'
 
   ### Get all recently changed to Green properties for quotes for Agents
-  get 'agents/properties/recent/quotes',           to: 'events#recent_properties_for_quotes'
+  get 'agents/properties/recent/claims',     to: 'events#recent_properties_for_claim'
 
-   ### Get all recently changed to Green properties for quotes for Agents
-  get 'agents/properties/recent/claims',           to: 'events#recent_properties_for_claim'
+  ### Get all stats about the properties for the concerned agents
+  get 'agents/enquiries/properties',         to: 'events#property_enquiries'
   #####################################################################
   #####################################################################
   #####################################################################

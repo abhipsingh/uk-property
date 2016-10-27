@@ -100,6 +100,7 @@ class Trackers::Buyer
     search_params[:hash_str] = hash_str if hash_str
     search_params[:hash_type] = hash_type if hash_type
     search_params[:agent_id] = agent_id if agent_id
+    search_params[:udprn] = '10966139'
     result = []
     if search_params[:agent_id] || search_params[:hash_str]
       api = PropertyDetailsRepo.new(filtered_params: search_params)
@@ -134,9 +135,9 @@ class Trackers::Buyer
   ### For every enquiry row, extract the info from details hash and merge it
   ### with new row
   def push_property_details(new_row, details)
-    new_row[:address] = details['address']
+    new_row[:address] = PropertyDetails.address(details)
     new_row[:image_url] = details['photos'][0]
-    new_row[:status] = details['status']
+    new_row[:status] = details['verification_status']
     if details['status'] == 'Green'
       keys = ['asking_price', 'offers_price', 'fixed_price']
       
@@ -145,8 +146,10 @@ class Trackers::Buyer
       end
         
     else
-      new_row[:latest_valuation] = details['current_valuation'][0]
+      new_row[:latest_valuation] = details['current_valuation']
     end
+    new_row[:last_edited] = details['last_listing_updated']
+    new_row[:udprn] = details['udprn']
     new_row[:property_type] = details['property_type']
     new_row[:property_status_type] = details['property_status_type']
     new_row[:beds] = details['beds']
