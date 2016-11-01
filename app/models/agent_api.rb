@@ -1,37 +1,51 @@
 class AgentApi
-  attr_accessor :branch_id, :udprn
+  attr_accessor :branch_id, :udprn, :details
 
-  def initialize(branch_id, udprn)
-    @branch_id ||= branch_id
+  def initialize(udprn, agent_id)
+    @branch_id ||= Agents::Branches::AssignedAgent.where(id: agent_id).first.branch_id
     @udprn ||= udprn
+    @agent_id ||= agent_id
+    @details = PropertyDetails.details(@udprn)
   end
 
+  def self.cassandra_session
+    Rails.configuration.cassandra_session
+  end
+
+  #### To calculate the detailed quotes for each of the agent, we can call this function
+  #### Below is an example of how it can be tested in the irb
+  ####  AgentApi.new(10966139, 1234).calculate_quotes
   def calculate_quotes
-    udprns = TempPropertyDetail.where(agent_id: branch_id).select([:udprn, :agent_id])
-    property_quotes = []
-    udprns.each_with_index do |udprn_inner, index|
-      if udprn.to_i != udprn_inner.udprn.to_i
-        hash = {index: index, branch_id: udprn_inner.agent_id}
-        result_hash = calculate_sale_detail(udprn_inner.udprn)
-        result_hash = result_hash.merge(hash)
-        property_quotes.push(result_hash)
-      end
-    end
     aggregate_stats = {}
+    property_quotes = {}
     branch = Agents::Branch.find(branch_id)
     branch_name = branch.name
     aggregate_stats[:branch_id] = branch.id
-    calculate_aggregate_stats(property_quotes, aggregate_stats)
+    calculate_aggregate_stats(aggregate_stats)
+    calculate_per_property_stats_for_agent(property_quotes)
     { name: branch_name, id: branch_id, aggregate_stats: aggregate_stats, property_quotes: property_quotes }
   end
 
-  def calculate_aggregate_stats(quotes, aggregate_stats)
-    aggregate_stats[:sales] = quotes.map{|t| t[:final_sale_price] }.reduce(&:+)
-    aggregate_stats[:avg_valuation] = ((quotes.map{|t| t[:no_of_valuations] }.reduce(&:+).to_f)/(quotes.count.to_f)).round(2)*100
-    aggregate_stats[:avg_greater_than_valuation] = ((quotes.map{|t| t[:greater_than_valuation] }.reduce(&:+).to_f)/(quotes.count.to_f)).round(4)
-    aggregate_stats[:avg_increase_in_valuation] = ((quotes.map{|t| t[:increase_in_valuation] }.reduce(&:+).to_f)/(quotes.count.to_f)).round(4)
-    aggregate_stats[:avg_final_valuation_percent] = ((quotes.map{|t| t[:final_valuation_percent] }.reduce(&:+).to_f)/(quotes.count.to_f)).round(2)
-    aggregate_stats[:avg_first_valuation_percent] = ((quotes.map{|t| t[:first_valuation_percent] }.reduce(&:+).to_f)/(quotes.count.to_f)).round(2)
+  #### This function computes the aggregate quote stats for the agent.
+  #### AgentApi.new(10966139, 1234).calculate_aggregate_stats({})
+  def calculate_aggregate_stats(aggregate_stats)
+    all_valuations =  all_valuations_of_agent
+    all_sales = all_sales_of_agent
+    aggregate_stats[:aggregate_sales] = all_sales.map{|t| (Oj.load(t['message'])['final_price'] rescue 0) }.reduce(&:+)
+    aggregate_stats[:sold] = number_of_properties_sold
+    aggregate_stats[:property_count] = Agents::Branches::AssignedAgents::Quote.where.not(status: nil).where(agent_id: @agent_id).count
+    aggregate_stats[:avg_no_of_days_to_sell] = average_no_of_days_to_sell
+    aggregate_stats[:percent_more_than_valuation] = percent_more_than_valuation
+    # aggregate_stats[:avg_valuation] = ((all_valuations.map{|t| t[:no_of_valuations] }.reduce(&:+).to_f)/(quotes.count.to_f)).round(2)*100
+    # aggregate_stats[:avg_greater_than_valuation] = percent_more_than_valuation
+    aggregate_stats[:avg_changes_to_valuation] = avg_changes_to_valuation
+    aggregate_stats[:avg_increase_in_valuation] = avg_increase_in_value
+    aggregate_stats[:avg_percent_of_first_valuation] = avg_percent_of_first_valuation_achieved
+    aggregate_stats[:avg_percent_of_final_valuation] = avg_percent_of_final_valuation_achieved
+    aggregate_stats[:pay_link] = 'Random link'
+    aggregate_stats[:quote_price] = quote_price
+    # aggregate_stats[:avg_final_valuation_percent] = ((quotes.map{|t| t[:final_valuation_percent] }.reduce(&:+).to_f)/(quotes.count.to_f)).round(2)
+    # aggregate_stats[:avg_first_valuation_percent] = ((quotes.map{|t| t[:first_valuation_percent] }.reduce(&:+).to_f)/(quotes.count.to_f)).round(2)
   end
 
   def calculate_sale_detail(udprn)
@@ -63,6 +77,298 @@ class AgentApi
   end
 
   def recent_quotes
+  end
+
+  #### To test this function run in the console
+  #### AgentApi.new(10966139, 1234).number_of_properties_sold
+  def number_of_properties_sold
+    session = self.class.cassandra_session
+    event = Trackers::Buyer::EVENTS[:sold]
+    agent_id = @agent_id
+    cql = "SELECT * FROM Simple.timestamped_property_events WHERE agent_id = #{agent_id} AND event = #{event} ALLOW FILTERING "
+    future = session.execute(cql)
+    count = future.rows.count
+  end
+
+  #### To test this function run in the console
+  #### AgentApi.new(10966139, 1234).all_valuations_of_agent
+  def all_valuations_of_agent
+    valuations = []
+    session = self.class.cassandra_session
+    event = Trackers::Buyer::EVENTS[:sold]
+    agent_id = @agent_id
+    cql = "SELECT * FROM Simple.timestamped_property_events WHERE agent_id = #{agent_id} AND event = #{event} ALLOW FILTERING "
+    future = session.execute(cql)
+    future.rows.each do |each_row|
+      valuations.push(valuations_sorted_by_time(each_row['property_id']))
+    end
+    valuations
+  end
+
+  #### To test this function run in the console
+  #### AgentApi.new(10966139, 1234).all_sales_of_agent
+  def all_sales_of_agent
+    session = self.class.cassandra_session
+    event = Trackers::Buyer::EVENTS[:sold]
+    agent_id = @agent_id
+    cql = "SELECT * FROM Simple.timestamped_property_events WHERE agent_id = #{agent_id} AND event = #{event} ALLOW FILTERING "
+    future = session.execute(cql)
+    future.rows.to_a
+  end
+
+  #### To test this function run in the console
+  #### AgentApi.new(10966139, 1234).average_no_of_days_to_sell
+  #### Agents::Branches::AssignedAgents::Quote.create(deadline: Time.now, status: 1, property_id: 10976765, agent_id: 1234, created_at: 32.days.ago)
+  #### Agents::Branches::AssignedAgents::Quote.create(deadline: Time.now, status: 1, property_id: 10975337, agent_id: 1234, created_at: 28.days.ago)
+  #### Agents::Branches::AssignedAgents::Quote.create(deadline: Time.now, status: 1, property_id: 54042234, agent_id: 1234, created_at: 30.days.ago)
+  def average_no_of_days_to_sell
+    all_sales = all_sales_of_agent
+    total_time_diff = 0
+    count = 0
+    all_sales.each do |each_sale|
+      start_date = Agents::Branches::AssignedAgents::Quote.where(property_id: each_sale['property_id']).where(agent_id: @agent_id).where.not(status: nil).first.created_at rescue nil
+      if start_date
+        end_date = each_sale['stored_time']
+        time_diff = (end_date - start_date).to_i/(24 * 60 * 60)
+        total_time_diff += time_diff
+        count += 1
+      end
+    end
+    if count > 0
+      (total_time_diff/count).floor
+    else
+      -1
+    end
+  end
+
+  #### To test this function run in the console
+  #### AgentApi.new(10966139, 1234).valuations_sorted_by_time(10976765)
+  def valuations_sorted_by_time(property_id)
+    session = self.class.cassandra_session
+    event = Trackers::Buyer::EVENTS[:valuation_change]
+    agent_id = @agent_id
+    cql = "SELECT * FROM Simple.timestamped_property_events WHERE agent_id = #{agent_id} AND event = #{event} AND property_id = '#{property_id}' ALLOW FILTERING "
+    future = session.execute(cql)
+    future.rows.sort_by{ |t| t['time_of_event'] }.reverse
+  end
+
+  #### How many properties were sold by the agent which exceeded the current_valuation
+  #### AgentApi.new(10966139, 1234).percent_more_than_valuation
+  def percent_more_than_valuation
+    all_sales = all_sales_of_agent
+    all_valuations = all_valuations_of_agent
+    valuation_property_hash = {}
+    all_valuations.each do |each_property_valuation|
+      message = each_property_valuation.sort_by{ |t| t['time_of_event'] }.reverse.first['message']
+      valuation = Oj.load(message)['current_valuation'].to_i
+      valuation_property_hash[each_property_valuation.first['property_id']] = valuation
+    end
+
+    count = 0
+    greater_count = 0
+    all_sales.each do |each_sale|
+      count += 1 
+      message = Oj.load(each_sale['message'])
+      final_price = message['final_price'].to_i
+      valuation_price = valuation_property_hash[each_sale['property_id']]
+       if final_price >= valuation_price
+         greater_count += 1
+       end
+    end
+
+    if count > 0
+      (greater_count/count).to_i * 100
+    else
+      -1
+    end
+  end
+
+  #### How many properties were sold by the agent which exceeded the current_valuation
+  #### AgentApi.new(10966139, 1234).avg_changes_to_valuation
+  def avg_changes_to_valuation
+    count = 0
+    all_valuations = all_valuations_of_agent
+    all_valuations.each do |each_property_valuation|
+      count += each_property_valuation.count
+    end
+
+    if count > 0
+      (count/all_valuations.count).round(2)
+    else
+      -1
+    end
+  end
+
+  #### How many properties were sold by the agent which exceeded the current_valuation
+  #### AgentApi.new(10966139, 1234).avg_increase_in_value
+  def avg_increase_in_value
+    all_valuations = all_valuations_of_agent
+    valuation_property_hash = {}
+
+    all_valuations.each do |each_property_valuation|
+      message = each_property_valuation.sort_by{ |t| t['time_of_event'] }.first['message']
+      valuation = Oj.load(message)['current_valuation']
+      valuation_property_hash[each_property_valuation.first['property_id']] = valuation
+    end
+
+    sum_of_percentage_changes = 0
+
+    count = 0
+    all_sales = all_sales_of_agent
+    all_sales.each do |each_sale|
+      count += 1
+      final_price = Oj.load(each_sale['message'])['final_price']
+      valuation = valuation_property_hash[each_sale['property_id']]
+      sum_of_percentage_changes += (((final_price - valuation).to_f/(valuation.to_f)) * 100).round(2)
+    end
+
+    if count > 0
+      (sum_of_percentage_changes/count).round(2)
+    else
+      -1
+    end
+
+  end
+
+  #### What is the average percentage of first valuation achieved
+  #### AgentApi.new(10966139, 1234).avg_percent_of_first_valuation_achieved
+  def avg_percent_of_first_valuation_achieved
+    all_valuations = all_valuations_of_agent
+    valuation_property_hash = {}
+
+    all_valuations.each do |each_property_valuation|
+      message = each_property_valuation.sort_by{ |t| t['time_of_event'] }.first['message']
+      valuation = Oj.load(message)['current_valuation']
+      valuation_property_hash[each_property_valuation.first['property_id']] = valuation
+    end
+
+    sum_of_percentage_changes = 0
+
+    count = 0
+    all_sales = all_sales_of_agent
+    all_sales.each do |each_sale|
+      count += 1
+      final_price = Oj.load(each_sale['message'])['final_price']
+      valuation = valuation_property_hash[each_sale['property_id']]
+      sum_of_percentage_changes += (((final_price).to_f/(valuation.to_f)) * 100).round(2)
+    end
+
+    if count > 0
+      (sum_of_percentage_changes/count).round(2)
+    else
+      -1
+    end
+
+  end
+
+  #### What is the average percentage of final valuation achieved
+  #### AgentApi.new(10966139, 1234).avg_percent_of_final_valuation_achieved
+  def avg_percent_of_final_valuation_achieved
+    all_valuations = all_valuations_of_agent
+    valuation_property_hash = {}
+
+    all_valuations.each do |each_property_valuation|
+      message = each_property_valuation.sort_by{ |t| t['time_of_event'] }.reverse.first['message']
+      valuation = Oj.load(message)['current_valuation']
+      valuation_property_hash[each_property_valuation.first['property_id']] = valuation
+    end
+
+    sum_of_percentage_changes = 0
+
+    count = 0
+    all_sales = all_sales_of_agent
+    all_sales.each do |each_sale|
+      count += 1
+      final_price = Oj.load(each_sale['message'])['final_price']
+      valuation = valuation_property_hash[each_sale['property_id']]
+      sum_of_percentage_changes += (((final_price).to_f/(valuation.to_f)) * 100).round(2)
+    end
+
+    if count > 0
+      (sum_of_percentage_changes/count).round(2)
+    else
+      -1
+    end
+
+  end
+
+  #### Final aggregated quote price of the agent
+  #### AgentApi.new(10966139, 1234).quote_price
+  def quote_price
+    quote = Agents::Branches::AssignedAgents::Quote.where(agent_id: @agent_id).where(property_id: @udprn).order('created_at DESC').first
+    price = nil
+    if quote
+      price = quote.compute_price
+    end
+    price.to_i
+  end
+
+  #### This function gathers all the price movements of all the property
+  #### which were handled by this agent.
+  #### AgentApi.new(10966139, 1234).avg_percent_of_final_valuation_achieved
+  def calculate_all_property_stats_for_agent    
+  end
+
+
+  #### This function gathers all the price movements of a single property
+  #### which was handled by this agent
+  #### AgentApi.new(10966139, 1234).calculate_per_property_stats_for_agent({})
+  def calculate_per_property_stats_for_agent(result)
+    all_valuations = all_valuations_of_agent
+    all_valuations.each do |each_property_valuation|
+      each_property_hash = {}
+
+      ### Property Ids
+      property_id = each_property_valuation.first['property_id']
+      each_property_hash['property_id'] = property_id
+      sorted_valuations = each_property_valuation.sort_by{ |t| t['time_of_event'] }
+
+      ### First valuation if exists
+      each_property_hash['first_valuation'] = JSON.parse(sorted_valuations.first['message'])['current_valuation'] if each_property_valuation.length > 0
+      
+      ### Second valuation if exists
+      each_property_hash['second_valuation'] = JSON.parse(sorted_valuations.second['message'])['current_valuation'] if each_property_valuation.length > 1
+      
+      ### Third valuation if exists
+      each_property_hash['third_valuation'] = JSON.parse(sorted_valuations.third['message'])['current_valuation'] if each_property_valuation.length > 2
+  
+      ### Final sale price of the property      
+      event = Trackers::Buyer::EVENTS[:sold]
+      agent_id = @agent_id
+      #### TODO Remove this sql and use the sales info for the agent already retrieved
+      cql = "SELECT * FROM Simple.timestamped_property_events WHERE agent_id = #{agent_id} AND event = #{event} AND property_id = '#{property_id}' ALLOW FILTERING "
+      future = session.execute(cql)
+      results = future.rows.to_a
+      message = results.first['message']
+      each_property_hash['final_sale_price'] = JSON.parse(message)['final_price']
+
+
+      ### Achieved more than valuation
+      final_valuation = JSON.parse(sorted_valuations.last['message'])['current_valuation']
+      cond = nil
+      each_property_hash['final_sale_price'] > final_valuation ? cond = 1 : cond = 0
+      each_property_hash['achieved_more_than_valuation'] = cond
+
+
+      ### Average changes to valuations
+      each_property_hash['average_changes_to_valuations'] = each_property_valuation.length
+
+      ### Average increase in valuation
+      first_valuation = JSON.parse(sorted_valuations.first['message'])['current_valuation']
+      percent_increase = ((((each_property_hash['final_sale_price'] - first_valuation).to_f)/(first_valuation.to_f)) * 100 ).round(2)
+      each_property_hash['percent_increase'] = percent_increase
+
+      ### Percent of first valuation achieved
+      percent_first_achieved = (((each_property_hash['final_sale_price'].to_f)/(first_valuation.to_f)) * 100 ).round(2)
+      each_property_hash['percent_first_achieved'] = percent_first_achieved
+
+      ### Percent of final valuation achieved
+      percent_final_achieved = (((each_property_hash['final_sale_price'].to_f)/(final_valuation.to_f)) * 100 ).round(2)
+      each_property_hash['percent_final_achieved'] = percent_final_achieved
+
+      result[property_id] = each_property_hash
+    end
+    nil
   end
 
 end

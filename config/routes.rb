@@ -53,6 +53,25 @@ Rails.application.routes.draw do
   #####################################################################
   #####################################################################
 
+  ########### Routes for the vendors enquiries and buyer interest and other
+  ##### sections
+  #####################################################################
+  #####################################################################
+  
+  ### For an agent get all his detailed quotes for a specific property
+  get 'agents/quotes/:agent_id',            to: 'agents#quotes_per_property'
+
+
+  ### For a property get all his detailed quotes for a specific property
+  get 'property/quotes/agents/:udprn',      to: 'quotes#quotes_per_property'
+  #####################################################################
+  #####################################################################
+  #####################################################################
+  #####################################################################
+  #####################################################################
+
+
+
   get '/auth/:provider/callback', to: 'sessions#create'
   get 'properties/new/:udprn/short', to: 'properties#short_form'
   get 'postcodes/search', to: 'application#search_postcode'

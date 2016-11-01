@@ -37,4 +37,18 @@ class QuotesController < ApplicationController
     details = PropertyDetails.details(property_id)
     render json: details, status: 200
   end
+
+  ##### When submit quote button is clicked, the property data needs to be sent for the
+  ##### form to be rendered.
+  ##### curl -XGET  -H "Content-Type: application/json" 'http://localhost/property/quotes/agents/10966139'
+  def quotes_per_property
+    property_id = params[:udprn].to_i
+    agents_for_quotes = Agents::Branches::AssignedAgents::Quote.where(status: nil).where(property_id: property_id).pluck(:agent_id).uniq
+    final_result = []
+    agents_for_quotes.each do |each_agent_id|
+      quotes = AgentApi.new(property_id.to_i, each_agent_id.to_i).calculate_quotes
+      final_result.push(quotes)
+    end
+    render json: final_result, status: 200
+  end
 end

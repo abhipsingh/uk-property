@@ -1,10 +1,14 @@
 class VendorApi
-  attr_accessor :udprn, :branch_id
+  attr_accessor :udprn, :branch_id, :agent_id
 
   INFLATION_RATE = 2.5
   def initialize(udprn, branch_id = nil)
     @udprn ||= udprn
     @branch_id ||= branch_id
+  end
+
+  def self.cassandra_session
+    Rails.configuration.cassandra_session
   end
 
   def calculate_valuations
@@ -57,11 +61,11 @@ class VendorApi
 
   def calculate_quotes
     quotes = []
-    TempPropertyDetail.where(udprn: udprn).limit(5).each do |detail|
-      if detail.agent_id
-        agent_api = AgentApi.new(detail.agent_id, udprn)
-        quotes.push(agent_api.calculate_quotes)
-      end
+    agent_quotes = Agents::Branches::AssignedAgents::Quote.where(property_id: udprn.to_i).where('created_at > ?', 1.week.ago).order('created_at DESC').limit(2)
+    agent_quotes.each do |agent_quote|
+      agent_id = agent_quote.agent_id
+      agent_api = AgentApi.new(agent_id, udprn)
+      quotes.push(agent_api.calculate_quotes)
     end
     quotes
   end
@@ -89,6 +93,48 @@ class VendorApi
         first_sale_price_diff_percent: ((price - first_sale_info[:price_paid])/first_sale_info[:price_paid]).round(2)*100,
       }
     end
+  end
+
+  def properties_sold(agent_id)
+    session = self.class.cassandra_session
+    event = Trackers::Buyer::EVENTS[:sold]
+    cql = "SELECT * FROM Simple.timestamped_property_events WHERE agent_id = #{agent_id} AND event = #{event} ALLOW FILTERING "
+    future = session.execute(cql)
+    count = future.rows.count
+  end
+
+  #### To test this function run in the console
+  #### VendorApi.all_valuations_of_agent(1234)
+  def self.all_valuations_of_agent(agent_id)
+    valuations = []
+    session = self.class.cassandra_session
+    event = Trackers::Buyer::EVENTS[:sold]
+    cql = "SELECT * FROM Simple.timestamped_property_events WHERE agent_id = #{agent_id} AND event = #{event} ALLOW FILTERING "
+    future = session.execute(cql)
+    future.rows.each do |each_row|
+      valuations.push(valuations_sorted_by_time(agent_id, each_row['property_id']))
+    end
+    valuations
+  end
+
+  #### To test this function run in the console
+  #### VendorApi.all_sales_of_agent(1234)
+  def self.all_sales_of_agent(agent_id)
+    session = self.class.cassandra_session
+    event = Trackers::Buyer::EVENTS[:sold]
+    cql = "SELECT * FROM Simple.timestamped_property_events WHERE agent_id = #{agent_id} AND event = #{event} ALLOW FILTERING "
+    future = session.execute(cql)
+    future.rows.to_a
+  end
+
+  #### To test this function run in the console
+  #### VendorApi.valuations_sorted_by_time(1234, 10976765)
+  def self.valuations_sorted_by_time(agent_id, property_id)
+    session = self.class.cassandra_session
+    event = Trackers::Buyer::EVENTS[:valuation_change]
+    cql = "SELECT * FROM Simple.timestamped_property_events WHERE agent_id = #{agent_id} AND event = #{event} AND property_id = '#{property_id}' ALLOW FILTERING "
+    future = session.execute(cql)
+    future.rows.sort_by{ |t| t['time_of_event'] }.reverse
   end
 
 

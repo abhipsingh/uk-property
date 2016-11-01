@@ -33,7 +33,9 @@ class Trackers::Buyer
     hot_property: 27,
     warm_property: 28,
     cold_property: 29,
-    save_search_hash: 30
+    save_search_hash: 30,
+    sold: 31,
+    valuation_change: 32
   }
 
   TYPE_OF_MATCH = {
