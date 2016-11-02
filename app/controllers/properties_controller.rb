@@ -107,8 +107,37 @@ class PropertiesController < ActionController::Base
     render json: enquiries, status: 200
   end
 
-  #### 
-  def buyer_interest
+  #### The following actions are specific for data related to buyer interest tables and pie charts
+  #### From interest awareness table, this action gives the data regarding buyer activity related to
+  #### the property.
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/interest/10966139'
+  def interest_info
+    interest_info = Trackers::Buyer.new.interest_info(params[:udprn].to_i)
+    render json: interest_info, status: 200
+  end
+
+  #### From supply table, this action gives the data regarding how many properties are similar to
+  #### their property.
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/supply/10966139'
+  def supply_info
+    supply_info = Trackers::Buyer.new.supply_info(params[:udprn].to_i)
+    render json: supply_info, status: 200
+  end
+
+  #### From supply table, this action gives the data regarding how many buyers are searching for properties
+  #### similar to their property.
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/demand/10966139'
+  def demand_info
+    demand_info = Trackers::Buyer.new.demand_info(params[:udprn].to_i)
+    render json: demand_info, status: 200
+  end
+
+  #### From supply table, this action gives the data regarding how many buyers are searching for properties
+  #### similar to their property.
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/buyer/intent/10966139'
+  def buyer_intent_info
+    buyer_intent_info = Trackers::Buyer.new.buyer_intent_info(params[:udprn].to_i)
+    render json: buyer_intent_info, status: 200
   end
 
   private

@@ -55,9 +55,5 @@ class PropertyDetails
      VendorApi.new(udprn.to_s).calculate_valuations
   end
 
-  def self.all_recent_enquiries(udprn)
-    Trackers::Buyer.new.property_enquiry_details_vendor(udprn.to_i)
-  end
-
 end
 

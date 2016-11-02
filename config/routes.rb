@@ -74,9 +74,27 @@ Rails.application.routes.draw do
   #####################################################################
   #####################################################################
   #####################################################################
+  #### The routes defined in the following section belong to the ######
+  #### different data types required by the buyer intent        ######
 
+  ### For a property get all the data regarding buyer activity
+  get 'property/interest/:udprn',           to: 'properties#interest_info'
 
+  ### For a property get all the data regarding supply of similar properties
+  get 'property/supply/:udprn',             to: 'properties#supply_info'
 
+  ### For a property get all the data regarding demand of similar properties
+  get 'property/demand/:udprn',             to: 'properties#demand_info'
+
+  ### For a property get all the data regarding buyer intent of similar properties
+  get 'property/buyer/intent/:udprn',       to: 'properties#buyer_intent_info'
+
+  #####################################################################
+  #####################################################################
+  #####################################################################
+  #####################################################################
+  #####################################################################
+  
   get '/auth/:provider/callback', to: 'sessions#create'
   get 'properties/new/:udprn/short', to: 'properties#short_form'
   get 'postcodes/search', to: 'application#search_postcode'

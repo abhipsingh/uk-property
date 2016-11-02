@@ -6,9 +6,13 @@ class EventsController < ApplicationController
   ### List of params
   ### :udprn, :event, :message, :type_of_match, :buyer_id, :agent_id
   ### curl -XPOST -H "Content-Type: application/json" 'http://localhost/events/new' -d '{"agent_id" : 1234, "udprn" : '45326', "event" : "property_tracking", "message" : null, "type_of_match" : "perfect", "buyer_id" : 1, "property_status_type" : "Green" }'
+  
+  ### An example of saved search pings
+  ### curl -XPOST -H "Content-Type: application/json" 'http://localhost/events/new' -d '{"agent_id" : 1234, "udprn" : '10966183', "event" : "save_search_hash", "message" : "\{\"search_hash\" : \{ \"min_beds\" : 2, \"max_beds\" : 3, \"min_baths\" : 1, \"max_baths\" : 2, \"hash_str\" : \"HEREFORD_City Centre_Loder Drive\", \"hash_type\" = \"Text\"  \} \}", "type_of_match" : "perfect", "buyer_id" : 1, "property_status_type" : "Green" }'
   def process_event
     session = Rails.configuration.cassandra_session
     date = Date.today.to_s
+    month = Date.today.month
     time = Time.now.strftime("%Y-%m-%d %H:%M:%S").to_s
     property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[params[:property_status_type]]
     buyer_id = params[:buyer_id]
@@ -23,7 +27,7 @@ class EventsController < ApplicationController
     agent_id = params[:agent_id]
     message = 'NULL' if message.nil?
     cqls = [
-            "INSERT INTO Simple.property_events_buyers_events (stored_time, date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ('#{time}', '#{date}', '#{property_id}', #{property_status_type}, #{buyer_id}, #{event}, '#{message}', #{type_of_match});",
+            "INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match, month) VALUES ('#{time}', now(), '#{date}', '#{property_id}', #{property_status_type}, #{buyer_id}, #{event}, '#{message}', #{type_of_match}, #{month});",
             "INSERT INTO Simple.agents_buyer_events (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '#{time}', now(), #{agent_id}, '#{property_id}', #{property_status_type}, #{buyer_id}, #{event}, '#{message}', #{type_of_match});",
             "INSERT INTO Simple.timestamped_property_events (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '#{time}', now(), #{agent_id}, '#{property_id}', #{property_status_type}, #{buyer_id},  #{event}, '#{message}', #{type_of_match});",
             "INSERT INTO Simple.buyer_property_events (stored_time, date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '#{time}', '#{date}', #{buyer_id}, '#{property_id}', #{property_status_type}, #{event}, '#{message}', #{type_of_match});"
@@ -45,7 +49,6 @@ class EventsController < ApplicationController
 
   #### For agents implement filter of agents group wise, company wise, branch wise, location wise,
   #### and agent_id wise. The agent employee is the last missing layer.
-
   def agent_enquiries_by_property
     response = []
     if !params[:agent_company_id].nil?
@@ -66,7 +69,6 @@ class EventsController < ApplicationController
 
   #### For agents implement filter of agents group wise, company wise, branch, location wise,
   #### and agent_id wise
-
   def agent_new_enquiries
     response = []
     if !params[:agent_company_id].nil?

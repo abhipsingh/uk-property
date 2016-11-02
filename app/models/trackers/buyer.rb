@@ -403,8 +403,272 @@ class Trackers::Buyer
   end
 
 
-  #### Buyer interest details
-  
+  #### Buyer interest details. To test it, just run the following in the irb
+  #### Trackers::Buyer.new.interest_info(10966139)
+  def interest_info(udprn)
+    aggregated_result = []
+    property_id = udprn.to_i
+    (1..12).to_a.each do |each_month|
+      each_month_data = {}
+      
+      ### Month name
+      month = each_month
+      each_month_data[:month] = Date::MONTHNAMES[each_month]
+
+      ### Count of property searches
+      event = EVENTS[:save_search_hash]
+      table = 'simple.property_events_buyers_events'
+      event_cql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND month = #{month} ALLOW FILTERING;"
+      each_month_data[:no_of_searches] = execute_count(event_cql)
+
+      ### Count of views
+      event = EVENTS[:viewed]
+      table = 'simple.property_events_buyers_events'
+      event_cql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND month = #{month} ALLOW FILTERING;"
+      each_month_data[:views] = execute_count(event_cql)
+
+      ### Enquiry count
+      events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
+      enquiry_count = 0
+      events.each do |event|
+        event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND month = #{month} ALLOW FILTERING;"
+        enquiry_count += execute_count(event_cql).to_i
+      end
+      each_month_data[:total_enquiry_count] = enquiry_count
+
+      ### Tracking count
+      event = EVENTS[:property_tracking]
+      event_cql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND month = #{each_month} ALLOW FILTERING;"
+      each_month_data[:tracking] = execute_count(event_cql)
+
+      ### Would view count
+      event = EVENTS[:interested_in_viewing]
+      event_cql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND month = #{each_month} ALLOW FILTERING;"
+      each_month_data[:interested_in_viewing] = execute_count(event_cql)
+
+      ### Would make an offer count
+      event = EVENTS[:interested_in_making_an_offer]
+      event_cql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND month = #{each_month} ALLOW FILTERING;"
+      each_month_data[:interested_in_making_an_offer] = execute_count(event_cql)
+
+      ### Count of people who requested messages
+      event = EVENTS[:requested_message]
+      event_cql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND month = #{each_month} ALLOW FILTERING;"
+      each_month_data[:requested_message] = execute_count(event_cql)
+
+      ### Count of people who requested callback
+      event = EVENTS[:requested_callback]
+      event_cql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND month = #{each_month} ALLOW FILTERING;"
+      each_month_data[:requested_callback] = execute_count(event_cql)
+
+      ### Count of requested viewing event
+      event = EVENTS[:requested_viewing]
+      event_cql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND month = #{each_month} ALLOW FILTERING;"
+      each_month_data[:requested_viewing] = execute_count(event_cql)
+
+      ### Count of hidden/deleted
+      event = EVENTS[:deleted]
+      event_cql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND month = #{each_month} ALLOW FILTERING;"
+      each_month_data[:deleted] = execute_count(event_cql)
+
+      aggregated_result.push(each_month_data)
+    end
+    aggregated_result
+  end
+
+  #### Track the number of searches of similar properties located around that property
+  #### Trackers::Buyer.new.demand_info(10966139)
+  def demand_info(udprn)
+    details = PropertyDetails.details(udprn.to_i)['_source'] rescue {}
+    table = 'simple.property_events_buyers_events'
+    
+    #### Similar properties to the udprn
+    default_search_params = {
+      min_beds: details['beds'],
+      max_beds: details['beds'],
+      min_baths: details['baths'],
+      max_baths: details['baths'],
+      min_receptions: details['receptions'],
+      max_receptions: details['receptions'],
+      property_types: details['property_type'],
+      fields: 'udprn'
+    }
+
+    ### analysis for each of the postcode type
+    search_stats = {}
+    [ :district, :sector, :unit ].each do |region_type|
+      ### Default search stats
+      search_stats[region_type] = { perfect_matches: 0, potential_matches: 0, total_matches: 0 }
+
+      search_params = default_search_params.clone
+      search_params[region_type] = details[region_type.to_s]
+      search_stats[region_type][:value] = details[region_type.to_s] ### Populate the value of sector, district and unit
+      api = PropertyDetailsRepo.new(filtered_params: search_params)
+      api.apply_filters
+      body, status = api.fetch_data_from_es
+      udprns = []
+      if status.to_i == 200
+        udprns = body.map { |e| e['udprn'] }
+      end
+
+      ### Exclude the current udprn from the result
+      udprns = udprns - [ udprn.to_s ]
+
+      ### Accumulate data for each udprn
+      udprns.each do |udprn|
+        event = EVENTS[:save_search_hash]
+        property_id = udprn.to_i
+        ### Perfect count
+        type_of_match = TYPE_OF_MATCH[:perfect]
+        event_cql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND type_of_match = #{type_of_match} ALLOW FILTERING;"
+        search_stats[region_type][:perfect_matches] += execute_count(event_cql).to_i
+
+        ### Potential count
+        type_of_match = TYPE_OF_MATCH[:potential]
+        event_cql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND type_of_match = #{type_of_match} ALLOW FILTERING;"
+        search_stats[region_type][:potential_matches] += execute_count(event_cql).to_i
+      end
+
+      search_stats[region_type][:total_matches] = search_stats[region_type][:perfect_matches] + search_stats[region_type][:potential_matches]
+
+      if search_stats[region_type][:total_matches] > 0
+        search_stats[region_type][:perfect_percent] = ((search_stats[region_type][:perfect_matches].to_f/search_stats[region_type][:total_matches].to_f)*100).round(2)
+        search_stats[region_type][:potential_percent] = ((search_stats[region_type][:potential_matches].to_f/search_stats[region_type][:total_matches].to_f)*100).round(2)
+      else
+        search_stats[region_type][:perfect_percent] = nil
+        search_stats[region_type][:potential_percent] = nil
+      end
+    end
+    search_stats
+  end
+
+  #### Track the number of similar properties located around that property
+  #### Trackers::Buyer.new.supply_info(10966139)
+  def supply_info(udprn)
+    details = PropertyDetails.details(udprn.to_i)['_source'] rescue {}
+    table = 'simple.property_events_buyers_events'
+
+    #### Similar properties to the udprn
+    default_search_params = {
+      min_beds: details['beds'],
+      max_beds: details['beds'],
+      min_baths: details['baths'],
+      max_baths: details['baths'],
+      min_receptions: details['receptions'],
+      max_receptions: details['receptions'],
+      property_types: details['property_type'],
+      fields: 'udprn,property_status_type'
+    }
+
+    ### analysis for each of the postcode type
+    search_stats = {}
+    [ :district, :sector, :unit ].each do |region_type|
+      ### Default search stats
+      search_stats[region_type] = { green: 0, amber: 0, red: 0 }
+
+      search_params = default_search_params.clone
+      search_params[region_type] = details[region_type.to_s]
+      search_stats[region_type][:value] = details[region_type.to_s] ### Populate the value of sector, district and unit
+      api = PropertyDetailsRepo.new(filtered_params: search_params)
+      api.apply_filters
+      body, status = api.fetch_data_from_es
+
+      ### Accumulate data for each property searched
+      body.each do |property_info|
+        search_stats[region_type][property_info['property_status_type'].downcase.to_sym] += 1
+      end
+
+      search_stats[region_type][:total] = search_stats[region_type][:green] + search_stats[region_type][:amber] + search_stats[region_type][:red]
+
+      if search_stats[region_type][:total] > 0
+        search_stats[region_type][:green_percent] = ((search_stats[region_type][:green].to_f/search_stats[region_type][:total].to_f)*100).round(2)
+        search_stats[region_type][:amber_percent] = ((search_stats[region_type][:amber].to_f/search_stats[region_type][:total].to_f)*100).round(2)
+        search_stats[region_type][:red_percent] = ((search_stats[region_type][:red].to_f/search_stats[region_type][:total].to_f)*100).round(2)
+      else
+        search_stats[region_type][:green_percent] = nil
+        search_stats[region_type][:amber_percent] = nil
+        search_stats[region_type][:red_percent] = nil
+      end
+    end
+    search_stats
+  end
+
+  #### Track the number of similar properties located around that property
+  #### Trackers::Buyer.new.buyer_intent_info(10966139)
+  def buyer_intent_info(udprn)
+    details = PropertyDetails.details(udprn.to_i)['_source'] rescue {}
+    table = 'simple.property_events_buyers_events'
+    
+    #### Similar properties to the udprn
+    default_search_params = {
+      min_beds: details['beds'],
+      max_beds: details['beds'],
+      min_baths: details['baths'],
+      max_baths: details['baths'],
+      min_receptions: details['receptions'],
+      max_receptions: details['receptions'],
+      property_types: details['property_type'],
+      fields: 'udprn'
+    }
+
+    ### analysis for each of the postcode type
+    search_stats = {}
+    [ :district, :sector, :unit ].each do |region_type|
+      ### Default search stats
+      search_stats[region_type] = { green: 0, amber: 0, red: 0 }
+
+      search_params = default_search_params.clone
+      search_params[region_type] = details[region_type.to_s]
+      search_stats[region_type][:value] = details[region_type.to_s] ### Populate the value of sector, district and unit
+      api = PropertyDetailsRepo.new(filtered_params: search_params)
+      api.apply_filters
+      body, status = api.fetch_data_from_es
+      udprns = []
+      if status.to_i == 200
+        udprns = body.map { |e| e['udprn'] }
+      end
+
+      ### Exclude the current udprn from the result
+      udprns = udprns - [ udprn.to_s ]
+
+      ### Accumulate buyer_id for each udprn
+      buyer_ids = []
+      udprns.each do |udprn|
+        event = EVENTS[:save_search_hash]
+        property_id = udprn.to_i
+        ### Perfect count
+        type_of_match = TYPE_OF_MATCH[:perfect]
+        event_cql = "SELECT buyer_id FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
+        session = self.class.session
+        future = session.execute(event_cql)
+        count = nil
+        future.rows do |each_row|
+          buyer_ids.push(each_row['buyer_id'])
+        end
+      end
+
+      ### Extract status of the buyers in bulk
+      buyers = PropertyBuyer.where(id: buyer_ids).select([:id, :status])
+
+      buyers.each do |each_buyer_info|
+        buyer_status = PropertyBuyer::REVERSE_STATUS_HASH[each_buyer_info.status]
+        search_stats[region_type][buyer_status] += 1
+      end
+
+      search_stats[region_type][:total] = search_stats[region_type][:green] + search_stats[region_type][:red] + search_stats[region_type][:amber]
+
+      if search_stats[region_type][:total] > 0
+        search_stats[region_type][:green_percent] = ((search_stats[region_type][:green].to_f/search_stats[region_type][:total].to_f)*100).round(2)
+        search_stats[region_type][:amber_percent] = ((search_stats[region_type][:red].to_f/search_stats[region_type][:total].to_f)*100).round(2)
+        search_stats[region_type][:red_percent] = ((search_stats[region_type][:amber].to_f/search_stats[region_type][:total].to_f)*100).round(2)
+      else
+        search_stats[region_type][:green_percent] = nil
+        search_stats[region_type][:amber_percent] = nil
+        search_stats[region_type][:red_percent] = nil
+      end
+    end
+    search_stats
+  end
 
   private
 
@@ -479,7 +743,8 @@ CREATE TABLE Simple.property_events_buyers_events (
     event int,
     message text,
     type_of_match int,
-    PRIMARY KEY ((property_id), event, time_of_event)
+    month int,
+    PRIMARY KEY ((property_id), event, date)
 );
 
 CREATE TABLE Simple.agents_buyer_events (
@@ -526,17 +791,17 @@ CREATE TABLE Simple.buyer_property_events (
 #####################################################
 #####################################################
 
-INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ('2016-07-11 01:01:01', now(), '2016-07-11', '10966139', 1, 1, 2, NULL, 1);
-INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ('2016-07-11 01:01:02', now(), '2016-07-11', '10966139', 1, 1, 3, NULL, 1);
-INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ('2016-07-11 01:02:03', now(), '2016-07-11', '10966139', 1, 1, 15, NULL, 1);
-INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ('2016-07-11 01:03:04', now(), '2016-07-11', '10966139', 1, 1, 16, NULL, 1);
-INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ('2016-07-11 01:04:05', now(), '2016-07-11', '10966139', 1, 1, 17, NULL, 1);
-INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ('2016-07-11 01:04:06', now(), '2016-07-11', '10966139', 1, 1, 18, NULL, 1);
-INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ('2016-07-11 01:05:07', now(), '2016-07-11', '10966139', 1, 1, 19, NULL, 1);
-INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ('2016-07-11 01:06:08', now(), '2016-07-11', '10966139', 1, 1, 23, NULL, 1);
-INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ('2016-07-11 01:07:09', now(), '2016-07-11', '10966139', 1, 1, 8, NULL, 1);
-INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ('2016-07-11 01:08:10', now(), '2016-07-11', '10966139', 1, 1, 9, NULL, 1);
-INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ('2016-07-11 01:09:11', now(), '2016-07-11', '10966139', 1, 1, 10, NULL, 1);
+INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match, month) VALUES ('2016-07-11 01:01:01', now(), '2016-07-11', '10966139', 1, 1, 2, NULL, 1, 7);
+INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match, month) VALUES ('2016-07-11 01:01:02', now(), '2016-07-11', '10966139', 1, 1, 3, NULL, 1, 7);
+INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match, month) VALUES ('2016-07-11 01:02:03', now(), '2016-07-11', '10966139', 1, 1, 15, NULL, 1, 7);
+INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match, month) VALUES ('2016-07-11 01:03:04', now(), '2016-07-11', '10966139', 1, 1, 16, NULL, 1, 7);
+INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match, month) VALUES ('2016-07-11 01:04:05', now(), '2016-07-11', '10966139', 1, 1, 17, NULL, 1, 7);
+INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match, month) VALUES ('2016-07-11 01:04:06', now(), '2016-07-11', '10966139', 1, 1, 18, NULL, 1, 7);
+INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match, month) VALUES ('2016-07-11 01:05:07', now(), '2016-07-11', '10966139', 1, 1, 19, NULL, 1, 7);
+INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match, month) VALUES ('2016-07-11 01:06:08', now(), '2016-07-11', '10966139', 1, 1, 23, NULL, 1, 7);
+INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match, month) VALUES ('2016-07-11 01:07:09', now(), '2016-07-11', '10966139', 1, 1, 8, NULL, 1, 7);
+INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match, month) VALUES ('2016-07-11 01:08:10', now(), '2016-07-11', '10966139', 1, 1, 9, NULL, 1, 7);
+INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match, month) VALUES ('2016-07-11 01:09:11', now(), '2016-07-11', '10966139', 1, 1, 10, NULL, 1, 7);
 
 
 INSERT INTO Simple.agents_buyer_events (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '2016-07-11 01:01:01', now(), 1234, '10966139', 1, 1,  2, NULL, 1);
