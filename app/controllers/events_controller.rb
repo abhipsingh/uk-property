@@ -156,7 +156,7 @@ class EventsController < ApplicationController
   end
 
   #### When an agent wants to see the property specific statistics(trackings,
-  #### views, etc), this API is called.
+  #### views, etc), this API is called. All enquiries regarding properties he is associated to are returned.
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/enquiries/properties?agent_id=1234'
   def property_enquiries
     response = []

@@ -61,9 +61,14 @@ Rails.application.routes.draw do
   ### For an agent get all his detailed quotes for a specific property
   get 'agents/quotes/:agent_id',            to: 'agents#quotes_per_property'
 
-
   ### For a property get all his detailed quotes for a specific property
   get 'property/quotes/agents/:udprn',      to: 'quotes#quotes_per_property'
+
+  ### For a property get all the stats about the previous prices
+  get 'property/prices/:udprn',             to: 'properties#historic_pricing'
+
+  ### For a property get all the stats about the enquiries
+  get 'enquiries/property/:udprn',          to: 'properties#enquiries'
   #####################################################################
   #####################################################################
   #####################################################################

@@ -93,6 +93,24 @@ class PropertiesController < ActionController::Base
     render 'finish'
   end
 
+  ### When a request is made to fetch the historic pricing details for a udprn
+  ### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/prices/10966139'
+  def historic_pricing
+    details = PropertyDetails.historic_pricing_details(params[:udprn].to_i)
+    render json: details, status: 200
+  end
+
+  ### This route provides all the details of the recent enquiries made by the users on this property
+  ### curl -XGET -H "Content-Type: application/json" 'http://localhost/enquiries/property/10966139'
+  def enquiries
+    enquiries = PropertyDetails.all_recent_enquiries(params[:udprn].to_i)
+    render json: enquiries, status: 200
+  end
+
+  #### 
+  def buyer_interest
+  end
+
   private
 
   def short_form_params
