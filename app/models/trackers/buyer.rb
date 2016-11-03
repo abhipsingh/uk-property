@@ -670,6 +670,266 @@ class Trackers::Buyer
     search_stats
   end
 
+  #### Methods for the pie charts have been defined below
+  ##### Information about pie charts about the buyer. All related to the buyer
+  #### To try this method run the following in the console
+  #### Trackers::Buyer.new.buyer_profile_stats(10966139)
+  def buyer_profile_stats(udprn)
+    result_hash = {}
+    property_id = udprn.to_i
+    details = PropertyDetails.details(udprn.to_i)['_source'] rescue {}
+    table = 'simple.property_events_buyers_events'
+    event = EVENTS[:save_search_hash]
+    event_cql = "SELECT buyer_id FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
+    p event_cql
+    future = session.execute(event_cql)
+    count = nil
+    buyer_ids = []
+    future.rows do |each_row|
+      buyer_ids.push(each_row['buyer_id'])
+    end
+
+    buyer_ids.uniq!
+    p buyer_ids
+    ### Buying status stats
+    buying_status_distribution = PropertyBuyer.where(id: buyer_ids).group(:buying_status).count
+    total_count = buying_status_distribution.inject(0) do |result, (key, value)|
+      result += value
+    end
+    buying_status_stats = {}
+    buying_status_distribution.each do |key, value|
+      buying_status_stats[key] = ((value.to_f/total_count.to_f)*100).round(2)
+    end
+    result_hash[:buying_status] = buying_status_stats
+
+    ### Funding status stats
+    funding_status_distribution = PropertyBuyer.where(id: buyer_ids).group(:funding).count
+    total_count = funding_status_distribution.inject(0) do |result, (key, value)|
+      result += value
+    end
+    funding_status_stats = {}
+    funding_status_distribution.each do |key, value|
+      funding_status_stats[key] = ((value.to_f/total_count.to_f)*100).round(2)
+    end
+    result_hash[:funding_status] = funding_status_stats
+
+    ### Biggest problem stats
+    biggest_problem_distribution = PropertyBuyer.where(id: buyer_ids).group(:biggest_problem).count
+    total_count = biggest_problem_distribution.inject(0) do |result, (key, value)|
+      result += value
+    end
+    biggest_problem_stats = {}
+    biggest_problem_distribution.each do |key, value|
+      biggest_problem_stats[key] = ((value.to_f/total_count.to_f)*100).round(2)
+    end
+    result_hash[:biggest_problem] = biggest_problem_stats
+
+    ### Chain free stats
+    chain_free_distribution = PropertyBuyer.where(id: buyer_ids).group(:chain_free).count
+    total_count = chain_free_distribution.inject(0) do |result, (key, value)|
+      result += value
+    end
+    chain_free_stats = {}
+    chain_free_distribution.each do |key, value|
+      chain_free_stats[key] = ((value.to_f/total_count.to_f)*100).round(2)
+    end
+    result_hash[:chain_free] = chain_free_stats
+    result_hash
+  end
+
+  #### The following method gets the data for qualifying stage and hotness stats
+  #### for the agents.
+  #### Trackers::Buyer.new.agent_stage_and_rating_stats(10966139)
+  def agent_stage_and_rating_stats(udprn)
+    aggregate_stats = {}
+    events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
+    table = 'Simple.property_events_buyers_events'
+    session = self.class.session
+    property_id = udprn.to_i
+    total_rows = []
+    events.each do |event|
+      event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
+      future = session.execute(event_cql)
+      total_rows |= future.rows.to_a if !future.rows.to_a.empty?
+    end
+    ### Filtered out the rows which are outdated
+    relevant_rows = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }
+    buyer_ids = relevant_rows.map{ |each_row| each_row['buyer_id'] }.uniq
+
+    ### Buyers who are in qualifying stage
+    total_rows = []
+    event = EVENTS[:qualifying_stage]
+    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
+    future = session.execute(event_cql)
+    total_rows = future.rows.to_a if !future.rows.to_a.empty?
+    qualifying_buyer_ids = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq
+
+    ### Buyers who are in viewing scheduled stage
+    total_rows = []
+    event = EVENTS[:viewing_stage]
+    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
+    future = session.execute(event_cql)
+    total_rows = future.rows.to_a if !future.rows.to_a.empty?
+    viewing_scheduled_buyer_ids = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq    
+
+    ### Buyers who are in offer made stage
+    total_rows = []
+    event = EVENTS[:offer_made_stage]
+    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
+    future = session.execute(event_cql)
+    total_rows = future.rows.to_a if !future.rows.to_a.empty?
+    offer_made_buyer_ids = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq
+
+    ### Buyers who are in offer made stage
+    total_rows = []
+    event = EVENTS[:offer_accepted_stage]
+    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
+    future = session.execute(event_cql)
+    total_rows = future.rows.to_a if !future.rows.to_a.empty?
+    offer_accepted_buyer_ids = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq
+
+    ### Buyers who are in conveyancing stage
+    total_rows = []
+    event = EVENTS[:conveyance_stage]
+    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
+    future = session.execute(event_cql)
+    total_rows = future.rows.to_a if !future.rows.to_a.empty?
+    conveyance_buyer_ids = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq
+
+    ### Buyers who are in conveyancing stage
+    total_rows = []
+    event = EVENTS[:contract_exchange_stage]
+    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
+    future = session.execute(event_cql)
+    total_rows = future.rows.to_a if !future.rows.to_a.empty?
+    contract_exchange_buyer_ids = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq
+
+    ### Buyers who are in completion stage
+    total_rows = []
+    event = EVENTS[:completion_stage]
+    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
+    future = session.execute(event_cql)
+    total_rows = future.rows.to_a if !future.rows.to_a.empty?
+    completion_stage_buyer_ids = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq
+
+    ### Buyers who are in conveyancing stage
+    total_rows = []
+    event = EVENTS[:closed_won_stage]
+    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
+    future = session.execute(event_cql)
+    total_rows = future.rows.to_a if !future.rows.to_a.empty?
+    closed_won_buyer_ids = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq
+    
+    ### Buyers who are in closed lost stage
+    total_rows = []
+    event = EVENTS[:closed_lost_stage]
+    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
+    future = session.execute(event_cql)
+    total_rows = future.rows.to_a if !future.rows.to_a.empty?
+    closed_lost_buyer_ids = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq
+    
+    ### Removing the common buyer ids in all the stages
+    qualifying_buyer_ids = qualifying_buyer_ids - viewing_scheduled_buyer_ids
+    viewing_scheduled_buyer_ids = viewing_scheduled_buyer_ids - offer_made_buyer_ids
+    offer_made_buyer_ids = offer_made_buyer_ids - offer_accepted_buyer_ids
+    offer_accepted_buyer_ids = offer_accepted_buyer_ids - conveyance_buyer_ids
+    conveyance_buyer_ids = conveyance_buyer_ids - completion_stage_buyer_ids
+    contract_exchange_buyer_ids = contract_exchange_buyer_ids - completion_stage_buyer_ids
+    completion_stage_buyer_ids = completion_stage_buyer_ids - closed_won_buyer_ids - closed_lost_buyer_ids
+    unknown_buyer_ids = buyer_ids - ( qualifying_buyer_ids + viewing_scheduled_buyer_ids + offer_made_buyer_ids + offer_accepted_buyer_ids + conveyance_buyer_ids + contract_exchange_buyer_ids + completion_stage_buyer_ids )
+
+    ### Populate the distribution data
+    buyer_distribution = {}
+    buyer_count = buyer_ids.length.to_f
+
+    ### Unknown
+    buyer_distribution[:unknown] = ((unknown_buyer_ids.length.to_f/buyer_count)*100).round(2)
+    buyer_distribution[:unknown_count] = unknown_buyer_ids.length
+
+    ### Qualifying count
+    buyer_distribution[:qualifying] = ((qualifying_buyer_ids.length.to_f/buyer_count)*100).round(2)
+    buyer_distribution[:qualifying_count] = qualifying_buyer_ids.length
+
+    ### Viewing scheduled count
+    buyer_distribution[:viewing_scheduled] = ((viewing_scheduled_buyer_ids.length.to_f/buyer_count)).round(2)
+    buyer_distribution[:viewing_scheduled_count] = viewing_scheduled_buyer_ids.length
+
+    ### Offer made count
+    buyer_distribution[:offer_made] = ((offer_made_buyer_ids.length.to_f/buyer_count)*100).round(2)
+    buyer_distribution[:offer_made_count] = offer_made_buyer_ids.length
+
+    ### Offer accepted count
+    buyer_distribution[:offer_accepted] = ((offer_accepted_buyer_ids.length.to_f/buyer_count)*100).round(2)
+    buyer_distribution[:offer_accepted_count] = offer_accepted_buyer_ids.length
+
+    ### Conveyancing count
+    buyer_distribution[:conveyancing] = ((conveyance_buyer_ids.length.to_f/buyer_count)*100).round(2)
+    buyer_distribution[:conveyancing_count] = conveyance_buyer_ids.length
+
+    ### Contract exchange count
+    buyer_distribution[:contract_exchange] = ((contract_exchange_buyer_ids.length.to_f/buyer_count)*100).round(2)
+    buyer_distribution[:contract_exchange_count] = contract_exchange_buyer_ids.length
+
+    ### Completion stage count
+    buyer_distribution[:completion_stage] = ((completion_stage_buyer_ids.length.to_f/buyer_count)*100).round(2)
+    buyer_distribution[:completion_stage_count] = completion_stage_buyer_ids.length
+
+    ### Closed won count
+    buyer_distribution[:closed_won] = ((closed_won_buyer_ids.length.to_f/buyer_count)*100).round(2)
+    buyer_distribution[:closed_won_count] = closed_won_buyer_ids.length
+
+    ### Closed lost count
+    buyer_distribution[:closed_lost] = ((closed_lost_buyer_ids.length.to_f/buyer_count)*100).round(2)
+    buyer_distribution[:closed_lost_count] = closed_lost_buyer_ids.length
+
+    aggregate_stats[:buyer_enquiry_distribution] = buyer_distribution
+
+    ######################################################################
+    ##### Stats about the rating #########################################
+    ######################################################################
+    rating_stats = {}
+
+    ### Hot property buyers
+    total_rows = []
+    event = EVENTS[:hot_property]
+    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
+    future = session.execute(event_cql)
+    total_rows = future.rows.to_a if !future.rows.to_a.empty?
+    hot_property_buyers = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq
+    rating_stats[:hot_property_count] = hot_property_buyers.count
+
+    ### Warm property buyers
+    total_rows = []
+    event = EVENTS[:warm_property]
+    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
+    future = session.execute(event_cql)
+    total_rows = future.rows.to_a if !future.rows.to_a.empty?
+    warm_property_buyers = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq
+    rating_stats[:warm_property_count] = warm_property_buyers.count
+
+    ### Cold property buyers
+    total_rows = []
+    event = EVENTS[:cold_property]
+    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
+    future = session.execute(event_cql)
+    total_rows = future.rows.to_a if !future.rows.to_a.empty?
+    cold_property_buyers = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq
+    rating_stats[:cold_property_count] = cold_property_buyers.count
+
+    unknown_buyers = buyer_ids - ( hot_property_buyers + warm_property_buyers + cold_property_buyers )
+    rating_stats[:unknown_rating_count] = unknown_buyers.length
+
+    rating_stats[:total_count] = ( rating_stats[:hot_property_count] + rating_stats[:warm_property_count] + rating_stats[:cold_property_count] + rating_stats[:unknown_rating_count] )
+    rating_stats[:hot_percent] = ((rating_stats[:hot_property_count].to_f/rating_stats[:total_count].to_f)*100).round(2)
+    rating_stats[:warm_percent] = ((rating_stats[:warm_property_count].to_f/rating_stats[:total_count].to_f)*100).round(2)
+    rating_stats[:cold_percent] = ((rating_stats[:cold_property_count].to_f/rating_stats[:total_count].to_f)*100).round(2)
+    rating_stats[:unknown_percent] = ((rating_stats[:unknown_rating_count].to_f/rating_stats[:total_count].to_f)*100).round(2)
+
+    aggregate_stats[:rating_stats] = rating_stats
+    aggregate_stats
+  end
+
+
   private
 
   def generic_event_count(event, table, property_id, type=:single)
@@ -744,7 +1004,7 @@ CREATE TABLE Simple.property_events_buyers_events (
     message text,
     type_of_match int,
     month int,
-    PRIMARY KEY ((property_id), event, date)
+    PRIMARY KEY ((property_id), event, buyer_id, time_of_event)
 );
 
 CREATE TABLE Simple.agents_buyer_events (

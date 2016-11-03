@@ -41,7 +41,7 @@ Rails.application.routes.draw do
   #####################################################################
   #####################################################################
   #####################################################################
-  ###### QUOTES ####################################################
+  ###### QUOTES #######################################################
   #####################################################################
   #####################################################################
   #####################################################################
@@ -88,6 +88,15 @@ Rails.application.routes.draw do
 
   ### For a property get all the data regarding buyer intent of similar properties
   get 'property/buyer/intent/:udprn',       to: 'properties#buyer_intent_info'
+
+
+  #### PIE Charts routes
+
+  ### Buyer profile stats route
+  get 'property/buyer/profile/stats/:udprn',to: 'properties#buyer_profile_stats'
+
+  ### Stats regarding the qualifying stage of buyers of the property for the agents
+  get 'property/agent/stage/rating/stats/:udprn', to: 'properties#agent_stage_and_rating_stats'
 
   #####################################################################
   #####################################################################

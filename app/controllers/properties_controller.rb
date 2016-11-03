@@ -140,6 +140,34 @@ class PropertiesController < ActionController::Base
     render json: buyer_intent_info, status: 200
   end
 
+  #### For all the pie charts concerning the profile of the buyer, this action can be used.
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/buyer/profile/stats/10966139'
+  def buyer_profile_stats
+    buyer_profile_stats = Trackers::Buyer.new.buyer_profile_stats(params[:udprn].to_i)
+    render json: buyer_profile_stats, status: 200
+  end
+
+  #### For all the pie charts concerning the profile of the buyer, this action can be used.
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/agent/stage/rating/stats/10966139?agent_id=1234'
+  def agent_stage_and_rating_stats
+    quote = Agents::Branches::AssignedAgents::Quote.where(agent_id: params[:agent_id].to_i).where(property_id: params[:udprn].to_i).last
+    if quote && quote.status == 1
+      response = Trackers::Buyer.new.agent_stage_and_rating_stats(params[:udprn].to_i)
+      status = 200
+    else
+      response = { message: " You're not subscribed to this property " }
+      status = 400
+    end
+    render json: response, status: status
+  end
+
+  #### Ranking stats for the given property
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/ranking/stats/10966139'
+  def ranking_stats
+  end
+
+  
+
   private
 
   def short_form_params
