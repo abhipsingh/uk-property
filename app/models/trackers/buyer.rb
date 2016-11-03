@@ -929,6 +929,124 @@ class Trackers::Buyer
     aggregate_stats
   end
 
+  #### The following method gets the data for qualifying stage and hotness stats
+  #### for the agents.
+  #### Trackers::Buyer.new.ranking_stats(10966139)
+  def ranking_stats(udprn)
+    udprn = udprn.to_i
+    property_id = udprn
+    details = PropertyDetails.details(udprn)['_source']
+    table = 'simple.property_events_buyers_events'
+    #### Similar properties to the udprn
+    default_search_params = {
+      min_beds: details['beds'],
+      max_beds: details['beds'],
+      min_baths: details['baths'],
+      max_baths: details['baths'],
+      min_receptions: details['receptions'],
+      max_receptions: details['receptions'],
+      property_types: details['property_type'],
+      fields: 'udprn'
+    }
+
+    ### analysis for each of the postcode type
+    ranking_stats = {}
+    [ :district, :sector, :unit ].each do |region_type|
+      ### Default search stats
+      ranking_stats[region_type] = {
+        property_search_ranking: nil,
+        view_ranking: nil,
+        total_enquiries_ranking: nil,
+        tracking_ranking: nil,
+        would_view_ranking: nil,
+        would_make_an_offer_ranking: nil,
+        message_requested_ranking: nil,
+        callback_requested_ranking: nil,
+        requested_viewing_ranking: nil,
+        deleted_ranking: nil
+      }
+
+      search_params = default_search_params.clone
+      search_params[region_type] = details[region_type.to_s]
+      ranking_stats[region_type][:value] = details[region_type.to_s] ### Populate the value of sector, district and unit
+      api = PropertyDetailsRepo.new(filtered_params: search_params)
+      api.apply_filters
+      body, status = api.fetch_data_from_es
+      udprns = []
+      if status.to_i == 200
+        udprns = body.map { |e| e['udprn'] }
+      end
+
+      ### Accumulate all stats for each udprn
+      save_search_hash = {}
+      view_hash = {}
+      total_enquiry_hash = {}
+      tracking_hash = {}
+      would_view_hash = {}
+      would_make_an_offer_hash = {}
+      requested_message_hash = {}
+      requested_callback_hash = {}
+      requested_viewing_hash = {}
+      hidden_hash = {}
+
+      udprns.each do |udprn|
+        udprn = udprn.to_i
+        event = EVENTS[:save_search_hash]
+        save_search_hash[udprn] = generic_event_count(event, table, property_id).to_i
+
+        event = EVENTS[:viewed]
+        view_hash[udprn] = generic_event_count(event, table, property_id).to_i
+
+        total_enquiry_hash[udprn] = generic_event_count(ENQUIRY_EVENTS, table, property_id, :multiple).to_i
+
+        event = EVENTS[:property_tracking]
+        tracking_hash[udprn] = generic_event_count(event, table, property_id).to_i
+
+        event = EVENTS[:interested_in_viewing]
+        would_view_hash[udprn] = generic_event_count(event, table, property_id).to_i
+
+        event = EVENTS[:interested_in_making_an_offer]
+        would_make_an_offer_hash[udprn] = generic_event_count(event, table, property_id).to_i
+
+        event = EVENTS[:requested_message]
+        requested_message_hash[udprn] = generic_event_count(event, table, property_id).to_i
+
+        event = EVENTS[:requested_viewing]
+        requested_viewing_hash[udprn] = generic_event_count(event, table, property_id).to_i
+
+        event = EVENTS[:requested_callback]
+        requested_callback_hash[udprn] = generic_event_count(event, table, property_id).to_i
+
+        event = EVENTS[:deleted]
+        hidden_hash[udprn] = generic_event_count(event, table, property_id).to_i
+      end
+
+      ranking_stats[region_type][:property_search_ranking] = rank(save_search_hash, property_id)
+
+      ranking_stats[region_type][:view_ranking] = rank(view_hash, property_id)
+
+      ranking_stats[region_type][:total_enquiries_ranking] = rank(total_enquiry_hash, property_id)
+
+      ranking_stats[region_type][:tracking_ranking] = rank(tracking_hash, property_id)
+      
+      ranking_stats[region_type][:would_view_ranking] = rank(would_view_hash, property_id)
+
+      ranking_stats[region_type][:would_make_an_offer_ranking] = rank(would_make_an_offer_hash, property_id)
+
+      ranking_stats[region_type][:message_requested_ranking] = rank(requested_message_hash, property_id)
+
+      ranking_stats[region_type][:callback_requested_ranking] = rank(requested_callback_hash, property_id)
+
+      ranking_stats[region_type][:requested_viewing_ranking] = rank(requested_viewing_hash, property_id)
+
+      ranking_stats[region_type][:deleted_ranking] = rank(hidden_hash, property_id)
+
+    end
+    ranking_stats
+  end
+
+
+
 
   private
 
@@ -976,6 +1094,25 @@ class Trackers::Buyer
     body = result.body
     status = result.code
     return body, status
+  end
+
+  def rank(hash, key)
+    sorted_values = hash.values.sort.reverse
+    key_value = hash[key]
+    index = sorted_values.index(key_value)
+    run = rank = 0
+    last_n = nil
+
+    ranked = sorted_values.map do |n|
+      run += 1
+      next rank if n == last_n
+      last_n = n
+      rank += run
+      run = 0
+      rank
+    end
+
+    ranked[index]
   end
 
 end

@@ -164,9 +164,9 @@ class PropertiesController < ActionController::Base
   #### Ranking stats for the given property
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/ranking/stats/10966139'
   def ranking_stats
+    ranking_info = Trackers::Buyer.new.ranking_stats(params[:udprn].to_i)
+    render json: ranking_info, status: status
   end
-
-  
 
   private
 

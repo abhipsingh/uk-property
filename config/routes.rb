@@ -98,6 +98,10 @@ Rails.application.routes.draw do
   ### Stats regarding the qualifying stage of buyers of the property for the agents
   get 'property/agent/stage/rating/stats/:udprn', to: 'properties#agent_stage_and_rating_stats'
 
+
+  #### Ranking routes
+  get 'property/ranking/stats/:udprn',      to: 'properties#ranking_stats'
+
   #####################################################################
   #####################################################################
   #####################################################################
