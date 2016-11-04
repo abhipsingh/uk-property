@@ -168,6 +168,13 @@ class PropertiesController < ActionController::Base
     render json: ranking_info, status: status
   end
 
+  #### Ranking stats for the given property
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/history/enquiries/1'
+  def history_enquiries
+    ranking_info = Trackers::Buyer.new.history_enquiries(params[:buyer_id].to_i)
+    render json: ranking_info, status: status
+  end
+
   private
 
   def short_form_params

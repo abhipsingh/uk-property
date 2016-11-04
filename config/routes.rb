@@ -100,7 +100,10 @@ Rails.application.routes.draw do
 
 
   #### Ranking routes
-  get 'property/ranking/stats/:udprn',      to: 'properties#ranking_stats'
+  get 'property/ranking/stats/:udprn',        to: 'properties#ranking_stats'
+
+  #### Buyer history event routes
+  get 'property/history/enquiries/:buyer_id', to: 'properties#history_enquiries'
 
   #####################################################################
   #####################################################################

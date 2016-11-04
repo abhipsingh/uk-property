@@ -30,7 +30,7 @@ class EventsController < ApplicationController
             "INSERT INTO Simple.property_events_buyers_events (stored_time, time_of_event, date, property_id, status_id, buyer_id, event, message, type_of_match, month) VALUES ('#{time}', now(), '#{date}', '#{property_id}', #{property_status_type}, #{buyer_id}, #{event}, '#{message}', #{type_of_match}, #{month});",
             "INSERT INTO Simple.agents_buyer_events (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '#{time}', now(), #{agent_id}, '#{property_id}', #{property_status_type}, #{buyer_id}, #{event}, '#{message}', #{type_of_match});",
             "INSERT INTO Simple.timestamped_property_events (stored_time, time_of_event, agent_id, property_id, status_id, buyer_id, event, message, type_of_match) VALUES ( '#{time}', now(), #{agent_id}, '#{property_id}', #{property_status_type}, #{buyer_id},  #{event}, '#{message}', #{type_of_match});",
-            "INSERT INTO Simple.buyer_property_events (stored_time, date, buyer_id, property_id, status_id, event, message, type_of_match) VALUES ( '#{time}', '#{date}', #{buyer_id}, '#{property_id}', #{property_status_type}, #{event}, '#{message}', #{type_of_match});"
+            "INSERT INTO Simple.buyer_property_events (stored_time, date, buyer_id, property_id, status_id, event, message, type_of_match, month) VALUES ( '#{time}', '#{date}', #{buyer_id}, '#{property_id}', #{property_status_type}, #{event}, '#{message}', #{type_of_match}, #{month});"
           ]
 
     Rails.logger.info(cqls)

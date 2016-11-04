@@ -51,6 +51,33 @@ class PropertyDetails
     response
   end
 
+  ### Always returns the udprns of the properties which have the same beds, baths, receptions,
+  ### and the same sector as the udprn.
+  def self.similar_properties(udprn)
+    property_details = details(udprn)['_source']
+    search_params = {
+      min_beds: property_details['beds'],
+      max_beds: property_details['beds'],
+      min_baths: property_details['baths'],
+      max_baths: property_details['baths'],
+      min_receptions: property_details['receptions'],
+      max_receptions: property_details['receptions'],
+      property_types: property_details['property_type'],
+      sector: property_details['sector'],
+      fields: 'udprn'
+    }
+
+    p search_params
+    api = PropertyDetailsRepo.new(filtered_params: search_params)
+    api.apply_filters
+    body, status = api.fetch_data_from_es
+    udprns = []
+    if status.to_i == 200
+      udprns = body.map { |e| e['udprn'] }
+    end
+    udprns
+  end
+
   def self.historic_pricing_details(udprn)
      VendorApi.new(udprn.to_s).calculate_valuations
   end
