@@ -14,6 +14,7 @@
 module Api
   module V0
     class PropertySearchController < ActionController::Base
+      include EventsHelper
       def search
         response = Hash.new
         api = ::PropertyDetailsRepo.new(filtered_params: params)
@@ -21,7 +22,29 @@ module Api
         #result[:results].map{ |t| add_new_keys(t) }
         result = result[:results].sort_by{|t| t[:score]}.reverse
         result.first[:breadcrumb] = params[:hash_str].split('_').join(', ')
+        result.each { |each_property| insert_save_search(each_property) }
+        
         render :json => result, :status => status
+      end
+
+      def insert_save_search(property_detail)
+        event = Trackers::Buyer::EVENTS[:save_search_hash]
+        buyer_id = params['buyer_id'].to_i
+        agent_id = property_detail['agent_id'].to_i
+
+        Rails.logger.info("AGENT_ID____#{agent_id}")
+
+        property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[property_detail['property_status_type']]
+
+        #### Search hash of a message
+        message = params[:message]
+
+        type_of_match = Trackers::Buyer::TYPE_OF_MATCH[params[:match_type].downcase.to_sym]
+        # type_of_match = Trackers::Buyer::TYPE_OF_MATCH.with_indifferent_access[params[:type_of_match]]
+
+        property_id = property_detail['udprn'].to_i
+        message = 'NULL' if message.nil?
+        insert_events(agent_id, property_id, buyer_id, message, type_of_match, property_status_type, event)
       end
 
        def add_new_keys(result)
