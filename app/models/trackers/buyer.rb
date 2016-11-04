@@ -1092,6 +1092,15 @@ class Trackers::Buyer
         end
       end
 
+      ### Price of the property
+      details = PropertyDetails.details(each_row['property_id'])['_source']
+      new_row['dream_price'] = details['dream_price']
+      if details['property_status_type'] == 'Green' || details['property_status_type'] == 'Amber'
+        PropertyDetailsRepo::PRICE_TYPES.each{|p| new_row[p] = details[p.to_s]  }
+      elsif doc['property_status_type'] == 'Red'
+        new_row['last_sale_price'] = details['last_sale_price']
+      end
+
       #### Udprn of properties nearby
       similar_udprns = PropertyDetails.similar_properties(each_row['property_id'])
       new_row['udprns'] = similar_udprns
