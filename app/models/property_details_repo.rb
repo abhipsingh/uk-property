@@ -16,6 +16,8 @@ class PropertyDetailsRepo
     range: [ :cost_per_month, :date_added, :floors, :year_built, :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, :time_frame, :beds, :baths, :receptions, :current_valuation, :dream_price ],
   }
 
+  #### The list of statuses are 'Green', 'Amber', 'Red'.
+
   STREET_VIEW_URLS = [
     "https://s3-us-west-2.amazonaws.com/propertyuk/0000196e88581b8e149fcdedfa2f09a63ac73886.jpg",
     "https://s3-us-west-2.amazonaws.com/propertyuk/00001f4db96b63762cd64500458c6dedb22100a6.jpg",

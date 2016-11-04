@@ -9,6 +9,9 @@ class EventsController < ApplicationController
   
   ### An example of saved search pings
   ### curl -XPOST -H "Content-Type: application/json" 'http://localhost/events/new' -d '{"agent_id" : 1234, "udprn" : '10966183', "event" : "save_search_hash", "message" : "\{\"search_hash\" : \{ \"min_beds\" : 2, \"max_beds\" : 3, \"min_baths\" : 1, \"max_baths\" : 2, \"hash_str\" : \"HEREFORD_City Centre_Loder Drive\", \"hash_type\" = \"Text\"  \} \}", "type_of_match" : "perfect", "buyer_id" : 1, "property_status_type" : "Green" }'
+  
+  ### An example of property getting sold
+  ### curl -XPOST -H "Content-Type: application/json" 'http://localhost/events/new' -d '{"agent_id" : 1234, "udprn" : '10966183', "event" : "sold", "message" : "\{\"final_price\" : 300000, \"exchange_of_contracts\" : \"2016-11-23\" \}" , "type_of_match" : "perfect", "buyer_id" : 1, "property_status_type" : "Green" }'
   def process_event
     session = Rails.configuration.cassandra_session
     date = Date.today.to_s
@@ -37,7 +40,16 @@ class EventsController < ApplicationController
 
     cqls.map { |each_cql| session.execute(each_cql)  }
 
-    render json: { 'message' => 'Successfully processed the request' }, status: 200
+    response = {}
+
+    if event == Trackers::Buyer::EVENTS[:sold]
+      host = Rails.configuration.remote_es_host
+      client = Elasticsearch::Client.new host: host
+      response = client.update index: 'addresses', type: 'address', id: property_id.to_s,
+                        body: { doc: { property_status_type: 'Red', vendor_id: buyer_id } }
+    end
+
+    render json: { 'message' => 'Successfully processed the request', response: response }, status: 200
   end
 
   #### For agents implement filter of agents group wise, company wise, branch, location wise,
