@@ -19,14 +19,16 @@ class EventsController < ApplicationController
 
     #### Search hash of a message
     message = params[:message]
-
+    Rails.logger.info("PROGRESS")
     type_of_match = Trackers::Buyer::TYPE_OF_MATCH[params[:type_of_match].downcase.to_sym]
     # type_of_match = Trackers::Buyer::TYPE_OF_MATCH.with_indifferent_access[params[:type_of_match]]
     property_id = params[:udprn]
+    Rails.logger.info("PROGRESS 2")
     agent_id = params[:agent_id]
     message = 'NULL' if message.nil?
     response = insert_events(agent_id, property_id, buyer_id, message, type_of_match, property_status_type, event)
 
+    Rails.logger.info("COMPLETED")
     render json: { 'message' => 'Successfully processed the request', response: response }, status: 200
   end
 
@@ -39,6 +41,7 @@ class EventsController < ApplicationController
 
   #### For agents implement filter of agents group wise, company wise, branch wise, location wise,
   #### and agent_id wise. The agent employee is the last missing layer.
+  ####  curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/enquiries/property/1234'
   def agent_enquiries_by_property
     response = []
     if !params[:agent_company_id].nil?
@@ -59,6 +62,7 @@ class EventsController < ApplicationController
 
   #### For agents implement filter of agents group wise, company wise, branch, location wise,
   #### and agent_id wise
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/enquiries/new/1234'
   def agent_new_enquiries
     response = []
     if !params[:agent_company_id].nil?
@@ -170,6 +174,95 @@ class EventsController < ApplicationController
     elsif !params[:agent_branch_id].nil?
       agents = Agents::Branches::AssignedAgent.where(branch_id: params[:agent_branch_id].to_i).select(:id)
       response = agents.map { |e| Trackers::Buyer.new.property_enquiry_details_buyer(e) }.flatten.sort_by{ |t| t['status_last_updated'] }.reverse
+    elsif !params[:agent_group_id].nil?
+      ### TODO FOR AGENTS GROUP AS WELL
+    end
+    render json: response, status: 200
+  end
+
+
+  #### On demand quicklink for all the properties of agents, or group or branch or company
+  #### To get list of properties for the concerned agent
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties?agent_id=1234'
+  def detailed_properties
+    response = []
+    status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
+    if !params[:agent_company_id].nil?
+      ### TODO FOR COMPANY
+    elsif !params[:agent_id].nil?
+      property_ids = Agents::Branches::AssignedAgents::Quote.where(agent_id: params[:agent_id], status: status).pluck(:property_id)
+      response = property_ids.uniq.map { |e| PropertyDetails.details(e) }
+    elsif !params[:hash_str].nil?
+      search_params = { limit: 100, fields: 'agent_id' }
+      search_params[:hash_str] = params[:hash_str]
+      search_params[:hash_type] = params[:hash_type]
+      api = PropertyDetailsRepo.new(filtered_params: search_params)
+      api.apply_filters
+      body, status = api.fetch_data_from_es
+      agent_ids = []
+      
+      if status.to_i == 200
+        agent_ids = body.map { |e| e['agent_id'] }.uniq rescue []
+      end
+
+      ### Iterate over agent_ids
+      agent_ids.each do |agent_id|
+        property_ids = Agents::Branches::AssignedAgents::Quote.where(agent_id: agent_id, status: status).pluck(:property_id)
+        response |= property_ids.uniq.map { |e| PropertyDetails.details(e) }
+      end
+
+    elsif !params[:agent_branch_id].nil?
+      agents = Agents::Branches::AssignedAgent.where(branch_id: params[:agent_branch_id].to_i).select(:id)
+      ### Iterate over agent_ids
+      agent_ids.each do |agent_id|
+        property_ids = Agents::Branches::AssignedAgents::Quote.where(agent_id: agent_id, status: status).pluck(:property_id)
+        response |= property_ids.uniq.map { |e| PropertyDetails.details(e) }
+      end
+
+    elsif !params[:agent_group_id].nil?
+      ### TODO FOR AGENTS GROUP AS WELL
+    end
+    render json: response, status: 200
+  end
+
+  #### On demand detailed properties for all the properties of agents, or group or branch or company
+  #### To get list of properties for the concerned agent
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/quicklinks/properties?agent_id=1234'
+  def quicklinks
+    response = []
+    status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
+    if !params[:agent_company_id].nil?
+      ### TODO FOR COMPANY
+    elsif !params[:agent_id].nil?
+      property_ids = Agents::Branches::AssignedAgents::Quote.where(agent_id: params[:agent_id], status: status).pluck(:property_id)
+      response = property_ids.uniq
+    elsif !params[:hash_str].nil?
+      search_params = { limit: 100, fields: 'agent_id' }
+      search_params[:hash_str] = params[:hash_str]
+      search_params[:hash_type] = params[:hash_type]
+      api = PropertyDetailsRepo.new(filtered_params: search_params)
+      api.apply_filters
+      body, status = api.fetch_data_from_es
+      agent_ids = []
+      
+      if status.to_i == 200
+        agent_ids = body.map { |e| e['agent_id'] }.uniq rescue []
+      end
+
+      ### Iterate over agent_ids
+      agent_ids.each do |agent_id|
+        property_ids = Agents::Branches::AssignedAgents::Quote.where(agent_id: agent_id, status: status).pluck(:property_id)
+        response |= property_ids.uniq
+      end
+
+    elsif !params[:agent_branch_id].nil?
+      agents = Agents::Branches::AssignedAgent.where(branch_id: params[:agent_branch_id].to_i).select(:id)
+      ### Iterate over agent_ids
+      agent_ids.each do |agent_id|
+        property_ids = Agents::Branches::AssignedAgents::Quote.where(agent_id: agent_id, status: status).pluck(:property_id)
+        response |= property_ids.uniq
+      end
+
     elsif !params[:agent_group_id].nil?
       ### TODO FOR AGENTS GROUP AS WELL
     end

@@ -38,6 +38,12 @@ Rails.application.routes.draw do
 
   ### Get all stats about the properties for the concerned agents
   get 'agents/enquiries/properties',         to: 'events#property_enquiries'
+
+  ### Get all properties quicklinks for the queried agent_id, or branch or group or company id
+  get 'agents/quicklinks/properties',        to: 'events#quicklinks'
+
+  ### Get all properties quicklinks for the queried agent_id, or branch or group or company id
+  get 'agents/properties',                   to: 'events#detailed_properties'
   #####################################################################
   #####################################################################
   #####################################################################

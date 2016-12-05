@@ -274,9 +274,10 @@ class Trackers::Buyer
   ### For every enquiry row, extract the info from details hash and merge it
   ### with new row
   def push_property_enquiry_details_buyer(new_row, details)
-    new_row[:address] = details['address']
-    new_row[:price] = details['price']
-    new_row[:status] = details['property_status_type']
+    Rails.logger.info(new_row)
+    new_row[:address] = details['address'] rescue nil
+    new_row[:price] = details['price'] rescue nil
+    new_row[:status] = details['property_status_type'] rescue nil
   end
 
   def add_details_to_enquiry_row_buyer(new_row, property_id, event_details, agent_id)
@@ -300,7 +301,7 @@ class Trackers::Buyer
       future = session.execute(hotness_event_cql)
 
       hot_row = future.rows.sort_by{ |t| t['stored_time'] }.reverse.first
-      new_row[:hotness] = REVERSE_EVENTS[hot_row['event']]
+      new_row[:hotness] = REVERSE_EVENTS[hot_row['event']] if hot_row
     end
 
     ########## Property hotness section ends

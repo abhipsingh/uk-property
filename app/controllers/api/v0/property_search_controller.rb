@@ -39,6 +39,7 @@ module Api
         #### Search hash of a message
         message = params[:message]
 
+        params[:match_type] ||= 'perfect' 
         type_of_match = Trackers::Buyer::TYPE_OF_MATCH[params[:match_type].downcase.to_sym]
         # type_of_match = Trackers::Buyer::TYPE_OF_MATCH.with_indifferent_access[params[:type_of_match]]
 

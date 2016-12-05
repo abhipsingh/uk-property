@@ -52,7 +52,7 @@ module Agents
               new_row[:latest_valuation] = property_details['current_valuation'][0]
             end
             ### Price details ends
-            if quotes.first.status == Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']
+            if quotes.first && quotes.first.status == Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']
               vendor = Vendor.where(property_id: property_id).where(status: Vendor::STATUS_HASH['Verified']).first
               new_row[:vendor_name] = vendor.full_name
               new_row[:email] = vendor.email
