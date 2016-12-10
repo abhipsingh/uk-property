@@ -144,6 +144,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     append_premium_or_featured_filter
     inst.apply_filters
     inst.modify_query
+    Rails.logger.info(inst.query)
     body, status = fetch_data_from_es
     return { results: body }, status
   end

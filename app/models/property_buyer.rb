@@ -9,14 +9,9 @@ class PropertyBuyer < ActiveRecord::Base
 
   BUYING_STATUS_HASH = {
     'First time buyer' => 1,
-    'Buyer(not first time)' => 2,
-    'Property to sell' => 3,
-    'Property to rent' => 4,
-    'I have an offer on my Property' => 5,
-    'I have recently sold' => 6,
-    'Property investor' => 7,
-    'Just browsing' => 8,
-    'Other' => 9
+    'Not a first time buyer' => 2,
+    'Property investor' => 3,
+    'Looking to rent' => 4
   }
 
   REVERSE_BUYING_STATUS_HASH = BUYING_STATUS_HASH.invert
@@ -24,16 +19,15 @@ class PropertyBuyer < ActiveRecord::Base
   FUNDING_STATUS_HASH = {
     'Mortgage approved' => 1,
     'Cash buyer' => 2,
-    'Funds pending' => 3,
-    'N/A' => 4,
+    'Not in place yet' => 3
   }
 
   REVERSE_FUNDING_STATUS_HASH = FUNDING_STATUS_HASH.invert
 
   BIGGEST_PROBLEM_HASH = {
-    'Funding' => 1,
-    "Can't Sell" => 2,
-    'N/A' => 3
+    'Money' => 1,
+    "Cannot Sell current property" => 2,
+    "Cannot Sell right property" => 3
   }
 
   REVERSE_BIGGEST_PROBLEM_HASH = BIGGEST_PROBLEM_HASH.invert

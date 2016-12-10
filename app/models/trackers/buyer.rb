@@ -27,8 +27,8 @@ class Trackers::Buyer
     closed_won_stage: 21,
     confidence_level: 22,
     visits: 23,
-    contract_exchange_stage: 24,
-    conveyance_stage: 25,
+    conveyance_stage: 24,
+    contract_exchange_stage: 25,
     completion_stage: 26,
     hot_property: 27,
     warm_property: 28,
@@ -180,6 +180,31 @@ class Trackers::Buyer
     new_row['deleted'] = generic_event_count(EVENTS[:deleted], table, property_id, :single)
   end
 
+  ##### Trackers::Buyer.new.fetch_filtered_buyer_ids('First time buyer', 'Mortgage approved', 'Funding', true)
+  ##### Returns an array of buyer_ids
+  def fetch_filtered_buyer_ids(buyer_buying_status=nil, buyer_funding=nil, buyer_biggest_problem=nil, buyer_chain_free=nil, buyer_search_value=nil)
+    pb = PropertyBuyer
+    results = pb.where("id > 0")
+    if buyer_buying_status
+      results = results.where(buying_status: pb::BUYING_STATUS_HASH[buyer_buying_status])
+    end
+
+    if buyer_funding
+      results = results.where(funding: pb::FUNDING_STATUS_HASH[buyer_funding])
+    end
+
+    if buyer_biggest_problem
+      results = results.where(biggest_problem: pb::BIGGEST_PROBLEM_HASH[buyer_biggest_problem])
+    end
+
+    if !buyer_chain_free.nil?
+      results = results.where(chain_free: buyer_chain_free)
+    end
+    results.pluck(:id)
+  end
+
+  ####
+
   ###############################################################
   ###############################################################
   ###############################################################
@@ -192,22 +217,52 @@ class Trackers::Buyer
   ##### Agent level mock in console for new enquries coming
   ##### Trackers::Buyer.new.property_enquiry_details_buyer(1234)
 
-  def property_enquiry_details_buyer(agent_id)
+  def property_enquiry_details_buyer(agent_id, enquiry_type=nil, type_of_match=nil, qualifying_stage=nil, rating=nil, buyer_buying_status=nil, buyer_funding=nil, buyer_biggest_problem=nil, buyer_chain_free=nil, buyer_search_value=nil)
     result = []
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
     total_rows = []
-    events.each do |event|
-      table = 'Simple.timestamped_property_events'
-      received_cql = "SELECT * FROM #{table} WHERE agent_id = #{agent_id} AND event = #{event} ORDER BY time_of_event DESC LIMIT 20 ALLOW FILTERING;"
+    table = 'Simple.timestamped_property_events'
+    initial_cql = "SELECT * FROM #{table}"
+    order_cql = " ORDER BY time_of_event DESC LIMIT 20 ALLOW FILTERING;"
+    where_cql = " WHERE agent_id = #{agent_id} "
 
+    filtered_buyer_ids = []
+    ### Process filtered buyer_id only
+    filtered_buyer_ids = fetch_filtered_buyer_ids(buyer_buying_status, buyer_funding, buyer_biggest_problem, buyer_chain_free, buyer_search_value)
+    filtered_buying_flag = (!buyer_buying_status.nil?) || (!buyer_funding.nil?) || (!buyer_biggest_problem.nil?) || (!buyer_chain_free.nil?)
+
+    ### FIlter only the enquiries which are asked by the caller
+    if enquiry_type
+      events = events.select{ |t| t == EVENTS[enquiry_type.to_sym] }
+    end
+
+    ### Filter only the type_of_match which are asked by the caller
+    if type_of_match
+      type_of_match = type_of_match.to_s.downcase
+      where_cql = where_cql + " AND type_of_match = #{TYPE_OF_MATCH[type_of_match.to_sym]} "
+    end
+
+    events.each do |event|
+      received_cql = initial_cql + where_cql + " AND event = #{event}  " + order_cql
       session = self.class.session
       future = session.execute(received_cql)
       total_rows |= future.rows.to_a if !future.rows.to_a.empty?
     end
+
+    #### if its qualifying and 
     buyer_ids = []
     total_rows.sort_by!{ |t| t['time_of_event'] }
     total_rows.reverse!
-    total_rows.first(20).each do |each_row|
+
+    qualifying_matches = []
+    rating_matches = []
+    qualifying_matches_buyer_ids = []
+    rating_matches_buyer_ids = []
+
+    buyer_id_matches = []
+    buyer_id_matches_buyer_ids = []
+
+    total_rows.first(20).each_with_index do |each_row, index|
       new_row = {}
       new_row['received'] = each_row['stored_time']
       new_row['type_of_enquiry'] = REVERSE_EVENTS[each_row['event']]
@@ -217,11 +272,38 @@ class Trackers::Buyer
       property_id = each_row['property_id']
       push_property_details_row(new_row, property_id)
       add_details_to_enquiry_row_buyer(new_row, property_id, each_row, agent_id)
-      buyer_ids.push(each_row['buyer_id'])
-      result.push(new_row)
+
+      ### Check if filtered_buyer_ids is not empty and if its not
+      ### Allow only buyer_id which matches each_row['buyer_id']
+
+
+      if (filtered_buying_flag && filtered_buyer_ids.include?(each_row['buyer_id'].to_i)) || (!filtered_buying_flag)
+        
+        #### When qualifying_stage is not nil, match the expected and the ones in the result
+        if qualifying_stage && new_row[:qualifying].to_s == qualifying_stage.to_s
+
+          qualifying_matches.push(new_row)
+          qualifying_matches_buyer_ids.push(each_row['buyer_id'])
+        elsif qualifying_stage.nil? && rating.nil?
+          buyer_ids.push(each_row['buyer_id'])
+          result.push(new_row)
+        end
+
+        #### When rating is not nil, match the expected and the ones in the result
+        if rating && new_row[:hotness].to_s == rating.to_s
+          rating_matches_buyer_ids.push(each_row['buyer_id'])
+          rating_matches.push(new_row)
+        end
+
+      end
+
     end
 
-    buyers = PropertyBuyer.where(id: buyer_ids).select([:id, :email, :full_name, :mobile, :status, :chain_free]).order("position(id::text in '#{buyer_ids.join(',')}')")
+    net_rows = rating_matches | qualifying_matches
+    result |= net_rows
+    buyer_ids.push((rating_matches_buyer_ids | qualifying_matches_buyer_ids))
+
+    buyers = PropertyBuyer.where(id: buyer_ids).select([:id, :email, :full_name, :mobile, :status, :chain_free, :funding, :biggest_problem, :buying_status]).order("position(id::text in '#{buyer_ids.join(',')}')")
     buyer_hash = {}
 
     buyers.each do |buyer|
@@ -231,9 +313,13 @@ class Trackers::Buyer
     result.each_with_index do |each_row, index|
       each_row['buyer_status'] = REVERSE_STATUS_TYPES[buyer_hash[each_row['buyer_id']]['status']]
       each_row['buyer_full_name'] = buyer_hash[each_row['buyer_id']]['full_name']
+      each_row['buyer_image'] = nil
       each_row['buyer_email'] = buyer_hash[each_row['buyer_id']]['email']
       each_row['buyer_mobile'] = buyer_hash[each_row['buyer_id']]['mobile']
       each_row['chain_free'] = buyer_hash[each_row['buyer_id']]['chain_free']
+      each_row['buyer_funding'] = PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[buyer_hash[each_row['buyer_id']]['funding']]
+      each_row['buyer_biggest_problem'] = PropertyBuyer::REVERSE_BIGGEST_PROBLEM_HASH[buyer_hash[each_row['buyer_id']]['biggest_problem']]
+      each_row['buyer_buying_status'] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[buyer_hash[each_row['buyer_id']]['buying_status']]
     end
 
     result
@@ -274,10 +360,19 @@ class Trackers::Buyer
   ### For every enquiry row, extract the info from details hash and merge it
   ### with new row
   def push_property_enquiry_details_buyer(new_row, details)
-    Rails.logger.info(new_row)
+    #Rails.logger.info(new_row)
     new_row[:address] = details['address'] rescue nil
     new_row[:price] = details['price'] rescue nil
+    new_row[:image_url] = details['street_view_url'] || details['photo_urls'].first rescue nil
+    new_row[:udprn] = details['udprn'] rescue nil
     new_row[:status] = details['property_status_type'] rescue nil
+    new_row[:offers_over] = details['offers_over'] rescue nil
+    new_row[:fixed_price] = details['fixed_price'] rescue nil
+    new_row[:asking_price] = details['asking_price'] rescue nil
+    new_row[:dream_price] = details['dream_price'] rescue nil
+    new_row[:current_valuation] = details['current_valuation'] rescue nil
+    new_row[:last_sale_price] = details['last_sale_price'] rescue nil
+    new_row[:verification_status] = details['verification_status'] rescue false
   end
 
   def add_details_to_enquiry_row_buyer(new_row, property_id, event_details, agent_id)
@@ -302,6 +397,7 @@ class Trackers::Buyer
 
       hot_row = future.rows.sort_by{ |t| t['stored_time'] }.reverse.first
       new_row[:hotness] = REVERSE_EVENTS[hot_row['event']] if hot_row
+      new_row[:hotness] ||= 'cold_property'
     end
 
     ########## Property hotness section ends
@@ -326,6 +422,7 @@ class Trackers::Buyer
     new_row[:enquiries] = buyer_enquiries.to_i.to_s + '/' + total_enquiries.to_i.to_s
 
     #### Qualifying Stage Only shown to the agents
+      #Rails.logger.info(future.rows)
     if agent_id
       qualifying_events = QUALIFYING_STAGE_EVENTS.map { |e| EVENTS[e] }.join(',')
       qualifying_cql = <<-SQL
@@ -338,6 +435,8 @@ class Trackers::Buyer
                         LIMIT 1;
                        SQL
       future = session.execute(qualifying_cql)
+
+      #Rails.logger.info(qualifying_cql)
 
       future.rows do |each_row|
         new_row[:qualifying] = REVERSE_EVENTS[each_row['event']]
@@ -384,7 +483,7 @@ class Trackers::Buyer
       result.push(new_row)
     end
 
-    buyers = PropertyBuyer.where(id: buyer_ids).select([:id, :chain_free, :status]).order("position(id::text in '#{buyer_ids.join(',')}')")
+    buyers = PropertyBuyer.where(id: buyer_ids).select([ :id, :chain_free, :status, :buying_status, :funding, :biggest_problem ]).order("position(id::text in '#{buyer_ids.join(',')}')")
     buyer_hash = {}
 
     buyers.each do |buyer|
@@ -395,6 +494,7 @@ class Trackers::Buyer
       each_row['buyer_status'] = REVERSE_STATUS_TYPES[buyer_hash[each_row['buyer_id']]['status']]
       #### The following attributes are to be shown as blurred or nil value for vendors
       each_row['buyer_full_name'] = nil  ### Blurred out buyer's name
+      each_row['buyer_image'] = nil
       each_row['buyer_email'] = nil
       each_row['buyer_mobile'] = nil
       each_row['chain_free'] = nil

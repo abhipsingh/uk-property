@@ -61,14 +61,30 @@ class EventsController < ApplicationController
   end
 
   #### For agents implement filter of agents group wise, company wise, branch, location wise,
-  #### and agent_id wise
+  #### and agent_id wise. 
+  #### New Changes and additions
+  #### The leads can be filtered as well. Four different kind of filters apply. 
+  #### i) Type of buyer enquiry
+  #### ii) Type of match
+  #### iii) Qualifying stage
+  #### iv) Rating
+  #### v) By Buyer's funding type, chain free, biggest problems etc
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/enquiries/new/1234'
   def agent_new_enquiries
+    enquiry_type = params[:enquiry_type]
+    type_of_match = params[:type_of_match]
+    qualifying_stage = params[:qualifying_stage]
+    rating = params[:rating]
+    buyer_status = params[:buyer_status]
+    buyer_funding = params[:buyer_funding]
+    buyer_biggest_problem = params[:buyer_biggest_problem]
+    buyer_chain_free = params[:buyer_chain_free]
+
     response = []
     if !params[:agent_company_id].nil?
       ### TODO FOR COMPANY
     elsif !params[:agent_id].nil?
-      response = Trackers::Buyer.new.property_enquiry_details_buyer(params[:agent_id].to_i)
+      response = Trackers::Buyer.new.property_enquiry_details_buyer(params[:agent_id].to_i, enquiry_type, type_of_match, qualifying_stage, rating, buyer_status, buyer_funding, buyer_biggest_problem, buyer_chain_free)
     elsif !params[:hash_str].nil?
       search_params = { limit: 10000, fields: 'agent_id' }
       search_params[:hash_str] = params[:hash_str]
@@ -80,11 +96,11 @@ class EventsController < ApplicationController
         agents = body.map { |e| e['agent_id'] }.uniq rescue []
       end
       buyer = Trackers::Buyer.new
-      response = agents.map { |e| buyer.property_enquiry_details_buyer(e) }.flatten.sort_by{ |t| t['time_of_event'] }.reverse
+      response = agents.map { |e| buyer.property_enquiry_details_buyer(e, enquiry_type, type_of_match, qualifying_stage, rating, buyer_status, buyer_funding, buyer_biggest_problem, buyer_chain_free) }.flatten.sort_by{ |t| t['time_of_event'] }.reverse
     elsif !params[:agent_branch_id].nil?
       agents = Agents::Branches::AssignedAgent.where(branch_id: params[:agent_branch_id].to_i).select(:id)
       buyer = Trackers::Buyer.new
-      response = agents.map { |e| buyer.property_enquiry_details_buyer(e) }.flatten.sort_by{ |t| t['time_of_event'] }.reverse
+      response = agents.map { |e| buyer.property_enquiry_details_buyer(e, enquiry_type, type_of_match, qualifying_stage, rating, buyer_status, buyer_funding, buyer_biggest_problem, buyer_chain_free) }.flatten.sort_by{ |t| t['time_of_event'] }.reverse
     elsif !params[:agent_group_id].nil?
       ### TODO FOR AGENTS GROUP AS WELL
     end

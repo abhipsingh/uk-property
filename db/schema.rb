@@ -11,15 +11,18 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20161103101928) do
+ActiveRecord::Schema.define(version: 20161210163451) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
   create_table "agents", force: :cascade do |t|
-    t.string "name",         limit: 255
-    t.string "branches_url", limit: 255
+    t.string  "name",         limit: 255
+    t.string  "branches_url", limit: 255
+    t.integer "group_id"
   end
+
+  add_index "agents", ["group_id"], name: "index_agents_on_group_id", using: :btree
 
   create_table "agents_branches", force: :cascade do |t|
     t.string  "name",          limit: 255
@@ -85,6 +88,13 @@ ActiveRecord::Schema.define(version: 20161103101928) do
 
   add_index "agents_branches_crawled_properties", ["latitude", "longitude"], name: "uniq_property", unique: true, using: :btree
   add_index "agents_branches_crawled_properties", ["tags"], name: "index_agents_branches_crawled_properties_on_tags", using: :gin
+
+  create_table "agents_groups", force: :cascade do |t|
+    t.string   "name"
+    t.string   "image_url"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
 
   create_table "messages", force: :cascade do |t|
     t.text     "content"

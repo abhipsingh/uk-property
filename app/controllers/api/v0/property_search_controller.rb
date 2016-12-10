@@ -21,6 +21,8 @@ module Api
         result, status = api.filter
         #result[:results].map{ |t| add_new_keys(t) }
         result = result[:results].sort_by{|t| t[:score]}.reverse
+        result = result.each{|t| t[:photo_urls] = [] }
+        Rails.logger.info(result)
         result.first[:breadcrumb] = params[:hash_str].split('_').join(', ')
         result.each { |each_property| insert_save_search(each_property) }
         
