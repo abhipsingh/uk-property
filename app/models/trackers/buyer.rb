@@ -98,34 +98,25 @@ class Trackers::Buyer
   #### Trackers::Buyer.new.all_property_enquiry_details(1234, nil, nil)
 
   def all_property_enquiry_details(agent_id=nil, hash_str=nil, hash_type=nil)
-    search_params = { limit: 2, fields: 'udprn' }
-    search_params[:hash_str] = hash_str if hash_str
-    search_params[:hash_type] = hash_type if hash_type
-    search_params[:agent_id] = agent_id if agent_id
-    search_params[:udprn] = '10966139'
-    result = []
-    if search_params[:agent_id] || search_params[:hash_str]
-      api = PropertyDetailsRepo.new(filtered_params: search_params)
-      api.apply_filters
-      body, status = api.fetch_data_from_es
-      if status.to_i == 200
-        property_ids = body.map{|t| t['udprn'] } rescue []
-        result = property_ids.map { |e| property_and_enquiry_details(e) }  
-      end
-    end
-    result
+    property_enquiry_details(property_id)
   end
 
   ##### To mock this in the console try 
   ##### Trackers::Buyer.new.property_and_enquiry_details('10966139')
 
-  def property_and_enquiry_details(property_id)
+  def property_and_enquiry_details(property_id, property_status_type=nil, verification_status=nil, ads=nil)
     url = "#{Rails.configuration.remote_es_url}/addresses/address/#{property_id}"
     response = Net::HTTP.get(URI.parse(url))
     details = Oj.load(response)['_source']
     # details = {}
     new_row = {}
     property_enquiry_details(new_row, property_id, details)
+
+
+    return nil if property_status_type && property_status_type != new_row[:property_status_type]
+    return nil if verification_status && verification_status.to_s != new_row[:verification_status].to_s
+    return nil if ads && ads.to_s != new_row[:advertised].to_s
+
     new_row
   end
 
@@ -139,8 +130,8 @@ class Trackers::Buyer
   def push_property_details(new_row, details)
     new_row[:address] = PropertyDetails.address(details)
     new_row[:image_url] = details['photos'][0]
-    new_row[:status] = details['verification_status']
-    if details['status'] == 'Green'
+    new_row[:verification_status] = details['verification_status']
+    if details['verification_status'] == 'Green'
       keys = ['asking_price', 'offers_price', 'fixed_price']
       
       keys.select{ |t| details.has_key?(t) }.each do |present_key|
@@ -148,7 +139,7 @@ class Trackers::Buyer
       end
         
     else
-      new_row[:latest_valuation] = details['current_valuation']
+      new_row[:current_valuation] = details['current_valuation']
     end
     new_row[:last_edited] = details['last_listing_updated']
     new_row[:udprn] = details['udprn']
@@ -156,7 +147,7 @@ class Trackers::Buyer
     new_row[:property_status_type] = details['property_status_type']
     new_row[:beds] = details['beds']
     new_row[:baths] = details['baths']
-    new_row[:recs] = details['receptions']
+    new_row[:receptions] = details['receptions']
     new_row[:completed_status] = details['agent_status']
     new_row[:listed_since] = (Date.today - Date.parse(details['verification_time'])).to_i
     new_row[:agent_profile_image] = details['agent_employee_profile_image']
@@ -262,8 +253,10 @@ class Trackers::Buyer
     buyer_id_matches = []
     buyer_id_matches_buyer_ids = []
 
+    total_rows = total_rows.first(20).select{|t| t['property_id'] != '45326' }.uniq!{ |t| t['property_id'] }
     total_rows.first(20).each_with_index do |each_row, index|
       new_row = {}
+      new_row['udprn'] = each_row['property_id']
       new_row['received'] = each_row['stored_time']
       new_row['type_of_enquiry'] = REVERSE_EVENTS[each_row['event']]
       new_row['time_of_event'] = each_row['time_of_event'].to_time.to_s
@@ -363,7 +356,9 @@ class Trackers::Buyer
     #Rails.logger.info(new_row)
     new_row[:address] = details['address'] rescue nil
     new_row[:price] = details['price'] rescue nil
-    new_row[:image_url] = details['street_view_url'] || details['photo_urls'].first rescue nil
+    new_row[:image_url] = details['street_view_image_url'] || details['photo_urls'].first rescue nil
+    new_row[:street_view_image_url] = details['street_view_image_url']
+    new_row[:photo_url] = details['photo_urls'][0]
     new_row[:udprn] = details['udprn'] rescue nil
     new_row[:status] = details['property_status_type'] rescue nil
     new_row[:offers_over] = details['offers_over'] rescue nil
@@ -371,7 +366,7 @@ class Trackers::Buyer
     new_row[:asking_price] = details['asking_price'] rescue nil
     new_row[:dream_price] = details['dream_price'] rescue nil
     new_row[:current_valuation] = details['current_valuation'] rescue nil
-    new_row[:last_sale_price] = details['last_sale_price'] rescue nil
+    new_row[:last_sale_prices] = PropertyHistoricalDetail.where(udprn: details['udprn']).pluck(:price)
     new_row[:verification_status] = details['verification_status'] rescue false
   end
 

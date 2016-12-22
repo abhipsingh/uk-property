@@ -54,7 +54,13 @@ Rails.application.routes.draw do
   ### Post events to the server
   post 'quotes/new',                         to: 'quotes#new'
 
+  ### Post new quotes for a property. Done by a vendor
+  post 'quotes/property/:udprn',             to: 'quotes#new_quote_for_property'
+
   get 'quotes/submit',                       to: 'quotes#submit'
+
+  #### For an agent, claim this property
+  post 'events/property/claim/:udprn',              to: 'events#claim_property'
   #####################################################################
   #####################################################################
   #####################################################################
@@ -110,6 +116,26 @@ Rails.application.routes.draw do
 
   #### Buyer history event routes
   get 'property/history/enquiries/:buyer_id', to: 'properties#history_enquiries'
+
+
+  #####################################################################
+  #####################################################################
+  #####################################################################
+  #### Agents routes for assigned agents details panel
+  get 'agents/assigned_agent/:assigned_agent_id',               to: 'agents#assigned_agent_details'
+
+
+  #### Agents routes for branch details
+  get 'agents/branch/:branch_id',                               to: 'agents#branch_details'
+
+  #### Agents routes for agent details
+  get 'agents/agent/:agent_id',                                 to: 'agents#agent_details'
+
+  #### Agents routes for agent group details
+  get 'agents/group/:group_id',                                 to: 'agents#group_details'
+
+  #### Agents routes for search any of agent, group, branch or assigned agents by name
+  get 'agents/predictions',                                     to: 'agents#search'
 
   #####################################################################
   #####################################################################

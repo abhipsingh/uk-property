@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20161210163451) do
+ActiveRecord::Schema.define(version: 20161217213956) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -20,6 +20,11 @@ ActiveRecord::Schema.define(version: 20161210163451) do
     t.string  "name",         limit: 255
     t.string  "branches_url", limit: 255
     t.integer "group_id"
+    t.string  "email"
+    t.string  "phone_number"
+    t.string  "website"
+    t.string  "address"
+    t.string  "image_url"
   end
 
   add_index "agents", ["group_id"], name: "index_agents_on_group_id", using: :btree
@@ -32,6 +37,10 @@ ActiveRecord::Schema.define(version: 20161210163451) do
     t.string  "postcode"
     t.string  "district"
     t.text    "udprns",                    default: [], array: true
+    t.string  "image_url"
+    t.string  "email"
+    t.string  "phone_number"
+    t.string  "website"
   end
 
   add_index "agents_branches", ["district"], name: "index_agents_branches_on_district", using: :btree
@@ -42,6 +51,9 @@ ActiveRecord::Schema.define(version: 20161210163451) do
     t.string  "email"
     t.string  "mobile"
     t.integer "branch_id"
+    t.string  "title"
+    t.string  "office_phone_number"
+    t.string  "mobile_phone_number"
   end
 
   add_index "agents_branches_assigned_agents", ["branch_id"], name: "index_agents_branches_assigned_agents_on_branch_id", using: :btree
@@ -216,6 +228,7 @@ ActiveRecord::Schema.define(version: 20161210163451) do
     t.integer  "status"
     t.datetime "created_at",  null: false
     t.datetime "updated_at",  null: false
+    t.string   "image_url"
   end
 
 end

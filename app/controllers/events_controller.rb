@@ -42,18 +42,31 @@ class EventsController < ApplicationController
   #### For agents implement filter of agents group wise, company wise, branch wise, location wise,
   #### and agent_id wise. The agent employee is the last missing layer.
   ####  curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/enquiries/property/1234'
+  #### Three types of filters i) Verification status and property status type
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/enquiries/property/1234?verification_status=true&property_status_type=Green'
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/enquiries/property/1234?verification_status=false&property_status_type=Red'
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/enquiries/property/1234?verification_status=true&property_status_type=Green'
+
   def agent_enquiries_by_property
+    property_status_type = params[:property_status_type]
+    verification_status = params[:verification_status]
+    ads = params[:ads]
     response = []
     if !params[:agent_company_id].nil?
       ### TODO FOR COMPANY
     elsif !params[:agent_id].nil?
-      response = Trackers::Buyer.new.all_property_enquiry_details(params[:agent_id], params[:hash_str], params[:hash_type])
+      property_ids = Agents::Branches::AssignedAgents::Quote.where(agent_id: params[:agent_id].to_i, status: Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']).pluck(:property_id)
+      response = property_ids.map { |e| Trackers::Buyer.new.property_and_enquiry_details(e, property_status_type, verification_status, ads) }.compact
     elsif !params[:hash_str].nil?
-      response = Trackers::Buyer.new.all_property_enquiry_details(nil, params[:hash_str], params[:hash_type])
+      response = Trackers::Buyer.new.property_and_enquiry_details(property_id)
     elsif !params[:agent_branch_id].nil?
       agents = Agents::Branches::AssignedAgent.where(branch_id: params[:agent_branch_id].to_i).select(:id)
       buyer = Trackers::Buyer.new
-      response = agents.map { |e| buyer.all_property_enquiry_details(e.id, nil, nil) }.flatten
+      response = []
+      agents.each do |agent|
+        property_ids = Agents::Branches::AssignedAgents::Quote.where(agent_id: agent.id, status: Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']).pluck(:property_id)
+        property_ids.each{ |t| response.push(buyer.property_and_enquiry_details(t, property_status_type, verification_status, ads)) }.compact
+      end 
     elsif !params[:agent_group_id].nil?
       ### TODO FOR AGENTS GROUP AS WELL
     end
@@ -111,12 +124,23 @@ class EventsController < ApplicationController
   #### For agents the quotes page has to be shown in which all his recent or the new properties in the area
   #### Will be published
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent/quotes?agent_id=1234'
+  #### For applying filters i) payment_terms
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent/quotes?agent_id=1234&payment_terms=Pay%20upfront'
+  #### ii) services_required
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent/quotes?agent_id=1234&services_required=Ala%20Carte'
+  #### ii) quote_status
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent/quotes?agent_id=1234&quote_status=Won'
   def recent_properties_for_quotes
+    
+    services_required = params[:services_required]
+    quote_status = params[:quote_status]
+    payment_terms = params[:payment_terms]
+
     response = []
     if !params[:agent_company_id].nil?
       ### TODO FOR COMPANY
     elsif !params[:agent_id].nil?
-      response = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i).recent_properties_for_quotes
+      response = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i).recent_properties_for_quotes(payment_terms, services_required, quote_status)
     elsif !params[:hash_str].nil?
       search_params = { limit: 10000, fields: 'agent_id' }
       search_params[:hash_str] = params[:hash_str]
@@ -127,10 +151,10 @@ class EventsController < ApplicationController
       if status.to_i == 200
         agents = body.map { |e| e['agent_id'] }.uniq rescue []
       end
-      response = agents.map { |e| Agents::Branches::AssignedAgent.find(e).recent_properties_for_quotes }.flatten.sort_by{ |t| t[:deadline] }.reverse
+      response = agents.map { |e| Agents::Branches::AssignedAgent.find(e).recent_properties_for_quotes(payment_terms, services_required, quote_status) }.flatten.sort_by{ |t| t[:deadline] }.reverse
     elsif !params[:agent_branch_id].nil?
       agents = Agents::Branches::AssignedAgent.where(branch_id: params[:agent_branch_id].to_i).select(:id)
-      response = agents.map { |e| Agents::Branches::AssignedAgent.find(e).recent_properties_for_quotes }.flatten.sort_by{ |t| t[:deadline] }.reverse
+      response = agents.map { |e| Agents::Branches::AssignedAgent.find(e).recent_properties_for_quotes(payment_terms, services_required, quote_status) }.flatten.sort_by{ |t| t[:deadline] }.reverse
     elsif !params[:agent_group_id].nil?
       ### TO DO FOR AGENTS GROUP AS WELL
     end
@@ -283,6 +307,21 @@ class EventsController < ApplicationController
       ### TODO FOR AGENTS GROUP AS WELL
     end
     render json: response, status: 200
+  end
+
+  #### When an agent click the claim to a property, the agent gets a chance to visit
+  #### the picture. The claim needs to be frozen and the property is no longer available
+  #### for claiming.
+  #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/events/property/claim/4745413' -d { "agent_id" : 1235 }
+  def claim_property
+    lead = Agents::Branches::AssignedAgents::Lead.where(property_id: params[:udprn].to_i, agent_id: nil).last
+    if lead
+      lead.agent_id = params[:agent_id]
+      lead.save
+      render json: { message: 'You have claimed this property Successfully. Now survey this property within 30 days' }, status: 200
+    else
+      render json: { message: 'Sorry, this property has already been claimed' }, status: 200
+    end
   end
 
 end

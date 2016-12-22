@@ -354,11 +354,11 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     addresses = get_bulk_addresses
     names = Agent.last(10).map{ |t| t.name }
     google_api_crawler = GoogleApiCrawler.new
-    scroll_id = 'cXVlcnlUaGVuRmV0Y2g7NTs1NjY6bHBiZGlCcVFTYkNzNlRDckJGeHhQZzs1Njg6bHBiZGlCcVFTYkNzNlRDckJGeHhQZzs1Njc6bHBiZGlCcVFTYkNzNlRDckJGeHhQZzs1NzA6bHBiZGlCcVFTYkNzNlRDckJGeHhQZzs1Njk6bHBiZGlCcVFTYkNzNlRDckJGeHhQZzswOw=='
+    scroll_id = 'cXVlcnlUaGVuRmV0Y2g7NTszODE6TzhMbC1PZ0RSYXlSanpiUzAxMmpsQTszODU6TzhMbC1PZ0RSYXlSanpiUzAxMmpsQTszODI6TzhMbC1PZ0RSYXlSanpiUzAxMmpsQTszODM6TzhMbC1PZ0RSYXlSanpiUzAxMmpsQTszODQ6TzhMbC1PZ0RSYXlSanpiUzAxMmpsQTswOw=='
     glob_counter = 0
     loop do
       get_records_url = ES_EC2_URL + '/_search/scroll'
-      scroll_hash = { scroll: '15m', scroll_id: scroll_id }
+      scroll_hash = { scroll: '30m', scroll_id: scroll_id }
       response , status = post_url_new(scroll_hash)
       udprns = JSON.parse(response)["hits"]["hits"].map { |t| t['_source']['udprn']  }
       response_arr = Oj.load(response)['hits']['hits'].map { |e| e['_source'] }
@@ -394,22 +394,18 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
         doc[:assigned_agent_employee_address] = "5 Bina Gardens"
         doc[:assigned_agent_employee_image] = nil
         doc[:last_updated_date] = "2015-09-21"
-        doc[:agent_logo] = "http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/prop.jpg"
+        # doc[:agent_logo] = "http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/prop.jpg"
         doc[:broker_branch_contact] = "020 3641 4259"
         doc[:date_updated] = 3.days.ago.to_date.to_s
         doc[:agent_id] = 1234
         if doc[:photos] == "Yes"
-          doc[:photo_count] = 3
-          doc[:photo_urls] = [
-            "http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/prop.jpg",
-            "http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/prop2.jpg",
-            "http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/prop3.jpg",
-          ]
+          doc[:photo_count] = 0
+          doc[:photo_urls] = []
         else
           doc[:photo_urls] = []
         end
 
-        doc[:broker_logo] = "http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/prop3.jpg"
+        # doc[:broker_logo] = "http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/prop3.jpg"
         doc[:agent_contact] = "020 3641 4259"
         description = ''
         doc[:description] = characters.sample(1).first.times do
@@ -482,7 +478,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
       end
 
       ### Date of valuation
-      doc[:date_of_valuation] = (1..365).to_a.sample.days.ago.to_date.to_s
+      doc[:valuation_date] = (1..365).to_a.sample.days.ago.to_date.to_s
 
       ### Price last updated
       doc[:price_last_updated] = (1..365).to_a.sample.days.ago.to_time.strftime("%Y-%m-%d %H:%M:%S").to_s
