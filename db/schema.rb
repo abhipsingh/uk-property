@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20161228092553) do
+ActiveRecord::Schema.define(version: 20161228202349) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -169,6 +169,8 @@ ActiveRecord::Schema.define(version: 20161228092553) do
     t.string   "password"
     t.string   "password_digest"
     t.string   "image_url"
+    t.integer  "budget_from"
+    t.integer  "budget_to"
   end
 
   add_index "property_buyers", ["email_id"], name: "index_property_buyers_on_email_id", unique: true, using: :btree

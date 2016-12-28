@@ -102,6 +102,7 @@ module Agents
             new_row[:floor_plan_url] = property_details['floor_plan_url']
             new_row[:current_agent] = self.name
             new_row[:service_required] = property_details['service_required']
+            new_row[:verification_status] = property_details['verification_status']
 
             new_row[:payment_terms] = self.quotes.last.payment_terms
             new_row[:quotes] = property_details['quotes']

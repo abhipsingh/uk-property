@@ -1,20 +1,6 @@
 module Enquiries
   class Agent
 
-    def by_date(date: given_date)
-
-      session.execute("SELECT event, property_id FROM time_events_buyer WHERE time='#{given_date}' GROUP BY buyer_id ").each do |row|
-
-        p "Firstname = #{row['firstname']}, Lastname = #{row['lastname']}, Age = #{row['age']}"
-      end
-
-      session.execute("SELECT event, property_id FROM time_events_agents WHERE time='#{given_date}' GROUP BY buyer_id ").each do |row|
-
-        p "Firstname = #{row['firstname']}, Lastname = #{row['lastname']}, Age = #{row['age']}"
-      end
-    end
-
-
   end
 end
 

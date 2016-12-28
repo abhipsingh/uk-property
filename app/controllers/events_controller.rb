@@ -91,12 +91,15 @@ class EventsController < ApplicationController
     buyer_biggest_problem = params[:buyer_biggest_problem]
     buyer_chain_free = params[:buyer_chain_free]
     search_str = params[:search_str]
+    budget_from = params[:budget_from]
+    budget_to = params[:budget_to]
+
     response = []
     if !params[:agent_company_id].nil?
       ### TODO FOR COMPANY
     elsif !params[:agent_id].nil?
-      Rails.logger.info("#{params[:agent_id]}__#{search_str}")
-      response = Trackers::Buyer.new.property_enquiry_details_buyer(params[:agent_id].to_i, enquiry_type, type_of_match, qualifying_stage, rating, buyer_status, buyer_funding, buyer_biggest_problem, buyer_chain_free, search_str)
+      Rails.logger.info("#{params[:agent_id].to_i}_#{enquiry_type}_#{type_of_match}_#{qualifying_stage}_#{rating}_#{buyer_status}_#{buyer_funding}_#{buyer_biggest_problem}_#{buyer_chain_free}_#{search_str}_#{budget_from}_#{budget_to}")
+      response = Trackers::Buyer.new.property_enquiry_details_buyer(params[:agent_id].to_i, enquiry_type, type_of_match, qualifying_stage, rating, buyer_status, buyer_funding, buyer_biggest_problem, buyer_chain_free, search_str, budget_from, budget_to)
     elsif !params[:hash_str].nil?
       search_params = { limit: 10000, fields: 'agent_id' }
       search_params[:hash_str] = params[:hash_str]
@@ -108,11 +111,11 @@ class EventsController < ApplicationController
         agents = body.map { |e| e['agent_id'] }.uniq rescue []
       end
       buyer = Trackers::Buyer.new
-      response = agents.map { |e| buyer.property_enquiry_details_buyer(e, enquiry_type, type_of_match, qualifying_stage, rating, buyer_status, buyer_funding, buyer_biggest_problem, buyer_chain_free, search_str) }.flatten.sort_by{ |t| t['time_of_event'] }.reverse
+      response = agents.map { |e| buyer.property_enquiry_details_buyer(e, enquiry_type, type_of_match, qualifying_stage, rating, buyer_status, buyer_funding, buyer_biggest_problem, buyer_chain_free, search_str, budget_from, budget_to) }.flatten.sort_by{ |t| t['time_of_event'] }.reverse
     elsif !params[:agent_branch_id].nil?
       agents = Agents::Branches::AssignedAgent.where(branch_id: params[:agent_branch_id].to_i).select(:id)
       buyer = Trackers::Buyer.new
-      response = agents.map { |e| buyer.property_enquiry_details_buyer(e, enquiry_type, type_of_match, qualifying_stage, rating, buyer_status, buyer_funding, buyer_biggest_problem, buyer_chain_free, search_str) }.flatten.sort_by{ |t| t['time_of_event'] }.reverse
+      response = agents.map { |e| buyer.property_enquiry_details_buyer(e, enquiry_type, type_of_match, qualifying_stage, rating, buyer_status, buyer_funding, buyer_biggest_problem, buyer_chain_free, search_str, budget_from, budget_to) }.flatten.sort_by{ |t| t['time_of_event'] }.reverse
     elsif !params[:agent_group_id].nil?
       ### TODO FOR AGENTS GROUP AS WELL
     end

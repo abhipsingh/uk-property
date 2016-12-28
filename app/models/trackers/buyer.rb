@@ -166,7 +166,6 @@ class Trackers::Buyer
   end
 
   def add_details_to_enquiry_row(new_row, details)
-    session = self.class.session
     table = 'Simple.property_events_buyers_events'
     property_id = details['udprn']
 
@@ -184,24 +183,19 @@ class Trackers::Buyer
 
   ##### Trackers::Buyer.new.fetch_filtered_buyer_ids('First time buyer', 'Mortgage approved', 'Funding', true)
   ##### Returns an array of buyer_ids
-  def fetch_filtered_buyer_ids(buyer_buying_status=nil, buyer_funding=nil, buyer_biggest_problem=nil, buyer_chain_free=nil, buyer_search_value=nil)
+  def fetch_filtered_buyer_ids(buyer_buying_status=nil, buyer_funding=nil, buyer_biggest_problem=nil, buyer_chain_free=nil, buyer_search_value=nil, budget_from=nil, budget_to=nil)
     pb = PropertyBuyer
     results = pb.where("id > 0")
-    if buyer_buying_status
-      results = results.where(buying_status: pb::BUYING_STATUS_HASH[buyer_buying_status])
-    end
+    results = results.where(buying_status: pb::BUYING_STATUS_HASH[buyer_buying_status]) if buyer_buying_status
 
-    if buyer_funding
-      results = results.where(funding: pb::FUNDING_STATUS_HASH[buyer_funding])
-    end
+    results = results.where(funding: pb::FUNDING_STATUS_HASH[buyer_funding]) if buyer_funding
 
-    if buyer_biggest_problem
-      results = results.where(biggest_problem: pb::BIGGEST_PROBLEM_HASH[buyer_biggest_problem])
-    end
+    results = results.where(biggest_problem: pb::BIGGEST_PROBLEM_HASH[buyer_biggest_problem]) if buyer_biggest_problem
 
-    if !buyer_chain_free.nil?
-      results = results.where(chain_free: buyer_chain_free)
-    end
+    results = results.where(chain_free: buyer_chain_free) if buyer_chain_free
+
+    results = results.where('budget_from < ?', budget_from.to_i) if budget_from
+    results = results.where('budget_to > ?', budget_to.to_i) if budget_to
     results.pluck(:id)
   end
 
@@ -217,21 +211,22 @@ class Trackers::Buyer
   ##### the agent are tracked ###################################
 
   ##### Agent level mock in console for new enquries coming
-  ##### Trackers::Buyer.new.property_enquiry_details_buyer(1234, 'requested_message', nil, nil, nil,nil, nil, nil, nil, nil)
-  def property_enquiry_details_buyer(agent_id, enquiry_type=nil, type_of_match=nil, qualifying_stage=nil, rating=nil, buyer_buying_status=nil, buyer_funding=nil, buyer_biggest_problem=nil, buyer_chain_free=nil, search_str=nil)
+  ##### Trackers::Buyer.new.property_enquiry_details_buyer(1234, 'requested_message', nil, nil, nil,nil, nil, nil, nil, nil, nil, nil)
+  def property_enquiry_details_buyer(agent_id, enquiry_type=nil, type_of_match=nil, qualifying_stage=nil, rating=nil, buyer_buying_status=nil, buyer_funding=nil, buyer_biggest_problem=nil, buyer_chain_free=nil, search_str=nil, budget_from=nil, budget_to=nil)
     result = []
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
     filtered_buyer_ids = []
     ### Process filtered buyer_id only
-    filtered_buyer_ids = fetch_filtered_buyer_ids(buyer_buying_status, buyer_funding, buyer_biggest_problem, buyer_chain_free, search_str)
+    filtered_buyer_ids = fetch_filtered_buyer_ids(buyer_buying_status, buyer_funding, buyer_biggest_problem, buyer_chain_free, search_str, budget_from, budget_to)
     filtered_buying_flag = (!buyer_buying_status.nil?) || (!buyer_funding.nil?) || (!buyer_biggest_problem.nil?) || (!buyer_chain_free.nil?)
 
     ### FIlter only the enquiries which are asked by the caller
     events = events.select{ |t| t == EVENTS[enquiry_type.to_sym] } if enquiry_type
 
+    buyer_filter_flag = buyer_buying_status || buyer_funding || buyer_biggest_problem || buyer_chain_free || budget_from || budget_to
     ### Filter only the type_of_match which are asked by the caller
-
-    query = Event.where(event: events).where(buyer_id: filtered_buyer_ids) if !filtered_buyer_ids.empty?
+    query = Event.where(event: events)
+    query = query.where(buyer_id: filtered_buyer_ids) if buyer_filter_flag
     query = query.where(type_of_match: type_of_match.to_s.downcase) if type_of_match
     query = query.search_address_and_buyer_details(search_str) if search_str
 
@@ -287,7 +282,7 @@ class Trackers::Buyer
     result |= net_rows
     buyer_ids.push((rating_matches_buyer_ids | qualifying_matches_buyer_ids))
 
-    buyers = PropertyBuyer.where(id: buyer_ids).select([:id, :email, :full_name, :mobile, :status, :chain_free, :funding, :biggest_problem, :buying_status]).order("position(id::text in '#{buyer_ids.join(',')}')")
+    buyers = PropertyBuyer.where(id: buyer_ids.flatten).select([:id, :email, :full_name, :mobile, :status, :chain_free, :funding, :biggest_problem, :buying_status]).order("position(id::text in '#{buyer_ids.join(',')}')")
     buyer_hash = {}
 
     buyers.each do |buyer|
