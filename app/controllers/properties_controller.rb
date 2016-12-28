@@ -170,8 +170,19 @@ class PropertiesController < ActionController::Base
 
   #### Ranking stats for the given property
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/history/enquiries/1'
+  #### Four filters can be applied
+  #### type_of_enquiry
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/history/enquiries/1?enquiry_type=requested_message'
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/history/enquiries/1?type_of_match=Perfect'
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/history/enquiries/1?property_status_type=Green'
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/history/enquiries/1?search_str=Jacqueline'
   def history_enquiries
-    ranking_info = Trackers::Buyer.new.history_enquiries(params[:buyer_id].to_i)
+    enquiry_type = params[:enquiry_type]
+    type_of_match = params[:type_of_match].downcase.to_sym if params[:type_of_match]
+    property_status_type = params[:property_status_type]
+    search_str = params[:search_str]
+
+    ranking_info = Trackers::Buyer.new.history_enquiries(params[:buyer_id].to_i, enquiry_type, type_of_match, property_status_type, search_str)
     render json: ranking_info, status: status
   end
 

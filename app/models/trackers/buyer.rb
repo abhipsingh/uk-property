@@ -364,7 +364,6 @@ class Trackers::Buyer
     result = Event.where(buyer_id: buyer_id).where(event: tracking_property_event).where(udprn: property_id).count.as_json
 
     new_row[:property_tracking] = (result.to_i == 0 ? false : true)
-
     #### Property is hot or cold or warm
     if agent_id #### This featured is only when agent_id is not nil(i.e. to agents)
       hotness_events = [ EVENTS[:hot_property], EVENTS[:cold_property], EVENTS[:warm_property] ]
@@ -995,11 +994,15 @@ class Trackers::Buyer
 
   ##### History of enquiries made by the user
   ##### Trackers::Buyer.new.history_enquiries(1)
-  def history_enquiries(buyer_id)
+  def history_enquiries(buyer_id, enquiry_type=nil, type_of_match=nil, property_status_type=nil, search_str=nil)
     result = []
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
-    total_rows = Event.where(buyer_id: buyer_id).where(event: events).order('created_at DESC').as_json
+    query = Event.where(buyer_id: buyer_id).where(event: events)
+    query = query.where(type_of_match: TYPE_OF_MATCH[type_of_match]) if type_of_match
+    query = query.where(event: EVENTS[enquiry_type.to_sym]) if enquiry_type
+    query = query.search_address_and_agent_details(search_str) if search_str
 
+    total_rows = query.order('created_at DESC').as_json
 
     total_rows.each do |each_row|
       new_row = {}
@@ -1009,6 +1012,10 @@ class Trackers::Buyer
       new_row['buyer_id'] = each_row['buyer_id']
       new_row['udprn'] = each_row['udprn']
       details = PropertyDetails.details(each_row['udprn'])['_source']
+
+      ### Skip this result
+      (next if details['property_status_type'] != property_status_type) if property_status_type
+      
       new_row['address'] = details['address']
       new_row['street_view_url'] = details['street_view_image_url']
       new_row['type_of_match'] = REVERSE_TYPE_OF_MATCH[each_row['type_of_match']]
@@ -1018,13 +1025,11 @@ class Trackers::Buyer
 
       #### Parse scheduled viewing date. If a viewing has been requested by the buyer.
       #### TODO: Scope for optimization. Fetching isn't needed, its already present.
-      if REVERSE_EVENTS[each_row['event']] == :requested_viewing || REVERSE_EVENTS[each_row['event']] == :viewing_stage
-        responded_event = EVENTS[:viewing_stage]
-        viewing_scheduled_event = Event.where(buyer_id: buyer_id).where(event: responded_event).where(udprn: property_id).order('created_at DESC').limit(1).first
-        if viewing_scheduled_event
-          message = JSON.parse(viewing_scheduled_event.message)
-          new_row['scheduled_viewing_time'] = message['scheduled_viewing_time']
-        end
+      responded_event = EVENTS[:viewing_stage]
+      viewing_scheduled_event = Event.where(buyer_id: buyer_id).where(event: responded_event).where(udprn: property_id).order('created_at DESC').limit(1).first
+      if viewing_scheduled_event
+        message = viewing_scheduled_event.message
+        new_row['scheduled_viewing_time'] = message['scheduled_viewing_time']
       end
 
       ### Price of the property
@@ -1038,19 +1043,23 @@ class Trackers::Buyer
 
       #### Udprn of properties nearby
       similar_udprns = PropertyDetails.similar_properties(each_row['udprn'])
-      new_row['udprns'] = similar_udprns
+      new_row['udprns'] = similar_udprns.select{ |t| t.to_i != each_row['udprn'] }
 
       #### Contact details of agents
-      quote = Agents::Branches::AssignedAgents::Quote.where(property_id: each_row['udprn'].to_i).where(status: 1).first
+      quote = Agents::Branches::AssignedAgents::Quote.where(property_id: each_row['udprn'].to_i).where(status: 3).first
       if quote
         agent = quote.agent
         new_row['assigned_agent_name'] = agent.name
         new_row['assigned_agent_email'] = agent.email
         new_row['assigned_agent_mobile'] = agent.mobile
+        new_row['assigned_agent_office_number'] = agent.office_phone_number
+        new_row['assigned_agent_image_url'] = agent.image_url
       else
         new_row['assigned_agent_name'] = nil
         new_row['assigned_agent_email'] = nil
         new_row['assigned_agent_mobile'] = nil
+        new_row['assigned_agent_office_number'] = nil
+        new_row['assigned_agent_image_url'] = nil
       end
 
       result.push(new_row)
@@ -1078,7 +1087,7 @@ class Trackers::Buyer
     event_sql = nil
     if type == :single
       event_type = EVENTS[:event]
-      count = Event.where(udprn: property_id).where(buyer_id: buyer_id).count
+      count = Event.where(udprn: property_id).where(buyer_id: buyer_id).where(event: event).count
     else
       event_types = event.map { |e| EVENTS[e] }
       count = Event.where(udprn: property_id).where(buyer_id: buyer_id).where(event: event_types).count
