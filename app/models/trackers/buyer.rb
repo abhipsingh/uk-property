@@ -87,6 +87,16 @@ class Trackers::Buyer
 
   #### API Responses for tables
 
+  #### Agent enquiries latest implementation
+  #### Trackers::Buyer.new.search_latest_enquiries(1234)
+  def search_latest_enquiries(agent_id, property_status_type=nil, verification_status=nil, ads=nil, search_str=nil)
+    events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
+    query = Event.where(agent_id: agent_id).where(event: events)
+    query = query.search_address_and_buyer_details(search_str) if search_str
+    property_ids = query.order('created_at DESC').pluck(:udprn)
+    response = property_ids.map { |e| Trackers::Buyer.new.property_and_enquiry_details(agent_id.to_i, e, property_status_type, verification_status, ads) }.compact
+  end
+
   ###############################################################
   ###############################################################
   ###############################################################
@@ -94,17 +104,10 @@ class Trackers::Buyer
   ###############################################################
   ########## Property level enquiries ###########################
 
-  #### To mock this function try 
-  #### Trackers::Buyer.new.all_property_enquiry_details(1234, nil, nil)
-
-  def all_property_enquiry_details(agent_id=nil, hash_str=nil, hash_type=nil)
-    property_enquiry_details(property_id)
-  end
-
   ##### To mock this in the console try 
-  ##### Trackers::Buyer.new.property_and_enquiry_details('10966139')
+  ##### Trackers::Buyer.new.property_and_enquiry_details(1234, '10966139')
 
-  def property_and_enquiry_details(property_id, property_status_type=nil, verification_status=nil, ads=nil)
+  def property_and_enquiry_details(agent_id, property_id, property_status_type=nil, verification_status=nil, ads=nil)
     url = "#{Rails.configuration.remote_es_url}/addresses/address/#{property_id}"
     response = Net::HTTP.get(URI.parse(url))
     details = Oj.load(response)['_source']
@@ -112,12 +115,20 @@ class Trackers::Buyer
     new_row = {}
     property_enquiry_details(new_row, property_id, details)
 
-
     return nil if property_status_type && property_status_type != new_row[:property_status_type]
     return nil if verification_status && verification_status.to_s != new_row[:verification_status].to_s
     return nil if ads && ads.to_s != new_row[:advertised].to_s
 
+    push_agent_details(new_row, agent_id)
+
     new_row
+  end
+
+  #### Push agent specific details
+  def push_agent_details(new_row, agent_id)
+    keys = [:name, :email, :mobile, :office_phone_number, :image_url]
+    agents = Agents::Branches::AssignedAgent.where(id: agent_id).select(keys).as_json
+    agents.each { |e| keys.each { |k| new_row[k] = e[k.to_s] } }
   end
 
   def property_enquiry_details(new_row, property_id, details)
@@ -206,63 +217,43 @@ class Trackers::Buyer
   ##### the agent are tracked ###################################
 
   ##### Agent level mock in console for new enquries coming
-  ##### Trackers::Buyer.new.property_enquiry_details_buyer(1234)
-
-  def property_enquiry_details_buyer(agent_id, enquiry_type=nil, type_of_match=nil, qualifying_stage=nil, rating=nil, buyer_buying_status=nil, buyer_funding=nil, buyer_biggest_problem=nil, buyer_chain_free=nil, buyer_search_value=nil)
+  ##### Trackers::Buyer.new.property_enquiry_details_buyer(1234, 'requested_message', nil, nil, nil,nil, nil, nil, nil, nil)
+  def property_enquiry_details_buyer(agent_id, enquiry_type=nil, type_of_match=nil, qualifying_stage=nil, rating=nil, buyer_buying_status=nil, buyer_funding=nil, buyer_biggest_problem=nil, buyer_chain_free=nil, search_str=nil)
     result = []
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
-    total_rows = []
-    table = 'Simple.timestamped_property_events'
-    initial_cql = "SELECT * FROM #{table}"
-    order_cql = " ORDER BY time_of_event DESC LIMIT 20 ALLOW FILTERING;"
-    where_cql = " WHERE agent_id = #{agent_id} "
-
     filtered_buyer_ids = []
     ### Process filtered buyer_id only
-    filtered_buyer_ids = fetch_filtered_buyer_ids(buyer_buying_status, buyer_funding, buyer_biggest_problem, buyer_chain_free, buyer_search_value)
+    filtered_buyer_ids = fetch_filtered_buyer_ids(buyer_buying_status, buyer_funding, buyer_biggest_problem, buyer_chain_free, search_str)
     filtered_buying_flag = (!buyer_buying_status.nil?) || (!buyer_funding.nil?) || (!buyer_biggest_problem.nil?) || (!buyer_chain_free.nil?)
 
     ### FIlter only the enquiries which are asked by the caller
-    if enquiry_type
-      events = events.select{ |t| t == EVENTS[enquiry_type.to_sym] }
-    end
+    events = events.select{ |t| t == EVENTS[enquiry_type.to_sym] } if enquiry_type
 
     ### Filter only the type_of_match which are asked by the caller
-    if type_of_match
-      type_of_match = type_of_match.to_s.downcase
-      where_cql = where_cql + " AND type_of_match = #{TYPE_OF_MATCH[type_of_match.to_sym]} "
-    end
 
-    events.each do |event|
-      received_cql = initial_cql + where_cql + " AND event = #{event}  " + order_cql
-      session = self.class.session
-      future = session.execute(received_cql)
-      total_rows |= future.rows.to_a if !future.rows.to_a.empty?
-    end
+    query = Event.where(event: events).where(buyer_id: filtered_buyer_ids) if !filtered_buyer_ids.empty?
+    query = query.where(type_of_match: type_of_match.to_s.downcase) if type_of_match
+    query = query.search_address_and_buyer_details(search_str) if search_str
 
-    #### if its qualifying and 
-    buyer_ids = []
-    total_rows.sort_by!{ |t| t['time_of_event'] }
-    total_rows.reverse!
+    total_rows = query.order('created_at DESC').as_json
 
     qualifying_matches = []
     rating_matches = []
     qualifying_matches_buyer_ids = []
     rating_matches_buyer_ids = []
-
+    buyer_ids = []
     buyer_id_matches = []
     buyer_id_matches_buyer_ids = []
 
-    total_rows = total_rows.first(20).select{|t| t['property_id'] != '45326' }.uniq!{ |t| t['property_id'] }
-    total_rows.first(20).each_with_index do |each_row, index|
+    total_rows.each_with_index do |each_row, index|
       new_row = {}
-      new_row['udprn'] = each_row['property_id']
-      new_row['received'] = each_row['stored_time']
+      new_row['udprn'] = each_row['udprn']
+      new_row['received'] = each_row['created_at']
       new_row['type_of_enquiry'] = REVERSE_EVENTS[each_row['event']]
-      new_row['time_of_event'] = each_row['time_of_event'].to_time.to_s
+      new_row['time_of_event'] = each_row['created_at'].to_time.to_s
       new_row['buyer_id'] = each_row['buyer_id']
       new_row['type_of_match'] = REVERSE_TYPE_OF_MATCH[each_row['type_of_match']]
-      property_id = each_row['property_id']
+      property_id = each_row['udprn']
       push_property_details_row(new_row, property_id)
       add_details_to_enquiry_row_buyer(new_row, property_id, each_row, agent_id)
 
@@ -375,23 +366,15 @@ class Trackers::Buyer
     #### Tracking property or not
     tracking_property_event = EVENTS[:property_tracking]
     buyer_id = event_details['buyer_id']
-    tracking_prop_cql = "SELECT COUNT(*) FROM simple.buyer_property_events WHERE buyer_id = #{buyer_id.to_i} AND property_id = '#{property_id.to_i}' AND event = #{tracking_property_event} ALLOW FILTERING;"
-    session = self.class.session
-    future = session.execute(tracking_prop_cql)
+    result = Event.where(buyer_id: buyer_id).where(event: tracking_property_event).where(udprn: property_id).count.as_json
 
-    future.rows do |each_row|
-      new_row[:property_tracking] = (each_row['count'] == 0 ? false : true)
-    end
-    table = 'simple.property_events_buyers_events'
+    new_row[:property_tracking] = (result.to_i == 0 ? false : true)
 
     #### Property is hot or cold or warm
     if agent_id #### This featured is only when agent_id is not nil(i.e. to agents)
       hotness_events = [ EVENTS[:hot_property], EVENTS[:cold_property], EVENTS[:warm_property] ]
-      hotness_event_cql = "SELECT * FROM simple.buyer_property_events WHERE buyer_id = #{buyer_id.to_i} AND property_id = '#{property_id.to_i}' AND event IN (#{hotness_events.join(',')}) ALLOW FILTERING;"
-      future = session.execute(hotness_event_cql)
-
-      hot_row = future.rows.sort_by{ |t| t['stored_time'] }.reverse.first
-      new_row[:hotness] = REVERSE_EVENTS[hot_row['event']] if hot_row
+      result = Event.where(buyer_id: buyer_id).where(event: hotness_events).where(udprn: property_id).order('created_at DESC').limit(1).first
+      new_row[:hotness] = REVERSE_EVENTS[result.event] if result
       new_row[:hotness] ||= 'cold_property'
     end
 
@@ -399,42 +382,27 @@ class Trackers::Buyer
 
     ##### Saved search hashes in message section
     save_search_event = EVENTS[:save_search_hash]
-    save_search_cql = "SELECT message, stored_time FROM simple.buyer_property_events WHERE buyer_id = #{buyer_id.to_i} AND property_id = '#{property_id.to_i}' AND event = #{save_search_event}  ALLOW FILTERING;"
-    future = session.execute(save_search_cql)
-
-    recent_search_row = future.rows.sort_by{ |t| t['stored_time'] }.reverse.first
-    new_row[:search_hash] = recent_search_row['message'] rescue {}
+    result = Event.where(buyer_id: buyer_id).where(event: save_search_event).where(udprn: property_id).order('created_at DESC').limit(1).first
+    new_row[:search_hash] = result.message.to_json rescue ({}.to_json)
     ##### Saved search hash ends
 
     #### Views
-    total_views = generic_event_count(EVENTS[:viewed], table, property_id, :single)
-    buyer_views = generic_event_count_buyer(EVENTS[:viewed], table, property_id, buyer_id)
+    total_views = generic_event_count(EVENTS[:viewed], nil, property_id, :single)
+    buyer_views = generic_event_count_buyer(EVENTS[:viewed], nil, property_id, buyer_id)
     new_row[:views] = buyer_views.to_i.to_s + '/' + total_views.to_i.to_s
 
     #### Enquiries
-    total_enquiries = generic_event_count(ENQUIRY_EVENTS, table, property_id, :multiple)
-    buyer_enquiries = generic_event_count(ENQUIRY_EVENTS, table, property_id, :multiple)
+    total_enquiries = generic_event_count(ENQUIRY_EVENTS, nil, property_id, :multiple)
+    buyer_enquiries = generic_event_count(ENQUIRY_EVENTS, nil, property_id, :multiple)
     new_row[:enquiries] = buyer_enquiries.to_i.to_s + '/' + total_enquiries.to_i.to_s
 
     #### Qualifying Stage Only shown to the agents
       #Rails.logger.info(future.rows)
     if agent_id
       qualifying_events = QUALIFYING_STAGE_EVENTS.map { |e| EVENTS[e] }.join(',')
-      qualifying_cql = <<-SQL
-                        SELECT event
-                        FROM Simple.agents_buyer_events
-                        WHERE agent_id = #{agent_id} 
-                        AND event IN (#{qualifying_events})
-                        AND buyer_id = #{buyer_id}
-                        ORDER BY buyer_id DESC, event DESC, time_of_event DESC
-                        LIMIT 1;
-                       SQL
-      future = session.execute(qualifying_cql)
-
-      #Rails.logger.info(qualifying_cql)
-
-      future.rows do |each_row|
-        new_row[:qualifying] = REVERSE_EVENTS[each_row['event']]
+      result = Event.where(agent_id: agent_id).where(buyer_id: buyer_id).where(event: qualifying_events).where(buyer_id: buyer_id).order('created_at DESC')
+      result.each do |each_row|
+        new_row[:qualifying] = REVERSE_EVENTS[each_row.event]
       end
     end
     new_row
@@ -449,29 +417,21 @@ class Trackers::Buyer
   ##### accessed by the vendor/property ownerthe agent are ######
   ##### tracked                                            ######
   ##### Property level mock in console for new enquries coming
-  ##### Trackers::Buyer.new.property_enquiry_details_vendor(10966139)
+  ##### Trackers::Buyer.new.property_enquiry_details_vendor(10966183)
   def property_enquiry_details_vendor(property_id)
     result = []
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
     total_rows = []
-    events.each do |event|
-      table = 'Simple.property_events_buyers_events'
-      received_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} LIMIT 20 ALLOW FILTERING;"
-      session = self.class.session
-      future = session.execute(received_cql)
-      total_rows |= future.rows.to_a if !future.rows.to_a.empty?
-    end
+    total_rows = Event.where(event: events).where(udprn: property_id).order('created_at DESC').as_json
     buyer_ids = []
-    total_rows.sort_by!{ |t| t['time_of_event'] }
-    total_rows.reverse!
-    total_rows.first(20).each do |each_row|
+    total_rows.each do |each_row|
       new_row = {}
-      new_row['received'] = each_row['stored_time']
+      new_row['received'] = each_row['created_at']
       new_row['type_of_enquiry'] = REVERSE_EVENTS[each_row['event']]
-      new_row['time_of_event'] = each_row['time_of_event'].to_time.to_s
+      new_row['time_of_event'] = each_row['created_at'].to_time.to_s
       new_row['buyer_id'] = each_row['buyer_id']
       new_row['type_of_match'] = REVERSE_TYPE_OF_MATCH[each_row['type_of_match']]
-      property_id = each_row['property_id']
+      property_id = each_row['udprn']
       push_property_details_row(new_row, property_id)
       add_details_to_enquiry_row_buyer(new_row, property_id, each_row, nil) #### Passing agent_id as nil
       buyer_ids.push(each_row['buyer_id'])
@@ -502,72 +462,57 @@ class Trackers::Buyer
   #### Buyer interest details. To test it, just run the following in the irb
   #### Trackers::Buyer.new.interest_info(10966139)
   def interest_info(udprn)
-    aggregated_result = []
+    aggregated_result = {}
     property_id = udprn.to_i
-    (1..12).to_a.each do |each_month|
-      each_month_data = {}
-      
-      ### Month name
-      month = each_month
-      each_month_data[:month] = Date::MONTHNAMES[each_month]
+    current_month = Date.today.month
 
-      ### Count of property searches
-      event = EVENTS[:save_search_hash]
-      table = 'simple.property_events_buyers_events'
-      event_cql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND month = #{month} ALLOW FILTERING;"
-      each_month_data[:no_of_searches] = execute_count(event_cql)
+    event = EVENTS[:viewed]
+    monthly_views = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}").as_json
+    aggregated_result[:monthly_views] =  monthly_views
 
-      ### Count of views
-      event = EVENTS[:viewed]
-      table = 'simple.property_events_buyers_events'
-      event_cql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND month = #{month} ALLOW FILTERING;"
-      each_month_data[:views] = execute_count(event_cql)
+    event = EVENTS[:save_search_hash]
+    monthly_saved_search_hashes = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}").as_json
+    aggregated_result[:save_search_hash] =  monthly_saved_search_hashes
 
-      ### Enquiry count
-      events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
-      enquiry_count = 0
-      events.each do |event|
-        event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND month = #{month} ALLOW FILTERING;"
-        enquiry_count += execute_count(event_cql).to_i
+    events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
+    monthly_enquiries = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event IN (#{events.join(',')})").as_json
+    aggregated_result[:enquiries] =  monthly_enquiries
+    
+    event = EVENTS[:property_tracking]
+    monthly_property_tracking = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}").as_json
+    aggregated_result[:property_tracking] =  monthly_property_tracking
+
+    event = EVENTS[:interested_in_viewing]
+    monthly_interested_in_viewing = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}").as_json
+    aggregated_result[:interested_in_viewing] =  monthly_interested_in_viewing
+    
+    event = EVENTS[:interested_in_making_an_offer]
+    monthly_interested_in_making_an_offer = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}").as_json
+    aggregated_result[:interested_in_making_an_offer] =  monthly_interested_in_making_an_offer
+
+    event = EVENTS[:requested_message]
+    monthly_requested_message = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}").as_json
+    aggregated_result[:interested_in_making_an_offer] =  monthly_requested_message
+
+    event = EVENTS[:requested_callback]
+    results = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}").as_json
+    aggregated_result[:requested_callback] =  results
+
+    event = EVENTS[:requested_viewing]
+    results = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}").as_json
+    aggregated_result[:requested_viewing] =  results
+
+    event = EVENTS[:deleted]
+    results = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}").as_json
+    aggregated_result[:deleted] =  results
+
+    months = (1..12).to_a
+    aggregated_result.each do |key, value|
+      present_months = value.map { |e| e['month'].to_i }
+      missing_months = months.select{ |t| !present_months.include?(t) }
+      missing_months.each do |each_month|
+        value.push({ month: each_month.to_s, count: 0 })
       end
-      each_month_data[:total_enquiry_count] = enquiry_count
-
-      ### Tracking count
-      event = EVENTS[:property_tracking]
-      event_cql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND month = #{each_month} ALLOW FILTERING;"
-      each_month_data[:tracking] = execute_count(event_cql)
-
-      ### Would view count
-      event = EVENTS[:interested_in_viewing]
-      event_cql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND month = #{each_month} ALLOW FILTERING;"
-      each_month_data[:interested_in_viewing] = execute_count(event_cql)
-
-      ### Would make an offer count
-      event = EVENTS[:interested_in_making_an_offer]
-      event_cql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND month = #{each_month} ALLOW FILTERING;"
-      each_month_data[:interested_in_making_an_offer] = execute_count(event_cql)
-
-      ### Count of people who requested messages
-      event = EVENTS[:requested_message]
-      event_cql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND month = #{each_month} ALLOW FILTERING;"
-      each_month_data[:requested_message] = execute_count(event_cql)
-
-      ### Count of people who requested callback
-      event = EVENTS[:requested_callback]
-      event_cql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND month = #{each_month} ALLOW FILTERING;"
-      each_month_data[:requested_callback] = execute_count(event_cql)
-
-      ### Count of requested viewing event
-      event = EVENTS[:requested_viewing]
-      event_cql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND month = #{each_month} ALLOW FILTERING;"
-      each_month_data[:requested_viewing] = execute_count(event_cql)
-
-      ### Count of hidden/deleted
-      event = EVENTS[:deleted]
-      event_cql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND month = #{each_month} ALLOW FILTERING;"
-      each_month_data[:deleted] = execute_count(event_cql)
-
-      aggregated_result.push(each_month_data)
     end
     aggregated_result
   end
@@ -611,19 +556,12 @@ class Trackers::Buyer
       udprns = udprns - [ udprn.to_s ]
 
       ### Accumulate data for each udprn
-      udprns.each do |udprn|
-        event = EVENTS[:save_search_hash]
-        property_id = udprn.to_i
-        ### Perfect count
-        type_of_match = TYPE_OF_MATCH[:perfect]
-        event_cql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND type_of_match = #{type_of_match} ALLOW FILTERING;"
-        search_stats[region_type][:perfect_matches] += execute_count(event_cql).to_i
+      type_of_match = TYPE_OF_MATCH[:perfect]
+      event = EVENTS[:save_search_hash]
+      search_stats[region_type][:perfect_matches] = Event.where(udprn: udprns).where(event: event).where(type_of_match: type_of_match).count
 
-        ### Potential count
-        type_of_match = TYPE_OF_MATCH[:potential]
-        event_cql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} AND type_of_match = #{type_of_match} ALLOW FILTERING;"
-        search_stats[region_type][:potential_matches] += execute_count(event_cql).to_i
-      end
+      type_of_match = TYPE_OF_MATCH[:potential]
+      search_stats[region_type][:potential_matches] = Event.where(udprn: udprns).where(event: event).where(type_of_match: type_of_match).count
 
       search_stats[region_type][:total_matches] = search_stats[region_type][:perfect_matches] + search_stats[region_type][:potential_matches]
 
@@ -642,7 +580,6 @@ class Trackers::Buyer
   #### Trackers::Buyer.new.supply_info(10966139)
   def supply_info(udprn)
     details = PropertyDetails.details(udprn.to_i)['_source'] rescue {}
-    table = 'simple.property_events_buyers_events'
 
     #### Similar properties to the udprn
     default_search_params = {
@@ -729,19 +666,8 @@ class Trackers::Buyer
 
       ### Accumulate buyer_id for each udprn
       buyer_ids = []
-      udprns.each do |udprn|
-        event = EVENTS[:save_search_hash]
-        property_id = udprn.to_i
-        ### Perfect count
-        type_of_match = TYPE_OF_MATCH[:perfect]
-        event_cql = "SELECT buyer_id FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
-        session = self.class.session
-        future = session.execute(event_cql)
-        count = nil
-        future.rows do |each_row|
-          buyer_ids.push(each_row['buyer_id'])
-        end
-      end
+      event = EVENTS[:save_search_hash]
+      buyer_ids = Event.where(event: event).where(udprn: udprns).pluck(:buyer_id).uniq
 
       ### Extract status of the buyers in bulk
       buyers = PropertyBuyer.where(id: buyer_ids).select([:id, :status])
@@ -769,24 +695,14 @@ class Trackers::Buyer
   #### Methods for the pie charts have been defined below
   ##### Information about pie charts about the buyer. All related to the buyer
   #### To try this method run the following in the console
-  #### Trackers::Buyer.new.buyer_profile_stats(10966139)
+  #### Trackers::Buyer.new.buyer_profile_stats(10976419)
   def buyer_profile_stats(udprn)
     result_hash = {}
     property_id = udprn.to_i
     details = PropertyDetails.details(udprn.to_i)['_source'] rescue {}
-    table = 'simple.property_events_buyers_events'
     event = EVENTS[:save_search_hash]
-    event_cql = "SELECT buyer_id FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
-    p event_cql
-    future = session.execute(event_cql)
-    count = nil
-    buyer_ids = []
-    future.rows do |each_row|
-      buyer_ids.push(each_row['buyer_id'])
-    end
+    buyer_ids = Event.where(event: event).where(udprn: property_id).where(type_of_match: 1).pluck(:buyer_id).uniq
 
-    buyer_ids.uniq!
-    p buyer_ids
     ### Buying status stats
     buying_status_distribution = PropertyBuyer.where(id: buyer_ids).group(:buying_status).count
     total_count = buying_status_distribution.inject(0) do |result, (key, value)|
@@ -840,89 +756,45 @@ class Trackers::Buyer
     aggregate_stats = {}
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
     table = 'Simple.property_events_buyers_events'
-    session = self.class.session
     property_id = udprn.to_i
-    total_rows = []
-    events.each do |event|
-      event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
-      future = session.execute(event_cql)
-      total_rows |= future.rows.to_a if !future.rows.to_a.empty?
-    end
+    buyer_ids = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
     ### Filtered out the rows which are outdated
-    relevant_rows = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }
-    buyer_ids = relevant_rows.map{ |each_row| each_row['buyer_id'] }.uniq
 
     ### Buyers who are in qualifying stage
-    total_rows = []
     event = EVENTS[:qualifying_stage]
-    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
-    future = session.execute(event_cql)
-    total_rows = future.rows.to_a if !future.rows.to_a.empty?
-    qualifying_buyer_ids = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq
+    qualifying_buyer_ids = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
 
     ### Buyers who are in viewing scheduled stage
-    total_rows = []
     event = EVENTS[:viewing_stage]
-    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
-    future = session.execute(event_cql)
-    total_rows = future.rows.to_a if !future.rows.to_a.empty?
-    viewing_scheduled_buyer_ids = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq    
+    viewing_scheduled_buyer_ids = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
 
     ### Buyers who are in offer made stage
-    total_rows = []
     event = EVENTS[:offer_made_stage]
-    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
-    future = session.execute(event_cql)
-    total_rows = future.rows.to_a if !future.rows.to_a.empty?
-    offer_made_buyer_ids = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq
+    offer_made_buyer_ids = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
 
     ### Buyers who are in offer made stage
-    total_rows = []
     event = EVENTS[:offer_accepted_stage]
-    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
-    future = session.execute(event_cql)
-    total_rows = future.rows.to_a if !future.rows.to_a.empty?
-    offer_accepted_buyer_ids = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq
+    offer_accepted_buyer_ids = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
 
     ### Buyers who are in conveyancing stage
-    total_rows = []
     event = EVENTS[:conveyance_stage]
-    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
-    future = session.execute(event_cql)
-    total_rows = future.rows.to_a if !future.rows.to_a.empty?
-    conveyance_buyer_ids = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq
+    conveyance_buyer_ids = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
 
     ### Buyers who are in conveyancing stage
-    total_rows = []
     event = EVENTS[:contract_exchange_stage]
-    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
-    future = session.execute(event_cql)
-    total_rows = future.rows.to_a if !future.rows.to_a.empty?
-    contract_exchange_buyer_ids = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq
+    contract_exchange_buyer_ids = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
 
     ### Buyers who are in completion stage
-    total_rows = []
     event = EVENTS[:completion_stage]
-    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
-    future = session.execute(event_cql)
-    total_rows = future.rows.to_a if !future.rows.to_a.empty?
-    completion_stage_buyer_ids = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq
+    completion_stage_buyer_ids = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
 
     ### Buyers who are in conveyancing stage
-    total_rows = []
     event = EVENTS[:closed_won_stage]
-    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
-    future = session.execute(event_cql)
-    total_rows = future.rows.to_a if !future.rows.to_a.empty?
-    closed_won_buyer_ids = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq
+    closed_won_buyer_ids = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
     
     ### Buyers who are in closed lost stage
-    total_rows = []
     event = EVENTS[:closed_lost_stage]
-    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
-    future = session.execute(event_cql)
-    total_rows = future.rows.to_a if !future.rows.to_a.empty?
-    closed_lost_buyer_ids = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq
+    closed_lost_buyer_ids = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
     
     ### Removing the common buyer ids in all the stages
     qualifying_buyer_ids = qualifying_buyer_ids - viewing_scheduled_buyer_ids
@@ -986,31 +858,16 @@ class Trackers::Buyer
     rating_stats = {}
 
     ### Hot property buyers
-    total_rows = []
     event = EVENTS[:hot_property]
-    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
-    future = session.execute(event_cql)
-    total_rows = future.rows.to_a if !future.rows.to_a.empty?
-    hot_property_buyers = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq
-    rating_stats[:hot_property_count] = hot_property_buyers.count
+    rating_stats[:hot_property_count] = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq.count
 
     ### Warm property buyers
-    total_rows = []
     event = EVENTS[:warm_property]
-    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
-    future = session.execute(event_cql)
-    total_rows = future.rows.to_a if !future.rows.to_a.empty?
-    warm_property_buyers = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq
-    rating_stats[:warm_property_count] = warm_property_buyers.count
+    rating_stats[:warm_property_count] = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq.count
 
     ### Cold property buyers
-    total_rows = []
     event = EVENTS[:cold_property]
-    event_cql = "SELECT * FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event} ALLOW FILTERING;"
-    future = session.execute(event_cql)
-    total_rows = future.rows.to_a if !future.rows.to_a.empty?
-    cold_property_buyers = total_rows.select{ |t| Date.parse(t['date']) >= 5.months.ago }.map { |e| e['buyer_id'] }.uniq
-    rating_stats[:cold_property_count] = cold_property_buyers.count
+    rating_stats[:cold_property_count] = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq.count
 
     unknown_buyers = buyer_ids - ( hot_property_buyers + warm_property_buyers + cold_property_buyers )
     rating_stats[:unknown_rating_count] = unknown_buyers.length
@@ -1032,7 +889,6 @@ class Trackers::Buyer
     udprn = udprn.to_i
     property_id = udprn
     details = PropertyDetails.details(udprn)['_source']
-    table = 'simple.property_events_buyers_events'
     #### Similar properties to the udprn
     default_search_params = {
       min_beds: details['beds'],
@@ -1143,34 +999,25 @@ class Trackers::Buyer
 
 
   ##### History of enquiries made by the user
-  ##### Trackers::Buyer.new.history_enquiries(10966139)
+  ##### Trackers::Buyer.new.history_enquiries(1)
   def history_enquiries(buyer_id)
-    total_rows = []
     result = []
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
-    session = self.class.session
-    total_rows = []
-    table = 'Simple.buyer_property_events'
-    events.each do |event|
-      received_cql = "SELECT * FROM #{table} WHERE buyer_id = #{buyer_id} AND event = #{event} LIMIT 20 ALLOW FILTERING;"
-      future = session.execute(received_cql)
-      total_rows |= future.rows.to_a if !future.rows.to_a.empty?
-    end
+    total_rows = Event.where(buyer_id: buyer_id).where(event: events).order('created_at DESC').as_json
 
-    total_rows.sort_by{ |t| t['stored_time'].to_i }.reverse
 
-    total_rows.first(20).each do |each_row|
+    total_rows.each do |each_row|
       new_row = {}
-      new_row['received'] = each_row['stored_time']
+      new_row['received'] = each_row['created_at']
       new_row['type_of_enquiry'] = REVERSE_EVENTS[each_row['event']]
-      new_row['time_of_event'] = each_row['time_of_event']
+      new_row['time_of_event'] = each_row['created_at']
       new_row['buyer_id'] = each_row['buyer_id']
-      new_row['udprn'] = each_row['property_id']
-      details = PropertyDetails.details(each_row['property_id'])['_source']
+      new_row['udprn'] = each_row['udprn']
+      details = PropertyDetails.details(each_row['udprn'])['_source']
       new_row['address'] = details['address']
       new_row['street_view_url'] = details['street_view_image_url']
       new_row['type_of_match'] = REVERSE_TYPE_OF_MATCH[each_row['type_of_match']]
-      property_id = each_row['property_id']
+      property_id = each_row['udprn']
       push_property_details_row(new_row, property_id)
       add_details_to_enquiry_row_buyer(new_row, property_id, each_row, nil)
 
@@ -1178,18 +1025,15 @@ class Trackers::Buyer
       #### TODO: Scope for optimization. Fetching isn't needed, its already present.
       if REVERSE_EVENTS[each_row['event']] == :requested_viewing || REVERSE_EVENTS[each_row['event']] == :viewing_stage
         responded_event = EVENTS[:viewing_stage]
-        viewing_scheduled_cql = "SELECT * FROM #{table} WHERE buyer_id = #{buyer_id} AND event = #{responded_event} AND property_id = '#{property_id}' "
-        future = session.execute(viewing_scheduled_cql)
-        viewing_scheduled_rows = future.rows.to_a
-        if !viewing_scheduled_rows.empty?
-          recent_viewing_scheduled_viewing_row = viewing_scheduled_rows.sort_by{ |t| t['stored_time'].to_i }.reverse.first
-          message = JSON.parse(recent_viewing_scheduled_viewing_row['message'])
+        viewing_scheduled_event = Event.where(buyer_id: buyer_id).where(event: responded_event).where(udprn: property_id).order('created_at DESC').limit(1).first
+        if viewing_scheduled_event
+          message = JSON.parse(viewing_scheduled_event.message)
           new_row['scheduled_viewing_time'] = message['scheduled_viewing_time']
         end
       end
 
       ### Price of the property
-      details = PropertyDetails.details(each_row['property_id'])['_source']
+      details = PropertyDetails.details(each_row['udprn'])['_source']
       new_row['dream_price'] = details['dream_price']
       if details['property_status_type'] == 'Green' || details['property_status_type'] == 'Amber'
         PropertyDetailsRepo::PRICE_TYPES.each{|p| new_row[p] = details[p.to_s]  }
@@ -1198,11 +1042,11 @@ class Trackers::Buyer
       end
 
       #### Udprn of properties nearby
-      similar_udprns = PropertyDetails.similar_properties(each_row['property_id'])
+      similar_udprns = PropertyDetails.similar_properties(each_row['udprn'])
       new_row['udprns'] = similar_udprns
 
       #### Contact details of agents
-      quote = Agents::Branches::AssignedAgents::Quote.where(property_id: each_row['property_id'].to_i).where(status: 1).first
+      quote = Agents::Branches::AssignedAgents::Quote.where(property_id: each_row['udprn'].to_i).where(status: 1).first
       if quote
         agent = quote.agent
         new_row['assigned_agent_name'] = agent.name
@@ -1223,25 +1067,15 @@ class Trackers::Buyer
   private
 
   def generic_event_count(event, table, property_id, type=:single)
-    event_sql = nil
+    event_sql, count = nil
     if type == :single
       event_type = event
-      event_sql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event = #{event_type};"
+      count = Event.where(udprn: property_id).where(event: event_type).count
     else
-      event_types = event.map { |e| EVENTS[e].to_s }.join(',')
-      event_sql = "SELECT COUNT(*) FROM #{table} WHERE property_id = '#{property_id}' AND event IN (#{event_types});"
+      event_types = event.map { |e| EVENTS[e] }
+      count = Event.where(udprn: property_id).where(event: event_types).count
     end
     # p "_#{event_sql}_#{property_id}_#{table}_#{event}_#{type}"
-    execute_count(event_sql)
-  end
-
-  def execute_count(event_sql)
-    session = self.class.session
-    future = session.execute(event_sql)
-    count = nil
-    future.rows do |each_row|
-      count = each_row['count']
-    end
     count
   end
 
@@ -1249,13 +1083,13 @@ class Trackers::Buyer
     event_sql = nil
     if type == :single
       event_type = EVENTS[:event]
-      event_sql = "SELECT COUNT(*) FROM #{table} WHERE property_id='#{property_id}' AND buyer_id = #{buyer_id} AND event = #{event} ALLOW FILTERING; "
+      count = Event.where(udprn: property_id).where(buyer_id: buyer_id).count
     else
-      event_types = event.map { |e| EVENTS[e].to_s }.join(',')
-      event_sql = "SELECT COUNT(*) FROM #{table} WHERE property_id='#{property_id}' AND buyer_id = #{buyer_id} AND event IN (#{event_types}) ALLOW FILTERING;"
+      event_types = event.map { |e| EVENTS[e] }
+      count = Event.where(udprn: property_id).where(buyer_id: buyer_id).where(event: event_types).count
     end
     # p "BUYER_#{event_sql}_#{property_id}_#{table}_#{event}_#{type}"
-    execute_count(event_sql)
+    count
   end
 
   def post_url(index, query = {}, type='_search', host='localhost')

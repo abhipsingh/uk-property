@@ -11,6 +11,12 @@ Rails.application.routes.draw do
   # You can have the root of your site routed with "root"
   root 'welcome#index'
 
+  ## JWT based authentication
+  post 'authenticate', to: 'authentication#authenticate'
+
+  ## Get user details
+  get 'users/details', to: 'users#details'
+
   ###### ENQUIRIES ####################################################
   #####################################################################
   #####################################################################
@@ -122,20 +128,26 @@ Rails.application.routes.draw do
   #####################################################################
   #####################################################################
   #### Agents routes for assigned agents details panel
-  get 'agents/assigned_agent/:assigned_agent_id',               to: 'agents#assigned_agent_details'
+  get 'agents/agent/:assigned_agent_id',                       to: 'agents#assigned_agent_details'
 
 
   #### Agents routes for branch details
   get 'agents/branch/:branch_id',                               to: 'agents#branch_details'
 
   #### Agents routes for agent details
-  get 'agents/agent/:agent_id',                                 to: 'agents#agent_details'
+  get 'agents/company/:agent_id',                                 to: 'agents#agent_details'
 
   #### Agents routes for agent group details
   get 'agents/group/:group_id',                                 to: 'agents#group_details'
 
   #### Agents routes for search any of agent, group, branch or assigned agents by name
   get 'agents/predictions',                                     to: 'agents#search'
+
+  #### Agents routes for search any of agent, group, branch or assigned agents by name
+  post 'agents/register',                                       to: 'agents#add_agent_details'
+
+  #### Invite other agents to register as well
+  post 'agents/invite',                                         to: 'agents#invite_agents_to_register'
 
   #####################################################################
   #####################################################################

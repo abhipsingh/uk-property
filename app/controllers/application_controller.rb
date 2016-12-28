@@ -4,7 +4,8 @@ class ApplicationController < ActionController::Base
   # For APIs, you may want to use :null_session instead.
   # before_action :authenticate_property_user!, except: [:follow]
   protect_from_forgery with: :exception
-
+  #before_action :authenticate_request
+  attr_reader :current_user
   skip_before_action :verify_authenticity_token
 
   LOCAL_EC2_URL = 'http://127.0.0.1:9200'
@@ -946,5 +947,11 @@ class ApplicationController < ActionController::Base
     location_text = params[:entity_id]
     ## Process afterwards
     render json: "Location #{location_text} followed", status: 200
+  end
+
+  private
+  def authenticate_request 
+    @current_user = AuthorizeApiRequest.call(request.headers, params[:user_type]).result 
+    render json: { error: 'Not Authorized' }, status: 401 unless @current_user 
   end
 end

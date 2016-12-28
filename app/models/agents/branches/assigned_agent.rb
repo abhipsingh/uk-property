@@ -1,6 +1,7 @@
 module Agents
   module Branches
     class AssignedAgent < ActiveRecord::Base
+      has_secure_password
 
       has_many :quotes, class_name: 'Agents::Branches::AssignedAgents::Quote', foreign_key: 'agent_id'
       has_many :leads, class_name: 'Agents::Branches::AssignedAgents::Lead', foreign_key: 'agent_id'
@@ -11,13 +12,18 @@ module Agents
       ##### Data being fetched from this function
       ##### Example run the following in irb
       ##### Agents::Branches::AssignedAgent.last.recent_properties_for_quotes
-      def recent_properties_for_quotes(payment_terms_params=nil, service_required_param=nil, status_param=nil)
+      def recent_properties_for_quotes(payment_terms_params=nil, service_required_param=nil, status_param=nil, search_str=nil)
         results = []
+
+        # udprns = quotes.where(district: self.branch.district).order('created_at DESC').pluck(:property_id)
+        query = quotes
+        query = query.search_address_and_vendor_details(search_str) if search_str
+        udprns = query.order('created_at DESC').pluck(:property_id).uniq
+
         search_params = {
-          district: self.branch.district,
           sort_order: 'desc',
           sort_key: 'status_last_updated',
-          udprn: '10966139'  ### TODO To be changed, Used for testing
+          udprns: udprns
         }
         api = PropertyDetailsRepo.new(filtered_params: search_params)
         api.apply_filters
@@ -132,24 +138,23 @@ module Agents
       #### To test this function, create the following lead.
       #### Agents::Branches::AssignedAgents::Lead.create(district: "CH45", property_id: 4745413, vendor_id: 1)
       #### Then call the following function for the agent in that district
-      def recent_properties_for_claim
+      def recent_properties_for_claim(status=nil)
         district = self.branch.district
-        leads = Agents::Branches::AssignedAgents::Lead.where(district: district).where('created_at > ?', 24.hours.ago).order('created_at DESC').limit(20)
+        query = Agents::Branches::AssignedAgents::Lead.where(district: district).where('created_at > ?', 1.year.ago)
+        if status == 'New'
+          query = query.where(agent_id: nil)
+        elsif status == 'Won'
+          query = query.where(agent_id: self.id)
+        elsif status == 'Lost'
+          query = query.where.not(agent_id: self.id).where.not(agent_id: nil)
+        end
+        leads = query.order('created_at DESC').limit(20)
         results = []
+
         leads.each do |lead|
           new_row = {}
-
           #### Submitted on
           new_row[:submittted_on] = (lead.agent_id != self.id) ? "Not yet claimed by you" : lead.updated_at.to_s
-
-          ### Status of the lead
-          if lead.agent_id.nil?
-            new_row[:status] = 'NEW!'
-          elsif lead.agent_id == self.id
-            new_row[:status] = 'Won'
-          else
-            new_row[:status] = 'Lost'
-          end
 
           ### address of the property
           details = PropertyDetails.details(lead.property_id)
@@ -222,9 +227,14 @@ module Agents
           if lead.agent_id == self.id
             new_row[:status] = 'Won'
           elsif lead.agent_id.nil?
-            new_row[:status] = 'Pending'
+            new_row[:status] = 'New'
           else
             new_row[:status] = 'Lost'
+          end
+
+          ### Verified or not
+          if new_row[:status] == 'Won'
+            
           end
 
           results.push(new_row)
@@ -235,7 +245,7 @@ module Agents
       end
 
       def active_properties
-        quotes.where(status: Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New'])
+        quotes.where(status: Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']).count
       end
 
 

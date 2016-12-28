@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20161217213956) do
+ActiveRecord::Schema.define(version: 20161228092553) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -54,6 +54,10 @@ ActiveRecord::Schema.define(version: 20161217213956) do
     t.string  "title"
     t.string  "office_phone_number"
     t.string  "mobile_phone_number"
+    t.string  "image_url"
+    t.jsonb   "invited_agents"
+    t.string  "password"
+    t.string  "password_digest"
   end
 
   add_index "agents_branches_assigned_agents", ["branch_id"], name: "index_agents_branches_assigned_agents_on_branch_id", using: :btree
@@ -83,6 +87,10 @@ ActiveRecord::Schema.define(version: 20161217213956) do
     t.datetime "created_at",       null: false
     t.datetime "updated_at",       null: false
     t.string   "district"
+    t.string   "vendor_name"
+    t.string   "vendor_email"
+    t.string   "vendor_mobile"
+    t.string   "address"
   end
 
   add_index "agents_branches_assigned_agents_quotes", ["district"], name: "index_agents_branches_assigned_agents_quotes_on_district", using: :btree
@@ -104,8 +112,29 @@ ActiveRecord::Schema.define(version: 20161217213956) do
   create_table "agents_groups", force: :cascade do |t|
     t.string   "name"
     t.string   "image_url"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.datetime "created_at",   null: false
+    t.datetime "updated_at",   null: false
+    t.string   "website"
+    t.string   "email"
+    t.string   "phone_number"
+    t.string   "address"
+  end
+
+  create_table "events", force: :cascade do |t|
+    t.integer  "agent_id"
+    t.integer  "udprn"
+    t.jsonb    "message"
+    t.integer  "type_of_match", limit: 2
+    t.integer  "event",         limit: 2
+    t.integer  "buyer_id"
+    t.string   "buyer_name"
+    t.string   "buyer_email"
+    t.string   "buyer_mobile"
+    t.string   "agent_name"
+    t.string   "agent_email"
+    t.string   "agent_mobile"
+    t.string   "address"
+    t.datetime "created_at",              null: false
   end
 
   create_table "messages", force: :cascade do |t|
@@ -137,6 +166,9 @@ ActiveRecord::Schema.define(version: 20161217213956) do
     t.integer  "funding"
     t.integer  "mortgage_approval"
     t.integer  "biggest_problem"
+    t.string   "password"
+    t.string   "password_digest"
+    t.string   "image_url"
   end
 
   add_index "property_buyers", ["email_id"], name: "index_property_buyers_on_email_id", unique: true, using: :btree
@@ -226,9 +258,12 @@ ActiveRecord::Schema.define(version: 20161217213956) do
     t.string   "email"
     t.string   "mobile"
     t.integer  "status"
-    t.datetime "created_at",  null: false
-    t.datetime "updated_at",  null: false
+    t.datetime "created_at",      null: false
+    t.datetime "updated_at",      null: false
     t.string   "image_url"
+    t.string   "password"
+    t.string   "password_digest"
+    t.string   "name"
   end
 
 end

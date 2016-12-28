@@ -11,7 +11,7 @@ class PropertyDetailsRepo
   ES_EC2_URL = Rails.configuration.remote_es_url
   ES_EC2_HOST = Rails.configuration.remote_es_host
   FIELDS = {
-    terms: [ :property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :keyword_types ],
+    terms: [ :property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :keyword_types, :udprns ],
     term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status, :agent_id, :district, :udprn, :vendor_id, :postcode, :district, :sector, :unit ],
     range: [ :cost_per_month, :date_added, :floors, :year_built, :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, :time_frame, :beds, :baths, :receptions, :current_valuation, :dream_price ],
   }
@@ -128,8 +128,8 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     inst = self
     inst.adjust_size
     inst.adjust_included_fields
-    inst = inst.append_hash_filter
     inst = inst.append_pagination_filter
+    inst = inst.append_hash_filter
     inst = inst.append_terms_filters
     inst = inst.append_term_filters
     inst = inst.append_range_filters
@@ -140,11 +140,12 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
 
   def filter
     inst = self
+    inst.append_pagination_filter
     modify_filtered_params
     append_premium_or_featured_filter
     inst.apply_filters
     inst.modify_query
-    Rails.logger.info(inst.query)
+    Rails.logger.info(inst.query.to_json)
     body, status = fetch_data_from_es
     return { results: body }, status
   end
@@ -300,11 +301,13 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
 
   def append_pagination_filter(size = RESULTS_PER_PAGE, bounded: true)
     inst = self
+    Rails.logger.info(@filtered_params.fetch(:p, 1))
     page_number = @filtered_params.fetch(:p, 1).to_i #If no p given, force to 1.
     size = (@filtered_params[:results_per_page] || size).to_i
     size = [size, MAX_RESULTS_PER_PAGE].min
     inst.query[:from] = size * (page_number - 1) rescue 0
     inst.query[:size] = size
+    Rails.logger.info(inst.query)
     inst
   end
 
@@ -525,6 +528,8 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     end
     
   end
+
+  
 
   def self.post_url_new(query = {}, index_name='property_details', type_name='property_detail')
     uri = URI.parse(URI.encode("#{ES_EC2_URL}/_search/scroll"))

@@ -1,4 +1,5 @@
 class Vendor < ActiveRecord::Base
+  has_secure_password
   STATUS_HASH = {
     'Verified' => 1,
     'Unverified' => 2

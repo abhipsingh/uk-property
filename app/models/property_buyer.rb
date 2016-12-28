@@ -1,4 +1,5 @@
 class PropertyBuyer < ActiveRecord::Base
+  has_secure_password
   STATUS_HASH = {
     green: 1,
     amber: 2,

@@ -22,7 +22,7 @@ module Api
         #result[:results].map{ |t| add_new_keys(t) }
         result = result[:results].sort_by{|t| t[:score]}.reverse
         result = result.each{|t| t[:photo_urls] = [] }
-        Rails.logger.info(result)
+        #Rails.logger.info(result)
         result.first[:breadcrumb] = params[:hash_str].split('_').join(', ')
         result.each { |each_property| insert_save_search(each_property) }
         
@@ -34,7 +34,7 @@ module Api
         buyer_id = params['buyer_id'].to_i
         agent_id = property_detail['agent_id'].to_i
 
-        Rails.logger.info("AGENT_ID____#{agent_id}")
+        #Rails.logger.info("AGENT_ID____#{agent_id}")
 
         property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[property_detail['property_status_type']]
 
@@ -47,6 +47,7 @@ module Api
 
         property_id = property_detail['udprn'].to_i
         message = 'NULL' if message.nil?
+        Rails.logger.info("#{agent_id},#{property_id},#{buyer_id},#{message},#{type_of_match},#{property_status_type},#{event}")
         insert_events(agent_id, property_id, buyer_id, message, type_of_match, property_status_type, event)
       end
 

@@ -5,7 +5,7 @@ class EventsController < ApplicationController
 
   ### List of params
   ### :udprn, :event, :message, :type_of_match, :buyer_id, :agent_id
-  ### curl -XPOST -H "Content-Type: application/json" 'http://localhost/events/new' -d '{"agent_id" : 1234, "udprn" : '45326', "event" : "property_tracking", "message" : null, "type_of_match" : "perfect", "buyer_id" : 1, "property_status_type" : "Green" }'
+  ### curl -XPOST -H "Content-Type: application/json" 'http://localhost/events/new' -d '{"agent_id" : 1234, "udprn" : '10966183', "event" : "property_tracking", "message" : null, "type_of_match" : "perfect", "buyer_id" : 1, "property_status_type" : "Green" }'
   
   ### An example of saved search pings
   ### curl -XPOST -H "Content-Type: application/json" 'http://localhost/events/new' -d '{"agent_id" : 1234, "udprn" : '10966183', "event" : "save_search_hash", "message" : "\{\"search_hash\" : \{ \"min_beds\" : 2, \"max_beds\" : 3, \"min_baths\" : 1, \"max_baths\" : 2, \"hash_str\" : \"HEREFORD_City Centre_Loder Drive\", \"hash_type\" = \"Text\"  \} \}", "type_of_match" : "perfect", "buyer_id" : 1, "property_status_type" : "Green" }'
@@ -19,11 +19,9 @@ class EventsController < ApplicationController
 
     #### Search hash of a message
     message = params[:message]
-    Rails.logger.info("PROGRESS")
     type_of_match = Trackers::Buyer::TYPE_OF_MATCH[params[:type_of_match].downcase.to_sym]
     # type_of_match = Trackers::Buyer::TYPE_OF_MATCH.with_indifferent_access[params[:type_of_match]]
     property_id = params[:udprn]
-    Rails.logger.info("PROGRESS 2")
     agent_id = params[:agent_id]
     message = 'NULL' if message.nil?
     response = insert_events(agent_id, property_id, buyer_id, message, type_of_match, property_status_type, event)
@@ -51,12 +49,12 @@ class EventsController < ApplicationController
     property_status_type = params[:property_status_type]
     verification_status = params[:verification_status]
     ads = params[:ads]
+    search_str = params[:search_str]
     response = []
     if !params[:agent_company_id].nil?
       ### TODO FOR COMPANY
     elsif !params[:agent_id].nil?
-      property_ids = Agents::Branches::AssignedAgents::Quote.where(agent_id: params[:agent_id].to_i, status: Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']).pluck(:property_id)
-      response = property_ids.map { |e| Trackers::Buyer.new.property_and_enquiry_details(e, property_status_type, verification_status, ads) }.compact
+      response = Trackers::Buyer.new.search_latest_enquiries(params[:agent_id].to_i, property_status_type, verification_status, ads, search_str)
     elsif !params[:hash_str].nil?
       response = Trackers::Buyer.new.property_and_enquiry_details(property_id)
     elsif !params[:agent_branch_id].nil?
@@ -65,7 +63,7 @@ class EventsController < ApplicationController
       response = []
       agents.each do |agent|
         property_ids = Agents::Branches::AssignedAgents::Quote.where(agent_id: agent.id, status: Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']).pluck(:property_id)
-        property_ids.each{ |t| response.push(buyer.property_and_enquiry_details(t, property_status_type, verification_status, ads)) }.compact
+        property_ids.each{ |t| response.push(buyer.property_and_enquiry_details(agent.id, t, property_status_type, verification_status, ads)) }.compact
       end 
     elsif !params[:agent_group_id].nil?
       ### TODO FOR AGENTS GROUP AS WELL
@@ -92,12 +90,13 @@ class EventsController < ApplicationController
     buyer_funding = params[:buyer_funding]
     buyer_biggest_problem = params[:buyer_biggest_problem]
     buyer_chain_free = params[:buyer_chain_free]
-
+    search_str = params[:search_str]
     response = []
     if !params[:agent_company_id].nil?
       ### TODO FOR COMPANY
     elsif !params[:agent_id].nil?
-      response = Trackers::Buyer.new.property_enquiry_details_buyer(params[:agent_id].to_i, enquiry_type, type_of_match, qualifying_stage, rating, buyer_status, buyer_funding, buyer_biggest_problem, buyer_chain_free)
+      Rails.logger.info("#{params[:agent_id]}__#{search_str}")
+      response = Trackers::Buyer.new.property_enquiry_details_buyer(params[:agent_id].to_i, enquiry_type, type_of_match, qualifying_stage, rating, buyer_status, buyer_funding, buyer_biggest_problem, buyer_chain_free, search_str)
     elsif !params[:hash_str].nil?
       search_params = { limit: 10000, fields: 'agent_id' }
       search_params[:hash_str] = params[:hash_str]
@@ -109,11 +108,11 @@ class EventsController < ApplicationController
         agents = body.map { |e| e['agent_id'] }.uniq rescue []
       end
       buyer = Trackers::Buyer.new
-      response = agents.map { |e| buyer.property_enquiry_details_buyer(e, enquiry_type, type_of_match, qualifying_stage, rating, buyer_status, buyer_funding, buyer_biggest_problem, buyer_chain_free) }.flatten.sort_by{ |t| t['time_of_event'] }.reverse
+      response = agents.map { |e| buyer.property_enquiry_details_buyer(e, enquiry_type, type_of_match, qualifying_stage, rating, buyer_status, buyer_funding, buyer_biggest_problem, buyer_chain_free, search_str) }.flatten.sort_by{ |t| t['time_of_event'] }.reverse
     elsif !params[:agent_branch_id].nil?
       agents = Agents::Branches::AssignedAgent.where(branch_id: params[:agent_branch_id].to_i).select(:id)
       buyer = Trackers::Buyer.new
-      response = agents.map { |e| buyer.property_enquiry_details_buyer(e, enquiry_type, type_of_match, qualifying_stage, rating, buyer_status, buyer_funding, buyer_biggest_problem, buyer_chain_free) }.flatten.sort_by{ |t| t['time_of_event'] }.reverse
+      response = agents.map { |e| buyer.property_enquiry_details_buyer(e, enquiry_type, type_of_match, qualifying_stage, rating, buyer_status, buyer_funding, buyer_biggest_problem, buyer_chain_free, search_str) }.flatten.sort_by{ |t| t['time_of_event'] }.reverse
     elsif !params[:agent_group_id].nil?
       ### TODO FOR AGENTS GROUP AS WELL
     end
@@ -135,12 +134,13 @@ class EventsController < ApplicationController
     services_required = params[:services_required]
     quote_status = params[:quote_status]
     payment_terms = params[:payment_terms]
-
+    search_str = params[:search_str]
+    
     response = []
     if !params[:agent_company_id].nil?
       ### TODO FOR COMPANY
     elsif !params[:agent_id].nil?
-      response = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i).recent_properties_for_quotes(payment_terms, services_required, quote_status)
+      response = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i).recent_properties_for_quotes(payment_terms, services_required, quote_status, search_str)
     elsif !params[:hash_str].nil?
       search_params = { limit: 10000, fields: 'agent_id' }
       search_params[:hash_str] = params[:hash_str]
@@ -151,10 +151,10 @@ class EventsController < ApplicationController
       if status.to_i == 200
         agents = body.map { |e| e['agent_id'] }.uniq rescue []
       end
-      response = agents.map { |e| Agents::Branches::AssignedAgent.find(e).recent_properties_for_quotes(payment_terms, services_required, quote_status) }.flatten.sort_by{ |t| t[:deadline] }.reverse
+      response = agents.map { |e| Agents::Branches::AssignedAgent.find(e).recent_properties_for_quotes(payment_terms, services_required, quote_status, search_str) }.flatten.sort_by{ |t| t[:deadline] }.reverse
     elsif !params[:agent_branch_id].nil?
       agents = Agents::Branches::AssignedAgent.where(branch_id: params[:agent_branch_id].to_i).select(:id)
-      response = agents.map { |e| Agents::Branches::AssignedAgent.find(e).recent_properties_for_quotes(payment_terms, services_required, quote_status) }.flatten.sort_by{ |t| t[:deadline] }.reverse
+      response = agents.map { |e| Agents::Branches::AssignedAgent.find(e).recent_properties_for_quotes(payment_terms, services_required, quote_status, search_str) }.flatten.sort_by{ |t| t[:deadline] }.reverse
     elsif !params[:agent_group_id].nil?
       ### TO DO FOR AGENTS GROUP AS WELL
     end
@@ -167,10 +167,11 @@ class EventsController < ApplicationController
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent/claims?agent_id=1234'
   def recent_properties_for_claim
     response = []
+    status = params[:status]
     if !params[:agent_company_id].nil?
       ### TODO FOR COMPANY
     elsif !params[:agent_id].nil?
-      response = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i).recent_properties_for_claim
+      response = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i).recent_properties_for_claim(status)
     elsif !params[:hash_str].nil?
       search_params = { limit: 100, fields: 'agent_id' }
       search_params[:hash_str] = params[:hash_str]
@@ -181,10 +182,10 @@ class EventsController < ApplicationController
       if status.to_i == 200
         agents = body.map { |e| e['agent_id'] }.uniq rescue []
       end
-      response = agents.map { |e| Agents::Branches::AssignedAgent.find(e).recent_properties_for_claim }.flatten.sort_by{ |t| t[:deadline] }.reverse
+      response = agents.map { |e| Agents::Branches::AssignedAgent.find(e).recent_properties_for_claim(status) }.flatten.sort_by{ |t| t[:deadline] }.reverse
     elsif !params[:agent_branch_id].nil?
       agents = Agents::Branches::AssignedAgent.where(branch_id: params[:agent_branch_id].to_i).select(:id)
-      response = agents.map { |e| Agents::Branches::AssignedAgent.find(e).recent_properties_for_claim }.flatten.sort_by{ |t| t[:deadline] }.reverse
+      response = agents.map { |e| Agents::Branches::AssignedAgent.find(e).recent_properties_for_claim(status) }.flatten.sort_by{ |t| t[:deadline] }.reverse
     elsif !params[:agent_group_id].nil?
       ### TODO FOR AGENTS GROUP AS WELL
     end

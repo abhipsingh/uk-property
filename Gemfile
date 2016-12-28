@@ -66,3 +66,13 @@ end
 gem 'sqlite3'
 gem 'activerecord', '4.2.0'
 gem 'unicorn'
+
+
+### For secure passwords
+gem 'bcrypt', '~> 3.1.7'
+gem 'jwt'
+gem 'simple_command'
+
+### For full text search
+gem 'pg_search'
+
