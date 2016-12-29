@@ -1,5 +1,3 @@
-require 'cassandra'
-
 class EventsController < ApplicationController
   include EventsHelper
 

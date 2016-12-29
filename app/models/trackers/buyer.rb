@@ -1,9 +1,5 @@
 class Trackers::Buyer
 
-  def self.session
-    Rails.configuration.cassandra_session
-  end
-
   EVENTS = {
     viewed: 2,
     property_tracking: 3,
@@ -1146,7 +1142,6 @@ class Trackers::Buyer
     result
   end
 
-  private
 
   def generic_event_count(event, table, property_id, type=:single)
     event_sql, count = nil
@@ -1173,6 +1168,8 @@ class Trackers::Buyer
     # p "BUYER_#{event_sql}_#{property_id}_#{table}_#{event}_#{type}"
     count
   end
+
+  private
 
   def post_url(index, query = {}, type='_search', host='localhost')
     uri = URI.parse(URI.encode("http://#{host}:9200/#{index}/#{type}"))

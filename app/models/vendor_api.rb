@@ -1,14 +1,11 @@
 class VendorApi
-  attr_accessor :udprn, :branch_id, :agent_id
+  attr_accessor :udprn, :branch_id, :agent_id, :vendor_id
 
   INFLATION_RATE = 2.5
-  def initialize(udprn, branch_id = nil)
+  def initialize(udprn, branch_id = nil, vendor_id=nil)
     @udprn ||= udprn
     @branch_id ||= branch_id
-  end
-
-  def self.cassandra_session
-    Rails.configuration.cassandra_session
+    @vendor_id ||= vendor_id
   end
 
   #### Called by the pricing api to fetch pricing information about the udprn
@@ -60,14 +57,8 @@ class VendorApi
     ### Current valuation compute
     current_valuation = nil
     event = Trackers::Buyer::EVENTS[:valuation_change]
-    cql = "SELECT message FROM Simple.timestamped_property_events WHERE event = #{event} AND property_id='10977419' ALLOW FILTERING;" #### TODO Remove udprn hardcoding
-    session = Trackers::Buyer.session
-    future = session.execute(cql)
-
-    last_row = future.rows.sort_by{ |t| t['time_of_event'] }.last
-    if last_row
-       current_valuation = JSON.parse(last_row['message'])['current_valuation']
-    end
+    valuation = Event.where(event: event).where(udprn: @udprn).order('created_at DESC').limit(1).first
+    current_valuation = valuation['current_valuation'] if valuation
 
     dream_price_info = calculate_price_info(dream_price, sale_info.last, sale_info.first)
     valuation_info = calculate_price_info(current_valuation, sale_info.last, sale_info.first)
@@ -111,48 +102,75 @@ class VendorApi
   end
 
   def properties_sold(agent_id)
-    session = self.class.cassandra_session
-    event = Trackers::Buyer::EVENTS[:sold]
-    cql = "SELECT * FROM Simple.timestamped_property_events WHERE agent_id = #{agent_id} AND event = #{event} ALLOW FILTERING "
-    future = session.execute(cql)
-    count = future.rows.count
+    self.class.all_sales_of_agent(agent_id).count
   end
 
   #### To test this function run in the console
   #### VendorApi.all_valuations_of_agent(1234)
   def self.all_valuations_of_agent(agent_id)
     valuations = []
-    session = self.class.cassandra_session
-    event = Trackers::Buyer::EVENTS[:sold]
-    cql = "SELECT * FROM Simple.timestamped_property_events WHERE agent_id = #{agent_id} AND event = #{event} ALLOW FILTERING "
-    future = session.execute(cql)
-    future.rows.each do |each_row|
-      valuations.push(valuations_sorted_by_time(agent_id, each_row['property_id']))
-    end
+    event = Trackers::Buyer::EVENTS[:valuation_change]
+    udprns = Event.where(agent_id: agent_id).where(event: event).pluck(:udprn).uniq
+    udprns.map { |e| valuations.push(Event.where(agent_id: @agent_id).where(event: event).where(udprn: e).order('created_at DESC')) }
     valuations
   end
 
   #### To test this function run in the console
   #### VendorApi.all_sales_of_agent(1234)
   def self.all_sales_of_agent(agent_id)
-    session = self.class.cassandra_session
     event = Trackers::Buyer::EVENTS[:sold]
-    cql = "SELECT * FROM Simple.timestamped_property_events WHERE agent_id = #{agent_id} AND event = #{event} ALLOW FILTERING "
-    future = session.execute(cql)
-    future.rows.to_a
+    Event.where(agent_id: agent_id).where(event: event).order('created_at DESC')
   end
 
-  #### To test this function run in the console
-  #### VendorApi.valuations_sorted_by_time(1234, 10976765)
-  def self.valuations_sorted_by_time(agent_id, property_id)
-    session = self.class.cassandra_session
-    event = Trackers::Buyer::EVENTS[:valuation_change]
-    cql = "SELECT * FROM Simple.timestamped_property_events WHERE agent_id = #{agent_id} AND event = #{event} AND property_id = '#{property_id}' ALLOW FILTERING "
-    future = session.execute(cql)
-    future.rows.sort_by{ |t| t['time_of_event'] }.reverse
-  end
+  #### Collects all the details of the property owned by the vendor
+  #### VendorApi.new(10966139, nil, 1).property_details
+  def property_details
+    details = PropertyDetails.details(@udprn)['_source']
+    details['address'] = PropertyDetails.address(details)
 
+    #### Agent details
+    agent_id = details['agent_id']
+    agent = Agents::Branches::AssignedAgent.find(agent_id)
+    details['assigned_agent_name'] = agent.name
+    details['assigned_agent_branch_name'] = agent.branch.name
+    details['assigned_agent_company_name'] = agent.branch.agent.name
+    details['assigned_agent_group_name'] = agent.branch.agent.group.name
+    details['assigned_agent_image_url'] = agent.image_url
+    details['assigned_agent_mobile'] = agent.mobile
+    details['assigned_agent_email'] = agent.email
+    details['assigned_agent_office_number'] = agent.office_phone_number
+    details['assigned_agent_branch_address'] = agent.branch.address
+    details['assigned_agent_branch_number'] = agent.branch.phone_number
+    details['assigned_agent_branch_logo'] = agent.branch.image_url
+    details['assigned_agent_branch_email'] = agent.branch.email
+    
+    ### No of properties sold for this branch
+    event = Trackers::Buyer::EVENTS[:sold]
+    agent_ids = Agents::Branches::AssignedAgent.find(agent_id).branch.assigned_agents.pluck(:id)
+    sold_udprns = Event.where(event: event).where(agent_id: agent_ids).pluck(:udprn)
+    details['branch_properties_sold'] = sold_udprns.count
+
+    #### No of properties on sale
+    total_udprns = Event.where.not(event: event).where(agent_id: agent_ids).pluck(:udprn)
+    details['branch_properties_on_sale'] = (total_udprns.uniq - sold_udprns).count
+
+    ### Advertised or not
+    details['advertised'] = details['match_type_str'].any? { |e| ['Featured', 'Premium'].include?(e.split('|').last) }
+    
+    ### Extra keys to be added
+    table = nil
+    property_id = @udprn
+    details['total_visits'] = Trackers::Buyer.new.generic_event_count(Trackers::Buyer::EVENTS[:visits], table, property_id, :single)
+    details['total_enquiries'] =Trackers::Buyer.new. generic_event_count(Trackers::Buyer::ENQUIRY_EVENTS, table, property_id, :multiple)
+    details['trackings'] = Trackers::Buyer.new.generic_event_count(Trackers::Buyer::TRACKING_EVENTS, table, property_id, :multiple)
+    details['requested_viewing'] = Trackers::Buyer.new.generic_event_count(Trackers::Buyer::EVENTS[:requested_viewing], table, property_id, :single)
+    details['offer_made_stage'] = Trackers::Buyer.new.generic_event_count(Trackers::Buyer::EVENTS[:offer_made_stage], table, property_id, :single)
+    details['requested_message'] = Trackers::Buyer.new.generic_event_count(Trackers::Buyer::EVENTS[:requested_message], table, property_id, :single)
+    details['requested_callback'] = Trackers::Buyer.new.generic_event_count(Trackers::Buyer::EVENTS[:requested_callback], table, property_id, :single)
+    # new_row['impressions'] = generic_event_count(:impressions, table, property_id, :single)
+    details['deleted'] = Trackers::Buyer.new.generic_event_count(Trackers::Buyer::EVENTS[:deleted], table, property_id, :single)
+
+    details
+  end
 
 end
-
-

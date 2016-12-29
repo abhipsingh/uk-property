@@ -9,7 +9,6 @@ module EventsHelper
     #### Defend against null cases
     if property_id && buyer_id && type_of_match && property_status_type && event
       
-      session = Rails.configuration.cassandra_session
       date = Date.today.to_s
       month = Date.today.month
       time = Time.now.strftime("%Y-%m-%d %H:%M:%S").to_s

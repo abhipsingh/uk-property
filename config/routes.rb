@@ -149,6 +149,13 @@ Rails.application.routes.draw do
   #### Invite other agents to register as well
   post 'agents/invite',                                         to: 'agents#invite_agents_to_register'
 
+
+  #### Shows details of a specific property owned by a vendor
+  get 'vendors/properties/details/:vendor_id',                  to: 'vendors#property_details'
+  
+  #### Shows all the properties owned by a vendor
+  get 'vendors/properties/:vendor_id',                          to: 'vendors#properties'
+
   #####################################################################
   #####################################################################
   #####################################################################

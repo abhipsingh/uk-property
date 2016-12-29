@@ -48,4 +48,23 @@ class VendorsController < ApplicationController
     quotes = vendor_api.calculate_quotes(branch_ids.split(',').map(&:to_i))
     render json: quotes
   end
+
+  ### Quicklinks of the properties that the vendor holds
+  # curl -XGET -H "Content-Type: application/json" 'http://localhost/vendors/properties/:vendor_id'
+  # curl -XGET -H "Content-Type: application/json" 'http://localhost/vendors/properties/1'
+  def properties
+    vendor = Vendor.find(params[:vendor_id])
+    pd = PropertyDetailsRepo.new(filtered_params: { vendor_id: params[:vendor_id].to_i } )
+    results, status = pd.filter
+    results[:results].each { |e| e[:address] = PropertyDetails.address(e) }
+    response = results[:results].map { |e| e.slice('udprn', :address)  }
+    render json: response, status: status
+  end
+
+  ### Details of a specific property that a vendor holds
+  ### curl -XGET -H "Content-Type: application/json" 'http://localhost/vendors/properties/details/1?udprn=10966139'
+  def property_details
+    details = VendorApi.new(params[:udprn].to_i, nil, params[:vendor_id].to_i).property_details
+    render json: details, status: 200
+  end
 end

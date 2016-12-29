@@ -11,8 +11,8 @@ class PropertyDetailsRepo
   ES_EC2_URL = Rails.configuration.remote_es_url
   ES_EC2_HOST = Rails.configuration.remote_es_host
   FIELDS = {
-    terms: [ :property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :keyword_types, :udprns ],
-    term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status, :agent_id, :district, :udprn, :vendor_id, :postcode, :district, :sector, :unit ],
+    terms: [ :property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :keyword_types, :udprns, :vendor_ids ],
+    term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status, :agent_id, :district, :udprn, :vendor_id, :postcode, :district, :sector, :unit, :vendor_id ],
     range: [ :cost_per_month, :date_added, :floors, :year_built, :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, :time_frame, :beds, :baths, :receptions, :current_valuation, :dream_price ],
   }
 
@@ -135,7 +135,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     inst = inst.append_range_filters
     inst = inst.append_sort_filters
     inst
-    # Rails.logger.info(inst.query)
+    Rails.logger.info(inst.query)
   end
 
   def filter
@@ -145,7 +145,6 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     append_premium_or_featured_filter
     inst.apply_filters
     inst.modify_query
-    Rails.logger.info(inst.query.to_json)
     body, status = fetch_data_from_es
     return { results: body }, status
   end

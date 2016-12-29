@@ -17,7 +17,6 @@ gem 'sprockets', '2.11.0'
 gem 'minitest'
 gem 'devise'
 gem 'httparty'
-gem 'cassandra-driver', '~> 3.0.2'
 # # See https://github.com/sstephenson/execjs#readme for more supported runtimes
 # gem 'therubyracer', platforms: :ruby
 
