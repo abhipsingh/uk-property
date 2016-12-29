@@ -87,6 +87,86 @@ class Trackers::Buyer
 
   #### API Responses for tables
 
+  #### Property specific enquiries
+  #### Trackers::Buyer.new.property_enquiries(10966183)
+  def property_enquiries(udprn)
+    details = PropertyDetails.details(udprn)['_source']
+    result = []
+    events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
+    total_rows = Event.where(event: events).where(udprn: udprn.to_i).order('created_at DESC')
+    buyer_ids = []
+
+    total_rows.each do |each_row|
+      new_row = {}
+      new_row[:received] = each_row.created_at
+      new_row[:type_of_enquiry] = REVERSE_EVENTS[each_row.event]
+      new_row['buyer_id'] = each_row.buyer_id
+      buyer_ids.push(each_row.buyer_id)
+
+      #### Tracking property id event
+      tracking_property_event = EVENTS[:property_tracking]
+      event_count = Event.where(event: tracking_property_event).where(buyer_id: each_row.buyer_id).where(udprn: udprn.to_i).count
+      new_row[:property_tracking] = event_count == 0 ? true : false
+      
+      #### Views
+      total_views = generic_event_count(EVENTS[:viewed], nil, udprn, :single)
+      buyer_views = generic_event_count_buyer(EVENTS[:viewed], nil, udprn, each_row.buyer_id)
+      new_row[:views] = buyer_views.to_i.to_s + '/' + total_views.to_i.to_s
+
+      #### Enquiries
+      total_enquiries = generic_event_count(ENQUIRY_EVENTS, nil, udprn, :multiple)
+      buyer_enquiries = generic_event_count(ENQUIRY_EVENTS, nil, udprn, :multiple)
+      new_row[:enquiries] = buyer_enquiries.to_i.to_s + '/' + total_enquiries.to_i.to_s
+
+      #### Type of match
+      new_row[:type_of_match] = REVERSE_TYPE_OF_MATCH[each_row.type_of_match]
+
+      #### Qualifying Stage Only shown to the agents
+      #Rails.logger.info(future.rows)
+      qualifying_events = QUALIFYING_STAGE_EVENTS.map { |e| EVENTS[e] }.join(',')
+      qualifying_result = Event.where(udprn: udprn).where(event: qualifying_events).where(buyer_id: each_row.buyer_id).order('created_at DESC').limit(1).first
+      new_row[:qualifying] = :qualifying
+      new_row[:qualifying] = REVERSE_EVENTS[qualifying_result.event] if qualifying_result
+
+      new_row['scheduled_viewing_time'] = nil
+      new_row['scheduled_viewing_time'] = qualifying_result.message['scheduled_viewing_time'] if new_row[:qualifying] == :viewing_stage
+      
+      new_row['offer_price'] = nil
+      new_row['offer_price'] = qualifying_result.message['offer_price'] if new_row[:qualifying] == :offer_made_stage
+      
+      new_row['offer_date'] = nil
+      new_row['offer_date'] = qualifying_result.message['offer_date'] if new_row[:qualifying] == :offer_made_stage
+
+      new_row['expected_completion_date'] = nil
+      new_row['expected_completion_date'] = qualifying_result.message['expected_completion_date'] if new_row[:qualifying] == :completion_stage
+
+      result.push(new_row)
+    end
+
+    buyers = PropertyBuyer.where(id: buyer_ids.flatten).select([:id, :email, :full_name, :mobile, :status, :chain_free, :funding, :biggest_problem, :buying_status, :budget_to, :budget_from]).order("position(id::text in '#{buyer_ids.join(',')}')")
+    buyer_hash = {}
+
+    buyers.each do |buyer|
+      buyer_hash[buyer.id] = buyer
+    end
+
+    result.each_with_index do |each_row, index|
+      each_row['buyer_status'] = REVERSE_STATUS_TYPES[buyer_hash[each_row['buyer_id']]['status']]
+      each_row['buyer_full_name'] = buyer_hash[each_row['buyer_id']]['full_name']
+      each_row['buyer_image'] = nil
+      each_row['buyer_email'] = buyer_hash[each_row['buyer_id']]['email']
+      each_row['buyer_mobile'] = buyer_hash[each_row['buyer_id']]['mobile']
+      each_row['chain_free'] = buyer_hash[each_row['buyer_id']]['chain_free']
+      each_row['buyer_funding'] = PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[buyer_hash[each_row['buyer_id']]['funding']]
+      each_row['buyer_biggest_problem'] = PropertyBuyer::REVERSE_BIGGEST_PROBLEM_HASH[buyer_hash[each_row['buyer_id']]['biggest_problem']]
+      each_row['buyer_buying_status'] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[buyer_hash[each_row['buyer_id']]['buying_status']]
+      each_row['buyer_budget_from'] = buyer_hash[each_row['buyer_id']]['budget_from']
+      each_row['buyer_budget_to'] = buyer_hash[each_row['buyer_id']]['budget_to']
+    end
+
+    result
+  end
+
   #### Agent enquiries latest implementation
   #### Trackers::Buyer.new.search_latest_enquiries(1234)
   def search_latest_enquiries(agent_id, property_status_type=nil, verification_status=nil, ads=nil, search_str=nil)
@@ -106,11 +186,8 @@ class Trackers::Buyer
 
   ##### To mock this in the console try 
   ##### Trackers::Buyer.new.property_and_enquiry_details(1234, '10966139')
-
   def property_and_enquiry_details(agent_id, property_id, property_status_type=nil, verification_status=nil, ads=nil)
-    url = "#{Rails.configuration.remote_es_url}/addresses/address/#{property_id}"
-    response = Net::HTTP.get(URI.parse(url))
-    details = Oj.load(response)['_source']
+    details = PropertyDetails.details(property_id)['_source']
     # details = {}
     new_row = {}
     property_enquiry_details(new_row, property_id, details)
@@ -212,7 +289,7 @@ class Trackers::Buyer
 
   ##### Agent level mock in console for new enquries coming
   ##### Trackers::Buyer.new.property_enquiry_details_buyer(1234, 'requested_message', nil, nil, nil,nil, nil, nil, nil, nil, nil, nil)
-  def property_enquiry_details_buyer(agent_id, enquiry_type=nil, type_of_match=nil, qualifying_stage=nil, rating=nil, buyer_buying_status=nil, buyer_funding=nil, buyer_biggest_problem=nil, buyer_chain_free=nil, search_str=nil, budget_from=nil, budget_to=nil)
+  def property_enquiry_details_buyer(agent_id, enquiry_type=nil, type_of_match=nil, qualifying_stage=nil, rating=nil, buyer_buying_status=nil, buyer_funding=nil, buyer_biggest_problem=nil, buyer_chain_free=nil, search_str=nil, budget_from=nil, budget_to=nil, property_udprn=nil)
     result = []
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
     filtered_buyer_ids = []
@@ -228,6 +305,7 @@ class Trackers::Buyer
     query = Event.where(event: events)
     query = query.where(buyer_id: filtered_buyer_ids) if buyer_filter_flag
     query = query.where(type_of_match: type_of_match.to_s.downcase) if type_of_match
+    query = query.where(udprn: property_udprn) if property_udprn
     query = query.search_address_and_buyer_details(search_str) if search_str
 
     total_rows = query.order('created_at DESC').as_json

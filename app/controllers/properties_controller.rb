@@ -103,7 +103,7 @@ class PropertiesController < ActionController::Base
   ### This route provides all the details of the recent enquiries made by the users on this property
   ### curl -XGET -H "Content-Type: application/json" 'http://localhost/enquiries/property/10966139'
   def enquiries
-    enquiries = PropertyDetails.all_recent_enquiries(params[:udprn].to_i)
+    enquiries = Trackers::Buyer.new.property_enquiries(params[:udprn].to_i)
     render json: enquiries, status: 200
   end
 
