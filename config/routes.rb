@@ -63,7 +63,8 @@ Rails.application.routes.draw do
   ### Post new quotes for a property. Done by a vendor
   post 'quotes/property/:udprn',             to: 'quotes#new_quote_for_property'
 
-  get 'quotes/submit',                       to: 'quotes#submit'
+  #### When a vendor clicks the submit button
+  post 'quotes/submit/:quote_id',             to: 'quotes#submit'
 
   #### For an agent, claim this property
   post 'events/property/claim/:udprn',              to: 'events#claim_property'

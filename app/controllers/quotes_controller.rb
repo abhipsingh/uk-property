@@ -50,11 +50,21 @@ class QuotesController < ApplicationController
 
   ##### When submit quote button is clicked, the property data needs to be sent for the
   ##### form to be rendered.
-  ##### curl -XGET  -H "Content-Type: application/json" 'http://localhost/quotes/submit?udprn=10966139'
+  ##### curl -XPOST  -H "Content-Type: application/json" 'http://localhost/quotes/submit/2'
+  ##### curl -XPOST  -H "Content-Type: application/json" 'http://localhost/quotes/submit/:quote_id'
   def submit
+    quote_id = params[:quote_id]
     property_id = params[:udprn].to_i
+
+    #### When the quote is won
+    quote = Agents::Branches::AssignedAgents::Quote.where(id: quote_id.to_i).last
+    quote.status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']
+    quote.save
+    ####
+
+    #### TODO Edit agent_id in property details
     details = PropertyDetails.details(property_id)
-    render json: details, status: 200
+    render json: { details: details, message: 'The quote is accepted' }, status: 200
   end
 
   ##### When submit quote button is clicked, the property data needs to be sent for the
@@ -62,12 +72,14 @@ class QuotesController < ApplicationController
   ##### curl -XGET  -H "Content-Type: application/json" 'http://localhost/property/quotes/agents/10966139'
   def quotes_per_property
     property_id = params[:udprn].to_i
-    agents_for_quotes = Agents::Branches::AssignedAgents::Quote.where(status: nil).where(property_id: property_id).pluck(:agent_id).uniq
+    agents_for_quotes = Agents::Branches::AssignedAgents::Quote.where(status: nil).where.not(agent_id: nil).where.not(agent_id: 1).where(property_id: property_id)
     final_result = []
     agents_for_quotes.each do |each_agent_id|
-      quotes = AgentApi.new(property_id.to_i, each_agent_id.to_i).calculate_quotes
+      quotes = AgentApi.new(property_id.to_i, each_agent_id.agent_id.to_i).calculate_quotes
+      quotes[:quote_id] = each_agent_id.id
       final_result.push(quotes)
     end
+    final_result = final_result.uniq{ |t| t[:id] }
     render json: final_result, status: 200
   end
 end

@@ -67,13 +67,17 @@ class VendorApi
 
   def calculate_quotes
     quotes = []
-    agent_quotes = Agents::Branches::AssignedAgents::Quote.where(property_id: udprn.to_i).where('created_at > ?', 1.week.ago).order('created_at DESC').limit(2)
+    agent_quotes = Agents::Branches::AssignedAgents::Quote.where(property_id: udprn.to_i).where.not(agent_id: nil).where.not(agent_id: 1).where('created_at > ?', 1.week.ago).order('created_at DESC').limit(2)
     agent_quotes.each do |agent_quote|
       agent_id = agent_quote.agent_id
-      agent_api = AgentApi.new(agent_id, udprn)
-      quotes.push(agent_api.calculate_quotes)
+      ### TODO: Remove this
+      if agent_id != 1
+        agent_api = AgentApi.new(udprn, agent_id)
+        quotes.push(agent_api.calculate_quotes)
+        
+      end
     end
-    quotes
+    quotes = quotes.uniq{ |t| t['id'] }
   end
 
   def calculate_compounded_rate(base_price, years)
@@ -128,6 +132,11 @@ class VendorApi
     details = PropertyDetails.details(@udprn)['_source']
     details['address'] = PropertyDetails.address(details)
 
+    ### Historical detail
+    historical_detail = PropertyHistoricalDetail.where(udprn: udprn.to_s).order('date DESC').limit(1).first
+    details['last_sale_price'] = historical_detail.price
+    details['last_sale_price_date'] = historical_detail.date
+
     #### Agent details
     agent_id = details['agent_id']
     agent = Agents::Branches::AssignedAgent.find(agent_id)
@@ -162,6 +171,8 @@ class VendorApi
     property_id = @udprn
     details['total_visits'] = Trackers::Buyer.new.generic_event_count(Trackers::Buyer::EVENTS[:visits], table, property_id, :single)
     details['total_enquiries'] =Trackers::Buyer.new. generic_event_count(Trackers::Buyer::ENQUIRY_EVENTS, table, property_id, :multiple)
+    details['total_interested_in_viewing'] =Trackers::Buyer.new. generic_event_count(Trackers::Buyer::EVENTS[:interested_in_viewing], table, property_id, :single)
+    details['total_interested_in_making_an_offer'] =Trackers::Buyer.new. generic_event_count(Trackers::Buyer::EVENTS[:interested_in_making_an_offer], table, property_id, :single)
     details['trackings'] = Trackers::Buyer.new.generic_event_count(Trackers::Buyer::TRACKING_EVENTS, table, property_id, :multiple)
     details['requested_viewing'] = Trackers::Buyer.new.generic_event_count(Trackers::Buyer::EVENTS[:requested_viewing], table, property_id, :single)
     details['offer_made_stage'] = Trackers::Buyer.new.generic_event_count(Trackers::Buyer::EVENTS[:offer_made_stage], table, property_id, :single)

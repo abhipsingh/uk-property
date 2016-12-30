@@ -2,23 +2,26 @@ class AgentApi
   attr_accessor :branch_id, :udprn, :details
 
   def initialize(udprn, agent_id)
+    @details = PropertyDetails.details(udprn)['_source']
     @branch_id ||= Agents::Branches::AssignedAgent.where(id: agent_id).first.branch_id
     @udprn ||= udprn
     @agent_id ||= agent_id
-    @details = PropertyDetails.details(@udprn)
   end
 
   #### To calculate the detailed quotes for each of the agent, we can call this function
   #### Below is an example of how it can be tested in the irb
-  ####  AgentApi.new(10966139, 1234).calculate_quotes
+  ####  AgentApi.new(10966139).calculate_quotes
   def calculate_quotes
     aggregate_stats = {}
     property_quotes = {}
-    branch = Agents::Branch.find(branch_id)
+    branch = Agents::Branch.find(@branch_id)
     branch_name = branch.name
     aggregate_stats[:branch_id] = branch.id
     calculate_aggregate_stats(aggregate_stats)
-    calculate_per_property_stats_for_agent(property_quotes)
+
+    all_agents_in_branch = Agents::Branches::AssignedAgent.where(branch_id: @branch_id).pluck(:id).uniq
+    all_agents_in_branch.map{ |t| calculate_per_property_stats_for_agent(property_quotes)}
+
     { name: branch_name, id: branch_id, aggregate_stats: aggregate_stats, property_quotes: property_quotes }
   end
 
@@ -26,20 +29,41 @@ class AgentApi
   #### AgentApi.new(10966139, 1234).calculate_aggregate_stats({})
   def calculate_aggregate_stats(aggregate_stats)
     all_valuations =  all_valuations_of_agent
-    all_sales = all_sales_of_agent
-    aggregate_stats[:aggregate_sales] = all_sales.map{|t| t.message['final_price'] }.reduce(&:+)
-    aggregate_stats[:sold] = number_of_properties_sold
-    aggregate_stats[:property_count] = Agents::Branches::AssignedAgents::Quote.where.not(status: nil).where(agent_id: @agent_id).count
-    aggregate_stats[:avg_no_of_days_to_sell] = average_no_of_days_to_sell
-    aggregate_stats[:percent_more_than_valuation] = percent_more_than_valuation
+    all_agents_in_branch = Agents::Branches::AssignedAgent.where(branch_id: @branch_id).pluck(:id).uniq
+    all_agents_result = all_agents_in_branch.map { |e|  all_sales_of_agent(e) }.flatten!
+    aggregate_stats[:aggregate_sales] = all_agents_result.map{|t| t.message['final_price'] }.reduce(&:+)
+
+    all_agents_result = all_agents_in_branch.map { |e| average_no_of_days_to_sell(e) }
+    all_agents_result = all_agents_result.select{|t| t>0}
+    aggregate_stats[:avg_no_of_days_to_sell] = (all_agents_result.reduce(:+).to_i/all_agents_result.count.to_f)
+
+    all_agents_result = all_agents_in_branch.map { |e| average_no_of_days_to_sell(e) }
+    all_agents_result = all_agents_result.select{|t| t>0}
+    aggregate_stats[:percent_more_than_valuation] = (all_agents_result.reduce(:+).to_f/all_agents_result.count.to_f)
     # aggregate_stats[:avg_valuation] = ((all_valuations.map{|t| t[:no_of_valuations] }.reduce(&:+).to_f)/(quotes.count.to_f)).round(2)*100
     # aggregate_stats[:avg_greater_than_valuation] = percent_more_than_valuation
-    aggregate_stats[:avg_changes_to_valuation] = avg_changes_to_valuation
-    aggregate_stats[:avg_increase_in_valuation] = avg_increase_in_value
-    aggregate_stats[:avg_percent_of_first_valuation] = avg_percent_of_first_valuation_achieved
-    aggregate_stats[:avg_percent_of_final_valuation] = avg_percent_of_final_valuation_achieved
+    all_agents_result = all_agents_in_branch.map { |e| avg_changes_to_valuation(e) }
+    all_agents_result = all_agents_result.select{|t| t>0}
+    aggregate_stats[:avg_changes_to_valuation] = (all_agents_result.reduce(:+).to_f/all_agents_result.count.to_f)
+    
+    all_agents_result = all_agents_in_branch.map { |e| avg_increase_in_value(e) }
+    all_agents_result = all_agents_result.select{|t| t>0}
+    aggregate_stats[:avg_increase_in_valuation] = (all_agents_result.reduce(:+).to_f/all_agents_result.count.to_f)
+    
+    all_agents_result = all_agents_in_branch.map { |e| avg_percent_of_first_valuation_achieved(e) }
+    all_agents_result = all_agents_result.select{|t| t>0}
+    aggregate_stats[:avg_percent_of_first_valuation] = (all_agents_result.reduce(:+).to_f/all_agents_result.count.to_f)
+
+    all_agents_result = all_agents_in_branch.map { |e| avg_percent_of_final_valuation_achieved(e) }
+    all_agents_result = all_agents_result.select{|t| t>0}
+    aggregate_stats[:avg_percent_of_final_valuation] = (all_agents_result.reduce(:+).to_f/all_agents_result.count.to_f)
+    
     aggregate_stats[:pay_link] = 'Random link'
     aggregate_stats[:quote_price] = quote_price
+    quote = Agents::Branches::AssignedAgents::Quote.where(property_id: @udprn).where(agent_id: nil).last
+    aggregate_stats[:payment_terms] = nil
+    aggregate_stats[:payment_terms] = quote.payment_terms if quote
+    aggregate_stats[:quote_details] = quote.quote_details if quote
     # aggregate_stats[:avg_final_valuation_percent] = ((quotes.map{|t| t[:final_valuation_percent] }.reduce(&:+).to_f)/(quotes.count.to_f)).round(2)
     # aggregate_stats[:avg_first_valuation_percent] = ((quotes.map{|t| t[:first_valuation_percent] }.reduce(&:+).to_f)/(quotes.count.to_f)).round(2)
   end
@@ -77,26 +101,29 @@ class AgentApi
 
   #### To test this function run in the console
   #### AgentApi.new(10966139, 1234).number_of_properties_sold
-  def number_of_properties_sold
+  def number_of_properties_sold(agent_id=nil)
+    agent_id ||= @agent_id
     event = Trackers::Buyer::EVENTS[:sold]
     Event.where(event: event).where(agent_id: @agent_id).count
   end
 
   #### To test this function run in the console
   #### AgentApi.new(10966139, 1234).all_valuations_of_agent
-  def all_valuations_of_agent
+  def all_valuations_of_agent(agent_id=nil)
     valuations = []
     event = Trackers::Buyer::EVENTS[:valuation_change]
-    udprns = Event.where(agent_id: @agent_id).where(event: event).pluck(:udprn).uniq
-    udprns.map { |e| valuations.push(Event.where(agent_id: @agent_id).where(event: event).where(udprn: e).order('created_at DESC')) }
+    agent_id ||= @agent_id
+    udprns = Event.where(agent_id: agent_id).where(event: event).pluck(:udprn).uniq
+    udprns.map { |e| valuations.push(Event.where(agent_id: agent_id).where(event: event).where(udprn: e).order('created_at DESC')) }
     valuations
   end
 
   #### To test this function run in the console
   #### AgentApi.new(10966139, 1234).all_sales_of_agent
-  def all_sales_of_agent
+  def all_sales_of_agent(agent_id=nil)
     event = Trackers::Buyer::EVENTS[:sold]
-    Event.where(agent_id: @agent_id).where(event: event).order('created_at DESC')
+    agent_id ||= @agent_id
+    Event.where(agent_id: agent_id).where(event: event).order('created_at DESC')
   end
 
   #### To test this function run in the console
@@ -104,12 +131,13 @@ class AgentApi
   #### Agents::Branches::AssignedAgents::Quote.create(deadline: Time.now, status: 1, property_id: 10976765, agent_id: 1234, created_at: 32.days.ago)
   #### Agents::Branches::AssignedAgents::Quote.create(deadline: Time.now, status: 1, property_id: 10975337, agent_id: 1234, created_at: 28.days.ago)
   #### Agents::Branches::AssignedAgents::Quote.create(deadline: Time.now, status: 1, property_id: 54042234, agent_id: 1234, created_at: 30.days.ago)
-  def average_no_of_days_to_sell
-    all_sales = all_sales_of_agent
+  def average_no_of_days_to_sell(agent_id=nil)
+    agent_id ||= @agent_id
+    all_sales = all_sales_of_agent(agent_id)
     total_time_diff = 0
     count = 0
     all_sales.each do |each_sale|
-      start_date = Agents::Branches::AssignedAgents::Quote.where(property_id: each_sale.udprn).where(agent_id: @agent_id).where.not(status: nil).first.created_at rescue nil
+      start_date = Agents::Branches::AssignedAgents::Quote.where(property_id: each_sale.udprn).where(agent_id: agent_id).where.not(status: nil).first.created_at rescue nil
       if start_date
         end_date = each_sale.created_at
         time_diff = (end_date - start_date).to_i/(24 * 60 * 60)
@@ -126,9 +154,10 @@ class AgentApi
 
   #### How many properties were sold by the agent which exceeded the current_valuation
   #### AgentApi.new(10966139, 1234).percent_more_than_valuation
-  def percent_more_than_valuation
-    all_sales = all_sales_of_agent
-    all_valuations = all_valuations_of_agent
+  def percent_more_than_valuation(agent_id=nil)
+    agent_id ||= @agent_id
+    all_sales = all_sales_of_agent(agent_id)
+    all_valuations = all_valuations_of_agent(agent_id)
     valuation_property_hash = {}
     all_valuations.each do |each_property_valuation|
       message = each_property_valuation.first.message
@@ -157,9 +186,10 @@ class AgentApi
 
   #### How many properties were sold by the agent which exceeded the current_valuation
   #### AgentApi.new(10966139, 1234).avg_changes_to_valuation
-  def avg_changes_to_valuation
+  def avg_changes_to_valuation(agent_id=nil)
+    agent_id ||= @agent_id
     count = 0
-    all_valuations = all_valuations_of_agent
+    all_valuations = all_valuations_of_agent(agent_id)
     all_valuations.each do |each_property_valuation|
       count += each_property_valuation.count
     end
@@ -173,8 +203,9 @@ class AgentApi
 
   #### How many properties were sold by the agent which exceeded the current_valuation
   #### AgentApi.new(10966139, 1234).avg_increase_in_value
-  def avg_increase_in_value
-    all_valuations = all_valuations_of_agent
+  def avg_increase_in_value(agent_id=nil)
+    agent_id ||= @agent_id
+    all_valuations = all_valuations_of_agent(agent_id)
     valuation_property_hash = {}
 
     all_valuations.each do |each_property_valuation|
@@ -186,7 +217,7 @@ class AgentApi
     sum_of_percentage_changes = 0
 
     count = 0
-    all_sales = all_sales_of_agent
+    all_sales = all_sales_of_agent(agent_id)
     all_sales.each do |each_sale|
       count += 1
       final_price = each_sale.message['final_price']
@@ -204,8 +235,9 @@ class AgentApi
 
   #### What is the average percentage of first valuation achieved
   #### AgentApi.new(10966139, 1234).avg_percent_of_first_valuation_achieved
-  def avg_percent_of_first_valuation_achieved
-    all_valuations = all_valuations_of_agent
+  def avg_percent_of_first_valuation_achieved(agent_id=nil)
+    agent_id ||= @agent_id
+    all_valuations = all_valuations_of_agent(agent_id)
     valuation_property_hash = {}
 
     all_valuations.each do |each_property_valuation|
@@ -217,7 +249,7 @@ class AgentApi
     sum_of_percentage_changes = 0
 
     count = 0
-    all_sales = all_sales_of_agent
+    all_sales = all_sales_of_agent(agent_id)
     all_sales.each do |each_sale|
       count += 1
       final_price = each_sale.message['final_price']
@@ -235,8 +267,9 @@ class AgentApi
 
   #### What is the average percentage of final valuation achieved
   #### AgentApi.new(10966139, 1234).avg_percent_of_final_valuation_achieved
-  def avg_percent_of_final_valuation_achieved
-    all_valuations = all_valuations_of_agent
+  def avg_percent_of_final_valuation_achieved(agent_id=nil)
+    agent_id ||= @agent_id
+    all_valuations = all_valuations_of_agent(agent_id)
     valuation_property_hash = {}
 
     all_valuations.each do |each_property_valuation|
@@ -248,7 +281,7 @@ class AgentApi
     sum_of_percentage_changes = 0
 
     count = 0
-    all_sales = all_sales_of_agent
+    all_sales = all_sales_of_agent(agent_id)
     all_sales.each do |each_sale|
       count += 1
       final_price = each_sale.message['final_price']
@@ -266,8 +299,9 @@ class AgentApi
 
   #### Final aggregated quote price of the agent
   #### AgentApi.new(10966139, 1234).quote_price
-  def quote_price
-    quote = Agents::Branches::AssignedAgents::Quote.where(agent_id: @agent_id).where(property_id: @udprn).order('created_at DESC').first
+  def quote_price(agent_id=nil)
+    agent_id ||= @agent_id
+    quote = Agents::Branches::AssignedAgents::Quote.where(agent_id: agent_id).where(property_id: @udprn).order('created_at DESC').first
     price = nil
     if quote
       price = quote.compute_price
@@ -285,12 +319,13 @@ class AgentApi
   #### This function gathers all the price movements of a single property
   #### which was handled by this agent
   #### AgentApi.new(10966139, 1234).calculate_per_property_stats_for_agent({})
-  def calculate_per_property_stats_for_agent(result)
-    all_valuations = all_valuations_of_agent
+  def calculate_per_property_stats_for_agent(result, agent_id=nil)
+    agent_id ||= @agent_id
+    all_valuations = all_valuations_of_agent(agent_id)
     all_valuations.each do |each_property_valuation|
       each_property_hash = {}
       event = Trackers::Buyer::EVENTS[:sold]
-      event_result = Event.where(agent_id: @agent_id).where(event: event).where(udprn: each_property_valuation.first.udprn)
+      event_result = Event.where(agent_id: agent_id).where(event: event).where(udprn: each_property_valuation.first.udprn)
       if event_result.count > 0
         ### Property Ids
         property_id = each_property_valuation.first.udprn
