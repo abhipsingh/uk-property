@@ -24,7 +24,7 @@ module Api
         result = result.each{|t| t[:photo_urls] = [] }
         #Rails.logger.info(result)
         result.first[:breadcrumb] = params[:hash_str].split('_').join(', ')
-        result.each { |each_property| insert_save_search(each_property) }
+        # result.each { |each_property| insert_save_search(each_property) }
         
         render :json => result, :status => status
       end

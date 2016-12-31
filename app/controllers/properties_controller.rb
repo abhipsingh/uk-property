@@ -4,7 +4,7 @@ class PropertiesController < ActionController::Base
   def edit
     udprn = params[:udprn]
     @udprn = udprn
-    property = JSON.parse(Net::HTTP.get(URI.parse("http://localhost:9200/addresses/address/#{udprn}")))
+    property = PropertyDetails.details(udprn)['_source']
     property = property['_source'] if property.has_key?('_source')
     @building_unit = ''
     @building_unit += property['building_number'] if property.has_key?('building_number')

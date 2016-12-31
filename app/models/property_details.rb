@@ -67,7 +67,6 @@ class PropertyDetails
       fields: 'udprn'
     }
 
-    p search_params
     api = PropertyDetailsRepo.new(filtered_params: search_params)
     api.apply_filters
     body, status = api.fetch_data_from_es

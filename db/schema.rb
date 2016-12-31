@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20161228202349) do
+ActiveRecord::Schema.define(version: 20161231113612) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -147,6 +147,16 @@ ActiveRecord::Schema.define(version: 20161228202349) do
 
   add_index "messages", ["from"], name: "index_messages_on_from", using: :btree
   add_index "messages", ["to"], name: "index_messages_on_to", using: :btree
+
+  create_table "property_ads", force: :cascade do |t|
+    t.integer  "property_id"
+    t.string   "hash_str"
+    t.integer  "ad_type"
+    t.datetime "created_at",  null: false
+    t.datetime "updated_at",  null: false
+  end
+
+  add_index "property_ads", ["property_id", "ad_type", "hash_str"], name: "index_property_ads_on_property_id_and_ad_type_and_hash_str", unique: true, using: :btree
 
   create_table "property_buyers", force: :cascade do |t|
     t.jsonb    "searches",          default: [], null: false
