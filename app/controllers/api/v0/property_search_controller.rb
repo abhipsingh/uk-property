@@ -24,15 +24,17 @@ module Api
         result = result.each{|t| t[:photo_urls] = [] }
         #Rails.logger.info(result)
         result.first[:breadcrumb] = params[:hash_str].split('_').join(', ')
-        # result.each { |each_property| insert_save_search(each_property) }
+        result.each { |each_property| insert_save_search(each_property) }
         
         render :json => result, :status => status
       end
 
       def insert_save_search(property_detail)
         event = Trackers::Buyer::EVENTS[:save_search_hash]
-        buyer_id = params['buyer_id'].to_i
-        agent_id = property_detail['agent_id'].to_i
+        buyer_id = params['buyer_id']
+        agent_id = property_detail['agent_id']
+        buyer_id ||= 1
+        agent_id ||= 1234
 
         #Rails.logger.info("AGENT_ID____#{agent_id}")
 
@@ -47,7 +49,7 @@ module Api
 
         property_id = property_detail['udprn'].to_i
         message = 'NULL' if message.nil?
-        Rails.logger.info("#{agent_id},#{property_id},#{buyer_id},#{message},#{type_of_match},#{property_status_type},#{event}")
+        # Rails.logger.info("#{agent_id},#{property_id},#{buyer_id},#{message},#{type_of_match},#{property_status_type},#{event}")
         insert_events(agent_id, property_id, buyer_id, message, type_of_match, property_status_type, event)
       end
 

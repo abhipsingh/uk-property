@@ -151,7 +151,7 @@ class PropertiesController < ActionController::Base
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/agent/stage/rating/stats/10966139?agent_id=1234'
   def agent_stage_and_rating_stats
     quote = Agents::Branches::AssignedAgents::Quote.where(agent_id: params[:agent_id].to_i).where(property_id: params[:udprn].to_i).last
-    if quote && quote.status == 1
+    if quote ### && quote.status == 1
       response = Trackers::Buyer.new.agent_stage_and_rating_stats(params[:udprn].to_i)
       status = 200
     else

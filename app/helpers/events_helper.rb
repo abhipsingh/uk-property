@@ -2,7 +2,6 @@ module EventsHelper
 
   def insert_events(agent_id1, property_id, buyer_id, message, type_of_match, property_status_type, event)
     property_id = property_id.to_i
-    buyer_id = buyer_id.to_i
     type_of_match = type_of_match.to_i
     property_status_type = property_status_type.to_i
     event = event.to_i

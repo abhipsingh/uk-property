@@ -538,9 +538,9 @@ class Trackers::Buyer
     monthly_views = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}").as_json
     aggregated_result[:monthly_views] =  monthly_views
 
-    event = EVENTS[:save_search_hash]
-    monthly_saved_search_hashes = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}").as_json
-    aggregated_result[:save_search_hash] =  monthly_saved_search_hashes
+    # event = EVENTS[:save_search_hash]
+    # monthly_saved_search_hashes = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}").as_json
+    # aggregated_result[:save_search_hash] =  monthly_saved_search_hashes
 
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
     monthly_enquiries = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event IN (#{events.join(',')})").as_json
@@ -592,16 +592,19 @@ class Trackers::Buyer
     table = 'simple.property_events_buyers_events'
     
     #### Similar properties to the udprn
+    #### TODO: Remove HACK FOR SOME Results to be shown
+    p details['hashes']
     default_search_params = {
-      min_beds: details['beds'],
-      max_beds: details['beds'],
-      min_baths: details['baths'],
-      max_baths: details['baths'],
-      min_receptions: details['receptions'],
-      max_receptions: details['receptions'],
+      min_beds: details['beds'] - 2,
+      max_beds: details['beds'] + 2,
+      min_baths: details['baths'] - 2 ,
+      max_baths: details['baths'] + 2,
+      min_receptions: details['receptions'] - 2,
+      max_receptions: details['receptions'] + 2,
       property_types: details['property_type'],
       fields: 'udprn'
     }
+    # p default_search_params
 
     ### analysis for each of the postcode type
     search_stats = {}
@@ -622,7 +625,6 @@ class Trackers::Buyer
 
       ### Exclude the current udprn from the result
       udprns = udprns - [ udprn.to_s ]
-
       ### Accumulate data for each udprn
       type_of_match = TYPE_OF_MATCH[:perfect]
       event = EVENTS[:save_search_hash]
@@ -702,12 +704,12 @@ class Trackers::Buyer
     
     #### Similar properties to the udprn
     default_search_params = {
-      min_beds: details['beds'],
-      max_beds: details['beds'],
-      min_baths: details['baths'],
-      max_baths: details['baths'],
-      min_receptions: details['receptions'],
-      max_receptions: details['receptions'],
+      min_beds: details['beds'] - 2,
+      max_beds: details['beds'] + 2,
+      min_baths: details['baths'] - 2 ,
+      max_baths: details['baths'] + 2,
+      min_receptions: details['receptions'] - 2,
+      max_receptions: details['receptions'] + 2,
       property_types: details['property_type'],
       fields: 'udprn'
     }
@@ -731,7 +733,7 @@ class Trackers::Buyer
 
       ### Exclude the current udprn from the result
       udprns = udprns - [ udprn.to_s ]
-
+      p udprns
       ### Accumulate buyer_id for each udprn
       buyer_ids = []
       event = EVENTS[:save_search_hash]
@@ -778,8 +780,10 @@ class Trackers::Buyer
     end
     buying_status_stats = {}
     buying_status_distribution.each do |key, value|
-      buying_status_stats[key] = ((value.to_f/total_count.to_f)*100).round(2)
+      buying_status_stats[PropertyBuyer::REVERSE_BUYING_STATUS_HASH[key]] = ((value.to_f/total_count.to_f)*100).round(2)
     end
+    PropertyBuyer::BUYING_STATUS_HASH.each { |k,v| buying_status_stats[k] = 0 unless buying_status_stats[k] }
+
     result_hash[:buying_status] = buying_status_stats
 
     ### Funding status stats
@@ -789,8 +793,9 @@ class Trackers::Buyer
     end
     funding_status_stats = {}
     funding_status_distribution.each do |key, value|
-      funding_status_stats[key] = ((value.to_f/total_count.to_f)*100).round(2)
+      funding_status_stats[PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[key]] = ((value.to_f/total_count.to_f)*100).round(2)
     end
+    PropertyBuyer::FUNDING_STATUS_HASH.each { |k,v| funding_status_stats[k] = 0 unless funding_status_stats[k] }
     result_hash[:funding_status] = funding_status_stats
 
     ### Biggest problem stats
@@ -800,8 +805,9 @@ class Trackers::Buyer
     end
     biggest_problem_stats = {}
     biggest_problem_distribution.each do |key, value|
-      biggest_problem_stats[key] = ((value.to_f/total_count.to_f)*100).round(2)
+      biggest_problem_stats[PropertyBuyer::REVERSE_BIGGEST_PROBLEM_HASH[key]] = ((value.to_f/total_count.to_f)*100).round(2)
     end
+    PropertyBuyer::BIGGEST_PROBLEM_HASH.each { |k,v| biggest_problem_stats[k] = 0 unless biggest_problem_stats[k] }
     result_hash[:biggest_problem] = biggest_problem_stats
 
     ### Chain free stats
@@ -813,6 +819,8 @@ class Trackers::Buyer
     chain_free_distribution.each do |key, value|
       chain_free_stats[key] = ((value.to_f/total_count.to_f)*100).round(2)
     end
+    chain_free_stats[true] = 0 unless chain_free_stats[true]
+    chain_free_stats[false] = 0 unless chain_free_stats[false]
     result_hash[:chain_free] = chain_free_stats
     result_hash
   end
@@ -825,7 +833,7 @@ class Trackers::Buyer
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
     table = 'Simple.property_events_buyers_events'
     property_id = udprn.to_i
-    buyer_ids = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
+    buyer_ids = Event.where(event: events).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
     ### Filtered out the rows which are outdated
 
     ### Buyers who are in qualifying stage
@@ -928,14 +936,17 @@ class Trackers::Buyer
     ### Hot property buyers
     event = EVENTS[:hot_property]
     rating_stats[:hot_property_count] = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq.count
+    hot_property_buyers = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
 
     ### Warm property buyers
     event = EVENTS[:warm_property]
     rating_stats[:warm_property_count] = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq.count
+    warm_property_buyers = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
 
     ### Cold property buyers
     event = EVENTS[:cold_property]
     rating_stats[:cold_property_count] = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq.count
+    cold_property_buyers = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
 
     unknown_buyers = buyer_ids - ( hot_property_buyers + warm_property_buyers + cold_property_buyers )
     rating_stats[:unknown_rating_count] = unknown_buyers.length
@@ -1008,7 +1019,7 @@ class Trackers::Buyer
       requested_callback_hash = {}
       requested_viewing_hash = {}
       hidden_hash = {}
-
+      table = nil
       udprns.each do |udprn|
         udprn = udprn.to_i
         event = EVENTS[:save_search_hash]
