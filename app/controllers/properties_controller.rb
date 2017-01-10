@@ -186,6 +186,42 @@ class PropertiesController < ActionController::Base
     render json: ranking_info, status: status
   end
 
+  #### Gets the properties which satisfy the postcode, or the building name filter
+  def properties_for_claiming
+    search_str = params[:str]
+    postcode = params[:postcode]
+    search_hash = {}
+    search_hash[:postcode] = params[:postcode] if params[:postcode] && !params[:postcode].empty?
+    search_hash[:sub_building_name] = params[:str] if params[:str] && !params[:str].empty?
+    search_hash[:building_name] = params[:str] if params[:str] && !params[:str].empty?
+    search_hash[:building_number] = params[:str] if params[:str] && !params[:str].empty?
+    api = PropertyDetailsRepo.new(filtered_params: search_hash )
+    api.apply_filters
+    # Rails.logger.info(api.query)
+    api.make_or_filters([:sub_building_name, :building_name, :building_number])
+    body, status = api.fetch_data_from_es
+    render json: body, status: status
+  end
+
+  ### Edit basic details of a property
+  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/properties/claim/basic/10966139/edit' -d '{ "beds" : 2, "baths": 190, "receptions" : 34, "property_status_type" : "Green", "dream_price" : 34000 }'
+  def edit_basic_details
+    udprn = params[:udprn].to_i
+    client = Elasticsearch::Client.new(host: Rails.configuration.remote_es_host)
+    body = {}
+    body[:dream_price] = params[:dream_price].to_i
+    body[:beds] = params[:beds].to_i
+    body[:baths] = params[:baths].to_i
+    body[:receptions] = params[:receptions].to_i
+    body[:property_status_type] = params[:property_status_type]
+    body[:verification_status] = false
+    client.update index: 'addresses', type: 'address', id: udprn,
+                  body: { doc: body }
+    render json: { message: 'Successfully updated' }, status: 200
+  rescue Exception => e
+    render json: { message: 'Update failed' }, status: 400
+  end
+
   private
 
   def short_form_params

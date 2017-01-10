@@ -1191,7 +1191,8 @@ $(function() {
           var external_body = '<tr><td></td><td></td><td>Total</td><td id="total_ad_price">0.00$</td></tr>'
           var external_body_dom = $.parseHTML(external_body);
           $(table1).find('tbody')[0].appendChild(external_body_dom[0]);
-          external_body = '<tr><td></td><td></td><td></td><td id="pay_now_link"><a href="#" id="pay_now_url">Pay Now </a></td></tr>';
+          var link_url = '/auth/facebook?user_type=Buyer';
+          external_body = '<tr><td></td><td></td><td></td><td id="pay_now_link"><a href="#" id="pay_now_url">Pay Now </a><a href="'+link_url+'">Profile</a></td></tr>';
           external_body_dom = $.parseHTML(external_body);
           $('#ads_form_main_details')[0].appendChild(external_body_dom[0]);
 

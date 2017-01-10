@@ -954,4 +954,16 @@ class ApplicationController < ActionController::Base
     @current_user = AuthorizeApiRequest.call(request.headers, params[:user_type]).result 
     render json: { error: 'Not Authorized' }, status: 401 unless @current_user 
   end
+
+  def current_user
+     reset_session
+      user_type_map = {
+        'Agent' => 'Agents::Branches::AssignedAgent',
+        'Vendor' => 'Vendor',
+        'Buyer' => 'PropertyBuyer'
+       } 
+    if session[:user_type] && ['Vendor', 'Buyer', 'Agent'].include?(session[:user_type])
+      @current_user ||= session[:user_type].constantize.find(session[:user_id])
+    end
+  end
 end

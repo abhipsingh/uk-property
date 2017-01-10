@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20161231113612) do
+ActiveRecord::Schema.define(version: 20170109153012) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -47,17 +47,21 @@ ActiveRecord::Schema.define(version: 20161231113612) do
   add_index "agents_branches", ["postcode"], name: "index_agents_branches_on_postcode", using: :btree
 
   create_table "agents_branches_assigned_agents", force: :cascade do |t|
-    t.string  "name"
-    t.string  "email"
-    t.string  "mobile"
-    t.integer "branch_id"
-    t.string  "title"
-    t.string  "office_phone_number"
-    t.string  "mobile_phone_number"
-    t.string  "image_url"
-    t.jsonb   "invited_agents"
-    t.string  "password"
-    t.string  "password_digest"
+    t.string   "name"
+    t.string   "email"
+    t.string   "mobile"
+    t.integer  "branch_id"
+    t.string   "title"
+    t.string   "office_phone_number"
+    t.string   "mobile_phone_number"
+    t.string   "image_url"
+    t.jsonb    "invited_agents"
+    t.string   "password"
+    t.string   "password_digest"
+    t.string   "provider"
+    t.string   "uid"
+    t.string   "oauth_token"
+    t.datetime "oauth_expires_at"
   end
 
   add_index "agents_branches_assigned_agents", ["branch_id"], name: "index_agents_branches_assigned_agents_on_branch_id", using: :btree
@@ -181,6 +185,11 @@ ActiveRecord::Schema.define(version: 20161231113612) do
     t.string   "image_url"
     t.integer  "budget_from"
     t.integer  "budget_to"
+    t.string   "provider"
+    t.string   "uid"
+    t.string   "oauth_token"
+    t.datetime "oauth_expires_at"
+    t.integer  "vendor_id"
   end
 
   add_index "property_buyers", ["email_id"], name: "index_property_buyers_on_email_id", unique: true, using: :btree
@@ -270,12 +279,17 @@ ActiveRecord::Schema.define(version: 20161231113612) do
     t.string   "email"
     t.string   "mobile"
     t.integer  "status"
-    t.datetime "created_at",      null: false
-    t.datetime "updated_at",      null: false
+    t.datetime "created_at",       null: false
+    t.datetime "updated_at",       null: false
     t.string   "image_url"
     t.string   "password"
     t.string   "password_digest"
     t.string   "name"
+    t.string   "provider"
+    t.string   "uid"
+    t.string   "oauth_token"
+    t.datetime "oauth_expires_at"
+    t.integer  "buyer_id"
   end
 
 end

@@ -18,12 +18,6 @@ module TestApp
     config.generators do |g|
       g.test_framework :mini_test, spec: true, fixture: false
     end
-    config.to_prepare do
-        Devise::SessionsController.layout 'login'
-        Devise::RegistrationsController.layout 'login'
-        Devise::PasswordsController.layout 'login'
-        Devise::ConfirmationsController.layout 'login'
-      end
     config.middleware.insert_after 0, "Rack::Cors" do
       allow do
         origins '*'

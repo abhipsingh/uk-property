@@ -15,7 +15,6 @@ gem 'elasticsearch-persistence'
 gem 'oj'
 gem 'sprockets', '2.11.0'
 gem 'minitest'
-gem 'devise'
 gem 'httparty'
 # # See https://github.com/sstephenson/execjs#readme for more supported runtimes
 # gem 'therubyracer', platforms: :ruby

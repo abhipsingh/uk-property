@@ -6,4 +6,19 @@ class Vendor < ActiveRecord::Base
   }
 
   REVERSE_STATUS_HASH = STATUS_HASH.invert
+  def self.from_omniauth(auth)
+    new_params = auth.as_json.with_indifferent_access
+    Rails.logger.info(new_params)
+    where(new_params.slice(:provider, :uid)).first_or_initialize.tap do |user|
+      user.provider = new_params['provider']
+      user.uid = new_params['uid']
+      user.name = new_params['info']['name']
+      user.email = new_params['info']['email']
+      user.image_url = "http://graph.facebook.com/#{new_params['uid']}/picture?type=large"
+      user.oauth_token = new_params['credentials']['token']
+      user.oauth_expires_at = Time.at(new_params['credentials']['expires_at'])
+      user.password = "12345678"
+      user.save!
+    end
+  end
 end

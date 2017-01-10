@@ -12,7 +12,7 @@ class PropertyDetailsRepo
   ES_EC2_HOST = Rails.configuration.remote_es_host
   FIELDS = {
     terms: [ :property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :keyword_types, :udprns, :vendor_ids ],
-    term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status, :agent_id, :district, :udprn, :vendor_id, :postcode, :district, :sector, :unit, :vendor_id ],
+    term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status, :agent_id, :district, :udprn, :vendor_id, :postcode, :district, :sector, :unit, :vendor_id, :building_name, :building_number, :sub_building_name ],
     range: [ :cost_per_month, :date_added, :floors, :year_built, :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, :time_frame, :beds, :baths, :receptions, :current_valuation, :dream_price ],
   }
 
@@ -296,6 +296,17 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     terms_filters = @filtered_params.keys & FIELDS[:terms]
     terms_filters.each{|t|  inst = inst.append_terms_filter_query(t.to_s.singularize, @filtered_params[t].split(","), :and)}
     inst
+  end
+
+  def make_or_filters(attributes)
+    or_filters = @query[:filter][:and][:filters].select{ |k| attributes.include?(k.values[0][:_name]) }
+    and_filters = @query[:filter][:and][:filters].select{ |k| !attributes.include?(k.values[0][:_name]) }
+    @query[:filter][:and][:filters] = and_filters
+    @query[:filter][:and][:filters].push({
+      or: {
+        filters: or_filters
+      }
+    })
   end
 
   def append_pagination_filter(size = RESULTS_PER_PAGE, bounded: true)

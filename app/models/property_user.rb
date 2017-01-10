@@ -1,9 +1,6 @@
 class PropertyUser < ActiveRecord::Base
   # Include default devise modules. Others available are:
   # :confirmable, :lockable, :timeoutable and :omniauthable
-  devise :database_authenticatable, :registerable,
-         :recoverable, :rememberable, :trackable, :validatable, :confirmable, :omniauthable,
-         :omniauth_providers => [:facebook, :google_oauth2, :twitter]
 
   validates :email, uniqueness: true, format: { with: /\A([^@\s]+)@((?:[-a-z0-9]+\.)+[a-z]{2,})\z/i  }
 
@@ -60,7 +57,6 @@ class PropertyUser < ActiveRecord::Base
   end
 
   def send_devise_notification(notification, *args)
-    devise_mailer.send(notification, self, *args).deliver_later
   end
 
   def profile_photo

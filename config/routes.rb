@@ -1,9 +1,4 @@
 Rails.application.routes.draw do
-  devise_for :property_users,
-             path_names: { sign_in: 'login', sign_out: 'logout', password: 'secret', confirmation: 'verification',
-                           unlock: 'unblock', sign_up: 'register' },
-             controllers: { omniauth_callbacks: 'property_users/omniauth_callbacks', registrations: 'property_users/registrations', confirmations: 'confirmations' }
-
   get 'welcome/index'
   # The priority is based upon order of creation: first created -> highest priority.
   # See how all your routes lay out with "rake routes".
@@ -157,6 +152,24 @@ Rails.application.routes.draw do
   #### Shows all the properties owned by a vendor
   get 'vendors/properties/:vendor_id',                          to: 'vendors#properties'
 
+  #### Gets all the properties speicific to a postcode or building attributes
+  get 'properties/search/claim',                                to: 'properties#properties_for_claiming'
+
+  #### Edit basic details of a property
+  post 'properties/claim/basic/:udprn/edit',                    to: 'properties#edit_basic_details'
+
+  #### Edit basic details of a buyer
+  post 'buyers/:id/edit',                                       to: 'buyers#edit_basic_details'
+
+  ### Registers an agent for the first time and issues a web token for the agent
+  post 'register/agents',                                       to: 'sessions#create_agent'
+
+  ### Login for an agent when an email and a password is provided
+  post 'login/agents',                                          to: 'sessions#login_agent'
+
+  ### Details for an agent when a token is provided
+  get 'details/agents',                                         to: 'sessions#agent_details'
+
   #####################################################################
   #####################################################################
   #####################################################################
@@ -213,4 +226,9 @@ Rails.application.routes.draw do
   get  'buyers/matrix/searches',                  to: 'property_users/searches#matrix_searches'
   post 'buyers/new/matrix/search',                to: 'property_users/searches#new_matrix_search'
   resources :charges
+
+  ### Facebook login routes
+  get 'auth/:provider/callback',                  to: 'sessions#create'
+  get 'signout',                                  to: 'sessions#destroy', as: 'signout'
+  resources 'sessions',                           only: [:create, :destroy]
 end
