@@ -7,6 +7,7 @@ module Agents
       has_many :leads, class_name: 'Agents::Branches::AssignedAgents::Lead', foreign_key: 'agent_id'
 
       belongs_to :branch
+      attr_accessor :vendor_email, :vendor_address, :email_udprn, :verification_hash
 
       ##### All recent quotes for the agent being displayed
       ##### Data being fetched from this function
@@ -16,42 +17,56 @@ module Agents
         results = []
 
         # udprns = quotes.where(district: self.branch.district).order('created_at DESC').pluck(:property_id)
-        query = quotes
+        query = Agents::Branches::AssignedAgents::Quote
+        query = query.where(district: self.branch.district)
         query = query.search_address_and_vendor_details(search_str) if search_str
         udprns = query.order('created_at DESC').pluck(:property_id).uniq
 
         search_params = {
           sort_order: 'desc',
           sort_key: 'status_last_updated',
-          udprns: udprns
+          district: self.branch.district,
+          verification_status: true
         }
+        if search_params[:district] == "L37"
+        #  search_params[:district] = "L14"
+        end
+
+        # search_params[:udprns] = udprns.join(',') if !udprns.empty?
         api = PropertyDetailsRepo.new(filtered_params: search_params)
         api.apply_filters
+        api.add_exists_filter(:quotes)
 
         body, status = api.fetch_data_from_es
+        Rails.logger.info(body)
+        body = body.sort_by{ |t| t['status_last_updated'] }.reverse
         if status.to_i == 200
           body.each do |property_details|
-
+            next if property_details['assigned_agent_quote'] && property_details['assigned_agent_quote'] == true && property_details['agent_id'] && property_details['agent_id'] != self.id
+            next if !property_details['payment_terms'] || !property_details.has_key?('services_required')
             ### Payment terms params filter
             next if payment_terms_params && payment_terms_params != property_details['payment_terms']
 
             ### Services required filter
-            next if service_required_param && service_required_param != property_details['service_required']
+            next if service_required_param && service_required_param != property_details['services_required']
 
             ### Quotes status filter
+
             property_id = property_details['udprn'].to_i
+
             quotes = self.quotes.where(property_id: property_id).where('created_at > ?', 1.year.ago)
-            quote_status = Agents::Branches::AssignedAgents::Quote::REVERSE_STATUS_HASH[quotes.last.status]
+            quote_status = Agents::Branches::AssignedAgents::Quote::REVERSE_STATUS_HASH[quotes.last.status] if quotes.last
+            quote_status ||= 'New'
             next if status_param && status_param != quote_status
 
             new_row = {}
             new_row[:udprn] = property_id
             if quotes.count > 0
-              new_row[:submittted_on] = quotes.last.created_at.to_s
+              new_row[:submitted_on] = quotes.last.created_at.to_s
               new_row[:status] = quote_status
               new_row[:status] ||= 'PENDING'
             else
-              new_row[:submittted_on] = nil
+              new_row[:submitted_on] = nil
               new_row[:status] = 'PENDING'
             end
             new_row[:activated_on] = property_details['status_last_updated']
@@ -59,7 +74,7 @@ module Agents
             new_row[:photo_url] = property_details['photos'][0]
             new_row[:street_view_url] = property_details['street_view_image_url']
             new_row[:address] = PropertyDetails.address(property_details)
-
+            new_row[:claimed_on] = property_details['claimed_at']
 
             ### Price details starts
             if property_details['status'] == 'Green'
@@ -78,7 +93,7 @@ module Agents
             property_historical_prices = PropertyHistoricalDetail.where(udprn: "#{property_id}").order("date DESC").pluck(:price)
             new_row[:historical_prices] = property_historical_prices
             if quotes.last && quotes.last.status == Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']
-              vendor = Vendor.where(property_id: property_id).where(status: Vendor::STATUS_HASH['Verified']).first
+              vendor = Vendor.where(property_id: property_id).first
               new_row[:vendor_name] = vendor.full_name
               new_row[:vendor_email] = vendor.email
               new_row[:vendor_mobile] = vendor.mobile
@@ -104,13 +119,13 @@ module Agents
             new_row[:service_required] = property_details['service_required']
             new_row[:verification_status] = property_details['verification_status']
 
-            new_row[:payment_terms] = self.quotes.last.payment_terms
+            new_row[:payment_terms] = property_details['payment_terms']
             new_row[:quotes] = property_details['quotes']
 
             new_row[:quotes_received] = Agents::Branches::AssignedAgents::Quote.where(property_id: property_id).where('created_at > ?', 1.week.ago).count
 
             #### WINNING AGENT
-            winning_quote = Agents::Branches::AssignedAgents::Quote.where(status: Agents::Branches::AssignedAgents::Quote::REVERSE_STATUS_HASH['Won'], property_id: property_id).first
+            winning_quote = Agents::Branches::AssignedAgents::Quote.where(status: Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won'], property_id: property_id).first
             if winning_quote
               new_row[:winning_agent] = winning_quote.agent.name
               new_row[:quote_price] = winning_quote.compute_price
@@ -141,7 +156,9 @@ module Agents
       #### Then call the following function for the agent in that district
       def recent_properties_for_claim(status=nil)
         district = self.branch.district
-        query = Agents::Branches::AssignedAgents::Lead.where(district: district).where('created_at > ?', 1.year.ago)
+        query = Agents::Branches::AssignedAgents::Lead.where(district: district).where('created_at > ?', 1.week.ago)
+        won_query = query
+        lost_query = query
         if status == 'New'
           query = query.where(agent_id: nil)
         elsif status == 'Won'
@@ -150,16 +167,24 @@ module Agents
           query = query.where.not(agent_id: self.id).where.not(agent_id: nil)
         end
         leads = query.order('created_at DESC').limit(20)
+        
         results = []
 
         leads.each do |lead|
           new_row = {}
           #### Submitted on
-          new_row[:submittted_on] = (lead.agent_id != self.id) ? "Not yet claimed by you" : lead.updated_at.to_s
+          if lead.agent_id && lead.agent_id != self.id
+            new_row[:submitted_on] = lead.created_at + (1..5).to_a.sample.seconds
+          elsif lead.agent_id
+            new_row[:submitted_on] = lead.created_at.to_s
+          else
+            new_row[:submitted_on] = nil
+          end
 
           ### address of the property
           details = PropertyDetails.details(lead.property_id)
           details = details['_source']
+
           new_row[:address] = PropertyDetails.address(details)
 
           ### Property type
@@ -192,7 +217,7 @@ module Agents
           #### Vendor details
           if lead.agent_id == self.id
             vendor = Vendor.where(id: lead.vendor_id).first
-            new_row[:vendor_name] = vendor.full_name
+            new_row[:vendor_name] = vendor.full_name || vendor.name
             new_row[:vendor_email] = vendor.email
             new_row[:vendor_mobile] = vendor.mobile
             new_row[:vendor_image_url] = vendor.image_url
@@ -246,7 +271,15 @@ module Agents
       end
 
       def active_properties
-        quotes.where(status: Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']).count
+        search_params = { limit: 100, fields: 'udprn' }
+        search_params[:agent_id] = self.id
+        search_params[:property_status_type] = 'Green'
+        search_params[:verification_status] = true
+        api = PropertyDetailsRepo.new(filtered_params: search_params)
+        api.apply_filters
+        body, status = api.fetch_data_from_es
+        # Rails.logger.info(body)
+        body.count
       end
 
       def self.from_omniauth(auth)
@@ -265,6 +298,21 @@ module Agents
         end
         user_details
       end
+
+      ### Agents::Branches::AssignedAgent.find(23).send_vendor_email("test@prophety.co.uk", 10968961)
+      def send_vendor_email(vendor_email, udprn)
+        salt_str = "#{vendor_email}_#{self.id}_#{self.class}"
+        hash_value = BCrypt::Password.create salt_str
+        hash_obj = VerificationHash.create!(email: vendor_email, hash_value: hash_value, entity_id: self.id, entity_type: self.class, udprn: udprn.to_i)
+        self.verification_hash = hash_obj.hash_value
+        self.vendor_email = vendor_email
+        self.vendor_email = "test@prophety.co.uk"
+        self.email_udprn = udprn
+        details = PropertyDetails.details(udprn)['_source']
+        self.vendor_address = details['address']
+        VendorMailer.welcome_email(self).deliver_now
+      end
+
     end
   end
 end

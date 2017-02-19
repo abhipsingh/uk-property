@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta content='text/html; charset=UTF-8' http-equiv='Content-Type' />
+  </head>
+  <body>
+    <h1>Hi <%= @user.name %></h1>
+    <p>
+      
+    </p>
+    <p>
+      Welcome to Prophety. 
+    </p>
+
+    <p>
+      Company: <%= @user.agent.name %>
+    </p>
+
+    <p>
+      Group_id: <%= @user.agent.group.id %>
+    </p>
+
+    <p>
+      Email: <%= @user.email %>
+    </p>
+
+    <p>
+      Verify your branch and invite other agents by clicking this link http://prophety.herokuapp.com/welcome/agent-branch?<%= @user.email_link %>.
+    </p>
+
+  </body>
+</html>

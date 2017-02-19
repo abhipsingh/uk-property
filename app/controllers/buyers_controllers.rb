@@ -3,6 +3,8 @@ class BuyersController < ActionController::Base
 
 	#### When basic details of the buyer is saved
   #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/buyers/7/edit' -d '{ "status" : "Green", "buying_status" : "First time buyer", "budget_from" : 5000, "budget_to": 100000, "chain_free" : false, "funding_status" : "Mortgage approved", "biggest_problem" : "Money" }'
+  #### Another example of editing name, mobile and image_url
+  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/buyers/43/edit' -d '{ "name" : "Jack Bing", "image_url" : "random_image_url", "mobile" : "9876543321" }'
 	def edit_basic_details
 		buyer = PropertyBuyer.find(params[:id])
 		buying_status = PropertyBuyer::BUYING_STATUS_HASH[params[:buying_status]] if params[:buying_status]
@@ -20,7 +22,15 @@ class BuyersController < ActionController::Base
 		buyer.funding = funding_status if funding_status
 		buyer.biggest_problem = biggest_problem if biggest_problem
 		buyer.chain_free = chain_free unless chain_free.nil?
+		buyer.mobile = params[:mobile] if params[:mobile]
+		buyer.image_url = params[:image_url] if params[:image_url]
+		buyer.name = params[:name] if params[:name]
+		buyer.password = params[:password] if params[:password]
 		buyer.save!
-		render json: { message: 'Saved buyer successfully' }, status: 201
+		details = buyer.as_json
+		details.delete('password')
+		details.delete('password_digest')
+		render json: { message: 'Saved buyer successfully', details: details }, status: 201
 	end
+
 end

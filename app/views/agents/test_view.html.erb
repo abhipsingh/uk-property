@@ -1,0 +1,5 @@
+<%= yield :charts_js %> <!-- Rails -->
+<%= Rails.logger.info("HELLO_#{networth_data}") %>
+<%= column_chart networth_data, 
+  colors: ["green", "#FF0000"], 
+  library: {backgroundColor: "#FFF", height: 265} %>

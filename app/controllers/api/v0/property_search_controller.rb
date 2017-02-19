@@ -238,6 +238,17 @@ module Api
           render json: { searches: searches, email_id: email_id, name: name }
         end
       end
+      
+      #### Details Api for a udprn
+      #### curl -XGET 'http://localhost/api/v0/properties/details/10968961'
+      def details
+        udprn = params[:property_id].to_i
+        details_json = PropertyDetails.details(udprn)['_source']
+        details_json.delete("hashes")
+        details_json.delete("match_type_str")
+        details_json.delete("suggest")
+        render json: { details: details_json }, status: 200
+      end
 
       def validate_search_hash(search_hash)
         result = true

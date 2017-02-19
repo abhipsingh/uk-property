@@ -6,6 +6,9 @@ Rails.application.routes.draw do
   # You can have the root of your site routed with "root"
   root 'welcome#index'
 
+  ### Test view
+  get 'agents/test/view',                    to: 'agents#test_view'
+
   ## JWT based authentication
   post 'authenticate', to: 'authentication#authenticate'
 
@@ -53,16 +56,16 @@ Rails.application.routes.draw do
   #####################################################################
   #####################################################################
   ### Post events to the server
-  post 'quotes/new',                         to: 'quotes#new'
+  post 'quotes/new',                       to: 'quotes#new'
 
   ### Post new quotes for a property. Done by a vendor
-  post 'quotes/property/:udprn',             to: 'quotes#new_quote_for_property'
+  post 'quotes/property/:udprn',           to: 'quotes#new_quote_for_property'
 
   #### When a vendor clicks the submit button
-  post 'quotes/submit/:quote_id',             to: 'quotes#submit'
+  post 'quotes/submit/:quote_id',          to: 'quotes#submit'
 
   #### For an agent, claim this property
-  post 'events/property/claim/:udprn',              to: 'events#claim_property'
+  post 'events/property/claim/:udprn',     to: 'events#claim_property'
   #####################################################################
   #####################################################################
   #####################################################################
@@ -72,9 +75,6 @@ Rails.application.routes.draw do
   #####################################################################
   #####################################################################
   
-  ### For an agent get all his detailed quotes for a specific property
-  get 'agents/quotes/:agent_id',            to: 'agents#quotes_per_property'
-
   ### For a property get all his detailed quotes for a specific property
   get 'property/quotes/agents/:udprn',      to: 'quotes#quotes_per_property'
 
@@ -131,7 +131,7 @@ Rails.application.routes.draw do
   get 'agents/branch/:branch_id',                               to: 'agents#branch_details'
 
   #### Agents routes for agent details
-  get 'agents/company/:agent_id',                                 to: 'agents#agent_details'
+  get 'agents/company/:agent_id',                               to: 'agents#agent_details'
 
   #### Agents routes for agent group details
   get 'agents/group/:group_id',                                 to: 'agents#group_details'
@@ -145,9 +145,14 @@ Rails.application.routes.draw do
   #### Invite other agents to register as well
   post 'agents/invite',                                         to: 'agents#invite_agents_to_register'
 
+  #### Edit agents details 
+  post 'agents/:id/edit',                                       to: 'agents#edit'
 
   #### Shows details of a specific property owned by a vendor
   get 'vendors/properties/details/:vendor_id',                  to: 'vendors#property_details'
+
+  #### Edit vendor details 
+  post 'vendors/:id/edit',                                      to: 'vendors#edit'
   
   #### Shows all the properties owned by a vendor
   get 'vendors/properties/:vendor_id',                          to: 'vendors#properties'
@@ -167,8 +172,86 @@ Rails.application.routes.draw do
   ### Login for an agent when an email and a password is provided
   post 'login/agents',                                          to: 'sessions#login_agent'
 
+  ### Registers a vendor for the first time and issues a web token for the agent
+  post 'register/vendors',                                      to: 'sessions#create_vendor'
+
+  ### Login for a vendor when an email and a password is provided
+  post 'login/vendors',                                         to: 'sessions#login_vendor'
+
+  ### Details for a vendor when a token is provided
+  get 'details/vendors',                                        to: 'sessions#vendor_details'
+
+  ### Sends an email to the buyer for registration
+  post 'buyers/signup',                                         to: 'sessions#buyer_signup'
+
+  ### Sends an email to the vendor for registration
+  post 'vendors/signup',                                        to: 'sessions#vendor_signup'
+
+  ### Gets the details of the verification hash sent to the emails of vendor and buyers
+  get 'users/all/hash',                                         to: 'sessions#hash_details'
+
+  ### Registers a buyer for the first time and issues a web token for the agent
+  post 'register/buyers',                                       to: 'sessions#create_buyer'
+
+  ### Login for a vendor when an email and a password is provided
+  post 'login/buyers',                                          to: 'sessions#login_buyer'
+
+  ### Details for a vendor when a token is provided
+  get 'details/buyers',                                         to: 'sessions#buyer_details'
+
+  ### Details for a vendor when a token is provided
+  post 'buyers/:id/edit',                                       to: 'property_buyers#edit'
+
   ### Details for an agent when a token is provided
   get 'details/agents',                                         to: 'sessions#agent_details'
+
+  ### Verify the udprns and invite the vendors
+  get 'agents/:id/udprns/verify',                               to: 'agents#verify_udprns'
+
+  ### Invite vendors by sending them an email
+  post 'agents/:agent_id/udprns/:udprn/verify',                 to: 'agents#invite_vendor'
+
+  ### get info about the agents which invited the vendor who is registering to verify
+  get 'vendors/invite/udprns/:udprn/agents/info',               to: 'agents#info_for_agent_verification'
+
+  ### verify info about the agents which invited the vendor who is registering to verify
+  post 'vendors/udprns/:udprn/agents/:agent_id/verify',         to: 'agents#verify_agent'
+
+  ### verify info about the properties which invited the vendor who is registering to verify
+  post 'vendors/udprns/:udprn/verify',                          to: 'agents#verify_property'
+
+  ### Get a presigned url for every image to be uploaded on S3
+  get 's3/upload/url',                                          to: 's3#presigned_url'
+
+  ### Verify that a upload happened
+  get 's3/verify/upload',                                       to: 's3#verify_upload'
+
+  ### For the agent, when he authorizes also make him attach his properties to the udprn
+  get 'agents/:id/udprns/attach/verify',                        to: 'agents#verify_udprn_to_crawled_property'
+
+  ### For any vendor, claim an unknown udprn
+  post 'properties/udprns/claim/:udprn',                        to: 'properties#claim_udprn'
+
+  ### Get the info about agents for a district
+  get 'agents/info/:udprn',                                     to: 'agents#info_agents'
+
+  ### Get the info about agents for a district
+  get ':udprn/valuations/last/details',                         to: 'agents#last_valuation_details'
+
+  ### Edit branch details
+  post 'branches/:id/edit',                                     to: 'agents#edit_branch_details'  
+
+  ### Edit branch details
+  post 'companies/:id/edit',                                    to: 'agents#edit_company_details' 
+
+
+  ### Edit group details
+  post 'groups/:id/edit',                                       to: 'agents#edit_group_details' 
+
+
+  ### Edit property details
+  post 'properties/:udprn/edit/details',                         to: 'properties#edit_property_details'
+
 
   #####################################################################
   #####################################################################
@@ -178,16 +261,15 @@ Rails.application.routes.draw do
   
   get '/auth/:provider/callback', to: 'sessions#create'
   get 'properties/new/:udprn/short', to: 'properties#short_form'
-  get 'postcodes/search', to: 'application#search_postcode'
-  get 'addresses/search', to: 'application#search_address'
+  get 'postcodes/search', to: 'matrix_view#search_postcode'
+  get 'addresses/search', to: 'matrix_view#search_address'
   get 'properties/:udprn/edit', to: 'properties#edit'
   get 'crawled_properties/:id/show', to: 'crawled_properties#show'
   get 'crawled_properties/search', to: 'crawled_properties#search'
   get 'crawled_properties/search_results', to: 'crawled_properties#search_results'
-  get 'addresses/matrix_view', to: 'application#matrix_view'
-  get 'addresses/predictions', to: 'application#predictive_search'
-  get 'addresses/predictions/results', to: 'application#get_results_from_hashes'
-  post 'addresses/follow', to: 'application#follow'
+  get 'addresses/matrix_view', to: 'matrix_view#matrix_view'
+  get 'addresses/predictions', to: 'matrix_view#predictive_search'
+  get 'addresses/predictions/results', to: 'matrix_view#get_results_from_hashes'
   get 'properties/claim/short/callback', to: 'properties#claim_property'
   post 'properties/claim/short', to: 'properties#claim_property'
   post 'properties/profile/submit', to: 'properties#complete_profile'
@@ -207,6 +289,10 @@ Rails.application.routes.draw do
       post 'property_users/update/udprns',           to: 'property_search#update_viewed_flats'
       post 'property_users/update/udprns/shortlist', to: 'property_search#update_shortlisted_udprns'
       post 'vendors/update/property_users',          to: 'property_search#notify_vendor_of_users'
+
+
+      ### verify info about the properties which invited the vendor who is registering to verify
+      get 'properties/details/:property_id',         to: 'property_search#details'
     end
   end
   post 'buyers/new/search',                       to: 'property_users/searches#new_saved_search'

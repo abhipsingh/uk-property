@@ -2,15 +2,25 @@
 ### index pages and the mobile offers page
 class SessionsController < ApplicationController
   def create
-    req_params = request.env["omniauth.params"]
-    if req_params['user_type'] && ['Vendor', 'Buyer', 'Agent'].include?(req_params['user_type'])
-      user_type = req_params['user_type']
+    Rails.logger.info(params[:facebook])
+    req_params = params[:facebook]
+    user_type = params[:user_type]
+    if user_type && ['Vendor', 'Buyer', 'Agent'].include?(user_type)
       user_type_map = {
         'Agent' => 'Agents::Branches::AssignedAgent',
         'Vendor' => 'Vendor',
         'Buyer' => 'PropertyBuyer'
       }
-      user = user_type_map[user_type].constantize.from_omniauth(env["omniauth.auth"])
+      user = user_type_map[user_type].constantize.from_omniauth(req_params)
+      
+      if user_type == 'Vendor'
+        buyer = PropertyBuyer.from_omniauth(req_params)
+        buyer.vendor_id = user.id
+        user.buyer_id = buyer.id
+        user.save! && buyer.save!
+      end
+
+
       session[:user_id] = user.id
       session[:user_type] = user_type
       user_details = user.as_json
@@ -24,7 +34,7 @@ class SessionsController < ApplicationController
   end
 
   ### Used to create a first time agent
-  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/register/agents/' -d '{ "agent" : { "name" : "Jackie Bing", "email" : "jackie.bing@friends.com", "mobile" : "9873628231", "password" : "1234567890" } }'
+  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/register/agents/' -d '{ "agent" : { "name" : "Jackie Bing", "email" : "jackie.bing@friends.com", "mobile" : "9873628231", "password" : "1234567890", "branch_id" : 9851 } }'
   def create_agent
     agent_params = params[:agent].as_json
     agent = Agents::Branches::AssignedAgent.new(agent_params)
@@ -32,7 +42,10 @@ class SessionsController < ApplicationController
     command = AuthenticateUser.call(agent_params['email'], agent_params['password'], Agents::Branches::AssignedAgent)
     agent.password = nil
     agent.password_digest = nil
-    render json: { auth_token: command.result, details: agent.as_json } 
+    agent_details = agent.as_json
+    agent_details['group_id'] = agent.branch.agent.group_id
+    agent_details['company_id'] = agent.branch.agent.id
+    render json: { auth_token: command.result, details: agent_details } 
   end
 
   #### Used for login for an agent
@@ -41,6 +54,49 @@ class SessionsController < ApplicationController
     agent_params = params[:agent].as_json
     command = AuthenticateUser.call(agent_params['email'], agent_params['password'], Agents::Branches::AssignedAgent)
     render json: { auth_token: command.result }
+  end
+
+  ### Used to create a first time vendor upon the invitation of an agent
+  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/register/vendors/' -d '{ "vendor" : { "name" : "Jackie Bing", "email" : "jackie.bing1@friends.com", "mobile" : "9873628231", "password" : "1234567890" } }'
+  def create_vendor
+    vendor_params = params[:vendor].as_json
+    vendor_params['name'] = '' if vendor_params['name']
+    hash_value = vendor_params["hash_value"]
+    vendor_params.delete("hash_value")
+    vendor = Vendor.new(vendor_params)
+    vendor.save!
+    buyer = PropertyBuyer.new(vendor_params)
+    buyer.vendor_id = vendor.id
+    buyer.email_id = buyer.email
+    buyer.account_type = 'a'
+    buyer.save!
+    vendor.buyer_id = buyer.id
+    vendor.save!
+    command = AuthenticateUser.call(vendor_params['email'], vendor_params['password'], Vendor)
+    vendor.password = nil
+    vendor.password_digest = nil
+    vendor_details = vendor.as_json
+    render json: { auth_token: command.result, details: vendor_details } 
+  end
+
+  #### Used for login for an agent
+  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/login/vendors/' -d '{ "vendor" : { "email" : "jackie.bing1@friends.com","password" : "1234567890" } }'
+  def login_vendor
+    vendor_params = params[:vendor].as_json
+    command = AuthenticateUser.call(vendor_params['email'], vendor_params['password'], Vendor)
+    render json: { auth_token: command.result }
+  end
+
+  ### Get vendor details
+  ### curl -XGET -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo3LCJleHAiOjE0ODUxODUwMTl9.7drkfFR5AUFZoPxzumLZ5TyEod_dLm8YoZZM0yqwq6U" 'http://localhost/details/vendors'
+  def vendor_details
+    authenticate_request('Vendor')
+    if @current_user
+      details = @current_user.as_json
+      details.delete('password')
+      details.delete('password_digest')
+      render json: details, status: 200
+    end
   end
 
   ### Get agent details for authentication token
@@ -64,9 +120,84 @@ class SessionsController < ApplicationController
     redirect_to '/auth/facebook'
   end
 
+  ### Sends an email to the buyer's email address for registration
+  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/buyers/signup/' -d '{ "email"  : "jackie.bing1@gmail.com" }'
+  def buyer_signup
+    email = params[:email]
+    salt_str = email
+    verification_hash = BCrypt::Password.create salt_str
+    email = 'test@prophety.co.uk'
+    VerificationHash.create(hash_value: verification_hash, email: email, entity_type: 'PropertyBuyer')
+    email_link = 'http://prophety.herokuapp.com/auth?verification_hash=' + verification_hash  + '&user_type=Buyer'
+    params_hash = { verification_hash: verification_hash, email: email, link: email_link }
+    UserMailer.signup_email(params_hash).deliver_now
+    render json: { message:  'Please check your email id and click on the link sent'}, status: 200
+  end
+
+  ### Sends an email to the vendor's email address for registration
+  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/vendors/signup/' -d '{ "email"  : "jackie.bing2@gmail.com" }'
+  def vendor_signup
+    email = params[:email]
+    salt_str = email
+    verification_hash = BCrypt::Password.create salt_str
+    email = 'test@prophety.co.uk'
+    VerificationHash.create(hash_value: verification_hash, email: email, entity_type: 'Vendor')
+    email_link = 'http://prophety.herokuapp.com/auth?verification_hash=' + verification_hash + '&user_type=Vendor'
+    params_hash = { verification_hash: verification_hash, email: email, link: email_link }
+    VendorMailer.signup_email(params_hash).deliver_now
+    render json: { message:  'Please check your email id and click on the link sent'}, status: 200
+  end
+
+  ### Given a verification hash, get the email address for vendor and property buyers
+  ### curl -XGET  'http://localhost/users/all/hash?value=$2a$10$3YUduTL7Hc.vBzGIXDe4mOv8sVy4YrM3/TsGcnohBYeSu/izRq4K6'
+  def hash_details
+    hash_value = params[:value]
+    sql = VerificationHash.where(hash_value: hash_value).select(:email).select("CASE WHEN entity_type='PropertyBuyer' THEN 'Buyer' WHEN entity_type='Agents::Branches::AssignedAgent' THEN 'Agent' ELSE 'Vendor' END as type ").to_sql
+    details = ActiveRecord::Base.connection.execute(sql)
+    render json: { hash_details: details }, status: 200
+  end
+
+  ### Used to create a first time buyer
+  ### curl -XPOST -H "Content-Type: application/json"  'http://localhost/register/buyers/' -d '{ "buyer" : { "email" : "jackie.bing1@gmail.com", "password" : "1234567890", hash_value: "$2a$10$3YUduTL7Hc.vBzGIXDe4mOv8sVy4YrM3/TsGcnohBYeSu/izRq4K6" } }'
+  def create_buyer
+    buyer_params = params[:buyer].as_json
+    buyer_params[:email_id] = buyer_params['email']
+    buyer_params[:account_type] = 'S'
+    buyer_params.delete("hash_value")
+    buyer = PropertyBuyer.new(buyer_params)
+    if buyer.save!
+      details = buyer.as_json
+      details.delete('password')
+      details.delete('password_digest')
+      render json: { message: 'New buyer created', details: details }, status: 200
+    else
+      render json: { message: 'Buyer creation failed', errors: buyer.errors }, status: 400
+    end
+  end
+
+  #### Used for login for a buyer
+  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/login/buyers/' -d '{ "buyer" : { "email" : "jackie.bing1@gmail.com","password" : "1234567890" } }'
+  def login_buyer
+    buyer_params = params[:buyer].as_json
+    command = AuthenticateUser.call(buyer_params['email'], buyer_params['password'], PropertyBuyer)
+    render json: { auth_token: command.result }
+  end
+
+  ### Get agent details for authentication token
+  ### curl -XGET -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/details/buyers'
+  def buyer_details
+    authenticate_request('Buyer')
+    if @current_user
+      details = @current_user.as_json
+      details.delete('password')
+      details.delete('password_digest')
+      render json: details, status: 200
+    end
+  end
+
   private
-  def authenticate_request 
-    @current_user = AuthorizeApiRequest.call(request.headers, 'Agent').result 
+  def authenticate_request(klass='Agent')
+    @current_user = AuthorizeApiRequest.call(request.headers, klass).result 
     render json: { error: 'Not Authorized' }, status: 401 unless @current_user 
   end
 

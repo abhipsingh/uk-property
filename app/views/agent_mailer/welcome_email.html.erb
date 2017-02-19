@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta content='text/html; charset=UTF-8' http-equiv='Content-Type' />
+  </head>
+  <body>
+    <h1>Hi <%= @user.agent_email %></h1>
+    <p>
+      
+    </p>
+    <p>
+      One of your colleagues has invited you to join the official <%= @user.name %> account on Prophety® (Prophety.co.uk)!
+    </p>
+
+    <p>
+      Group_id: <%= @user.agent.group.id %>
+    </p>
+
+    <p>
+      Company Name: <%= @user.agent.name %>
+    </p>
+
+    <p>
+      Branch Name: <%= @user.name %>
+    </p>
+
+    <p>
+      Branch Address: <%= @user.address %>
+    </p>
+
+    <p>
+      Agent Employee Email:: <%= @user.agent_email %>
+    </p>
+
+    <p>
+      To login and start using the site immediately just click 'login' below.
+      ['LOGIN' BUTTON (URL LINKING TO AGENT LOGIN PAGE http://prophety.herokuapp.com/auth?email=<%=@user.agent_email%>&verification_hash=<%=@user.verification_hash%>&branch_id=<%=@user.id%>&company_id=<%=@user.agent_id%>&group_id=<%=@user.agent.group_id%>)]
+
+    </p>
+
+  </body>
+</html>

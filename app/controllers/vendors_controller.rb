@@ -67,4 +67,29 @@ class VendorsController < ApplicationController
     details = VendorApi.new(params[:udprn].to_i, nil, params[:vendor_id].to_i).property_details
     render json: details, status: 200
   end
+
+  ### Edit vendor details
+  ### curl -XPOST -H "Content-Type: application/json"  'http://localhost/vendors/86/edit' -d '{ "vendor" : { "name" : "Jackie Chan", "email" : "jackie.bing@friends.com", "mobile" : "9873628232", "password" : "1234567890", "image_url": "some_random_url" } }'
+  def edit
+    vendor_params = params[:vendor]
+    vendor = Vendor.where(id: params[:id].to_i).first
+    if vendor
+      vendor.name = vendor_params[:name] if vendor_params[:name]
+      vendor.mobile = vendor_params[:mobile] if vendor_params[:mobile]
+      vendor.password = vendor_params[:password] if vendor_params[:password]
+      vendor.image_url = vendor_params[:image_url] if vendor_params[:image_url]
+      if vendor.save
+        details = vendor.as_json
+        details.delete('password')
+        details.delete('password_digest')
+        render json: { message: 'Vendor successfully updated', details:  details }, status: 200
+      else
+        render json: { message: 'Vendor not able to update' }, status: 400
+      end
+    else
+      render json: { message: 'Vendor not found' }, status: 404
+    end
+  end
 end
+
+

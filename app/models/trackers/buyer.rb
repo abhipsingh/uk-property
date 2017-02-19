@@ -31,7 +31,8 @@ class Trackers::Buyer
     cold_property: 29,
     save_search_hash: 30,
     sold: 31,
-    valuation_change: 32
+    valuation_change: 32,
+    dream_price_change: 33
   }
 
   TYPE_OF_MATCH = {
@@ -59,7 +60,8 @@ class Trackers::Buyer
     :interested_in_making_an_offer,
     :requested_message,
     :requested_callback,
-    :requested_viewing
+    :requested_viewing,
+    :viewing_stage
   ]
 
   TRACKING_EVENTS = [
@@ -136,6 +138,14 @@ class Trackers::Buyer
       new_row['expected_completion_date'] = nil
       new_row['expected_completion_date'] = qualifying_result.message['expected_completion_date'] if new_row[:qualifying] == :completion_stage
 
+      details = PropertyDetails.details(udprn)['_source']
+      if details['agent_id']
+        hotness_events = [ EVENTS[:hot_property], EVENTS[:cold_property], EVENTS[:warm_property] ]
+        event_result = Event.where(buyer_id: each_row.buyer_id).where(event: hotness_events).where(udprn: udprn).order('created_at DESC').limit(1).first
+        new_row[:hotness] = REVERSE_EVENTS[event_result.event] if event_result
+        new_row[:hotness] ||= 'cold_property'
+      end
+      new_row[:hotness] ||= nil
       result.push(new_row)
     end
 
@@ -197,6 +207,15 @@ class Trackers::Buyer
     new_row
   end
 
+  #### Push event based additional details to each property details
+  ### Trackers::Buyer.new.push_events_details(PropertyDetails.details(10966139))
+  def push_events_details(details)
+    new_row = {}
+    add_details_to_enquiry_row(new_row, details['_source'])
+    details['_source'].merge!(new_row)
+    details
+  end
+
   #### Push agent specific details
   def push_agent_details(new_row, agent_id)
     keys = [:name, :email, :mobile, :office_phone_number, :image_url]
@@ -243,7 +262,7 @@ class Trackers::Buyer
     property_id = details['udprn']
 
     ### Extra keys to be added
-    new_row['total_visits'] = generic_event_count(EVENTS[:visits], table, property_id, :single)
+    new_row['total_visits'] = generic_event_count(EVENTS[:viewed], table, property_id, :single)
     new_row['total_enquiries'] = generic_event_count(ENQUIRY_EVENTS, table, property_id, :multiple)
     new_row['trackings'] = generic_event_count(TRACKING_EVENTS, table, property_id, :multiple)
     new_row['requested_viewing'] = generic_event_count(EVENTS[:requested_viewing], table, property_id, :single)
@@ -356,7 +375,7 @@ class Trackers::Buyer
     result |= net_rows
     buyer_ids.push((rating_matches_buyer_ids | qualifying_matches_buyer_ids))
 
-    buyers = PropertyBuyer.where(id: buyer_ids.flatten).select([:id, :email, :full_name, :mobile, :status, :chain_free, :funding, :biggest_problem, :buying_status]).order("position(id::text in '#{buyer_ids.join(',')}')")
+    buyers = PropertyBuyer.where(id: buyer_ids.flatten).select([:id, :email, :full_name, :mobile, :status, :chain_free, :funding, :biggest_problem, :buying_status, :budget_to, :budget_from ]).order("position(id::text in '#{buyer_ids.join(',')}')")
     buyer_hash = {}
 
     buyers.each do |buyer|
@@ -370,6 +389,8 @@ class Trackers::Buyer
       each_row['buyer_email'] = buyer_hash[each_row['buyer_id']]['email']
       each_row['buyer_mobile'] = buyer_hash[each_row['buyer_id']]['mobile']
       each_row['chain_free'] = buyer_hash[each_row['buyer_id']]['chain_free']
+      each_row['buyer_budget_to'] = buyer_hash[each_row['buyer_id']]['budget_to']
+      each_row['buyer_budget_from'] = buyer_hash[each_row['buyer_id']]['budget_from']
       each_row['buyer_funding'] = PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[buyer_hash[each_row['buyer_id']]['funding']]
       each_row['buyer_biggest_problem'] = PropertyBuyer::REVERSE_BIGGEST_PROBLEM_HASH[buyer_hash[each_row['buyer_id']]['biggest_problem']]
       each_row['buyer_buying_status'] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[buyer_hash[each_row['buyer_id']]['buying_status']]
@@ -588,20 +609,21 @@ class Trackers::Buyer
   #### Track the number of searches of similar properties located around that property
   #### Trackers::Buyer.new.demand_info(10966139)
   def demand_info(udprn)
-    details = PropertyDetails.details(udprn.to_i)['_source'] rescue {}
+    details = PropertyDetails.details(udprn.to_i)['_source']
+    Rails.logger.info(details)
     table = 'simple.property_events_buyers_events'
     
     #### Similar properties to the udprn
     #### TODO: Remove HACK FOR SOME Results to be shown
     p details['hashes']
     default_search_params = {
-      min_beds: details['beds'] - 2,
-      max_beds: details['beds'] + 2,
-      min_baths: details['baths'] - 2 ,
-      max_baths: details['baths'] + 2,
-      min_receptions: details['receptions'] - 2,
-      max_receptions: details['receptions'] + 2,
-      property_types: details['property_type'],
+      min_beds: details['beds'].to_i - 2,
+      max_beds: details['beds'].to_i + 2,
+      min_baths: details['baths'].to_i - 2 ,
+      max_baths: details['baths'].to_i + 2,
+      min_receptions: details['receptions'].to_i - 2,
+      max_receptions: details['receptions'].to_i + 2,
+      property_status_types: details['property_status_type'],
       fields: 'udprn'
     }
     # p default_search_params
@@ -614,6 +636,7 @@ class Trackers::Buyer
 
       search_params = default_search_params.clone
       search_params[region_type] = details[region_type.to_s]
+      Rails.logger.info(search_params)
       search_stats[region_type][:value] = details[region_type.to_s] ### Populate the value of sector, district and unit
       api = PropertyDetailsRepo.new(filtered_params: search_params)
       api.apply_filters
@@ -653,13 +676,13 @@ class Trackers::Buyer
 
     #### Similar properties to the udprn
     default_search_params = {
-      min_beds: details['beds'],
-      max_beds: details['beds'],
-      min_baths: details['baths'],
-      max_baths: details['baths'],
-      min_receptions: details['receptions'],
-      max_receptions: details['receptions'],
-      property_types: details['property_type'],
+      min_beds: details['beds'].to_i,
+      max_beds: details['beds'].to_i,
+      min_baths: details['baths'].to_i,
+      max_baths: details['baths'].to_i,
+      min_receptions: details['receptions'].to_i,
+      max_receptions: details['receptions'].to_i,
+      property_status_types: details['property_status_type'],
       fields: 'udprn,property_status_type'
     }
 
@@ -699,18 +722,17 @@ class Trackers::Buyer
   #### Track the number of similar properties located around that property
   #### Trackers::Buyer.new.buyer_intent_info(10966139)
   def buyer_intent_info(udprn)
-    details = PropertyDetails.details(udprn.to_i)['_source'] rescue {}
-    table = 'simple.property_events_buyers_events'
+    details = PropertyDetails.details(udprn.to_i)['_source']
     
     #### Similar properties to the udprn
     default_search_params = {
-      min_beds: details['beds'] - 2,
-      max_beds: details['beds'] + 2,
-      min_baths: details['baths'] - 2 ,
-      max_baths: details['baths'] + 2,
-      min_receptions: details['receptions'] - 2,
-      max_receptions: details['receptions'] + 2,
-      property_types: details['property_type'],
+      min_beds: details['beds'].to_i - 2,
+      max_beds: details['beds'].to_i + 2,
+      min_baths: details['baths'].to_i - 2 ,
+      max_baths: details['baths'].to_i + 2,
+      min_receptions: details['receptions'].to_i - 2,
+      max_receptions: details['receptions'].to_i + 2,
+      property_status_types: details['property_status_type'],
       fields: 'udprn'
     }
 
@@ -970,13 +992,13 @@ class Trackers::Buyer
     details = PropertyDetails.details(udprn)['_source']
     #### Similar properties to the udprn
     default_search_params = {
-      min_beds: details['beds'],
-      max_beds: details['beds'],
-      min_baths: details['baths'],
-      max_baths: details['baths'],
-      min_receptions: details['receptions'],
-      max_receptions: details['receptions'],
-      property_types: details['property_type'],
+      min_beds: details['beds'].to_i,
+      max_beds: details['beds'].to_i,
+      min_baths: details['baths'].to_i,
+      max_baths: details['baths'].to_i,
+      min_receptions: details['receptions'].to_i,
+      max_receptions: details['receptions'].to_i,
+      property_status_types: details['property_status_type'],
       fields: 'udprn'
     }
 
@@ -1122,7 +1144,7 @@ class Trackers::Buyer
       new_row['dream_price'] = details['dream_price']
       if details['property_status_type'] == 'Green' || details['property_status_type'] == 'Amber'
         PropertyDetailsRepo::PRICE_TYPES.each{|p| new_row[p] = details[p.to_s]  }
-      elsif doc['property_status_type'] == 'Red'
+      elsif details['property_status_type'] == 'Red'
         new_row['last_sale_price'] = details['last_sale_price']
       end
 
@@ -1208,7 +1230,7 @@ class Trackers::Buyer
       rank
     end
 
-    ranked[index]
+    ranked[index.to_i].to_i
   end
 
 end

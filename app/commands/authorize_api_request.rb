@@ -9,7 +9,7 @@ class AuthorizeApiRequest
     user_type_map = {
       'Agent' => Agents::Branches::AssignedAgent,
       'Vendor' => Vendor,
-      'User'   => PropertyBuyer
+      'Buyer'   => PropertyBuyer
     }
     klass = user_type_map[@user_type]
     user(klass) 
@@ -21,7 +21,7 @@ class AuthorizeApiRequest
   def user (klass)
     @user ||= errors.add(:user_type, 'Invalid user type') unless klass
     @user ||= klass.where(id: decoded_auth_token[:user_id]).last if decoded_auth_token && klass
-    @user || errors.add(:token, 'Invalid token') && nil 
+    @user ||= errors.add(:token, 'Invalid token') && nil 
   end 
 
   def decoded_auth_token 

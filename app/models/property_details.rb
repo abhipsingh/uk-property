@@ -56,17 +56,17 @@ class PropertyDetails
   def self.similar_properties(udprn)
     property_details = details(udprn)['_source']
     search_params = {
-      min_beds: property_details['beds'],
-      max_beds: property_details['beds'],
-      min_baths: property_details['baths'],
-      max_baths: property_details['baths'],
-      min_receptions: property_details['receptions'],
-      max_receptions: property_details['receptions'],
-      property_types: property_details['property_type'],
-      sector: property_details['sector'],
+      min_beds: property_details['beds'].to_i,
+      max_beds: property_details['beds'].to_i,
+      min_baths: property_details['baths'].to_i,
+      max_baths: property_details['baths'].to_i,
+      min_receptions: property_details['receptions'].to_i,
+      max_receptions: property_details['receptions'].to_i,
+      property_types: property_details['property_type'].to_s,
+      sector: property_details['sector'].to_s,
       fields: 'udprn'
     }
-
+    Rails.logger.info(search_params)
     api = PropertyDetailsRepo.new(filtered_params: search_params)
     api.apply_filters
     body, status = api.fetch_data_from_es
@@ -78,7 +78,14 @@ class PropertyDetails
   end
 
   def self.historic_pricing_details(udprn)
-     VendorApi.new(udprn.to_s).calculate_valuations
+    VendorApi.new(udprn.to_s).calculate_valuations
+  end
+
+  def self.update_details(client, udprn, update_hash)
+    Rails.logger.info("HELLO_#{update_hash}")
+    update_hash['status_last_updated'] = Time.now.to_s[0..Time.now.to_s.rindex(" ")-1]
+    client.update index: 'addresses', type: 'address', id: udprn,
+                        body: { doc: update_hash }
   end
 
 end

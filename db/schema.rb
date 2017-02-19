@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170109153012) do
+ActiveRecord::Schema.define(version: 20170131224157) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -28,23 +28,28 @@ ActiveRecord::Schema.define(version: 20170109153012) do
   end
 
   add_index "agents", ["group_id"], name: "index_agents_on_group_id", using: :btree
+  add_index "agents", ["name", "branches_url"], name: "index_agents_on_name_and_branches_url", unique: true, using: :btree
 
   create_table "agents_branches", force: :cascade do |t|
-    t.string  "name",          limit: 255
-    t.string  "property_urls", limit: 255
+    t.string  "name",              limit: 255
+    t.string  "property_urls",     limit: 255
     t.integer "agent_id"
-    t.string  "address",       limit: 255
+    t.string  "address",           limit: 255
     t.string  "postcode"
     t.string  "district"
-    t.text    "udprns",                    default: [], array: true
+    t.text    "udprns",                        default: [], array: true
     t.string  "image_url"
     t.string  "email"
     t.string  "phone_number"
     t.string  "website"
+    t.text    "verification_hash"
+    t.jsonb   "invited_agents"
   end
 
   add_index "agents_branches", ["district"], name: "index_agents_branches_on_district", using: :btree
+  add_index "agents_branches", ["name", "district", "property_urls"], name: "index_agents_branches_on_name_and_district_and_property_urls", unique: true, using: :btree
   add_index "agents_branches", ["postcode"], name: "index_agents_branches_on_postcode", using: :btree
+  add_index "agents_branches", ["verification_hash"], name: "index_agents_branches_on_verification_hash", unique: true, using: :btree
 
   create_table "agents_branches_assigned_agents", force: :cascade do |t|
     t.string   "name"
@@ -65,6 +70,7 @@ ActiveRecord::Schema.define(version: 20170109153012) do
   end
 
   add_index "agents_branches_assigned_agents", ["branch_id"], name: "index_agents_branches_assigned_agents_on_branch_id", using: :btree
+  add_index "agents_branches_assigned_agents", ["email"], name: "index_agents_branches_assigned_agents_on_email", unique: true, using: :btree
 
   create_table "agents_branches_assigned_agents_leads", force: :cascade do |t|
     t.integer  "property_id"
@@ -107,11 +113,20 @@ ActiveRecord::Schema.define(version: 20170109153012) do
     t.datetime "updated_at"
     t.decimal  "latitude"
     t.decimal  "longitude"
-    t.string   "tags",            default: [], array: true
+    t.string   "tags",               default: [], array: true
+    t.string   "postcode"
+    t.integer  "zoopla_id"
+    t.text     "image_urls",         default: [], array: true
+    t.integer  "udprn"
+    t.jsonb    "additional_details"
+    t.string   "district"
   end
 
+  add_index "agents_branches_crawled_properties", ["district"], name: "index_agents_branches_crawled_properties_on_district", using: :btree
   add_index "agents_branches_crawled_properties", ["latitude", "longitude"], name: "uniq_property", unique: true, using: :btree
+  add_index "agents_branches_crawled_properties", ["postcode"], name: "index_agents_branches_crawled_properties_on_postcode", using: :btree
   add_index "agents_branches_crawled_properties", ["tags"], name: "index_agents_branches_crawled_properties_on_tags", using: :gin
+  add_index "agents_branches_crawled_properties", ["zoopla_id"], name: "index_agents_branches_crawled_properties_on_zoopla_id", unique: true, using: :btree
 
   create_table "agents_groups", force: :cascade do |t|
     t.string   "name"
@@ -164,7 +179,7 @@ ActiveRecord::Schema.define(version: 20170109153012) do
 
   create_table "property_buyers", force: :cascade do |t|
     t.jsonb    "searches",          default: [], null: false
-    t.string   "name",                           null: false
+    t.string   "name"
     t.string   "email_id",                       null: false
     t.string   "account_type",                   null: false
     t.jsonb    "visited_udprns",    default: [], null: false
@@ -291,5 +306,19 @@ ActiveRecord::Schema.define(version: 20170109153012) do
     t.datetime "oauth_expires_at"
     t.integer  "buyer_id"
   end
+
+  add_index "vendors", ["email"], name: "index_vendors_on_email", unique: true, using: :btree
+
+  create_table "verification_hashes", force: :cascade do |t|
+    t.integer  "entity_id"
+    t.string   "entity_type"
+    t.string   "email"
+    t.datetime "created_at",  null: false
+    t.datetime "updated_at",  null: false
+    t.text     "hash_value"
+    t.integer  "udprn"
+  end
+
+  add_index "verification_hashes", ["hash_value"], name: "index_verification_hashes_on_hash_value", unique: true, using: :btree
 
 end

@@ -11,8 +11,8 @@ class PropertyDetailsRepo
   ES_EC2_URL = Rails.configuration.remote_es_url
   ES_EC2_HOST = Rails.configuration.remote_es_host
   FIELDS = {
-    terms: [ :property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :keyword_types, :udprns, :vendor_ids ],
-    term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status, :agent_id, :district, :udprn, :vendor_id, :postcode, :district, :sector, :unit, :vendor_id, :building_name, :building_number, :sub_building_name ],
+    terms: [ :property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :keyword_types, :udprns, :vendor_ids, :postcodes, :post_codes ],
+    term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status, :agent_id, :district, :udprn, :vendor_id, :postcode, :district, :sector, :unit, :vendor_id, :building_name, :building_number, :sub_building_name, :post_code ],
     range: [ :cost_per_month, :date_added, :floors, :year_built, :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, :time_frame, :beds, :baths, :receptions, :current_valuation, :dream_price ],
   }
 
@@ -152,7 +152,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
   def adjust_size
     if @filtered_params.has_key?(:limit)
       @filtered_params[:limit].to_i < 1000 ? limit = @filtered_params[:limit] : limit = 1000
-      @query[:size] = limit
+      @query[:size] = 1000000
     end
   end
 
@@ -259,6 +259,10 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
       new_or_query[:or][:filters].push({ not: { filter: { terms: { attribute => values, execution: :and }}}})
     end
   end
+  
+  def add_exists_filter(term)
+    @query[:filter][:and][:filters].push({exists: {field: term}})
+  end
 
   def append_hash_filter
     inst = self
@@ -311,13 +315,13 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
 
   def append_pagination_filter(size = RESULTS_PER_PAGE, bounded: true)
     inst = self
-    Rails.logger.info(@filtered_params.fetch(:p, 1))
+    #Rails.logger.info(@filtered_params.fetch(:p, 1))
     page_number = @filtered_params.fetch(:p, 1).to_i #If no p given, force to 1.
     size = (@filtered_params[:results_per_page] || size).to_i
     size = [size, MAX_RESULTS_PER_PAGE].min
     inst.query[:from] = size * (page_number - 1) rescue 0
     inst.query[:size] = size
-    Rails.logger.info(inst.query)
+    #Rails.logger.info(inst.query)
     inst
   end
 
@@ -367,7 +371,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     addresses = get_bulk_addresses
     names = Agent.last(10).map{ |t| t.name }
     google_api_crawler = GoogleApiCrawler.new
-    scroll_id = 'cXVlcnlUaGVuRmV0Y2g7NTszODE6TzhMbC1PZ0RSYXlSanpiUzAxMmpsQTszODU6TzhMbC1PZ0RSYXlSanpiUzAxMmpsQTszODI6TzhMbC1PZ0RSYXlSanpiUzAxMmpsQTszODM6TzhMbC1PZ0RSYXlSanpiUzAxMmpsQTszODQ6TzhMbC1PZ0RSYXlSanpiUzAxMmpsQTswOw=='
+    scroll_id = "cXVlcnlUaGVuRmV0Y2g7NTs3MjExOjFvR2Z2bVo0U3QtcHJTRkZnU0F5dkE7NzIxNDoxb0dmdm1aNFN0LXByU0ZGZ1NBeXZBOzcyMTU6MW9HZnZtWjRTdC1wclNGRmdTQXl2QTs3MjEyOjFvR2Z2bVo0U3QtcHJTRkZnU0F5dkE7NzIxMzoxb0dmdm1aNFN0LXByU0ZGZ1NBeXZBOzA7"
     glob_counter = 0
     loop do
       get_records_url = ES_EC2_URL + '/_search/scroll'
@@ -380,60 +384,74 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
       body = []
       udprns.each_with_index do |udprn, index|
         doc = {}
-        RANDOM_SEED_MAP.each do |key, values|
-          doc[key] = values.sample(1).first
-        end
-        doc[:address] = google_api_crawler.address(response_arr[index])
-        doc[:year_built] = doc[:year_built].to_s+"-01-01"
-        doc[:date_added] = Time.at((start_date.to_f - ending_date.to_f)*rand + start_date.to_f).utc.strftime('%Y-%m-%d')
-        doc[:time_frame] = time_frame_years.sample(1).first.to_s + "-01-01"
-        doc[:external_property_size] = doc[:internal_property_size] + 100
-        doc[:total_property_size] = doc[:external_property_size] + 100
-        doc[:additional_features_type] = [doc[:additional_features_type]]
-        doc[:current_valuation] = (doc[:price].to_f/(1.3)).to_i
-        doc[:valuation_date] = (1..30).to_a.sample(1).first.days.ago.to_date.to_s
-        dream_price_greater_than_valuation = [true, false].sample
-        if dream_price_greater_than_valuation
-          doc[:dream_price] = (1.1 * doc[:price]).to_i
-        else
-          doc[:dream_price] = (0.9 * doc[:price]).to_i
-        end
-        doc[:dream_price] = doc[:price]
-        doc[:last_sale_price] = ((doc[:price].to_f)/(2.3)).to_f
-        doc[:last_sale_price_date] = (1..5).to_a.sample(1).first.years.ago.to_date.to_s
-        doc[:description] = 'Lorem Ipsum'
-        doc[:agent_branch_name] = names.sample(1).first
-        doc[:assigned_agent_employee_name] = NAMES.sample(1).first
-        doc[:assigned_agent_employee_address] = "5 Bina Gardens"
-        doc[:assigned_agent_employee_image] = nil
-        doc[:last_updated_date] = "2015-09-21"
-        # doc[:agent_logo] = "http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/prop.jpg"
-        doc[:broker_branch_contact] = "020 3641 4259"
-        doc[:date_updated] = 3.days.ago.to_date.to_s
-        doc[:agent_id] = 1234
-        if doc[:photos] == "Yes"
-          doc[:photo_count] = 0
-          doc[:photo_urls] = []
-        else
-          doc[:photo_urls] = []
-        end
+        doc[:property_status_type] = 'Unknown'
+        # hash_value = response_arr[index]['hashes'].last
+        # building_text = "";
+        # building_text = building_text + response_arr[index]['building_number'] + " " if response_arr[index]['building_number']
+        # building_text = building_text + response_arr[index]['building_name'] + " " if response_arr[index]['building_name']
+        # building_text = building_text + response_arr[index]['sub_building_name'] + " " if response_arr[index]['sub_building_name']
+        # building_text = building_text[0..building_text.length-2] if building_text[building_text.length-1] == " "
+        # hashes = response_arr[index]['hashes']
+        # hash_value = hash_value + '_' + building_text
+        # hashes.push(hash_value)
+        # doc['hashes'] = hashes
+        # match_type_strs = response_arr[index]['match_type_str']
+        # match_type_strs.push(hash_value+'|Normal')
+        # doc['match_type_str'] = match_type_strs
+        #  RANDOM_SEED_MAP.each do |key, values|
+        #    doc[key] = values.sample(1).first
+        #  end
+        # doc[:address] = google_api_crawler.address(response_arr[index])
+        # doc[:year_built] = doc[:year_built].to_s+"-01-01"
+        # doc[:date_added] = Time.at((start_date.to_f - ending_date.to_f)*rand + start_date.to_f).utc.strftime('%Y-%m-%d')
+        # doc[:time_frame] = time_frame_years.sample(1).first.to_s + "-01-01"
+        # doc[:external_property_size] = doc[:internal_property_size] + 100
+        # doc[:total_property_size] = doc[:external_property_size] + 100
+        # doc[:additional_features_type] = [doc[:additional_features_type]]
+        # doc[:current_valuation] = (doc[:price].to_f/(1.3)).to_i
+        # doc[:valuation_date] = (1..30).to_a.sample(1).first.days.ago.to_date.to_s
+        # dream_price_greater_than_valuation = [true, false].sample
+        # if dream_price_greater_than_valuation
+        #   doc[:dream_price] = (1.1 * doc[:price]).to_i
+        # else
+        #   doc[:dream_price] = (0.9 * doc[:price]).to_i
+        # end
+        # doc[:dream_price] = doc[:price]
+        # doc[:last_sale_price] = ((doc[:price].to_f)/(2.3)).to_f
+        # doc[:last_sale_price_date] = (1..5).to_a.sample(1).first.years.ago.to_date.to_s
+        # doc[:description] = 'Lorem Ipsum'
+        # doc[:agent_branch_name] = names.sample(1).first
+        # doc[:assigned_agent_employee_name] = NAMES.sample(1).first
+        # doc[:assigned_agent_employee_address] = "5 Bina Gardens"
+        # doc[:assigned_agent_employee_image] = nil
+        # doc[:last_updated_date] = "2015-09-21"
+        # # doc[:agent_logo] = "http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/prop.jpg"
+        # doc[:broker_branch_contact] = "020 3641 4259"
+        # doc[:date_updated] = 3.days.ago.to_date.to_s
+        # # doc[:agent_id] = 1234
+        # if doc[:photos] == "Yes"
+        #   doc[:photo_count] = 0
+        #   doc[:photo_urls] = []
+        # else
+        #   doc[:photo_urls] = []
+        # end
 
-        # doc[:broker_logo] = "http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/prop3.jpg"
-        doc[:agent_contact] = "020 3641 4259"
-        description = ''
-        doc[:description] = characters.sample(1).first.times do
-          description += alphabets.sample(1).first
-        end
-        ### Process last sale price
-        doc[:last_sale_price] = (doc[:price] * 0.7).to_i
+        # # doc[:broker_logo] = "http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/prop3.jpg"
+        # doc[:agent_contact] = "020 3641 4259"
+        # description = ''
+        # doc[:description] = characters.sample(1).first.times do
+        #   description += alphabets.sample(1).first
+        # end
+        # ### Process last sale price
+        # doc[:last_sale_price] = (doc[:price] * 0.7).to_i
 
-        ### Status last updated
-        doc[:status_last_updated] = (150..365).to_a.sample.days.ago.to_time.strftime("%Y-%m-%d %H:%M:%S").to_s
+        # ### Status last updated
+        # doc[:status_last_updated] = (150..365).to_a.sample.days.ago.to_time.strftime("%Y-%m-%d %H:%M:%S").to_s
 
-        ### Last verified on
-        doc[:verification_time] = (150..365).to_a.sample.days.ago.to_time.strftime("%Y-%m-%d %H:%M:%S").to_s
+        # ### Last verified on
+        # doc[:verification_time] = (150..365).to_a.sample.days.ago.to_time.strftime("%Y-%m-%d %H:%M:%S").to_s
 
-        process_doc_with_conditions(doc)
+        # process_doc_with_conditions(doc)
 
         body.push({ update:  { _index: 'addresses', _type: 'address', _id: udprn, data: { doc: doc } }})
       end

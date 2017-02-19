@@ -7,9 +7,10 @@ module ZooplaCrawler
   CHARACTERS = (10...36).map{ |i| i.to_s 36}
 
 
-  URL_PREFIX = 'http://www.zoopla.co.uk/find-agents/estate-agents/directory/'
+  URL_PREFIX = 'https://www.zoopla.co.uk/find-agents/estate-agents/directory/'
   BASE_URL = 'http://www.zoopla.co.uk/'
-
+  CONN = ActiveRecord::Base.connection
+  KLASS = Agents::Branches::CrawledProperty
   def self.process_agent_url(agent_url, agent_id)
     response = generic_url_processor(agent_url)
     if response
@@ -28,15 +29,24 @@ module ZooplaCrawler
     end
   end
 
-  def self.generic_url_processor(url)
+  def self.generic_url_processor(url,limit = 10)
+    Rails.logger.info("Why did this happen") if url == "https://www.zoopla.co.uk/"
+    return nil if url == "https://www.zoopla.co.uk/"
     uri = URI.parse(url)
-    response = Net::HTTP.get_response(uri)
-    if response.code.to_i == 200
-      return response.body
-    else
-      Rails.logger.info("FAILURE_TO_CRAWL_#{url}_#{response.code}")
-      return nil
+    body = nil
+    Rails.logger.info("CRAWLING #{url}|____#{limit}")
+    if uri.class == URI::HTTP || uri.class == URI::HTTPS
+      response = Net::HTTP.get_response(uri)
+      case response.code.to_i
+      when 200 then body = response.body
+      when 301 then 
+        Rails.logger.info("REDIRECTION HAPPENING #{response['location']}")
+        body = generic_url_processor(response['location'], limit -1)
+      else
+        Rails.logger.info("FAILURE_TO_CRAWL_#{url}_#{response.code}")
+      end
     end
+    body
   end
 
   def self.perform_agent_crawling
@@ -66,43 +76,73 @@ module ZooplaCrawler
     end
   end
 
-  def self.perform_crawling_sale_properties
-    url_prefix = "http://www.zoopla.co.uk/for-sale/branch/"
+  def self.perform_crawling_sale_properties(min_value=0, max_value=1000)
+    url_prefix = "https://www.zoopla.co.uk/for-sale/branch/"
     p 'started'
-    Agents::Branch.where("id > ?", 240).select([:id, :property_urls]).find_each do |branch|
+    max_thread_count = 20
+    thread_count = 0
+    threads = []
+    batch = 0
+    Agents::Branch.where("id > ?", min_value).where("id < ?", max_value).select([:id, :property_urls]).find_each do |branch|
       branch_suffix = branch.property_urls.split("/").last
       p "CRAWLED_Strted#{branch.id}"
       perform_each_branch_crawl(branch_suffix, branch.id)
-      p "CRAWLED_ended#{branch.id}"
+      p "CRAWLED_Ended#{branch.id}"
+      # threads << Thread.new { perform_each_branch_crawl(branch_suffix, branch.id) }
+      # thread_count += 1
+      # if thread_count > max_thread_count
+      #   threads.map(&:join)
+      #   threads = []
+      #   thread_count = 0
+      #   batch += 1
+      #   p "CRAWLED_ended #{batch}"
+      GC.start(full_mark: true, immediate_sweep: true)
+      # end
     end
   end
 
   def self.perform_each_branch_crawl(branch_suffix, branch_id)
     page_size = 100
-    url_prefix = "http://www.zoopla.co.uk/for-sale/branch/"
+    url_prefix = "https://www.zoopla.co.uk/for-sale/branch/"
     page = 1
     loop do
       url = url_prefix + branch_suffix + "/?page_size=#{page_size}&pn=#{page}"
+      p "CRAWING STARTED FOR #{url}"
       response = generic_url_processor(url)
       if response
-        property_urls = Nokogiri::HTML(response).css('div.listing-results-right').css('a').map{|t| t['href']}
+        property_urls = Nokogiri::HTML(response).css('div.listing-results-right h2.listing-results-attr a').map{|t| t['href']}
         property_urls = property_urls.uniq
+        Rails.logger.info("NO_URLS_FOUND for #{url}") if property_urls.empty?
+        # Rails.logger.info("URLS_FOUND for #{property_urls}") if !property_urls.empty?
         break if property_urls.empty?
-        sale_urls = property_urls.select{ |t| t.split("/").second=='for-sale' }
-        sale_urls.map { |each_sale_url| crawl_property(each_sale_url, branch_id) }
+        property_ids = property_urls.map{ |t| File.basename(t) }
+        property_ids = property_urls.map{ |t| t.to_i }
+        property_ids = property_ids.uniq
+        existing_property_ids = KLASS.where(zoopla_id: property_ids).pluck(:zoopla_id)
+        relevant_property_ids = property_ids - existing_property_ids
+        relevant_property_ids.map { |property_id| crawl_property(property_id, branch_id) }
         page += 1
       else
+        Rails.logger.info("FAILED TO CRAWL PROPERTIES FOR BRANCH #{branch_suffix} and branch id #{branch_id}")
         break
       end
     end
   end
 
-  def self.crawl_property(property_url, branch_id)
-    url = BASE_URL + property_url
+  def self.crawl_property(property_id, branch_id)
+    url = BASE_URL + 'for-sale/details/' + property_id.to_s
+    uri = URI.parse(url)
+    zoopla_id = property_id
     response = generic_url_processor(url)
     stored_response = {}
     if response
       html = Nokogiri::HTML(response)
+      latitude = html.css('meta[itemprop="latitude"]')[0]['content'].to_f rescue nil
+      longitude = html.css('meta[itemprop="longitude"]')[0]['content'].to_f rescue nil
+      property = nil
+      if KLASS.where(latitude: latitude).where(longitude: longitude).count > 0
+        property = KLASS.where(latitude: latitude).where(longitude: longitude).last
+      end
       html.css('script').remove
       html.css('style').remove
       title = html.css('div#listing-details').css('h2')[0].text rescue nil
@@ -110,22 +150,23 @@ module ZooplaCrawler
       street_address = html.css('div.listing-details-address').css('meta')[0]['content'] rescue nil
       address_locality = html.css('div.listing-details-address').css('meta')[1]['content'] rescue nil
       address_region = html.css('div.listing-details-address').css('meta')[2]['content'] rescue nil
-      latitude = html.css('meta[itemprop="latitude"]')[0]['content'].to_f rescue nil
-      longitude = html.css('meta[itemprop="longitude"]')[0]['content'].to_f rescue nil
       beds = html.css('div.listing-details-attr').css('span.num-beds')[0].text.to_i rescue nil
       baths = html.css('div.listing-details-attr').css('span.num-baths')[0].text.to_i rescue nil
       receptions = html.css('div.listing-details-attr').css('span.num-reception')[0].text.to_i rescue nil
       images_original_prefix = html.css('ul#images_original').css('a')[0]['href'] rescue nil
-      original_images_url = BASE_URL + images_original_prefix.to_s
-      images_response = generic_url_processor(original_images_url)
+      # original_images_url = BASE_URL + images_original_prefix.to_s
+      # images_response = nil
+      # if images_original_prefix
+      #   images_response = generic_url_processor(original_images_url) 
+      # end
       image_urls = []
       features = html.css('div#listing-details').css('h3').map{|t| t.parent}.first.css('li').map{|t| t.text} rescue []
       description = html.css('div#listing-details').css('h3').map{|t| t.parent}.second.css('div.top').text.strip rescue ''
       agent_logo = html.css('img.agent_logo')[0]['src'] rescue nil
-      if images_response
-        images_html = Nokogiri::HTML(images_response)
-        image_urls = images_html.css('a').css('img').map{ |t| t['src'] } rescue []
-      end
+      # if images_response
+      #   images_html = Nokogiri::HTML(images_response)
+      #   image_urls = images_html.css('a').css('img').map{ |t| t['src'] }
+      # end
       stored_response[:title] = title
       stored_response[:address] = address
       stored_response[:street_address] = street_address
@@ -136,44 +177,70 @@ module ZooplaCrawler
       stored_response[:beds] = beds
       stored_response[:baths] = baths
       stored_response[:receptions] = receptions
-      stored_response[:image_urls] = image_urls
+      # stored_response[:image_urls] = image_urls
       stored_response[:description] = description
       stored_response[:features] = features
       stored_response[:agent_logo] = agent_logo
       # p stored_response
+      postcode = html.css("meta[property='og:postal-code']").first['content'] rescue nil
+
       res = nil
-      if title && address && latitude && longitude
-        res = Agents::Branches::CrawledProperty.create(stored_response: stored_response, html: nil, branch_id: branch_id, latitude: latitude, longitude: longitude) rescue nil
+      if title && address && latitude && longitude && property.nil?
+        res = KLASS.create(stored_response: stored_response, html: nil, branch_id: branch_id, postcode: postcode, zoopla_id: zoopla_id) rescue nil
+        Rails.logger.info("FINISHED Crawling for existing property #{res.id}")
+      elsif property
+        property.update_attributes(stored_response: stored_response, html: nil, branch_id: branch_id, postcode: postcode, zoopla_id: zoopla_id) rescue nil
+        Rails.logger.info("FINISHED Crawling for property #{property.id}")
       end
-      Rails.logger.info("CRAWLING_FAILED_FOR_#{branch_id}_#{url}") if res.nil?
+      # if res.nil?
+      #   binding.pry
+      # end
+      Rails.logger.info("CRAWLING_FAILED_FOR_#{branch_id}_#{url}") if res.nil? && property.nil?
     end
   end
 
-  def self.crawl_images
-    Agents::Branches::CrawledProperty.where("id>?", 76742).select([:id, :stored_response]).find_each do |property|
+  def self.crawl_images(min_value=0, max_value=8000)
+    s3 = Aws::S3::Resource.new
+    KLASS.connection.execute(KLASS.where.not(zoopla_id: nil).where("id>?", min_value).where("id<?", max_value).select([:id, :zoopla_id]).to_sql).each do |property|
       threads = []
-      property.stored_response["image_urls"].each do |url|
+      url = "http://www.zoopla.co.uk/for-sale/details/photos/#{property['zoopla_id']}"
+      response = Net::HTTP.get_response(URI.parse(url))
+      html = Nokogiri::HTML(response.body)
+      property_id = property['id']
+      image_urls = html.css("div a[target='_blank']").css('img').map{ |t| t['src'] }
+      image_urls.each do |url|
         threads << Thread.new do
-          file_name = url.split("/").last
+          s3_file_name = "#{property_id}/#{File.basename(url)}"
+          file_name = File.basename(url)
           begin
             open(url,"User-Agent" => "Whatever you want here") {|f|
               File.open(file_name,"wb") do |file|
                 file.puts f.read
               end
             }
-            s3 = Aws::S3::Resource.new
-            obj = s3.bucket('propertyuk').object(file_name)
+            obj = s3.bucket('propertyuk').object(s3_file_name)
             obj.upload_file(file_name, acl: 'public-read')
             File.delete(file_name)
           rescue OpenURI::HTTPError => e
             Rails.logger.info("FAILED_TO_CRAWL_IMAGE_WITH_URL_#{url}")
           rescue Errno::ENOENT => e
-            Rails.logger.info("FILE_ERROR_#{property.id}")
+            Rails.logger.info("FILE_ERROR_#{property['id']}_#{e}")
+          rescue URI::InvalidURIError => e
+            Rails.logger.info("INVALID_URI_ERROR_#{property['id']}_#{e}")
+          rescue Net::ReadTimeout => e
+            Rails.logger.info("READ_TIMEOUT_#{property['id']}_#{e}")
+          rescue OpenSSL::SSL::SSLError => e
+            Rails.logger.info("OPENSSL_ERROR__#{property['id']}_#{e}")
           end
         end
       end
       threads.map(&:join)
-      p property.id
+      threads = []
+      response = nil
+      html = nil
+      image_urls = []
+      Rails.logger.info("FINISHED FOR #{property['id']} AND ZOOPLA ID #{property['zoopla_id']}")
+      GC.start(full_mark: true, immediate_sweep: true)
     end
   end
 
@@ -291,6 +358,60 @@ module ZooplaCrawler
         glob_counter += 1
         p "#{glob_counter} PASS"
       end
+    end
+  end
+
+  def self.update_lat_long
+    conn = ActiveRecord::Base.connection
+    res = Agent.connection.execute("SELECT id, stored_response ->> 'latitude' as latitude, stored_response ->> 'longitude' as longitude FROM agents_branches_crawled_properties")
+    res.each do |property|
+      id = property['id']
+      latitude = property['latitude'].to_f
+      longitude = property['longitude'].to_f
+      conn.execute("UPDATE agents_branches_crawled_properties SET latitude = #{latitude}, longitude = #{longitude} WHERE id = #{id} ")
+    end;nil
+  end
+
+  def self.crawl_additional_details(start_index=0, end_index=0)
+    KLASS.connection.execute(KLASS.where.not(zoopla_id: nil).where(additional_details: nil).where("id>?", start_index).where("id<?", end_index).select([:id, :zoopla_id]).order('id asc').to_sql).each do |property|
+      url = "http://www.zoopla.co.uk/for-sale/details/#{property['zoopla_id']}"
+      response = generic_url_processor(url)
+      if response
+        html = Nokogiri::HTML(response)
+        arr_arr_tags = []
+        details_map = {}
+        script_node = html.css("head script").select{|t| t.text.index("googletag.pubads().setTargeting")}.last
+        if script_node
+          details_arr = script_node.text.scan(/googletag.pubads\(\).setTargeting\((.+?)\);/)
+          value = nil
+          details_arr.each do |each_arr_tag|
+            values = each_arr_tag[0].split(',')
+            key = values[0].gsub("\"","")
+            key = key.strip
+            value = values[1].gsub("'", "''")
+            value = value.gsub("\"", '')
+            value = value.strip
+            details_map[key] = value
+          end
+          # begin
+            KLASS.connection.execute("UPDATE agents_branches_crawled_properties SET additional_details = '#{details_map.to_json}' WHERE id = #{property['id']} ")
+            Rails.logger.info("FINISHED CRAWLING ADDITIONAL DETAILS FOR #{property['id']}")
+          # rescue Exception => err
+            # binding.pry
+            # Rails.logger.info("ERROR IN CRAWLING ADDITIONAL DETAILS FOR #{property['id']}")
+            # p 'hello'
+          # end
+        end
+        response = nil
+        value = nil
+        details_map = nil
+        arr_arr_tags = nil
+        values = nil
+        url = nil
+        details_arr = nil
+        script_node = nil
+      end
+      GC.start(full_mark: true, immediate_sweep: true)
     end
   end
 

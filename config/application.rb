@@ -30,6 +30,19 @@ module TestApp
     config.assets.paths << "#{Rails.root}/vendor/assets/fonts"
     config.active_record.raise_in_transactional_callbacks = true
     
+    config.action_mailer.delivery_method = :smtp
+    config.action_mailer.smtp_settings = {
+      address:              'smtp.gmail.com',
+      port:                 587,
+      domain:               'prophety.com',
+      user_name:            'test@prophety.co.uk',
+      password:             'liverpool2017',
+      authentication:       'plain',
+      enable_starttls_auto: true  
+    }
+
+    config.action_mailer.preview_path = '/app/mailers/previews'
+    
   end
   
 end

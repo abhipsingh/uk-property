@@ -17,6 +17,8 @@
 //= require selectize
 //= require jquery.slimscroll
 //= require iCheck
+//= require Chart.bundle
+//= require chartkick
 //= require app
 //= require_tree .
 

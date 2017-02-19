@@ -62,10 +62,12 @@ module Api
         match_type_strs = details['match_type_str']
         new_match_type_strs = []
         ads_count = 0
+        Rails.logger.info(locations)
         locations.each do |key, location|
           hash_value = location[:hash]
           type = location[:type]
           value = location[:value].to_i
+          Rails.logger.info(location)
           if value > 0
             begin
               ads = PropertyAd.create(hash_str: hash_value, property_id: udprn.to_i, ad_type: PropertyAd::TYPE_HASH[type])

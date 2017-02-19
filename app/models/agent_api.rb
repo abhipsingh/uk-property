@@ -3,6 +3,7 @@ class AgentApi
 
   def initialize(udprn, agent_id)
     @details = PropertyDetails.details(udprn)['_source']
+    
     @branch_id ||= Agents::Branches::AssignedAgent.where(id: agent_id).first.branch_id
     @udprn ||= udprn
     @agent_id ||= agent_id

@@ -5,6 +5,7 @@ class PropertiesController < ActionController::Base
     udprn = params[:udprn]
     @udprn = udprn
     property = PropertyDetails.details(udprn)['_source']
+    Rails.logger.info(property)
     property = property['_source'] if property.has_key?('_source')
     @building_unit = ''
     @building_unit += property['building_number'] if property.has_key?('building_number')
@@ -18,6 +19,32 @@ class PropertiesController < ActionController::Base
     @valuations = vendor_api.calculate_valuations
     @quotes = vendor_api.calculate_quotes
     render 'edit'
+  end
+
+  #### Edit property url
+  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/properties/10966139/edit/details' -d '{ "details" : { "property_type" : "Terraced House", "beds" : 3, "baths" : 2, "receptions" : 2, "property_status_type" : "Green", "property_style" : "Period", "tenure" : "Freehold", "floors" : 2, "listed_status" : "Grade 1", "year_built" : "2011-01-01", "central_heating" : "Partial", "parking_type" : "Single garage", "outside_space_type" : "Private garden", "additional_features" : ["Attractive views", "Fireplace"], "decorative_condition" : "Newly refurbished", "council_tax_band" : "A", "lighting_cost" : 120, "lighting_cost_unit_type" : "month", "heating_cost": 100, "heating_cost_unit_type" : "month", "hot_water_cost" : 200, "hot_water_cost_unit_type" : "month", "annual_ground_water_cost" : 1100, "annual_service_charge" : 200, "resident_parking_cost" : 1200, "other_costs" : [{ "name" : "Cost 1", "value" : 200, "unit_type" : "month" } ], "improvement_types" : [ { "name" : "Total refurbishment", "value" : 200, "date": "2016-06-01" }  ], "current_valuation" : 32000, "dream_price" : 42000, "rental_price" : 1000, "floorplan_url" : "some random url", "pictures" : [{"category" : "Front", "url" : "random url" }, { "category" : "Garden", "url" : "Some random url" } ], "property_brochure_url" : "some random url", "video_walkthrough_url" : "some random url", "property_sold_status" : "Under offer", "agreed_sale_value" : 37000, "expected_completion_date" : "2017-03-13", "actual_completion_date" : "2017-04-01", "new_owner_email_id" : "a@b.com" , "vendor_address" : "Some address" } }'
+  def edit_property_details
+    udprn = params[:udprn].to_i
+    details = params[:details]
+    client = Elasticsearch::Client.new(host: Rails.configuration.remote_es_host)
+    update_hash = {}
+    attributes = [
+                  :property_type, :beds, :baths, :receptions, :property_style, :tenure, :floors, :listed_status, 
+                  :year_built, :central_heating, :parking_type, :outside_space_type, :additional_features, :decorative_condition,
+                  :council_tax_band, :lighting_cost, :lighting_cost_unit_type, :heating_cost, :heating_cost_unit_type,
+                  :hot_water_cost, :hot_water_cost_unit_type, :annual_ground_water_cost, :annual_service_charge,
+                  :resident_parking_cost, :other_costs, :total_cost_per_month, :total_cost_per_year, :improvement_types, :dream_price,
+                  :current_valuation, :floorplan_url, :pictures, :property_sold_status, :agreed_sale_value,
+                  :expected_completion_date, :actual_completion_date, :new_owner_email_id, :vendor_address, :property_status_type,
+                  :inner_area, :outer_area, :property_brochure_url, :video_walkthrough_url
+                ]
+
+    attributes.each do |attribute|
+      update_hash[attribute] = details[attribute] if details[attribute]
+    end
+    PropertyDetails.update_details(client, udprn, update_hash) if !update_hash.empty?
+    details = PropertyDetails.details(udprn)['_source']
+    render json: { message: 'Property details edited', response: details }, status: 200
   end
 
   def short_form
@@ -150,8 +177,8 @@ class PropertiesController < ActionController::Base
   #### For all the pie charts concerning the profile of the buyer, this action can be used.
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/agent/stage/rating/stats/10966139?agent_id=1234'
   def agent_stage_and_rating_stats
-    quote = Agents::Branches::AssignedAgents::Quote.where(agent_id: params[:agent_id].to_i).where(property_id: params[:udprn].to_i).last
-    if quote ### && quote.status == 1
+    agent_id = PropertyDetails.details(params[:udprn].to_i)['_source']['agent_id'] rescue nil
+    if agent_id ### && quote.status == 1
       response = Trackers::Buyer.new.agent_stage_and_rating_stats(params[:udprn].to_i)
       status = 200
     else
@@ -220,6 +247,24 @@ class PropertiesController < ActionController::Base
     render json: { message: 'Successfully updated' }, status: 200
   rescue Exception => e
     render json: { message: 'Update failed' }, status: 400
+  end
+
+  #### When a vendor click the claim to a property, the vendor gets a chance to visit
+  #### the picture. The claim needs to be frozen and the property is no longer available
+  #### for claiming.
+  #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/properties/udprns/claim/4745413' -d '{ "vendor_id" : 1235 }'
+  def claim_udprn
+    udprn = params[:udprn].to_i
+    vendor_id = params[:vendor_id]
+    details = PropertyDetails.details(udprn)
+    district = details['_source']['district']
+    client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
+    PropertyDetails.update_details(client, udprn, { vendor_id: vendor_id , claimed_at: Time.now.to_s })
+    Vendor.find(vendor_id).update_attributes(property_id: udprn)
+    Agents::Branches::AssignedAgents::Lead.create(district: district, property_id: udprn, vendor_id: vendor_id)
+    render json: { message: 'You have claimed this property Successfully. All the agents in this district will be notified' }, status: 200
+  rescue Exception
+    render json: { message: 'Sorry, this udprn has already been claimed' }, status: 400
   end
 
   private

@@ -23,7 +23,9 @@ class Agents::Branches::AssignedAgents::Quote < ActiveRecord::Base
   def compute_price
     price = 0
     quote_details.each do |key, inner_hash|
-      price += inner_hash['price'].to_i
+      inner_hash['list_of_services'].each do |inner_inner_hash|
+        price += inner_inner_hash['price'].to_i
+      end
     end
     price
   end
