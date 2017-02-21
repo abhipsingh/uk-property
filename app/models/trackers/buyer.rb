@@ -113,7 +113,7 @@ class Trackers::Buyer
 
       #### Enquiries
       total_enquiries = generic_event_count(ENQUIRY_EVENTS, nil, udprn, :multiple)
-      buyer_enquiries = generic_event_count(ENQUIRY_EVENTS, nil, udprn, :multiple)
+      buyer_enquiries = generic_event_count_buyer(ENQUIRY_EVENTS, nil, udprn, each_row.buyer_id)
       new_row[:enquiries] = buyer_enquiries.to_i.to_s + '/' + total_enquiries.to_i.to_s
 
       #### Type of match
@@ -138,7 +138,7 @@ class Trackers::Buyer
       new_row['expected_completion_date'] = nil
       new_row['expected_completion_date'] = qualifying_result.message['expected_completion_date'] if new_row[:qualifying] == :completion_stage
 
-      details = PropertyDetails.details(udprn)['_source']
+      # details = PropertyDetails.details(udprn)['_source']
       if details['agent_id']
         hotness_events = [ EVENTS[:hot_property], EVENTS[:cold_property], EVENTS[:warm_property] ]
         event_result = Event.where(buyer_id: each_row.buyer_id).where(event: hotness_events).where(udprn: udprn).order('created_at DESC').limit(1).first
@@ -1200,6 +1200,14 @@ class Trackers::Buyer
     end
     # p "BUYER_#{event_sql}_#{property_id}_#{table}_#{event}_#{type}"
     count
+  end
+
+  def get_emails_of_buyer_trackers udprn
+    Event.where(udprn: udprn).where(event: TRACKING_EVENTS).select("buyer_name, buyer_email, created_at").as_json
+  end
+
+  def get_emails_of_buyer_enquiries udprn
+    Event.where(udprn: udprn).where(event: ENQUIRY_EVENTS).select("buyer_name, buyer_email, created_at").as_json
   end
 
   private

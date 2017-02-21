@@ -47,7 +47,7 @@ class PropertyDetails
     remote_es_url = Rails.configuration.remote_es_url
     response = Net::HTTP.get(URI.parse(remote_es_url + '/addresses/address/' + udprn.to_s))
     response = Oj.load(response) rescue {}
-    response['address'] = address(response)
+    response['address'] = address(response['_source'])
     response
   end
 
@@ -81,11 +81,49 @@ class PropertyDetails
     VendorApi.new(udprn.to_s).calculate_valuations
   end
 
+  def self.send_email_to_trackers udprn, update_hash, last_property_status_type, property_details
+    if property_details.present?
+      address = property_details["address"]
+
+      ## How to get street and locality
+      street = property_details["street"]
+      locality = property_details["locality"]
+
+      ## From where buyer data will come
+      receptions = 0
+      baths = 0
+      beds = 0
+      property_types = []
+
+      params = {
+        hash_str: street,
+        hash_type: "text",
+        match_type: "Potential",
+        receptions: receptions,
+        beds: beds,
+        baths: baths,
+        property_types: property_types
+      }
+      api = ::PropertyDetailsRepo.new(filtered_params: params)
+      result, _ = api.filter
+      potential_matches = result.count
+      tracking_buyers = Trackers::Buyer.new.get_emails_of_buyer_trackers udprn
+      enquiry_buyers = Trackers::Buyer.new.get_emails_of_buyer_enquiries udprn
+      BuyerMailer.tracking_emails(tracking_buyers, address, last_property_status_type, update_hash["property_status_type"])
+      BuyerMailer.enquiry_emails(enquiry_buyers, address, last_property_status_type, update_hash["property_status_type"])
+    end
+  end
+
   def self.update_details(client, udprn, update_hash)
     Rails.logger.info("HELLO_#{update_hash}")
+    property_details = details(udprn)['_source']
+    last_property_status_type = property_details['property_status_type']
     update_hash['status_last_updated'] = Time.now.to_s[0..Time.now.to_s.rindex(" ")-1]
     client.update index: 'addresses', type: 'address', id: udprn,
                         body: { doc: update_hash }
+    if update_hash.key?("property_status_type")
+      send_email_to_trackers(udprn, update_hash, last_property_status_type, property_details)
+    end
   end
 
 end
