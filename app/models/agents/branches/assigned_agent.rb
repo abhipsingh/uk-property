@@ -26,7 +26,8 @@ module Agents
           sort_order: 'desc',
           sort_key: 'status_last_updated',
           district: self.branch.district,
-          verification_status: true
+          verification_status: true,
+          property_status_type: "Green"
         }
         if search_params[:district] == "L37"
         #  search_params[:district] = "L14"
@@ -77,27 +78,22 @@ module Agents
             new_row[:claimed_on] = property_details['claimed_at']
 
             ### Price details starts
-            if property_details['status'] == 'Green'
-              keys = ['asking_price', 'offers_price', 'fixed_price']
-              
-              keys.select{ |t| property_details.has_key?(t) }.each do |present_key|
-                new_row[present_key] = property_details[present_key]
-              end
-                
-            else
-              new_row[:latest_valuation] = property_details['current_valuation'][0]
-            end
+            new_row[:asking_price] = property_details['asking_price']
+            new_row[:offers_price] = property_details['offers_price']
+            new_row[:fixed_price] = property_details['fixed_price']
+            new_row[:dream_price] = property_details['dream_price']
             ### Price details ends
 
             ### Historical prices
             property_historical_prices = PropertyHistoricalDetail.where(udprn: "#{property_id}").order("date DESC").pluck(:price)
             new_row[:historical_prices] = property_historical_prices
-            if quotes.last && quotes.last.status == Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']
-              vendor = Vendor.where(property_id: property_id).first
+
+            vendor = Vendor.where(property_id: property_id).first
+            if vendor.present?
               new_row[:vendor_name] = vendor.full_name
               new_row[:vendor_email] = vendor.email
               new_row[:vendor_mobile] = vendor.mobile
-              new_row[:vendor_image_url] = nil
+              new_row[:vendor_image_url] = vendor.image_url
             else
               new_row[:vendor_name] = nil
               new_row[:vendor_email] = nil
@@ -109,14 +105,13 @@ module Agents
             new_row[:assigned_branch_logo] = self.branch.image_url
             new_row[:assigned_branch_name] = self.branch.name
 
-
             new_row[:property_type] = property_details['property_type']
             new_row[:beds] = property_details['beds']
             new_row[:baths] = property_details['baths']
             new_row[:receptions] = property_details['receptions']
             new_row[:floor_plan_url] = property_details['floor_plan_url']
             new_row[:current_agent] = self.name
-            new_row[:service_required] = property_details['service_required']
+            new_row[:services_required] = property_details['services_required']
             new_row[:verification_status] = property_details['verification_status']
 
             new_row[:payment_terms] = property_details['payment_terms']
