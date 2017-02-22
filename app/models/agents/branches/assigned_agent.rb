@@ -82,6 +82,7 @@ module Agents
             new_row[:offers_price] = property_details['offers_price']
             new_row[:fixed_price] = property_details['fixed_price']
             new_row[:dream_price] = property_details['dream_price']
+            new_row[:latest_valuation] = property_details['current_valuation']
             ### Price details ends
 
             ### Historical prices
