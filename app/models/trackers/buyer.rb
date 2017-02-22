@@ -104,7 +104,7 @@ class Trackers::Buyer
       #### Tracking property id event
       tracking_property_event = EVENTS[:property_tracking]
       event_count = Event.where(event: tracking_property_event).where(buyer_id: each_row.buyer_id).where(udprn: udprn.to_i).count
-      new_row[:property_tracking] = event_count == 0 ? true : false
+      new_row[:property_tracking] = event_count
       
       #### Views
       total_views = generic_event_count(EVENTS[:viewed], nil, udprn, :single)
@@ -113,6 +113,7 @@ class Trackers::Buyer
 
       #### Enquiries
       total_enquiries = generic_event_count(ENQUIRY_EVENTS, nil, udprn, :multiple)
+      buyer = generic_event_count_buyer(EVENTS[:viewed], nil, udprn, each_row.buyer_id)
       buyer_enquiries = generic_event_count(ENQUIRY_EVENTS, nil, udprn, :multiple)
       new_row[:enquiries] = buyer_enquiries.to_i.to_s + '/' + total_enquiries.to_i.to_s
 
@@ -138,7 +139,6 @@ class Trackers::Buyer
       new_row['expected_completion_date'] = nil
       new_row['expected_completion_date'] = qualifying_result.message['expected_completion_date'] if new_row[:qualifying] == :completion_stage
 
-      details = PropertyDetails.details(udprn)['_source']
       if details['agent_id']
         hotness_events = [ EVENTS[:hot_property], EVENTS[:cold_property], EVENTS[:warm_property] ]
         event_result = Event.where(buyer_id: each_row.buyer_id).where(event: hotness_events).where(udprn: udprn).order('created_at DESC').limit(1).first
@@ -269,7 +269,8 @@ class Trackers::Buyer
     new_row['offer_made_stage'] = generic_event_count(EVENTS[:offer_made_stage], table, property_id, :single)
     new_row['requested_message'] = generic_event_count(EVENTS[:requested_message], table, property_id, :single)
     new_row['requested_callback'] = generic_event_count(EVENTS[:requested_callback], table, property_id, :single)
-    # new_row['impressions'] = generic_event_count(:impressions, table, property_id, :single)
+    new_row['interested_in_making_an_offer'] = generic_event_count(EVENTS[:interested_in_making_an_offer], table, property_id, :single)
+    new_row['interested_in_viewing'] = generic_event_count(EVENTS[:interested_in_viewing], table, property_id, :single)
     new_row['deleted'] = generic_event_count(EVENTS[:deleted], table, property_id, :single)
   end
 

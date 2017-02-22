@@ -78,7 +78,6 @@ class EventsController < ApplicationController
     render json: response, status: 200
   end
 
-
   #### For agents the quotes page has to be shown in which all his recent or the new properties in the area
   #### Will be published
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent/quotes?agent_id=1234'
