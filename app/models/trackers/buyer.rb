@@ -269,6 +269,8 @@ class Trackers::Buyer
     new_row['offer_made_stage'] = generic_event_count(EVENTS[:offer_made_stage], table, property_id, :single)
     new_row['requested_message'] = generic_event_count(EVENTS[:requested_message], table, property_id, :single)
     new_row['requested_callback'] = generic_event_count(EVENTS[:requested_callback], table, property_id, :single)
+    new_row['interested_in_making_an_offer'] = generic_event_count(EVENTS[:interested_in_making_an_offer], table, property_id, :single)
+    new_row['interested_in_viewing'] = generic_event_count(EVENTS[:interested_in_viewing], table, property_id, :single)
     # new_row['impressions'] = generic_event_count(:impressions, table, property_id, :single)
     new_row['deleted'] = generic_event_count(EVENTS[:deleted], table, property_id, :single)
   end
