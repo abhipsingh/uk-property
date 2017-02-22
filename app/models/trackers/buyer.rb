@@ -490,11 +490,9 @@ class Trackers::Buyer
     #### Qualifying Stage Only shown to the agents
       #Rails.logger.info(future.rows)
     if agent_id
-      qualifying_events = QUALIFYING_STAGE_EVENTS.map { |e| EVENTS[e] }.join(',')
-      result = Event.where(agent_id: agent_id).where(buyer_id: buyer_id).where(event: qualifying_events).where(buyer_id: buyer_id).order('created_at DESC')
-      result.each do |each_row|
-        new_row[:qualifying] = REVERSE_EVENTS[each_row.event]
-      end
+      qualifying_events = QUALIFYING_STAGE_EVENTS.map { |e| EVENTS[e] }
+      result = Event.where(agent_id: agent_id).where(event: qualifying_events).where(buyer_id: buyer_id).order('created_at DESC').first
+      new_row[:qualifying] = REVERSE_EVENTS[result.event] rescue :qualifying_stage
     end
     new_row
   end
