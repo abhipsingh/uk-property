@@ -81,15 +81,9 @@ class PropertyDetails
     VendorApi.new(udprn.to_s).calculate_valuations
   end
   
-  def self.handle_changes(update_hash)
-    send_emails_to_trackers(update_hash)
-  end
-
-  def send_emails_to_trackers(update_hash)
-  end
-
   def self.update_details(client, udprn, update_hash)
-    handle_changes(update_hash)
+    Rails.logger.info("HELLO_#{update_hash}")
+    update_hash['status_last_updated'] = Time.now.to_s[0..Time.now.to_s.rindex(" ")-1]
     client.update index: 'addresses', type: 'address', id: udprn,
                         body: { doc: update_hash }
   end
