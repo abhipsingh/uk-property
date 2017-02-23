@@ -36,7 +36,7 @@ class PropertiesController < ActionController::Base
                   :resident_parking_cost, :other_costs, :total_cost_per_month, :total_cost_per_year, :improvement_types, :dream_price,
                   :current_valuation, :floorplan_url, :pictures, :property_sold_status, :agreed_sale_value,
                   :expected_completion_date, :actual_completion_date, :new_owner_email_id, :vendor_address, :property_status_type,
-                  :inner_area, :outer_area, :property_brochure_url, :video_walkthrough_url
+                  :inner_area, :outer_area, :property_brochure_url, :video_walkthrough_url, :offers_over, :asking_price, :fixed_price
                 ]
 
     attributes.each do |attribute|
