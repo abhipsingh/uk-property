@@ -40,7 +40,7 @@ module Agents
 
         body, status = api.fetch_data_from_es
         Rails.logger.info(body)
-        body = body.sort_by{ |t| t['status_last_updated'] }.reverse
+        # body = body.sort_by{ |t| t['status_last_updated'] }.reverse
         if status.to_i == 200
           body.each do |property_details|
             next if property_details['assigned_agent_quote'] && property_details['assigned_agent_quote'] == true && property_details['agent_id'] && property_details['agent_id'] != self.id
