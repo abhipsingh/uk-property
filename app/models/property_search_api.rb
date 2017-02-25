@@ -1,6 +1,6 @@
 require 'base64'
 require 'elasticsearch/persistence'
-class PropertyDetailsRepo
+class PropertySearchApi
   include Elasticsearch::Persistence::Repository
   include Elasticsearch::Search
   include Elasticsearch::Scripts
@@ -662,7 +662,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
         match_all: {}
       }
     }
-    p = PropertyDetailsRepo.new(filtered_params: {a: :b})
+    p = PropertySearchApi.new(filtered_params: {a: :b})
     response, code = p.post_url(query, 'addresses', 'address')
     p code
     JSON.parse(response)['hits']['hits']

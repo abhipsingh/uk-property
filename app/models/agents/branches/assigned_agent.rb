@@ -33,7 +33,7 @@ module Agents
         end
 
         # search_params[:udprns] = udprns.join(',') if !udprns.empty?
-        api = PropertyDetailsRepo.new(filtered_params: search_params)
+        api = PropertySearchApi.new(filtered_params: search_params)
         api.apply_filters
         api.add_exists_filter(:quotes)
 
@@ -271,7 +271,7 @@ module Agents
         search_params[:agent_id] = self.id
         search_params[:property_status_type] = 'Green'
         search_params[:verification_status] = true
-        api = PropertyDetailsRepo.new(filtered_params: search_params)
+        api = PropertySearchApi.new(filtered_params: search_params)
         api.apply_filters
         body, status = api.fetch_data_from_es
         # Rails.logger.info(body)

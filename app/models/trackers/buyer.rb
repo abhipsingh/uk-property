@@ -646,7 +646,7 @@ class Trackers::Buyer
       search_params[region_type] = details[region_type.to_s]
       Rails.logger.info(search_params)
       search_stats[region_type][:value] = details[region_type.to_s] ### Populate the value of sector, district and unit
-      api = PropertyDetailsRepo.new(filtered_params: search_params)
+      api = PropertySearchApi.new(filtered_params: search_params)
       api.apply_filters
       body, status = api.fetch_data_from_es
       udprns = []
@@ -703,7 +703,7 @@ class Trackers::Buyer
       search_params = default_search_params.clone
       search_params[region_type] = details[region_type.to_s]
       search_stats[region_type][:value] = details[region_type.to_s] ### Populate the value of sector, district and unit
-      api = PropertyDetailsRepo.new(filtered_params: search_params)
+      api = PropertySearchApi.new(filtered_params: search_params)
       api.apply_filters
       body, status = api.fetch_data_from_es
 
@@ -753,7 +753,7 @@ class Trackers::Buyer
       search_params = default_search_params.clone
       search_params[region_type] = details[region_type.to_s]
       search_stats[region_type][:value] = details[region_type.to_s] ### Populate the value of sector, district and unit
-      api = PropertyDetailsRepo.new(filtered_params: search_params)
+      api = PropertySearchApi.new(filtered_params: search_params)
       api.apply_filters
       body, status = api.fetch_data_from_es
       udprns = []
@@ -1030,7 +1030,7 @@ class Trackers::Buyer
       search_params = default_search_params.clone
       search_params[region_type] = details[region_type.to_s]
       ranking_stats[region_type][:value] = details[region_type.to_s] ### Populate the value of sector, district and unit
-      api = PropertyDetailsRepo.new(filtered_params: search_params)
+      api = PropertySearchApi.new(filtered_params: search_params)
       api.apply_filters
       body, status = api.fetch_data_from_es
       udprns = []
@@ -1151,7 +1151,7 @@ class Trackers::Buyer
       details = PropertyDetails.details(each_row['udprn'])['_source']
       new_row['dream_price'] = details['dream_price']
       if details['property_status_type'] == 'Green' || details['property_status_type'] == 'Amber'
-        PropertyDetailsRepo::PRICE_TYPES.each{|p| new_row[p] = details[p.to_s]  }
+        PropertySearchApi::PRICE_TYPES.each{|p| new_row[p] = details[p.to_s]  }
       elsif details['property_status_type'] == 'Red'
         new_row['last_sale_price'] = details['last_sale_price']
       end

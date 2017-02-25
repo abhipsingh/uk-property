@@ -17,7 +17,7 @@ module Api
       include EventsHelper
       def search
         response = Hash.new
-        api = ::PropertyDetailsRepo.new(filtered_params: params)
+        api = ::PropertySearchApi.new(filtered_params: params)
         result, status = api.filter
         result = result[:results].sort_by{|t| t[:score]}.reverse
         result = result.each{|t| t[:photo_urls] = [] }
@@ -29,7 +29,7 @@ module Api
 
       ### curl -XGET 'http://localhost/api/v0/properties/matching/count?hash_str=LIVERPOOL&hash_type=Text&count=true'
       def matching_property_count
-        api = ::PropertyDetailsRepo.new(filtered_params: params)
+        api = ::PropertySearchApi.new(filtered_params: params)
         result, status = api.matching_property_count
         render :json => result, :status => status
       end

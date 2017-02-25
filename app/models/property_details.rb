@@ -67,7 +67,7 @@ class PropertyDetails
       fields: 'udprn'
     }
     Rails.logger.info(search_params)
-    api = PropertyDetailsRepo.new(filtered_params: search_params)
+    api = PropertySearchApi.new(filtered_params: search_params)
     api.apply_filters
     body, status = api.fetch_data_from_es
     udprns = []
@@ -113,7 +113,7 @@ class PropertyDetails
       property_types: property_type,
       listing_type: 'Premium'
     }
-    api = ::PropertyDetailsRepo.new(filtered_params: params)
+    api = ::PropertySearchApi.new(filtered_params: params)
     result, _ = api.filter
     result.count
   end

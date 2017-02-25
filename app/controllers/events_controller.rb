@@ -131,7 +131,7 @@ class EventsController < ApplicationController
       search_params[:agent_id] = params[:agent_id].to_i
       search_params[:property_status_type] = 'Green'
       search_params[:verification_status] = true
-      api = PropertyDetailsRepo.new(filtered_params: search_params)
+      api = PropertySearchApi.new(filtered_params: search_params)
       api.apply_filters
       body, status = api.fetch_data_from_es
       Rails.logger.info(body)
@@ -155,7 +155,7 @@ class EventsController < ApplicationController
     search_params[:agent_id] = params[:agent_id].to_i
     search_params[:property_status_type] = 'Green'
     search_params[:verification_status] = true
-    api = PropertyDetailsRepo.new(filtered_params: search_params)
+    api = PropertySearchApi.new(filtered_params: search_params)
     api.apply_filters
     body, status = api.fetch_data_from_es
     # Rails.logger.info(body)

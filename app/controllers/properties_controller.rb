@@ -222,7 +222,7 @@ class PropertiesController < ActionController::Base
     search_hash[:sub_building_name] = params[:str] if params[:str] && !params[:str].empty?
     search_hash[:building_name] = params[:str] if params[:str] && !params[:str].empty?
     search_hash[:building_number] = params[:str] if params[:str] && !params[:str].empty?
-    api = PropertyDetailsRepo.new(filtered_params: search_hash )
+    api = PropertySearchApi.new(filtered_params: search_hash )
     api.apply_filters
     # Rails.logger.info(api.query)
     api.make_or_filters([:sub_building_name, :building_name, :building_number])
