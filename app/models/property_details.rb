@@ -98,12 +98,12 @@ class PropertyDetails
     end
   end
 
-  def self.get_potential_matches_for_tracking property_details, hash_str, receptions, beds, baths, property_type
-    locality_hashes = property_details["hashes"].find{ |hashes| hashes.end_with? hash_str}
+  def self.get_potential_matches_for_tracking(property_details, hash_str, receptions, beds, baths, property_type)
+    locality_hashes = property_details['hashes'].find{ |hashes| hashes.end_with? hash_str}
     params = {
       hash_str: locality_hashes,
-      hash_type: "text",
-      type_of_match: "potential",
+      hash_type: 'text',
+      type_of_match: 'potential',
       min_receptions: receptions,
       min_beds: beds,
       min_baths: baths,
@@ -111,25 +111,25 @@ class PropertyDetails
       max_beds: beds,
       max_baths: baths,
       property_types: property_type,
-      listing_type: "Premium"
+      listing_type: 'Premium'
     }
     api = ::PropertyDetailsRepo.new(filtered_params: params)
     result, _ = api.filter
     result.count
   end
-
+  
   def self.historic_pricing_details(udprn)
     VendorApi.new(udprn.to_s).calculate_valuations
   end
   
   def self.update_details(client, udprn, update_hash)
-    Rails.logger.info("HELLO_#{update_hash}")
+    #Rails.logger.info("HELLO_#{update_hash}")
     property_details = details(udprn)['_source']
     last_property_status_type = property_details['property_status_type']
     update_hash['status_last_updated'] = Time.now.to_s[0..Time.now.to_s.rindex(" ")-1]
     client.update index: 'addresses', type: 'address', id: udprn,
                         body: { doc: update_hash }
-    if update_hash.key?("property_status_type")
+    if update_hash.key?('property_status_type')
       ###send_email_to_trackers(udprn, update_hash, last_property_status_type, property_details)
     end
   end

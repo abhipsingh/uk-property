@@ -77,3 +77,6 @@ gem 'simple_command'
 ### For full text search
 gem 'pg_search'
 
+### For code related issues
+gem "appsignal"
+

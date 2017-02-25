@@ -26,6 +26,13 @@ module Api
         insert_new_search 
         render :json => result, :status => status
       end
+
+      ### curl -XGET 'http://localhost/api/v0/properties/matching/count?hash_str=LIVERPOOL&hash_type=Text&count=true'
+      def matching_property_count
+        api = ::PropertyDetailsRepo.new(filtered_params: params)
+        result, status = api.matching_property_count
+        render :json => result, :status => status
+      end
       
       ### TODO: Move to a queue like Sidekiq or Redis
       def insert_new_search
