@@ -79,7 +79,7 @@ module Api
                   new_match_type_strs.push(each_str)
                 end
               end
-              client.update index: 'addresses', type: 'address', id: udprn, body: { doc: { match_type_str: new_match_type_strs } }
+              client.update index: Rails.configuration.address_index_name, type: 'address', id: udprn, body: { doc: { match_type_str: new_match_type_strs } }
               ads_count += 1 if ads.id > 0
               message[:ads_count] = ads_count
             rescue Exception => e

@@ -455,7 +455,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
 
         # process_doc_with_conditions(doc)
 
-        body.push({ update:  { _index: 'addresses', _type: 'address', _id: udprn, data: { doc: doc } }})
+        body.push({ update:  { _index: Rails.configuration.address_index_name, _type: 'address', _id: udprn, data: { doc: doc } }})
       end
       response = client.bulk body: body unless body.empty?
       p response['items'].first
@@ -663,7 +663,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
       }
     }
     p = PropertySearchApi.new(filtered_params: {a: :b})
-    response, code = p.post_url(query, 'addresses', 'address')
+    response, code = p.post_url(query, Rails.configuration.address_index_name, 'address')
     p code
     JSON.parse(response)['hits']['hits']
   end

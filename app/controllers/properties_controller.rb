@@ -242,7 +242,7 @@ class PropertiesController < ActionController::Base
     body[:receptions] = params[:receptions].to_i
     body[:property_status_type] = params[:property_status_type]
     body[:verification_status] = false
-    client.update index: 'addresses', type: 'address', id: udprn,
+    client.update index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn,
                   body: { doc: body }
     render json: { message: 'Successfully updated' }, status: 200
   rescue Exception => e

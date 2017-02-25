@@ -127,7 +127,7 @@ class PropertyDetails
     property_details = details(udprn)['_source']
     last_property_status_type = property_details['property_status_type']
     update_hash['status_last_updated'] = Time.now.to_s[0..Time.now.to_s.rindex(" ")-1]
-    client.update index: 'addresses', type: 'address', id: udprn,
+    client.update index: Rails.configuration.address_index_name, type: 'address', id: udprn,
                         body: { doc: update_hash }
     if update_hash.key?('property_status_type')
       ###send_email_to_trackers(udprn, update_hash, last_property_status_type, property_details)

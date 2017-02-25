@@ -21,7 +21,7 @@ class QuotesController < ApplicationController
       accepting_quotes: true
     }
 
-    response = client.update index: 'addresses', type: 'address', id: params[:udprn].to_i, body: { doc: doc }
+    response = client.update index: Rails.configuration.address_index_name, type: 'address', id: params[:udprn].to_i, body: { doc: doc }
     render json: response, status: 200
   #rescue Exception => e
   #  render json: e, status: 400
@@ -86,7 +86,7 @@ class QuotesController < ApplicationController
         accepting_quotes: false
       }
 
-      client.update index: 'addresses', type: 'address', id: property_id.to_i, body: { doc: doc }
+      client.update index: Rails.configuration.address_index_name, type: 'address', id: property_id.to_i, body: { doc: doc }
       details = PropertyDetails.details(property_id)
       render json: { details: details, message: 'The quote is accepted' }, status: 200
     else
