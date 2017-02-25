@@ -85,33 +85,41 @@ class PropertyDetails
     if property_details.present?
       address = property_details["address"]
 
-      ## How to get street and locality
-      street = property_details["street"]
-      locality = property_details["locality"]
+      street = property_details["dependent_thoroughfare_description"]
+      locality = property_details["dependent_locality"]
 
-      ## From where buyer data will come
-      receptions = 0
-      baths = 0
-      beds = 0
-      property_types = []
+      receptions = property_details["receptions"]
+      baths = property_details["baths"]
+      beds = property_details["beds"]
+      property_type = property_details["property_type"]
+      @street_potential_matches = PropertyDetails.get_potential_matches_for_tracking(property_details, street, receptions, beds, baths, property_type)
+      @locality_potential_matches = PropertyDetails.get_potential_matches_for_tracking(property_details, locality, receptions, beds, baths, property_type)
 
-      params = {
-        hash_str: street,
-        hash_type: "text",
-        match_type: "Potential",
-        receptions: receptions,
-        beds: beds,
-        baths: baths,
-        property_types: property_types
-      }
-      api = ::PropertyDetailsRepo.new(filtered_params: params)
-      result, _ = api.filter
-      potential_matches = result.count
       tracking_buyers = Trackers::Buyer.new.get_emails_of_buyer_trackers udprn
       enquiry_buyers = Trackers::Buyer.new.get_emails_of_buyer_enquiries udprn
-      BuyerMailer.tracking_emails(tracking_buyers, address, last_property_status_type, update_hash["property_status_type"])
-      BuyerMailer.enquiry_emails(enquiry_buyers, address, last_property_status_type, update_hash["property_status_type"])
+      BuyerMailer.tracking_emails(tracking_buyers, address, last_property_status_type, update_hash["property_status_type"]).deliver_now
+      BuyerMailer.enquiry_emails(enquiry_buyers, address, last_property_status_type, update_hash["property_status_type"]).deliver_now
     end
+  end
+
+  def self.get_potential_matches_for_tracking property_details, hash_str, receptions, beds, baths, property_type
+    locality_hashes = property_details["hashes"].find{ |hashes| hashes.end_with? hash_str}
+    params = {
+      hash_str: locality_hashes,
+      hash_type: "text",
+      type_of_match: "potential",
+      min_receptions: receptions,
+      min_beds: beds,
+      min_baths: baths,
+      max_receptions: receptions,
+      max_beds: beds,
+      max_baths: baths,
+      property_types: property_type,
+      listing_type: "Premium"
+    }
+    api = ::PropertyDetailsRepo.new(filtered_params: params)
+    result, _ = api.filter
+    result.count
   end
 
   def self.update_details(client, udprn, update_hash)

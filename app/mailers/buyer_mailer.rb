@@ -16,7 +16,7 @@ class BuyerMailer < ApplicationMailer
     @new_property_status_type = new_property_status_type
     enquiry_buyers.each do |enquiry_buyer|
     	@enquiry_buyer = enquiry_buyer
-      mail(to: @enquiry_buyer["buyer_email"], subject: "Start Tracking")
+      mail(to: @enquiry_buyer["buyer_email"], subject: "Start Enquiring")
     end
   end
 
