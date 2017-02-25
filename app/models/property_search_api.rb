@@ -1,9 +1,5 @@
 require 'base64'
-require 'elasticsearch/persistence'
 class PropertySearchApi
-  include Elasticsearch::Persistence::Repository
-  include Elasticsearch::Search
-  include Elasticsearch::Scripts
   NEARBY_DEFAULT_RADIUS = 1500
   NEARBY_MAX_RADIUS = 5000
   RESULTS_PER_PAGE = 20
