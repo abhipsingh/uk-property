@@ -26,8 +26,7 @@ module Agents
           sort_order: 'desc',
           sort_key: 'status_last_updated',
           district: self.branch.district,
-          verification_status: true,
-          property_status_type: "Green"
+          verification_status: true
         }
         if search_params[:district] == "L37"
         #  search_params[:district] = "L14"
@@ -105,6 +104,7 @@ module Agents
             ### Branch and logo
             new_row[:assigned_branch_logo] = self.branch.image_url
             new_row[:assigned_branch_name] = self.branch.name
+            new_row[:assigned_agent_id] = property_details['agent_id']
 
             new_row[:property_type] = property_details['property_type']
             new_row[:beds] = property_details['beds']

@@ -329,7 +329,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     inst = self
     if @filtered_params.has_key?(:hash_type) && @filtered_params.has_key?(:hash_str)
       @filtered_params[:listing_type] = 'Normal' if @filtered_params[:listing_type].nil?
-      search_str = @filtered_params[:hash_str] + '|' + @filtered_params[:listing_type]
+      search_str = @filtered_params[:hash_str].to_s + '|' + @filtered_params[:listing_type].to_s
       inst.append_term_filter_query(:match_type_str, search_str, :and)
     end
   end

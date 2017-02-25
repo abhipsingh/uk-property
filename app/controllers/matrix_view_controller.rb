@@ -109,6 +109,8 @@ class MatrixViewController < ActionController::Base
       ## Example of a hash value ASCOT_Sunningdale
       params[:hash_str] = hash_value
       params[:hash_type] = 'text'
+      params[:listing_type] = 'Normal'
+    
       api = ::PropertyDetailsRepo.new(filtered_params: params)
       api.modify_filtered_params
       ### @filtered_params= {:str=>"Sunningdale", :controller=>"application", :action=>"matrix_view", :hash_str=>"ASCOT_Sunningdale", :hash_type=>"text"}
@@ -324,6 +326,7 @@ class MatrixViewController < ActionController::Base
       }
     end
 
+    Rails.logger.info(parsed_json)
     first_type = parsed_json['postcode_suggest'][0]['options'][0]['payload']['type']
     hash_value = parsed_json['postcode_suggest'][0]['options'][0]['payload']['hash']
     county_value = parsed_json['postcode_suggest'][0]['options'][0]['payload']['county'].capitalize rescue nil

@@ -42,6 +42,7 @@ gem 'haml-rails'
 gem 'adminlte2-rails', '~> 0.0.6'
 gem 'sass-rails', '~> 4.0.0'
 gem 'selectize-rails'
+
 ###
 
 
@@ -56,6 +57,8 @@ gem 'rename'
 
 group :development, :test do
   gem 'pry-rails'
+  gem 'webmock'
+  gem 'minitest'
 end
 
 group :test do

@@ -47,6 +47,14 @@ class Trackers::Buyer
     'Red'   => 3
   }
 
+  LISTING_TYPES = {
+    'Normal' => 1,
+    'Premium' => 2,
+    'Featured' => 3
+  }
+
+  REVERSE_LISTING_TYPES = LISTING_TYPES.invert
+
   REVERSE_STATUS_TYPES = PROPERTY_STATUS_TYPES.invert
 
   REVERSE_TYPE_OF_MATCH = TYPE_OF_MATCH.invert
@@ -484,7 +492,7 @@ class Trackers::Buyer
 
     #### Enquiries
     total_enquiries = generic_event_count(ENQUIRY_EVENTS, nil, property_id, :multiple)
-    buyer_enquiries = generic_event_count(ENQUIRY_EVENTS, nil, property_id, :multiple)
+    buyer_enquiries = generic_event_count_buyer(ENQUIRY_EVENTS, nil, property_id, buyer_id)
     new_row[:enquiries] = buyer_enquiries.to_i.to_s + '/' + total_enquiries.to_i.to_s
 
     #### Qualifying Stage Only shown to the agents
@@ -1200,6 +1208,14 @@ class Trackers::Buyer
     end
     # p "BUYER_#{event_sql}_#{property_id}_#{table}_#{event}_#{type}"
     count
+  end
+
+  def get_emails_of_buyer_trackers udprn
+    Event.where(udprn: udprn).where(event: TRACKING_EVENTS.map { |e| EVENTS[e] }).select("buyer_name, buyer_email, created_at").as_json
+  end
+
+  def get_emails_of_buyer_enquiries udprn
+    Event.where(udprn: udprn).where(event: ENQUIRY_EVENTS.map { |e| EVENTS[e] }).select("buyer_name, buyer_email, created_at").as_json
   end
 
   private

@@ -17,7 +17,8 @@ class QuotesController < ApplicationController
       payment_terms: params[:payment_terms],
       quotes: params[:quote_details],
       assigned_agent_quote: params[:assigned_agent],
-      status_last_updated: current_time
+      status_last_updated: current_time,
+      accepting_quotes: true
     }
 
     response = client.update index: 'addresses', type: 'address', id: params[:udprn].to_i, body: { doc: doc }
@@ -81,7 +82,8 @@ class QuotesController < ApplicationController
         payment_terms: quote.payment_terms,
         quotes: quote.quote_details.to_json,
         status_last_updated: current_time,
-        agent_id: quote.agent_id
+        agent_id: quote.agent_id,
+        accepting_quotes: false
       }
 
       client.update index: 'addresses', type: 'address', id: property_id.to_i, body: { doc: doc }
