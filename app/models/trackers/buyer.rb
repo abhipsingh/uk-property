@@ -47,6 +47,14 @@ class Trackers::Buyer
     'Red'   => 3
   }
 
+  LISTING_TYPES = {
+    'Normal' => 1,
+    'Premium' => 2,
+    'Featured' => 3
+  }
+
+  REVERSE_LISTING_TYPES = LISTING_TYPES.invert
+
   REVERSE_STATUS_TYPES = PROPERTY_STATUS_TYPES.invert
 
   REVERSE_TYPE_OF_MATCH = TYPE_OF_MATCH.invert
@@ -104,7 +112,7 @@ class Trackers::Buyer
       #### Tracking property id event
       tracking_property_event = EVENTS[:property_tracking]
       event_count = Event.where(event: tracking_property_event).where(buyer_id: each_row.buyer_id).where(udprn: udprn.to_i).count
-      new_row[:property_tracking] = event_count == 0 ? true : false
+      new_row[:property_tracking] = event_count
       
       #### Views
       total_views = generic_event_count(EVENTS[:viewed], nil, udprn, :single)
@@ -113,6 +121,7 @@ class Trackers::Buyer
 
       #### Enquiries
       total_enquiries = generic_event_count(ENQUIRY_EVENTS, nil, udprn, :multiple)
+      buyer = generic_event_count_buyer(EVENTS[:viewed], nil, udprn, each_row.buyer_id)
       buyer_enquiries = generic_event_count(ENQUIRY_EVENTS, nil, udprn, :multiple)
       new_row[:enquiries] = buyer_enquiries.to_i.to_s + '/' + total_enquiries.to_i.to_s
 
@@ -138,7 +147,6 @@ class Trackers::Buyer
       new_row['expected_completion_date'] = nil
       new_row['expected_completion_date'] = qualifying_result.message['expected_completion_date'] if new_row[:qualifying] == :completion_stage
 
-      details = PropertyDetails.details(udprn)['_source']
       if details['agent_id']
         hotness_events = [ EVENTS[:hot_property], EVENTS[:cold_property], EVENTS[:warm_property] ]
         event_result = Event.where(buyer_id: each_row.buyer_id).where(event: hotness_events).where(udprn: udprn).order('created_at DESC').limit(1).first
@@ -484,17 +492,15 @@ class Trackers::Buyer
 
     #### Enquiries
     total_enquiries = generic_event_count(ENQUIRY_EVENTS, nil, property_id, :multiple)
-    buyer_enquiries = generic_event_count(ENQUIRY_EVENTS, nil, property_id, :multiple)
+    buyer_enquiries = generic_event_count_buyer(ENQUIRY_EVENTS, nil, property_id, buyer_id)
     new_row[:enquiries] = buyer_enquiries.to_i.to_s + '/' + total_enquiries.to_i.to_s
 
     #### Qualifying Stage Only shown to the agents
       #Rails.logger.info(future.rows)
     if agent_id
-      qualifying_events = QUALIFYING_STAGE_EVENTS.map { |e| EVENTS[e] }.join(',')
-      result = Event.where(agent_id: agent_id).where(buyer_id: buyer_id).where(event: qualifying_events).where(buyer_id: buyer_id).order('created_at DESC')
-      result.each do |each_row|
-        new_row[:qualifying] = REVERSE_EVENTS[each_row.event]
-      end
+      qualifying_events = QUALIFYING_STAGE_EVENTS.map { |e| EVENTS[e] }
+      result = Event.where(agent_id: agent_id).where(event: qualifying_events).where(buyer_id: buyer_id).order('created_at DESC').first
+      new_row[:qualifying] = REVERSE_EVENTS[result.event] rescue :qualifying_stage
     end
     new_row
   end
@@ -640,7 +646,7 @@ class Trackers::Buyer
       search_params[region_type] = details[region_type.to_s]
       Rails.logger.info(search_params)
       search_stats[region_type][:value] = details[region_type.to_s] ### Populate the value of sector, district and unit
-      api = PropertyDetailsRepo.new(filtered_params: search_params)
+      api = PropertySearchApi.new(filtered_params: search_params)
       api.apply_filters
       body, status = api.fetch_data_from_es
       udprns = []
@@ -697,7 +703,7 @@ class Trackers::Buyer
       search_params = default_search_params.clone
       search_params[region_type] = details[region_type.to_s]
       search_stats[region_type][:value] = details[region_type.to_s] ### Populate the value of sector, district and unit
-      api = PropertyDetailsRepo.new(filtered_params: search_params)
+      api = PropertySearchApi.new(filtered_params: search_params)
       api.apply_filters
       body, status = api.fetch_data_from_es
 
@@ -747,7 +753,7 @@ class Trackers::Buyer
       search_params = default_search_params.clone
       search_params[region_type] = details[region_type.to_s]
       search_stats[region_type][:value] = details[region_type.to_s] ### Populate the value of sector, district and unit
-      api = PropertyDetailsRepo.new(filtered_params: search_params)
+      api = PropertySearchApi.new(filtered_params: search_params)
       api.apply_filters
       body, status = api.fetch_data_from_es
       udprns = []
@@ -1024,7 +1030,7 @@ class Trackers::Buyer
       search_params = default_search_params.clone
       search_params[region_type] = details[region_type.to_s]
       ranking_stats[region_type][:value] = details[region_type.to_s] ### Populate the value of sector, district and unit
-      api = PropertyDetailsRepo.new(filtered_params: search_params)
+      api = PropertySearchApi.new(filtered_params: search_params)
       api.apply_filters
       body, status = api.fetch_data_from_es
       udprns = []
@@ -1145,7 +1151,7 @@ class Trackers::Buyer
       details = PropertyDetails.details(each_row['udprn'])['_source']
       new_row['dream_price'] = details['dream_price']
       if details['property_status_type'] == 'Green' || details['property_status_type'] == 'Amber'
-        PropertyDetailsRepo::PRICE_TYPES.each{|p| new_row[p] = details[p.to_s]  }
+        PropertySearchApi::PRICE_TYPES.each{|p| new_row[p] = details[p.to_s]  }
       elsif details['property_status_type'] == 'Red'
         new_row['last_sale_price'] = details['last_sale_price']
       end
@@ -1202,6 +1208,14 @@ class Trackers::Buyer
     end
     # p "BUYER_#{event_sql}_#{property_id}_#{table}_#{event}_#{type}"
     count
+  end
+
+  def get_emails_of_buyer_trackers udprn
+    Event.where(udprn: udprn).where(event: TRACKING_EVENTS.map { |e| EVENTS[e] }).select("buyer_name, buyer_email, created_at").as_json
+  end
+
+  def get_emails_of_buyer_enquiries udprn
+    Event.where(udprn: udprn).where(event: ENQUIRY_EVENTS.map { |e| EVENTS[e] }).select("buyer_name, buyer_email, created_at").as_json
   end
 
   private

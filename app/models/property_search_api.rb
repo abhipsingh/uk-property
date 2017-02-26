@@ -1,6 +1,6 @@
 require 'base64'
 require 'elasticsearch/persistence'
-class PropertyDetailsRepo
+class PropertySearchApi
   include Elasticsearch::Persistence::Repository
   include Elasticsearch::Search
   include Elasticsearch::Scripts
@@ -153,6 +153,8 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     if @filtered_params.has_key?(:limit)
       @filtered_params[:limit].to_i < 1000 ? limit = @filtered_params[:limit] : limit = 1000
       @query[:size] = 1000000
+    elsif @filtered_params.has_key?(:count) && @filtered_params[:count] == 'true'
+      @query[:size] = 0
     end
   end
 
@@ -165,7 +167,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
   def fetch_data_from_es
     inst = self
     # Rails.logger.info(inst.query)
-    body, status = post_url(inst.query, 'addresses', 'address')
+    body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name)
     body = Oj.load(body)['hits']['hits'].map do |t|
       t['_source']['score'] = t['matched_queries'].count
       t['_source']
@@ -329,7 +331,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     inst = self
     if @filtered_params.has_key?(:hash_type) && @filtered_params.has_key?(:hash_str)
       @filtered_params[:listing_type] = 'Normal' if @filtered_params[:listing_type].nil?
-      search_str = @filtered_params[:hash_str] + '|' + @filtered_params[:listing_type]
+      search_str = @filtered_params[:hash_str].to_s + '|' + @filtered_params[:listing_type].to_s
       inst.append_term_filter_query(:match_type_str, search_str, :and)
     end
   end
@@ -348,8 +350,8 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     inst
   end
 
-  def post_url(query = {}, index_name='property_details', type_name='property_detail')
-    uri = URI.parse(URI.encode("#{ES_EC2_URL}/#{index_name}/#{type_name}/_search"))
+  def post_url(query = {}, index_name='property_details', type_name='property_detail', endpoint='_search')
+    uri = URI.parse(URI.encode("#{ES_EC2_URL}/#{index_name}/#{type_name}/#{endpoint}"))
     query = (query == {}) ? "" : query.to_json
     http = Net::HTTP.new(uri.host, uri.port)
     result = http.post(uri,query)
@@ -453,7 +455,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
 
         # process_doc_with_conditions(doc)
 
-        body.push({ update:  { _index: 'addresses', _type: 'address', _id: udprn, data: { doc: doc } }})
+        body.push({ update:  { _index: Rails.configuration.address_index_name, _type: 'address', _id: udprn, data: { doc: doc } }})
       end
       response = client.bulk body: body unless body.empty?
       p response['items'].first
@@ -556,7 +558,16 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     end
     
   end
-
+ 
+  ### Used for getting matched properties (count only)
+  def matching_property_count
+    inst = self
+    inst.adjust_size
+    inst = inst.append_hash_filter
+    body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name, '_search?search_type=count')
+    count = Oj.load(body)['hits']['total'] rescue 0
+    return count, status
+  end
   
 
   def self.post_url_new(query = {}, index_name='property_details', type_name='property_detail')
@@ -651,8 +662,8 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
         match_all: {}
       }
     }
-    p = PropertyDetailsRepo.new(filtered_params: {a: :b})
-    response, code = p.post_url(query, 'addresses', 'address')
+    p = PropertySearchApi.new(filtered_params: {a: :b})
+    response, code = p.post_url(query, Rails.configuration.address_index_name, 'address')
     p code
     JSON.parse(response)['hits']['hits']
   end

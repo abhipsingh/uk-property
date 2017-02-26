@@ -26,21 +26,20 @@ module Agents
           sort_order: 'desc',
           sort_key: 'status_last_updated',
           district: self.branch.district,
-          verification_status: true,
-          property_status_type: "Green"
+          verification_status: true
         }
         if search_params[:district] == "L37"
         #  search_params[:district] = "L14"
         end
 
         # search_params[:udprns] = udprns.join(',') if !udprns.empty?
-        api = PropertyDetailsRepo.new(filtered_params: search_params)
+        api = PropertySearchApi.new(filtered_params: search_params)
         api.apply_filters
         api.add_exists_filter(:quotes)
 
         body, status = api.fetch_data_from_es
         Rails.logger.info(body)
-        body = body.sort_by{ |t| t['status_last_updated'] }.reverse
+        #body = body.sort_by{ |t| t['status_last_updated'] }.reverse
         if status.to_i == 200
           body.each do |property_details|
             next if property_details['assigned_agent_quote'] && property_details['assigned_agent_quote'] == true && property_details['agent_id'] && property_details['agent_id'] != self.id
@@ -105,6 +104,7 @@ module Agents
             ### Branch and logo
             new_row[:assigned_branch_logo] = self.branch.image_url
             new_row[:assigned_branch_name] = self.branch.name
+            new_row[:assigned_agent_id] = property_details['agent_id']
 
             new_row[:property_type] = property_details['property_type']
             new_row[:beds] = property_details['beds']
@@ -271,7 +271,7 @@ module Agents
         search_params[:agent_id] = self.id
         search_params[:property_status_type] = 'Green'
         search_params[:verification_status] = true
-        api = PropertyDetailsRepo.new(filtered_params: search_params)
+        api = PropertySearchApi.new(filtered_params: search_params)
         api.apply_filters
         body, status = api.fetch_data_from_es
         # Rails.logger.info(body)

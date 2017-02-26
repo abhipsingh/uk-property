@@ -47,8 +47,8 @@ class PropertyDetails
     remote_es_url = Rails.configuration.remote_es_url
     response = Net::HTTP.get(URI.parse(remote_es_url + '/addresses/address/' + udprn.to_s))
     response = Oj.load(response) rescue {}
-    response['address'] = address(response)
     response['total_area'] = response["_source"]["inner_area"] + response["_source"]["outer_area"]
+    response['address'] = address(response["_source"])
     response
   end
 
@@ -68,7 +68,7 @@ class PropertyDetails
       fields: 'udprn'
     }
     Rails.logger.info(search_params)
-    api = PropertyDetailsRepo.new(filtered_params: search_params)
+    api = PropertySearchApi.new(filtered_params: search_params)
     api.apply_filters
     body, status = api.fetch_data_from_es
     udprns = []
@@ -78,15 +78,61 @@ class PropertyDetails
     udprns
   end
 
+  def self.send_email_to_trackers udprn, update_hash, last_property_status_type, property_details
+    if property_details.present?
+      address = property_details["address"]
+
+      street = property_details["dependent_thoroughfare_description"]
+      locality = property_details["dependent_locality"]
+
+      receptions = property_details["receptions"]
+      baths = property_details["baths"]
+      beds = property_details["beds"]
+      property_type = property_details["property_type"]
+      @street_potential_matches = get_potential_matches_for_tracking(property_details, street, receptions, beds, baths, property_type)
+      @locality_potential_matches = get_potential_matches_for_tracking(property_details, locality, receptions, beds, baths, property_type)
+      
+      tracking_buyers = Trackers::Buyer.new.get_emails_of_buyer_trackers udprn
+      enquiry_buyers = Trackers::Buyer.new.get_emails_of_buyer_enquiries udprn
+      BuyerMailer.tracking_emails(tracking_buyers, address, last_property_status_type, update_hash["property_status_type"])
+      BuyerMailer.enquiry_emails(enquiry_buyers, address, last_property_status_type, update_hash["property_status_type"])
+    end
+  end
+
+  def self.get_potential_matches_for_tracking(property_details, hash_str, receptions, beds, baths, property_type)
+    locality_hashes = property_details['hashes'].find{ |hashes| hashes.end_with? hash_str}
+    params = {
+      hash_str: locality_hashes,
+      hash_type: 'text',
+      type_of_match: 'potential',
+      min_receptions: receptions,
+      min_beds: beds,
+      min_baths: baths,
+      max_receptions: receptions,
+      max_beds: beds,
+      max_baths: baths,
+      property_types: property_type,
+      listing_type: 'Premium'
+    }
+    api = ::PropertySearchApi.new(filtered_params: params)
+    result, _ = api.filter
+    result.count
+  end
+  
   def self.historic_pricing_details(udprn)
     VendorApi.new(udprn.to_s).calculate_valuations
   end
-
+  
   def self.update_details(client, udprn, update_hash)
-    Rails.logger.info("HELLO_#{update_hash}")
+    #Rails.logger.info("HELLO_#{update_hash}")
+    property_details = details(udprn)['_source']
+    last_property_status_type = property_details['property_status_type']
     update_hash['status_last_updated'] = Time.now.to_s[0..Time.now.to_s.rindex(" ")-1]
-    client.update index: 'addresses', type: 'address', id: udprn,
+    client.update index: Rails.configuration.address_index_name, type: 'address', id: udprn,
                         body: { doc: update_hash }
+    if update_hash.key?('property_status_type')
+      send_email_to_trackers(udprn, update_hash, last_property_status_type, property_details)
+    end
   end
 
 end
