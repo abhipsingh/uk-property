@@ -250,7 +250,8 @@ Rails.application.routes.draw do
 
 
   ### Edit property details
-  post 'properties/:udprn/edit/details',                         to: 'properties#edit_property_details'
+  post 'properties/:udprn/edit/details',                        to: 'properties#edit_property_details'
+
 
 
   #####################################################################
@@ -289,6 +290,8 @@ Rails.application.routes.draw do
       post 'property_users/update/udprns',           to: 'property_search#update_viewed_flats'
       post 'property_users/update/udprns/shortlist', to: 'property_search#update_shortlisted_udprns'
       post 'vendors/update/property_users',          to: 'property_search#notify_vendor_of_users'
+      ### Get matching property count
+      get  'properties/matching/count',              to: 'property_search#matching_property_count'
 
 
       ### verify info about the properties which invited the vendor who is registering to verify

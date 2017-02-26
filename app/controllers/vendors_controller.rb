@@ -54,7 +54,7 @@ class VendorsController < ApplicationController
   # curl -XGET -H "Content-Type: application/json" 'http://localhost/vendors/properties/1'
   def properties
     vendor = Vendor.find(params[:vendor_id])
-    pd = PropertyDetailsRepo.new(filtered_params: { vendor_id: params[:vendor_id].to_i } )
+    pd = PropertySearchApi.new(filtered_params: { vendor_id: params[:vendor_id].to_i } )
     results, status = pd.filter
     results[:results].each { |e| e[:address] = PropertyDetails.address(e) }
     response = results[:results].map { |e| e.slice('udprn', :address)  }

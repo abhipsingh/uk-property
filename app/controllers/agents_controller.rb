@@ -160,6 +160,7 @@ class AgentsController < ApplicationController
     agent.email = agent_params['email'] if agent_params['email']
     agent.title = agent_params['title'] if agent_params['title']
     agent.mobile = agent_params['mobile'] if agent_params['mobile']
+    agent.image_url = agent_params['image_url'] if agent_params['image_url']
     agent.branch_id = agent_params['branch_id'] if agent_params['branch_id']
     agent.password = agent_params['password'] if agent_params['password']
     agent.office_phone_number = agent_params['office_phone_number'] if agent_params['office_phone_number']
@@ -182,7 +183,7 @@ class AgentsController < ApplicationController
       filtered_params[:district] = district
       filtered_params[:property_status_type] = 'Green'
       filtered_params[:verification_status] = false
-      search_api = PropertyDetailsRepo.new(filtered_params: filtered_params)
+      search_api = PropertySearchApi.new(filtered_params: filtered_params)
       search_api.apply_filters
       body, status = search_api.fetch_data_from_es
       agents = Agents::Branches::AssignedAgent.where(branch_id: branch.id).select([:email, :id])
@@ -281,7 +282,7 @@ class AgentsController < ApplicationController
         postcodes |= [postcode]
       end
       params_hash = { postcodes: postcodes, fields: "udprn,building_name,building_number,sub_building_name,post_code" }
-      search_api = PropertyDetailsRepo.new(filtered_params: params_hash)
+      search_api = PropertySearchApi.new(filtered_params: params_hash)
       search_api.apply_filters
       body, status = search_api.fetch_data_from_es
       body.each do |each_doc|

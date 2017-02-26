@@ -4,10 +4,10 @@ class S3Controller < ApplicationController
   ### curl -XGET 'http://localhost/s3/upload/url?file_name=vendor/picture.jpg'
   def presigned_url
     file_name = params[:file_name]
-    key_name = Digest::MD5.hexdigest(file_name)
+    #key_name = Digest::MD5.hexdigest(file_name)
     params[:key]
     s3 = Aws::S3::Resource.new(region: 'eu-west-2')
-    obj = s3.bucket('prophety-image-uploads').object(key_name)
+    obj = s3.bucket('prophety-image-uploads').object(file_name)
     url = obj.presigned_url(:put, expires_in: 5 * 60)
     render json: { presigned_url: url  }, status: 200
   end

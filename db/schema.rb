@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170131224157) do
+ActiveRecord::Schema.define(version: 20170225151023) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -137,6 +137,15 @@ ActiveRecord::Schema.define(version: 20170131224157) do
     t.string   "email"
     t.string   "phone_number"
     t.string   "address"
+  end
+
+  create_table "buyer_searches", force: :cascade do |t|
+    t.integer  "buyer_id"
+    t.jsonb    "search_hash"
+    t.integer  "match_type"
+    t.integer  "listing_type"
+    t.datetime "created_at",   null: false
+    t.datetime "updated_at",   null: false
   end
 
   create_table "events", force: :cascade do |t|

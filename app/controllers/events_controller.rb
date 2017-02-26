@@ -78,7 +78,6 @@ class EventsController < ApplicationController
     render json: response, status: 200
   end
 
-
   #### For agents the quotes page has to be shown in which all his recent or the new properties in the area
   #### Will be published
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent/quotes?agent_id=1234'
@@ -132,7 +131,7 @@ class EventsController < ApplicationController
       search_params[:agent_id] = params[:agent_id].to_i
       search_params[:property_status_type] = 'Green'
       search_params[:verification_status] = true
-      api = PropertyDetailsRepo.new(filtered_params: search_params)
+      api = PropertySearchApi.new(filtered_params: search_params)
       api.apply_filters
       body, status = api.fetch_data_from_es
       Rails.logger.info(body)
@@ -156,7 +155,7 @@ class EventsController < ApplicationController
     search_params[:agent_id] = params[:agent_id].to_i
     search_params[:property_status_type] = 'Green'
     search_params[:verification_status] = true
-    api = PropertyDetailsRepo.new(filtered_params: search_params)
+    api = PropertySearchApi.new(filtered_params: search_params)
     api.apply_filters
     body, status = api.fetch_data_from_es
     # Rails.logger.info(body)

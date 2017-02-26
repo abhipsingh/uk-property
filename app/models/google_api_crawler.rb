@@ -48,7 +48,7 @@ class GoogleApiCrawler
         query = { docs: docs }
         
         ### Extract response
-        response, status = post_url(query, 'addresses', 'address', '_mget')
+        response, status = post_url(query, Rails.configuration.address_index_name, 'address', '_mget')
         if status.to_i == 200
           body = Oj.load(response)
           body['docs'].each do |each_doc|

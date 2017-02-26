@@ -36,7 +36,7 @@ class PropertiesController < ActionController::Base
                   :resident_parking_cost, :other_costs, :total_cost_per_month, :total_cost_per_year, :improvement_types, :dream_price,
                   :current_valuation, :floorplan_url, :pictures, :property_sold_status, :agreed_sale_value,
                   :expected_completion_date, :actual_completion_date, :new_owner_email_id, :vendor_address, :property_status_type,
-                  :inner_area, :outer_area, :property_brochure_url, :video_walkthrough_url
+                  :inner_area, :outer_area, :property_brochure_url, :video_walkthrough_url, :offers_over, :asking_price, :fixed_price
                 ]
 
     attributes.each do |attribute|
@@ -222,7 +222,7 @@ class PropertiesController < ActionController::Base
     search_hash[:sub_building_name] = params[:str] if params[:str] && !params[:str].empty?
     search_hash[:building_name] = params[:str] if params[:str] && !params[:str].empty?
     search_hash[:building_number] = params[:str] if params[:str] && !params[:str].empty?
-    api = PropertyDetailsRepo.new(filtered_params: search_hash )
+    api = PropertySearchApi.new(filtered_params: search_hash )
     api.apply_filters
     # Rails.logger.info(api.query)
     api.make_or_filters([:sub_building_name, :building_name, :building_number])
@@ -242,7 +242,7 @@ class PropertiesController < ActionController::Base
     body[:receptions] = params[:receptions].to_i
     body[:property_status_type] = params[:property_status_type]
     body[:verification_status] = false
-    client.update index: 'addresses', type: 'address', id: udprn,
+    client.update index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn,
                   body: { doc: body }
     render json: { message: 'Successfully updated' }, status: 200
   rescue Exception => e
