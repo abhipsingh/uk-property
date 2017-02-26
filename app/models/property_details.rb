@@ -48,6 +48,7 @@ class PropertyDetails
     response = Net::HTTP.get(URI.parse(remote_es_url + '/addresses/address/' + udprn.to_s))
     response = Oj.load(response) rescue {}
     response['address'] = address(response)
+    response['total_area'] = response["_source"]["inner_area"] + response["_source"]["outer_area"]
     response
   end
 
