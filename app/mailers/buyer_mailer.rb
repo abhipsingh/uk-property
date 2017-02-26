@@ -20,4 +20,12 @@ class BuyerMailer < ApplicationMailer
     end
   end
 
+  def offer_made_stage_emails property_buyers, udprn_address
+    @udprn_address = udprn_address
+    property_buyers.each do |property_buyer|
+      @property_buyer = property_buyer
+      mail(to: @property_buyer["buyer_email"], subject: "Offer Made")
+    end
+  end
+
 end
