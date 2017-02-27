@@ -18,7 +18,7 @@ class PropertyDetails
     published_address += ', ' + details[:building_number] if details.has_key?(:building_number)
     published_address += ', ' + details[:dependent_thoroughfare_description] if details.has_key?(:dependent_thoroughfare_description)
     if details.has_key?(:dependent_locality) && details[:dependent_locality].is_a?(Array)
-      published_address += ', ' + details[:dependent_locality].join(',')  
+      published_address += ', ' + details[:dependent_locality].join(',')
     else
       published_address += ', ' + details[:dependent_locality] if details.has_key?(:dependent_locality)
     end
@@ -47,6 +47,7 @@ class PropertyDetails
     remote_es_url = Rails.configuration.remote_es_url
     response = Net::HTTP.get(URI.parse(remote_es_url + '/addresses/address/' + udprn.to_s))
     response = Oj.load(response) rescue {}
+    response['total_area'] = response["_source"]["inner_area"] + response["_source"]["outer_area"]
     response['address'] = address(response['_source'])
     response
   end
@@ -96,7 +97,7 @@ class PropertyDetails
     result, _ = api.filter
     result.count
   end
-  
+
   def self.historic_pricing_details(udprn)
     VendorApi.new(udprn.to_s).calculate_valuations
   end
@@ -128,7 +129,7 @@ class PropertyDetails
     update_hash['status_last_updated'] = Time.now.to_s[0..Time.now.to_s.rindex(" ")-1]
     client.update index: Rails.configuration.address_index_name, type: 'address', id: udprn,
                         body: { doc: update_hash }
-    if update_hash.key?("property_status_type")
+    if update_hash.key?('property_status_type')
       send_email_to_trackers(udprn, update_hash, last_property_status_type, property_details)
     end
   end
