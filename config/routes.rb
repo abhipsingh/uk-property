@@ -48,6 +48,9 @@ Rails.application.routes.draw do
 
   ### Get all properties quicklinks for the queried agent_id, or branch or group or company id
   get 'agents/properties',                   to: 'events#detailed_properties'
+
+  ### Request to unsubscribe a buyer for a particular event for a udprn
+  get 'events/unsubscribe',                   to: 'events#unsubscribe'
   #####################################################################
   #####################################################################
   #####################################################################

@@ -178,4 +178,23 @@ class EventsController < ApplicationController
     end
   end
 
+  #### TODO - Make it token based (Apply some authentication)
+  #### When a buyer clicks on the unsubscibe link in the mails he is no longer subscribed to that event
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/events/unsubscribe?buyer_id=1&udprn=11111111&event=interested_in_viewing'
+  def unsubscribe
+    buyer_id = params[:buyer_id]
+    udprn = params[:udprn]
+    event = Trackers::Buyer::EVENTS[params[:event].to_sym]
+    if buyer_id && udprn && event
+      subscribed_event = Event.where(buyer_id: buyer_id).where(udprn: udprn).where(event: event).first
+      subscribed_event.is_deleted = true
+      if subscribed_event.save!
+        render json: {message: "Unsubscribed"}, status: 200
+      else
+        Rails.logger.info("cannot unsubscribe - #{params}")
+        render json: {message: "Cannot Unsubscribe"}, status: 400
+      end
+    end
+  end
+
 end

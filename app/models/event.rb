@@ -10,4 +10,5 @@ class Event < ActiveRecord::Base
   pg_search_scope :search_address_and_agent_details, :against => [:agent_name, :agent_email, :agent_mobile, :address], :using => {
                   :tsearch => {:any_word => true}
                 }               
+  default_scope { where(is_deleted: false) }
 end

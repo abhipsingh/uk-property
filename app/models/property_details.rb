@@ -93,8 +93,8 @@ class PropertyDetails
       
       tracking_buyers = Trackers::Buyer.new.get_emails_of_buyer_trackers udprn
       enquiry_buyers = Trackers::Buyer.new.get_emails_of_buyer_enquiries udprn
-      BuyerMailer.tracking_emails(tracking_buyers, address, last_property_status_type, update_hash["property_status_type"])
-      BuyerMailer.enquiry_emails(enquiry_buyers, address, last_property_status_type, update_hash["property_status_type"])
+      BuyerMailer.tracking_emails(tracking_buyers, address, last_property_status_type, update_hash["property_status_type"]).deliver_now
+      BuyerMailer.enquiry_emails(enquiry_buyers, address, last_property_status_type, update_hash["property_status_type"]).deliver_now
     end
   end
 

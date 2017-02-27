@@ -1211,11 +1211,11 @@ class Trackers::Buyer
   end
 
   def get_emails_of_buyer_trackers udprn
-    Event.where(udprn: udprn).where(event: TRACKING_EVENTS.map { |e| EVENTS[e] }).select("buyer_name, buyer_email, created_at").as_json
+    Event.where(udprn: udprn).where(event: TRACKING_EVENTS.map { |e| EVENTS[e] }).select("buyer_name, buyer_email, created_at, buyer_id, event").as_json
   end
 
   def get_emails_of_buyer_enquiries udprn
-    Event.where(udprn: udprn).where(event: ENQUIRY_EVENTS.map { |e| EVENTS[e] }).select("buyer_name, buyer_email, created_at").as_json
+    Event.where(udprn: udprn).where(event: ENQUIRY_EVENTS.map { |e| EVENTS[e] }).select("buyer_name, buyer_email, created_at, buyer_id, event").as_json
   end
 
   private
