@@ -29,7 +29,7 @@ class PropertiesController < ActionController::Base
     client = Elasticsearch::Client.new(host: Rails.configuration.remote_es_host)
     update_hash = {}
     attributes = [
-                  :property_type, :beds, :baths, :receptions, :property_style, :tenure, :floors, :listed_status, 
+                  :property_type, :beds, :baths, :receptions, :property_style, :tenure, :floors, :listed_status,
                   :year_built, :central_heating, :parking_type, :outside_space_type, :additional_features, :decorative_condition,
                   :council_tax_band, :lighting_cost, :lighting_cost_unit_type, :heating_cost, :heating_cost_unit_type,
                   :hot_water_cost, :hot_water_cost_unit_type, :annual_ground_water_cost, :annual_service_charge,
@@ -37,7 +37,7 @@ class PropertiesController < ActionController::Base
                   :current_valuation, :floorplan_url, :pictures, :property_sold_status, :agreed_sale_value,
                   :expected_completion_date, :actual_completion_date, :new_owner_email_id, :vendor_address, :property_status_type,
                   :inner_area, :outer_area, :property_brochure_url, :video_walkthrough_url, :dream_price, :asking_price, :offers_price,
-                  :fixed_price
+                  :fixed_price, :offers_over
                 ]
 
     attributes.each do |attribute|
@@ -223,7 +223,7 @@ class PropertiesController < ActionController::Base
     search_hash[:sub_building_name] = params[:str] if params[:str] && !params[:str].empty?
     search_hash[:building_name] = params[:str] if params[:str] && !params[:str].empty?
     search_hash[:building_number] = params[:str] if params[:str] && !params[:str].empty?
-    api = PropertyDetailsRepo.new(filtered_params: search_hash )
+    api = PropertySearchApi.new(filtered_params: search_hash )
     api.apply_filters
     # Rails.logger.info(api.query)
     api.make_or_filters([:sub_building_name, :building_name, :building_number])
@@ -243,7 +243,7 @@ class PropertiesController < ActionController::Base
     body[:receptions] = params[:receptions].to_i
     body[:property_status_type] = params[:property_status_type]
     body[:verification_status] = false
-    client.update index: 'addresses', type: 'address', id: udprn,
+    client.update index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn,
                   body: { doc: body }
     render json: { message: 'Successfully updated' }, status: 200
   rescue Exception => e

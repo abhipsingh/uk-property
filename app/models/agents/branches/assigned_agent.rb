@@ -26,21 +26,19 @@ module Agents
           sort_order: 'desc',
           sort_key: 'status_last_updated',
           district: self.branch.district,
-          verification_status: true,
-          property_status_type: "Green"
+          verification_status: true
         }
         if search_params[:district] == "L37"
         #  search_params[:district] = "L14"
         end
 
         # search_params[:udprns] = udprns.join(',') if !udprns.empty?
-        api = PropertyDetailsRepo.new(filtered_params: search_params)
+        api = PropertySearchApi.new(filtered_params: search_params)
         api.apply_filters
         api.add_exists_filter(:quotes)
 
         body, status = api.fetch_data_from_es
         Rails.logger.info(body)
-        # body = body.sort_by{ |t| t['status_last_updated'] }.reverse
         if status.to_i == 200
           body.each do |property_details|
             next if property_details['assigned_agent_quote'] && property_details['assigned_agent_quote'] == true && property_details['agent_id'] && property_details['agent_id'] != self.id
@@ -82,6 +80,7 @@ module Agents
             new_row[:offers_price] = property_details['offers_price']
             new_row[:fixed_price] = property_details['fixed_price']
             new_row[:dream_price] = property_details['dream_price']
+            new_row[:latest_valuation] = property_details['current_valuation']
             ### Price details ends
 
             ### Historical prices
@@ -104,6 +103,7 @@ module Agents
             ### Branch and logo
             new_row[:assigned_branch_logo] = self.branch.image_url
             new_row[:assigned_branch_name] = self.branch.name
+            new_row[:assigned_agent_id] = property_details['agent_id']
 
             new_row[:property_type] = property_details['property_type']
             new_row[:beds] = property_details['beds']
@@ -124,7 +124,7 @@ module Agents
             if winning_quote
               new_row[:winning_agent] = winning_quote.agent.name
               new_row[:quote_price] = winning_quote.compute_price
-              new_row[:deadline] = winning_quote.created_at.to_s 
+              new_row[:deadline] = winning_quote.created_at.to_s
               new_row[:quote_accepted] = true
             else
               new_row[:winning_quote] = nil
@@ -144,7 +144,7 @@ module Agents
       ##### All leads for agents will be fetched using this method
       #### To try this in console
       #### Agents::Branches::AssignedAgent.last.recent_properties_for_claim
-      #### New properties udprns for testing 
+      #### New properties udprns for testing
       #### 4745413, 4745410, 4745409, 4745408, 4745399
       #### To test this function, create the following lead.
       #### Agents::Branches::AssignedAgents::Lead.create(district: "CH45", property_id: 4745413, vendor_id: 1)
@@ -162,7 +162,7 @@ module Agents
           query = query.where.not(agent_id: self.id).where.not(agent_id: nil)
         end
         leads = query.order('created_at DESC').limit(20)
-        
+
         results = []
 
         leads.each do |lead|
@@ -255,11 +255,11 @@ module Agents
 
           ### Verified or not
           if new_row[:status] == 'Won'
-            
+
           end
 
           results.push(new_row)
-            
+
         end
 
         results
@@ -270,7 +270,7 @@ module Agents
         search_params[:agent_id] = self.id
         search_params[:property_status_type] = 'Green'
         search_params[:verification_status] = true
-        api = PropertyDetailsRepo.new(filtered_params: search_params)
+        api = PropertySearchApi.new(filtered_params: search_params)
         api.apply_filters
         body, status = api.fetch_data_from_es
         # Rails.logger.info(body)

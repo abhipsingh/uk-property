@@ -22,12 +22,15 @@ class EventsController < ApplicationController
     type_of_match = Trackers::Buyer::TYPE_OF_MATCH[type_of_match.downcase.to_sym]
     # type_of_match = Trackers::Buyer::TYPE_OF_MATCH.with_indifferent_access[params[:type_of_match]]
     property_id = params[:udprn]
-    details = PropertyDetails.details(property_id)['_source']
-    property_status_type = details['property_status_type']
-    agent_id = params[:agent_id] || details['agent_id']
+    details = PropertyDetails.details(property_id)
+    property_status_type = details['_source']['property_status_type']
+    agent_id = params[:agent_id] || details['_source']['agent_id']
     message = 'NULL' if message.nil?
     response = insert_events(agent_id, property_id, buyer_id, message, type_of_match, property_status_type, event)
-
+    if params[:event] == "offer_made_stage"
+      property_buyers = Event.where(event: event).where(udprn: property_id).select("buyer_name, buyer_email").as_json
+      BuyerMailer.offer_made_stage_emails(property_buyers, details['address']).deliver_now
+    end
     Rails.logger.info("COMPLETED")
     render json: { 'message' => 'Successfully processed the request', response: response }, status: 200
   end
@@ -77,7 +80,6 @@ class EventsController < ApplicationController
     response = Trackers::Buyer.new.property_enquiry_details_buyer(params[:agent_id].to_i, enquiry_type, type_of_match, qualifying_stage, rating, buyer_status, buyer_funding, buyer_biggest_problem, buyer_chain_free, search_str, budget_from, budget_to) if params[:agent_id]
     render json: response, status: 200
   end
-
 
   #### For agents the quotes page has to be shown in which all his recent or the new properties in the area
   #### Will be published
@@ -132,7 +134,7 @@ class EventsController < ApplicationController
       search_params[:agent_id] = params[:agent_id].to_i
       search_params[:property_status_type] = 'Green'
       search_params[:verification_status] = true
-      api = PropertyDetailsRepo.new(filtered_params: search_params)
+      api = PropertySearchApi.new(filtered_params: search_params)
       api.apply_filters
       body, status = api.fetch_data_from_es
       Rails.logger.info(body)
@@ -156,7 +158,7 @@ class EventsController < ApplicationController
     search_params[:agent_id] = params[:agent_id].to_i
     search_params[:property_status_type] = 'Green'
     search_params[:verification_status] = true
-    api = PropertyDetailsRepo.new(filtered_params: search_params)
+    api = PropertySearchApi.new(filtered_params: search_params)
     api.apply_filters
     body, status = api.fetch_data_from_es
     # Rails.logger.info(body)

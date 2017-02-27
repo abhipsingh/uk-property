@@ -37,6 +37,7 @@ class SessionsController < ApplicationController
   #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/register/agents/' -d '{ "agent" : { "name" : "Jackie Bing", "email" : "jackie.bing@friends.com", "mobile" : "9873628231", "password" : "1234567890", "branch_id" : 9851 } }'
   def create_agent
     agent_params = params[:agent].as_json
+    agent_params.delete('company_id')
     agent = Agents::Branches::AssignedAgent.new(agent_params)
     agent.save!
     command = AuthenticateUser.call(agent_params['email'], agent_params['password'], Agents::Branches::AssignedAgent)

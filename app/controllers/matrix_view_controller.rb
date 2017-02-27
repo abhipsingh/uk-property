@@ -7,7 +7,7 @@ class MatrixViewController < ActionController::Base
     regexes = [ /^([A-Z]{1,2})([0-9]{0,3})$/, /^([0-9]{1,2})([A-Z]{0,3})$/]
     if check_if_postcode?(params[:str].upcase, regexes)
       query_str = {filter: form_query(params[:str].upcase)}
-      res, code = post_url('addresses', query_str, '_search', ES_EC2_URL)
+      res, code = post_url(Rails.configuration.address_index_name, query_str, '_search', ES_EC2_URL)
       res = JSON.parse(res)["hits"]["hits"].map{ |t| t["_source"] }
       # res.map{ |t| add_new_keys(t) }
       res = { result: res, hash_str: params[:str], hash_type: 'postcode' }
@@ -56,7 +56,7 @@ class MatrixViewController < ActionController::Base
         filter[:and][:filters].push(first_or_filter)
       end
       query_str = {filter: filter}
-      res, code = post_url('addresses', query_str, '_search',ES_EC2_URL)
+      res, code = post_url(Rails.configuration.address_index_name, query_str, '_search',ES_EC2_URL)
       res = JSON.parse(res)["hits"]["hits"].map{ |t| t["_source"] }
       res.map{ |t| add_new_keys(t) }
       render json: res, status: code
@@ -90,7 +90,7 @@ class MatrixViewController < ActionController::Base
         }
       }
     }
-    result, status = post_url('addresses', filters, '_search',ES_EC2_URL)
+    result, status = post_url(Rails.configuration.address_index_name, filters, '_search',ES_EC2_URL)
     result = JSON.parse(result)["hits"]["hits"].map { |e| e["_source"] }
     result = { result: result, hash_type: 'Text', hash_str: hash }
     render json: result, status: 200
@@ -109,7 +109,9 @@ class MatrixViewController < ActionController::Base
       ## Example of a hash value ASCOT_Sunningdale
       params[:hash_str] = hash_value
       params[:hash_type] = 'text'
-      api = ::PropertyDetailsRepo.new(filtered_params: params)
+      params[:listing_type] = 'Normal'
+    
+      api = ::PropertySearchApi.new(filtered_params: params)
       api.modify_filtered_params
       ### @filtered_params= {:str=>"Sunningdale", :controller=>"application", :action=>"matrix_view", :hash_str=>"ASCOT_Sunningdale", :hash_type=>"text"}
       ### @query = {size: 10000}
@@ -169,7 +171,7 @@ class MatrixViewController < ActionController::Base
 
     hashes = hashes.uniq
     filters[:filter][:terms][:hashes] = hashes
-    result, status = post_url('addresses', filters, '_search', ES_EC2_URL)
+    result, status = post_url(Rails.configuration.address_index_name, filters, '_search', ES_EC2_URL)
     result = JSON.parse(result)
     result = { result: result, hash_type: 'Text', hash_str: hashes.join("|") }
     return result, status
@@ -324,6 +326,7 @@ class MatrixViewController < ActionController::Base
       }
     end
 
+    Rails.logger.info(parsed_json)
     first_type = parsed_json['postcode_suggest'][0]['options'][0]['payload']['type']
     hash_value = parsed_json['postcode_suggest'][0]['options'][0]['payload']['hash']
     county_value = parsed_json['postcode_suggest'][0]['options'][0]['payload']['county'].capitalize rescue nil
@@ -343,7 +346,7 @@ class MatrixViewController < ActionController::Base
       query[:size] = 1
       query[:aggs] = aggs
       query[:query] = { filtered: { filter: filters } }
-      body, status = post_url('addresses', query, '_search', ES_EC2_URL)
+      body, status = post_url(Rails.configuration.address_index_name, query, '_search', ES_EC2_URL)
       response = Oj.load(body).with_indifferent_access
       response_hash = Hash.new { [] }
       response_hash[:type] = first_type
@@ -386,7 +389,7 @@ class MatrixViewController < ActionController::Base
       query[:size] = 1
       query[:aggs] = aggs
       query[:filter] = filters
-      body, status = post_url('addresses', query, '_search', ES_EC2_URL)
+      body, status = post_url(Rails.configuration.address_index_name, query, '_search', ES_EC2_URL)
       response = Oj.load(body).with_indifferent_access
       response_hash = Hash.new { [] }
       response_hash[:type] = first_type
@@ -449,7 +452,7 @@ class MatrixViewController < ActionController::Base
       query[:size] = 1
       query[:aggs] = aggs
       query[:filter] = filters
-      body, status = post_url('addresses', query, '_search', ES_EC2_URL)
+      body, status = post_url(Rails.configuration.address_index_name, query, '_search', ES_EC2_URL)
       Rails.logger.info("QUERY")
       Rails.logger.info(query)
       Rails.logger.info("BODY")
@@ -522,7 +525,7 @@ class MatrixViewController < ActionController::Base
       query[:size] = 1
       query[:aggs] = aggs
       query[:filter] = filters
-      body, status = post_url('addresses', query, '_search', ES_EC2_URL)
+      body, status = post_url(Rails.configuration.address_index_name, query, '_search', ES_EC2_URL)
       response = Oj.load(body).with_indifferent_access
       response_hash = Hash.new { [] }
       response_hash[:type] = first_type
@@ -619,7 +622,7 @@ class MatrixViewController < ActionController::Base
       query[:size] = 1
       query[:aggs] = aggs
       query[:filter] = filters
-      body, status = post_url('addresses', query, '_search', ES_EC2_URL)
+      body, status = post_url(Rails.configuration.address_index_name, query, '_search', ES_EC2_URL)
       response = Oj.load(body).with_indifferent_access
       response_hash = Hash.new { [] }
       response_hash[:type] = 'unit'
@@ -676,7 +679,7 @@ class MatrixViewController < ActionController::Base
       query[:size] = 1
       query[:aggs] = aggs
       query[:filter] = filters
-      body, status = post_url('addresses', query, '_search', ES_EC2_URL)
+      body, status = post_url(Rails.configuration.address_index_name, query, '_search', ES_EC2_URL)
       response = Oj.load(body).with_indifferent_access
       response_hash = Hash.new { [] }
       response_hash[:type] = 'sector'
@@ -736,7 +739,7 @@ class MatrixViewController < ActionController::Base
       query[:size] = 1
       query[:aggs] = aggs
       query[:filter] = filters
-      body, status = post_url('addresses', query, '_search', ES_EC2_URL)
+      body, status = post_url(Rails.configuration.address_index_name, query, '_search', ES_EC2_URL)
       response = Oj.load(body).with_indifferent_access
       response_hash = Hash.new { [] }
       response_hash[:type] = 'district'
@@ -795,7 +798,7 @@ class MatrixViewController < ActionController::Base
       query[:size] = 1
       query[:aggs] = aggs
       query[:filter] = filters
-      body, status = post_url('addresses', query, '_search', ES_EC2_URL)
+      body, status = post_url(Rails.configuration.address_index_name, query, '_search', ES_EC2_URL)
       response = Oj.load(body).with_indifferent_access
       response_hash = Hash.new { [] }
       response_hash[:type] = 'area'

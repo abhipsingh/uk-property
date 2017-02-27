@@ -134,8 +134,10 @@ class VendorApi
 
     ### Historical detail
     historical_detail = PropertyHistoricalDetail.where(udprn: udprn.to_s).order('date DESC').limit(1).first
-    details['last_sale_price'] = historical_detail.price
-    details['last_sale_price_date'] = historical_detail.date
+    details['last_sale_price'] = nil
+    details['last_sale_price'] = historical_detail.price if historical_detail
+    details['last_sale_price_date'] = nil
+    details['last_sale_price_date'] = historical_detail.date if historical_detail
 
     #### Agent details
     agent_id = details['agent_id']
