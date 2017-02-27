@@ -29,14 +29,15 @@ class PropertiesController < ActionController::Base
     client = Elasticsearch::Client.new(host: Rails.configuration.remote_es_host)
     update_hash = {}
     attributes = [
-                  :property_type, :beds, :baths, :receptions, :property_style, :tenure, :floors, :listed_status, 
+                  :property_type, :beds, :baths, :receptions, :property_style, :tenure, :floors, :listed_status,
                   :year_built, :central_heating, :parking_type, :outside_space_type, :additional_features, :decorative_condition,
                   :council_tax_band, :lighting_cost, :lighting_cost_unit_type, :heating_cost, :heating_cost_unit_type,
                   :hot_water_cost, :hot_water_cost_unit_type, :annual_ground_water_cost, :annual_service_charge,
                   :resident_parking_cost, :other_costs, :total_cost_per_month, :total_cost_per_year, :improvement_types, :dream_price,
                   :current_valuation, :floorplan_url, :pictures, :property_sold_status, :agreed_sale_value,
                   :expected_completion_date, :actual_completion_date, :new_owner_email_id, :vendor_address, :property_status_type,
-                  :inner_area, :outer_area, :property_brochure_url, :video_walkthrough_url, :offers_over, :asking_price, :fixed_price, :area_type
+                  :inner_area, :outer_area, :property_brochure_url, :video_walkthrough_url, :dream_price, :asking_price, :offers_price,
+                  :fixed_price, :offers_over, :area_type
                 ]
 
     attributes.each do |attribute|
