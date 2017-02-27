@@ -47,7 +47,7 @@ class PropertyDetails
     remote_es_url = Rails.configuration.remote_es_url
     response = Net::HTTP.get(URI.parse(remote_es_url + '/addresses/address/' + udprn.to_s))
     response = Oj.load(response) rescue {}
-    response['total_area'] = response["_source"]["inner_area"] + response["_source"]["outer_area"]
+    response['total_area'] = response["_source"]["inner_area"].to_i + response["_source"]["outer_area"].to_i
     response['address'] = address(response['_source'])
     response
   end
@@ -124,14 +124,13 @@ class PropertyDetails
   end
 
   def self.update_details(client, udprn, update_hash)
+    update_hash['pictures'] = update_hash['pictures'].sort_by{|x| x['priority']} if update_hash.key?('pictures')
     property_details = details(udprn)['_source']
     last_property_status_type = property_details['property_status_type']
     update_hash['status_last_updated'] = Time.now.to_s[0..Time.now.to_s.rindex(" ")-1]
     client.update index: Rails.configuration.address_index_name, type: 'address', id: udprn,
                         body: { doc: update_hash }
-    if update_hash.key?('property_status_type')
-      send_email_to_trackers(udprn, update_hash, last_property_status_type, property_details)
-    end
+    send_email_to_trackers(udprn, update_hash, last_property_status_type, property_details) if update_hash.key?('property_status_type')
   end
 
 end

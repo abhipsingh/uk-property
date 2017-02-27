@@ -71,6 +71,7 @@ module Agents
             new_row[:activated_on] = property_details['status_last_updated']
             new_row[:type] = 'SALE'
             new_row[:photo_url] = property_details['photos'][0]
+            new_row[:pictures] = property_details['pictures']
             new_row[:street_view_url] = property_details['street_view_image_url']
             new_row[:address] = PropertyDetails.address(property_details)
             new_row[:claimed_on] = property_details['claimed_at']
@@ -193,6 +194,7 @@ module Agents
 
           ### Picture
           new_row[:photo_url] = details['photos'][0]
+          new_row[:pictures] = property_details['pictures']
 
           ### beds
           new_row[:beds] = details['beds']

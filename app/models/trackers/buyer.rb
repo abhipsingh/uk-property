@@ -240,6 +240,7 @@ class Trackers::Buyer
   def push_property_details(new_row, details)
     new_row[:address] = PropertyDetails.address(details)
     new_row[:image_url] = details['photos'][0]
+    new_row[:pictures] = details['pictures']
     new_row[:verification_status] = details['verification_status']
     if details['verification_status'] == 'Green'
       keys = ['asking_price', 'offers_price', 'fixed_price']
