@@ -22,12 +22,15 @@ class EventsController < ApplicationController
     type_of_match = Trackers::Buyer::TYPE_OF_MATCH[type_of_match.downcase.to_sym]
     # type_of_match = Trackers::Buyer::TYPE_OF_MATCH.with_indifferent_access[params[:type_of_match]]
     property_id = params[:udprn]
-    details = PropertyDetails.details(property_id)['_source']
-    property_status_type = details['property_status_type']
-    agent_id = params[:agent_id] || details['agent_id']
+    details = PropertyDetails.details(property_id)
+    property_status_type = details['_source']['property_status_type']
+    agent_id = params[:agent_id] || details['_source']['agent_id']
     message = 'NULL' if message.nil?
     response = insert_events(agent_id, property_id, buyer_id, message, type_of_match, property_status_type, event)
-
+    if params[:event] == "offer_made_stage"
+      property_buyers = Event.where(event: event).where(udprn: property_id).select("buyer_name, buyer_email").as_json
+      BuyerMailer.offer_made_stage_emails(property_buyers, details['address']).deliver_now
+    end
     Rails.logger.info("COMPLETED")
     render json: { 'message' => 'Successfully processed the request', response: response }, status: 200
   end
