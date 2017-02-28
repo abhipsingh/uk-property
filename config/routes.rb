@@ -301,7 +301,7 @@ Rails.application.routes.draw do
       get 'properties/details/:property_id',         to: 'property_search#details'
 
       ### Predict the locations and tag those locations with their type
-      get 'locations/predict/',                      to: 'property_search#details'
+      get 'locations/predict',                       to: 'locations_search#predict'
     end
   end
   post 'buyers/new/search',                       to: 'property_users/searches#new_saved_search'
