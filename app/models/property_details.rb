@@ -47,7 +47,11 @@ class PropertyDetails
     remote_es_url = Rails.configuration.remote_es_url
     response = Net::HTTP.get(URI.parse(remote_es_url + '/addresses/address/' + udprn.to_s))
     response = Oj.load(response) rescue {}
-    response['total_area'] = response["_source"]["inner_area"].to_i + response["_source"]["outer_area"].to_i
+    if response["_source"]["inner_area"] && response["_source"]["outer_area"]
+      response['total_area'] = response["_source"]["inner_area"].to_i + response["_source"]["outer_area"].to_i
+    else
+      response['total_area'] = 0
+    end
     response['address'] = address(response['_source'])
     response
   end
