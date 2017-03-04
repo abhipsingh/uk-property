@@ -1,0 +1,17 @@
+
+assigned_agent_1:
+  name: Jackie Bing
+  email: jackie.bing@friends.com
+  mobile: 9873628232
+  # branch: branch_1
+  title: Cowboy
+  office_phone_number: 9876543210
+  mobile_phone_number: NULL
+  image_url: NULL
+  invited_agents: NULL
+  password: NULL
+  password_digest: $2a$10$69DH7xhhQZ74ou8CPF/eOeevb9rPt5yMGbxfYEdQxwEMMmeDfzx7W
+  provider: NULL
+  uid: NULL
+  oauth_token: NULL
+  oauth_expires_at: NULL

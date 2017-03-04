@@ -279,7 +279,7 @@ class MatrixViewControllerTest < ActionController::TestCase
   end
 
   def teardown
-    # destroy_location_doc(@location_id)
+    destroy_location_doc(@location_id)
   end
 
 

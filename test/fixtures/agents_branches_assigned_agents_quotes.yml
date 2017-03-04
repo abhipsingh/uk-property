@@ -1,0 +1,16 @@
+
+quote_1:
+  deadline: NULL
+  # agent: assigned_agent_1
+  property_id: 10966139
+  status: 1
+  payment_terms: Pay upfront
+  quote_details: NULL
+  service_required: false
+  created_at: <%= Time.now %>
+  updated_at: <%= Time.now %>
+  district: HR1 
+  vendor_name: NULL
+  vendor_email: NULL
+  vendor_mobile: NULL
+  address: NULL

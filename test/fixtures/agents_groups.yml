@@ -1,0 +1,9 @@
+group_1:
+  name: Dynamic Property Management
+  email: NULL
+  phone_number: NULL
+  website: NULL
+  address: NULL
+  image_url: NULL
+  created_at: <%= Time.now %>
+  updated_at: <%= Time.now %>

@@ -1,0 +1,15 @@
+
+branch_1:
+  name: Jackie Bing
+  property_urls: /find-agents/branch/dynamic-property-management-crook-13782/
+  address: 8 The Precinct, Main Road, Church Village, Pontypridd, HR1 1SB
+  postcode: NULL
+  district: HR1
+  udprns: []
+  image_url: some random url
+  email: a@b.com
+  phone_number: 9873628232
+  website: www.google.com
+  verification_hash: $2a$10$E0NsNocTd0getkV7h8GcFuwLlekcyUugcEg9lVXIzADRskrdcyYOu
+  invited_agents: []
+  # agent: agent_1

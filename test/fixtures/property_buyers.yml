@@ -1,0 +1,28 @@
+buyer_2:
+  searches: []
+  name: Aleksandra Kowalczuk
+  email_id:  alexandrak@mobilewebpro.pl 
+  account_type:  a  
+  visited_udprns: []
+  created_at:  2017-02-15T16:42:32.607Z 
+  updated_at:  2017-02-15T16:58:40.022Z 
+  status_id: NULL
+  chain_free: false
+  full_name: Aleksandra Kowalczuk
+  email:   alexandrak@mobilewebpro.pl  
+  mobile: NULL
+  status: NULL
+  buying_status: NULL
+  funding: 2
+  mortgage_approval: NULL
+  biggest_problem: NULL
+  password: NULL
+  password_digest:   $2a$10$GJsBl7mrjXa19HbHIoPHsuKYJpCNq3.XmWuMSVRBMs6SPE9.1cxn.  
+  image_url: NULL
+  budget_from: 1
+  budget_to: 100000
+  provider: NULL
+  uid: NULL
+  oauth_token: NULL
+  oauth_expires_at: NULL
+  vendor: vendor_2

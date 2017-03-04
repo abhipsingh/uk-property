@@ -5,6 +5,7 @@ class PropertyBuyer < ActiveRecord::Base
     amber: 2,
     red: 3
   }
+  belongs_to :vendor, class_name: 'Vendor'
 
   REVERSE_STATUS_HASH = STATUS_HASH.invert
 

@@ -1,0 +1,7 @@
+lead_1:
+  property_id: 12837983
+  # agent: assigned_agent_1
+  district: L37
+  # vendor: vendor_2
+  created_at: <%= Time.now %>
+  updated_at: <%= Time.now %>

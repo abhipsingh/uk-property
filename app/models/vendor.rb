@@ -4,6 +4,8 @@ class Vendor < ActiveRecord::Base
     'Verified' => 1,
     'Unverified' => 2
   }
+  belongs_to :buyer, class_name: 'PropertyBuyer'
+  has_many :leads, class_name: '::Agents::Branches::AssignedAgents::Lead'
 
   REVERSE_STATUS_HASH = STATUS_HASH.invert
   def self.from_omniauth(auth)

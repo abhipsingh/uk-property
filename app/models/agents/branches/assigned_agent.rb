@@ -6,7 +6,7 @@ module Agents
       has_many :quotes, class_name: 'Agents::Branches::AssignedAgents::Quote', foreign_key: 'agent_id'
       has_many :leads, class_name: 'Agents::Branches::AssignedAgents::Lead', foreign_key: 'agent_id'
 
-      belongs_to :branch
+      belongs_to :branch, class_name: 'Agents::Branch'
       attr_accessor :vendor_email, :vendor_address, :email_udprn, :verification_hash
 
       ##### All recent quotes for the agent being displayed
