@@ -53,6 +53,8 @@ end
 
 group :test do
   gem 'webmock'
+  gem "minitest-rails", "~> 2.0"
+  gem 'minitest-reporters'
 end
 gem 'activerecord', '4.2.0'
 gem 'unicorn'

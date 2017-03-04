@@ -188,7 +188,7 @@ class MatrixViewController < ActionController::Base
       }
     }
     Rails.logger.info(query_str)
-    res, code = post_url('locations', query_str)
+    res, code = post_url(Rails.configuration.location_index_name, query_str)
   end
 
   def get_results_from_es(index, query_str, field)
@@ -208,7 +208,7 @@ class MatrixViewController < ActionController::Base
   end
 
   def post_url(index, query = {}, type='_suggest', host='localhost')
-    uri = URI.parse(URI.encode("#{ES_EC2_URL}/#{index}/#{type}")) if host != 'localhost'
+    uri = URI.parse(URI.encode("#{host}/#{index}/#{type}")) if host != 'localhost'
     uri = URI.parse(URI.encode("http://#{host}:9200/#{index}/#{type}")) if host == 'localhost'
     query = (query == {}) ? "" : query.to_json
     http = Net::HTTP.new(uri.host, uri.port)
@@ -338,7 +338,7 @@ class MatrixViewController < ActionController::Base
       post_code = post_code.first
     end
 
-    # Rails.logger.info("FIRST_TYPE___#{first_type}")
+    Rails.logger.info("FIRST_TYPE___#{first_type}")
     if first_type == 'county'
       insert_terms_nested_aggs(aggs, 'county', 'area')
       inner_aggs = insert_terms_nested_aggs(aggs, 'post_town', 'area')
@@ -587,7 +587,92 @@ class MatrixViewController < ActionController::Base
       # rescue StandardError => e
       # end
       body = response_hash
+    elsif first_type == 'building_type'
+      district = post_code.split(' ')[0]
+      sector_unit = post_code.split(' ')[1]
+      insert_term_filters(filters, 'hashes', hash_value)
+      area = district.match(/([A-Z]{0,3})([0-9]{0,3})/)[1]
+      sector = sector_unit.match(/([0-9]{0,3})([A-Z]{0,3})/)[1]
+      append_filtered_aggs(aggs, 'district', 'area', area)
+      append_nested_filtered_aggs(aggs, 'dependent_locality', 'area', area, 'district')
+      append_nested_filtered_aggs(aggs, 'unit', 'district', district, 'sector')
+      append_nested_filtered_aggs(aggs, 'sector', 'area', area, 'district')
+      append_filtered_aggs(aggs, 'post_town', 'area', area)
+      append_filtered_aggs(aggs, 'area', 'area', area)
+      append_filtered_aggs(aggs, 'county', 'area', area)
+      append_nested_filtered_aggs(aggs, 'thoroughfare_description', 'district', district, 'sector')
+      append_nested_filtered_aggs(aggs, 'dependent_thoroughfare_description', 'district', district, 'sector')
+      query[:size] = 1
+      query[:aggs] = aggs
+      query[:filter] = filters
+      body, status = post_url(Rails.configuration.address_index_name, query, '_search', ES_EC2_URL)
+      response = Oj.load(body).with_indifferent_access
+      response_hash = Hash.new { [] }
+      response_hash[:type] = first_type
+      response_hash[:dependent_thoroughfare_descriptions] = []
+      response_hash[:thoroughfare_descriptions] = []
+      Rails.logger.info("RESPONSE_#{response}")
+      Rails.logger.info("QUERY_#{query}")
+      # begin
+        ['dependent_thoroughfare_description', 'thoroughfare_description'].each do |type_val|
+          response[:aggregations]["#{type_val}_aggs"]["sector_#{type_val}_aggs"][:buckets].each do |nested_value|
+            nested_value["#{type_val}_aggs"][:buckets].each do |value|
+              response_hash["#{type_val}s"] = response_hash["#{type_val}s"].push({ type_val => value[:key], flat_count: value[:doc_count], scoped_postcode: nested_value[:key] })
+            end
+          end
+        end
+        response_hash[:dependent_localities] = []
+        response[:aggregations][:dependent_locality_aggs]["district_dependent_locality_aggs"][:buckets].each do |nested_value|
+          nested_value[:dependent_locality_aggs][:buckets].each do |value|
+            response_hash[:dependent_localities] = response_hash[:dependent_localities].push({ dependent_locality: value[:key], flat_count: value[:doc_count], scoped_postcode: nested_value[:key] })
+          end
+        end
+        response_hash[:districts] = []
+        response[:aggregations][:district_aggs][:district_aggs][:buckets].each do |value|
+          response_hash[:districts] = response_hash[:districts].push({ district: value[:key], flat_count: value[:doc_count], scoped_postcode: area })
+        end      
+        response_hash[:post_towns] = []
+        response[:aggregations][:post_town_aggs][:post_town_aggs][:buckets].each do |value|
+          response_hash[:post_towns] = response_hash[:post_towns].push({ post_town: value[:key].capitalize, flat_count: value[:doc_count], scoped_postcode: area })
+        end
+        response_hash[:units] = []
+        response[:aggregations][:unit_aggs]["sector_unit_aggs"][:buckets].each do |nested_value|
+          nested_value[:unit_aggs][:buckets].each do |value|
+            response_hash[:units] = response_hash[:units].push({ unit: value[:key], flat_count: value[:doc_count], scoped_postcode: nested_value[:key] })
+          end
+        end
+        response_hash[:sectors] = []
+        response[:aggregations][:sector_aggs]["district_sector_aggs"][:buckets].each do |nested_value|
+          nested_value[:sector_aggs][:buckets].each do |value|
+            response_hash[:sectors] = response_hash[:sectors].push({ sector: value[:key], flat_count: value[:doc_count], scoped_postcode: nested_value[:key] })
+          end
+        end
+        response_hash[:areas] = []
+        response[:aggregations][:area_aggs][:area_aggs][:buckets].each do |value|
+          response_hash[:areas] = response_hash[:areas].push({ area: value[:key], flat_count: value[:doc_count], scoped_postcode: value[:key] })
+        end
+        response_hash[:counties] = []
+        response[:aggregations][:county_aggs][:county_aggs][:buckets].each do |value|
+          response_hash[:counties] = response_hash[:counties].push({ county: value[:key], flat_count: value[:doc_count], scoped_postcode: area })
+        end
+
+        if response[:hits][:hits].first
+          response_hash['thoroughfare_description'] = response[:hits][:hits].first[:_source]['thoroughfare_description']
+          response_hash['dependent_thoroughfare_description'] = response[:hits][:hits].first[:_source]['dependent_thoroughfare_description']
+          response_hash[:county] = response[:hits][:hits].first[:_source][:county]
+          response_hash[:post_town] = response[:hits][:hits].first[:_source][:post_town]
+          response_hash[:unit] = response[:hits][:hits].first[:_source][:unit]
+          response_hash[:district] = response[:hits][:hits].first[:_source][:district]
+          response_hash[:dependent_locality] = response[:hits][:hits].first[:_source][:dependent_locality]
+          response_hash[:dependent_thoroughfare_description] = response[:hits][:hits].first[:_source][:dependent_thoroughfare_description]
+          response_hash[:sector] = response[:hits][:hits].first[:_source][:sector]
+          response_hash[:area] = response[:hits][:hits].first[:_source][:area]
+        end
+      # rescue StandardError => e
+      # end
+      body = response_hash
     end
+      
     return body, status
   end
 
