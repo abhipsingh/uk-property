@@ -121,25 +121,33 @@ class EventsController < ApplicationController
   #### On demand quicklink for all the properties of agents, or group or branch or company
   #### To get list of properties for the concerned agent
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties?agent_id=1234'
+  #### Filters on property status, ads
   def detailed_properties
     response = []
     status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
     if !params[:agent_id].nil?
-      #### Need to fix agents quotes when verified by the vendor
-      property_ids = Agents::Branches::AssignedAgents::Quote.where(agent_id: params[:agent_id], status: status).pluck(:property_id)
+      #### TODO: Need to fix agents quotes when verified by the vendor
       search_params = { limit: 10000, fields: 'udprn' }
       search_params[:agent_id] = params[:agent_id].to_i
       search_params[:property_status_type] = 'Green'
       search_params[:verification_status] = true
+      search_params[:ads] = params[:ads] if params[:ads] == true
+      property_ids, lead_property_ids, other_ids, udprns = []
+      if !(params[:ads].to_s == 'true' || params[:ads].to_s == 'false')
+        property_ids = Agents::Branches::AssignedAgents::Quote.where(agent_id: params[:agent_id], status: status).pluck(:property_id)
+        lead_property_ids = Agents::Branches::AssignedAgents::Lead.where(agent_id: params[:agent_id].to_i).pluck(:property_id)
+        other_ids = udprns + lead_property_ids + property_ids
+      else
+        search_params[:ads] = params[:ads]
+      end
+
       api = PropertySearchApi.new(filtered_params: search_params)
       api.apply_filters
       body, status = api.fetch_data_from_es
-      Rails.logger.info(body)
       udprns = body.map { |e| e['udprn'] }
 
       ### Get all properties for whom the agent has won leads
-      lead_property_ids = Agents::Branches::AssignedAgents::Lead.where(agent_id: params[:agent_id].to_i).pluck(:property_id)
-      property_ids = property_ids + udprns + lead_property_ids
+      property_ids = other_ids + udprns
       Rails.logger.info(property_ids)
       response = property_ids.uniq.map { |e| Trackers::Buyer.new.push_events_details(PropertyDetails.details(e)) }
     end

@@ -1,0 +1,3 @@
+module AgentsHelper
+end
+

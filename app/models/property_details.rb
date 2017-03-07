@@ -45,7 +45,7 @@ class PropertyDetails
 
   def self.details(udprn)
     remote_es_url = Rails.configuration.remote_es_url
-    response = Net::HTTP.get(URI.parse(remote_es_url + '/addresses/address/' + udprn.to_s))
+    response = Net::HTTP.get(URI.parse(remote_es_url + "/#{Rails.configuration.address_index_name}/#{Rails.configuration.address_type_name}/" + udprn.to_s))
     response = Oj.load(response) rescue {}
     response['address'] = address(response["_source"])
     response
@@ -127,7 +127,7 @@ class PropertyDetails
     property_details = details(udprn)['_source']
     last_property_status_type = property_details['property_status_type']
     update_hash['status_last_updated'] = Time.now.to_s[0..Time.now.to_s.rindex(" ")-1]
-    client.update index: Rails.configuration.address_index_name, type: 'address', id: udprn,
+    client.update index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn,
                         body: { doc: update_hash }
     if update_hash.key?('property_status_type')
       ###send_email_to_trackers(udprn, update_hash, last_property_status_type, property_details)

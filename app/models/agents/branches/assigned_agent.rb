@@ -26,7 +26,8 @@ module Agents
           sort_order: 'desc',
           sort_key: 'status_last_updated',
           district: self.branch.district,
-          verification_status: true
+          verification_status: true,
+          accepting_quotes: true
         }
         if search_params[:district] == "L37"
         #  search_params[:district] = "L14"
@@ -36,7 +37,6 @@ module Agents
         api = PropertySearchApi.new(filtered_params: search_params)
         api.apply_filters
         api.add_exists_filter(:quotes)
-
         body, status = api.fetch_data_from_es
         Rails.logger.info(body)
         #body = body.sort_by{ |t| t['status_last_updated'] }.reverse

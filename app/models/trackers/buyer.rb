@@ -91,6 +91,28 @@ class Trackers::Buyer
     :closed_lost_stage
   ]
 
+  SUCCESSFUL_SEQUENCE_STAGES = [
+    :qualifying_stage,
+    :interested_in_viewing,
+    :negotiating_stage,
+    :conveyance_stage,
+    :offer_made_stage,
+    :offer_accepted_stage,
+    :closed_won_stage,
+    :contract_exchange_stage,
+    :completion_stage,
+    :sold
+  ]
+
+  UNSUCCESSFUL_SEQUENCE_STAGES = [
+    :qualifying_stage,
+    :interested_in_viewing,
+    :negotiating_stage,
+    :conveyance_stage,
+    :offer_made_stage,
+    :closed_lost_stage
+  ]
+
   #### API Responses for tables
 
   #### Property specific enquiries
@@ -121,8 +143,7 @@ class Trackers::Buyer
 
       #### Enquiries
       total_enquiries = generic_event_count(ENQUIRY_EVENTS, nil, udprn, :multiple)
-      buyer = generic_event_count_buyer(EVENTS[:viewed], nil, udprn, each_row.buyer_id)
-      buyer_enquiries = generic_event_count(ENQUIRY_EVENTS, nil, udprn, :multiple)
+      buyer_enquiries = generic_event_count_buyer(ENQUIRY_EVENTS, nil, udprn, each_row.buyer_id, :multiple)
       new_row[:enquiries] = buyer_enquiries.to_i.to_s + '/' + total_enquiries.to_i.to_s
 
       #### Type of match
@@ -157,7 +178,7 @@ class Trackers::Buyer
       result.push(new_row)
     end
 
-    buyers = PropertyBuyer.where(id: buyer_ids.flatten).select([:id, :email, :full_name, :mobile, :status, :chain_free, :funding, :biggest_problem, :buying_status, :budget_to, :budget_from]).order("position(id::text in '#{buyer_ids.join(',')}')")
+    buyers = PropertyBuyer.where(id: buyer_ids.flatten).select([:id, :email, :full_name, :mobile, :status, :chain_free, :funding, :biggest_problem, :buying_status, :budget_to, :budget_from, :image_url]).order("position(id::text in '#{buyer_ids.join(',')}')")
     buyer_hash = {}
 
     buyers.each do |buyer|
@@ -167,7 +188,7 @@ class Trackers::Buyer
     result.each_with_index do |each_row, index|
       each_row['buyer_status'] = REVERSE_STATUS_TYPES[buyer_hash[each_row['buyer_id']]['status']]
       each_row['buyer_full_name'] = buyer_hash[each_row['buyer_id']]['full_name']
-      each_row['buyer_image'] = nil
+      each_row['buyer_image'] = buyer_hash[each_row['buyer_id']]['image_url']
       each_row['buyer_email'] = buyer_hash[each_row['buyer_id']]['email']
       each_row['buyer_mobile'] = buyer_hash[each_row['buyer_id']]['mobile']
       each_row['chain_free'] = buyer_hash[each_row['buyer_id']]['chain_free']
@@ -187,7 +208,7 @@ class Trackers::Buyer
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
     query = Event.where(agent_id: agent_id).where(event: events)
     query = query.search_address_and_buyer_details(search_str) if search_str
-    property_ids = query.order('created_at DESC').pluck(:udprn)
+    property_ids = query.order('created_at DESC').pluck(:udprn).uniq
     response = property_ids.map { |e| Trackers::Buyer.new.property_and_enquiry_details(agent_id.to_i, e, property_status_type, verification_status, ads) }.compact
   end
 
@@ -204,11 +225,13 @@ class Trackers::Buyer
     details = PropertyDetails.details(property_id)['_source']
     # details = {}
     new_row = {}
+
     property_enquiry_details(new_row, property_id, details)
 
     return nil if property_status_type && property_status_type != new_row[:property_status_type]
-    return nil if verification_status && verification_status.to_s != new_row[:verification_status].to_s
-    return nil if ads && ads.to_s != new_row[:advertised].to_s
+    return nil if !verification_status.nil? && verification_status.to_s != new_row[:verification_status].to_s
+    return nil if !ads.nil? && ads.to_s != new_row[:advertised].to_s
+
 
     push_agent_details(new_row, agent_id)
 
@@ -329,7 +352,7 @@ class Trackers::Buyer
     ### Filter only the type_of_match which are asked by the caller
     query = Event.where(event: events)
     query = query.where(buyer_id: filtered_buyer_ids) if buyer_filter_flag
-    query = query.where(type_of_match: type_of_match.to_s.downcase) if type_of_match
+    query = query.where(type_of_match:  TYPE_OF_MATCH[type_of_match.to_s.downcase.to_sym]) if type_of_match
     query = query.where(udprn: property_udprn) if property_udprn
     query = query.search_address_and_buyer_details(search_str) if search_str
 
@@ -358,11 +381,10 @@ class Trackers::Buyer
       ### Check if filtered_buyer_ids is not empty and if its not
       ### Allow only buyer_id which matches each_row['buyer_id']
 
-
       if (filtered_buying_flag && filtered_buyer_ids.include?(each_row['buyer_id'].to_i)) || (!filtered_buying_flag)
         
         #### When qualifying_stage is not nil, match the expected and the ones in the result
-        if qualifying_stage && new_row[:qualifying].to_s == qualifying_stage.to_s
+        if qualifying_stage && Event.where(event: EVENTS[qualifying_stage.to_sym], buyer_id: each_row['buyer_id'].to_i).count > 0
 
           qualifying_matches.push(new_row)
           qualifying_matches_buyer_ids.push(each_row['buyer_id'])
@@ -435,9 +457,7 @@ class Trackers::Buyer
   end
 
   def push_property_details_row(new_row, property_id)
-    url = "#{Rails.configuration.remote_es_url}/addresses/address/#{property_id}"
-    response = Net::HTTP.get(URI.parse(url))
-    details = Oj.load(response)['_source']
+    details =  PropertyDetails.details(property_id)['_source']
     push_property_enquiry_details_buyer(new_row, details)
   end
 
@@ -445,11 +465,11 @@ class Trackers::Buyer
   ### with new row
   def push_property_enquiry_details_buyer(new_row, details)
     #Rails.logger.info(new_row)
-    new_row[:address] = details['address'] rescue nil
+    new_row[:address] = PropertyDetails.address(details) rescue nil
     new_row[:price] = details['price'] rescue nil
     new_row[:image_url] = details['street_view_image_url'] || details['photo_urls'].first rescue nil
     new_row[:street_view_image_url] = details['street_view_image_url']
-    new_row[:photo_url] = details['photo_urls'][0]
+    new_row[:photo_url] = details['pictures'][0]
     new_row[:udprn] = details['udprn'] rescue nil
     new_row[:status] = details['property_status_type'] rescue nil
     new_row[:offers_over] = details['offers_over'] rescue nil
@@ -492,7 +512,7 @@ class Trackers::Buyer
 
     #### Enquiries
     total_enquiries = generic_event_count(ENQUIRY_EVENTS, nil, property_id, :multiple)
-    buyer_enquiries = generic_event_count_buyer(ENQUIRY_EVENTS, nil, property_id, buyer_id)
+    buyer_enquiries = generic_event_count_buyer(ENQUIRY_EVENTS, nil, property_id, buyer_id, :multiple)
     new_row[:enquiries] = buyer_enquiries.to_i.to_s + '/' + total_enquiries.to_i.to_s
 
     #### Qualifying Stage Only shown to the agents
