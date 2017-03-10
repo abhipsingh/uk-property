@@ -8,7 +8,7 @@ module Api
       include EsHelper
       
       SAMPLE_TEXT_STR = 'douglas road liverpool'
-      SAMPLE_HASH = 'LIVERPOOL_Douglas Road'
+      SAMPLE_HASH = 'BIRKENHEAD_Birkenhead'
       SAMPLE_OUTPUT = "Douglas Road, LIVERPOOL, Merseyside"
       SAMPLE_THOROUGHFARE_DESCRIPTOR = 'Douglas Road'
       SAMPLE_BUILDING_NUMBER = '6'
@@ -106,12 +106,12 @@ module Api
             "https://s3-us-west-2.amazonaws.com/propertyuk/11292578_street_view.jpg"
           ],
           "current_valuation"=>553846,
-          "property_type"=>nil,
+          "property_type"=>"Bungalow",
           "agent_branch_name"=>"Dwellings",
           "address"=>"142, Mount Road, Birkenhead",
           "date_updated"=>"2017-01-11",
           "agent_contact"=>"020 3641 4259",
-          "tenure"=>nil,
+          "tenure"=>"Freehold",
           "dream_price"=>720000,
           "status_last_updated"=>"2016-07-30 21:32:44",
           "external_property_size"=>nil
@@ -151,6 +151,14 @@ module Api
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response["details"]["udprn"], SAMPLE_UDPRN
+      end
+
+      def test_search
+        ## Property types
+        get :search, {property_type: "Bungalow"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response["details"]["property_type"], "Bungalow"
       end
 
       def teardown

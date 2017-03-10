@@ -166,7 +166,8 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     # Rails.logger.info(inst.query)
     body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name)
     body = Oj.load(body)['hits']['hits'].map do |t|
-      t['_source']['score'] = t['matched_queries'].count
+      ## TODO - Confirm this
+      # t['_source']['score'] = t['matched_queries'].count
       t['_source']
     end
     return body, status

@@ -16,13 +16,13 @@ module Api
     class PropertySearchController < ActionController::Base
       include EventsHelper
       def search
-        response = Hash.new
         api = ::PropertySearchApi.new(filtered_params: params)
         result, status = api.filter
         result = result[:results].sort_by{|t| t[:score]}.reverse
         result = result.each{|t| t[:photo_urls] = [] }
         #Rails.logger.info(result)
-        result.first[:breadcrumb] = params[:hash_str].split('_').join(', ')
+        ## TODO - Confirm this
+        # result.first[:breadcrumb] = params[:hash_str].split('_').join(', ')
         insert_new_search 
         render :json => result, :status => status
       end

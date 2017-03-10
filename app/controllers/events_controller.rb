@@ -22,12 +22,15 @@ class EventsController < ApplicationController
     type_of_match = Trackers::Buyer::TYPE_OF_MATCH[type_of_match.downcase.to_sym]
     # type_of_match = Trackers::Buyer::TYPE_OF_MATCH.with_indifferent_access[params[:type_of_match]]
     property_id = params[:udprn]
-    details = PropertyDetails.details(property_id)['_source']
-    property_status_type = details['property_status_type']
-    agent_id = params[:agent_id] || details['agent_id']
+    details = PropertyDetails.details(property_id)
+    property_status_type = details['_source']['property_status_type']
+    agent_id = params[:agent_id] || details['_source']['agent_id']
     message = 'NULL' if message.nil?
     response = insert_events(agent_id, property_id, buyer_id, message, type_of_match, property_status_type, event)
-
+    if params[:event] == "offer_made_stage"
+      property_buyers = Event.where(event: event).where(udprn: property_id).select("buyer_name, buyer_email").as_json
+      BuyerMailer.offer_made_stage_emails(property_buyers, details['address']).deliver_now
+    end
     Rails.logger.info("COMPLETED")
     render json: { 'message' => 'Successfully processed the request', response: response }, status: 200
   end
@@ -183,6 +186,25 @@ class EventsController < ApplicationController
       render json: { message: 'You have claimed this property Successfully. Now survey this property within 30 days' }, status: 200
     else
       render json: { message: 'Sorry, this property has already been claimed' }, status: 200
+    end
+  end
+
+  #### TODO - Make it token based (Apply some authentication)
+  #### When a buyer clicks on the unsubscibe link in the mails he is no longer subscribed to that event
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/events/unsubscribe?buyer_id=1&udprn=11111111&event=interested_in_viewing'
+  def unsubscribe
+    buyer_id = params[:buyer_id]
+    udprn = params[:udprn]
+    event = Trackers::Buyer::EVENTS[params[:event].to_sym]
+    if buyer_id && udprn && event
+      subscribed_event = Event.where(buyer_id: buyer_id).where(udprn: udprn).where(event: event).first
+      subscribed_event.is_deleted = true
+      if subscribed_event.save!
+        render json: {message: "Unsubscribed"}, status: 200
+      else
+        Rails.logger.info("cannot unsubscribe - #{params}")
+        render json: {message: "Cannot Unsubscribe"}, status: 400
+      end
     end
   end
 
