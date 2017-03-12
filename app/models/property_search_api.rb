@@ -115,7 +115,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
 
   def initialize(options={})
     # index = options[:index] || 'property_details'
-    client = Elasticsearch::Client.new url: options[:url], log: options[:log]
+    # client = Elasticsearch::Client.new url: options[:url], log: options[:log]
     @filtered_params = options[:filtered_params].symbolize_keys
     @query = self.class.append_empty_hash
     @query = options[:query] if @is_query_custom == true
@@ -131,7 +131,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     inst = inst.append_term_filters
     inst = inst.append_range_filters
     inst = inst.append_sort_filters
-    inst
+    # inst
     Rails.logger.info(inst.query)
   end
 
@@ -358,22 +358,22 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
   def self.index_es_records(scroll_id)
     start_date = 3.months.ago
     ending_date = 4.hours.ago
-    years = (1955..2015).step(10).to_a
+    # years = (1955..2015).step(10).to_a
     time_frame_years = (2004..2016).step(1).to_a
-    days = (1..24).to_a
+    # days = (1..24).to_a
     body = []
     client = Elasticsearch::Client.new host: ES_EC2_HOST
     characters = (1..10).to_a
     alphabets = ('A'..'Z').to_a
-    addresses = get_bulk_addresses
+    # addresses = get_bulk_addresses
     names = Agent.last(10).map{ |t| t.name }
-    google_api_crawler = GoogleApiCrawler.new
+    # google_api_crawler = GoogleApiCrawler.new
     scroll_id = scroll_id
     glob_counter = 0
     loop do
-      get_records_url = ES_EC2_URL + '/_search/scroll'
+      # get_records_url = ES_EC2_URL + '/_search/scroll'
       scroll_hash = { scroll: '30m', scroll_id: scroll_id }
-      response , status = post_url_new(scroll_hash)
+      response , _status = post_url_new(scroll_hash)
       udprns = JSON.parse(response)["hits"]["hits"].map { |t| t['_source']['udprn']  }
       response_arr = Oj.load(response)['hits']['hits'].map { |e| e['_source'] }
       break if udprns.length == 0

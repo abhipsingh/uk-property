@@ -86,7 +86,7 @@ module Api
           "budget"=>280000,
           "agent_employee_profile_image"=>"https://st.zoocdn.com/zoopla_static_agent_logo_(44631).data",
           "outside_space_type"=>"Terrace",
-          "parking_type"=>"Single garage",
+          "parking_type"=>"Underground",
           "central_heating"=>"None",
           "valuation_date"=>"2016-01-15",
           "added_by"=>"Us",
@@ -160,16 +160,73 @@ module Api
       end
 
       def test_search
-        # ## Property types
-        # get :search, {property_types: "bungalow"}
-        # assert_response 200
-        # response = Oj.load(@response.body)
-        # assert_equal response[0]["property_type"], "Bungalow"
+        ## Property types
+        get :search, {property_types: "bungalow"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["property_type"], "Bungalow"
 
-        # get :search, {property_types: "Flat"}
-        # assert_response 200
-        # response = Oj.load(@response.body)
-        # assert_equal response.length, 0
+        get :search, {property_types: "flat"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## monitoring types
+        get :search, {monitoring_types: "no"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["monitoring_type"], "No"
+
+        get :search, {monitoring_types: "yes"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## property status types
+        get :search, {property_status_types: "green"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["property_status_type"], "Green"
+
+        get :search, {property_status_types: "amber"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## parking types
+        get :search, {parking_types: "underground"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["parking_type"], "Underground"
+
+        get :search, {parking_types: "single garage"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## outside space type
+        get :search, {outside_space_types: "terrace"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["outside_space_type"], "Terrace"
+
+        get :search, {outside_space_types: "private garden"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## additional feature types
+
+        ## keyword types
+
+        ## udprns
+
+        ## vendor ids
+
+        ## postcodes
+
+        ## post_codes
+
         ################## Term Tests #####################
 
         # tenure
