@@ -33,7 +33,9 @@ module Api
         "_score"=>1.0,
         "_source"=> {
           "area"=> SAMPLE_AREA,
+          "building_name" => SAMPLE_BUILDING_NAME,
           "building_number"=> SAMPLE_BUILDING_NUMBER,
+          "sub_building_name" => "Ember Society",
           "county"=> SAMPLE_COUNTY,
           "dependent_locality"=> SAMPLE_DEPENDENT_LOCALITY,
           "dependent_thoroughfare_description"=>SAMPLE_ROAD,
@@ -54,10 +56,10 @@ module Api
           "vanity_url"=>"142-mount-road-birkenhead|oxton|prenton|rock-ferry-birkenhead-merseyside-CH428NN",
           "photo_urls"=>[],
           "agent_employee_email_address"=>"b@c.com",
-          "property_style"=>"Don’t know",
+          "property_style"=>"Period",
           "epc"=>"No",
           "receptions"=>SAMPLE_RECEPTIONS,
-          "decorative_condition"=>"Needs modernisation",
+          "decorative_condition"=>"Excellent",
           "price_last_updated"=>nil,
           "total_property_size"=>7000,
           "agent_employee_mobile_number"=>"9876543210",
@@ -100,7 +102,7 @@ module Api
           "assigned_agent_employee_image"=>nil,
           "broker_logo"=>nil,
           "last_updated_date"=>"2015-09-21",
-          "listed_status"=>"Locally listed",
+          "listed_status"=>"None",
           "verification_time"=>"2016-06-18 21:32:44",
           "photos"=>[
             "https://s3-us-west-2.amazonaws.com/propertyuk/11292578_street_view.jpg"
@@ -114,7 +116,11 @@ module Api
           "tenure"=>"Freehold",
           "dream_price"=>720000,
           "status_last_updated"=>"2016-07-30 21:32:44",
-          "external_property_size"=>6889
+          "external_property_size"=>6889,
+          "council_tax_band" => "A",
+          "agent_id" => 1,
+          "vendor_id" => 1,
+          "accepting_quotes" => false
         }
       }
       SAMPLE_LOCATION_DOC = {
@@ -154,8 +160,8 @@ module Api
       end
 
       def test_search
-        ## Property types
-        # get :search, {property_types: "Bungalow"}
+        # ## Property types
+        # get :search, {property_types: "bungalow"}
         # assert_response 200
         # response = Oj.load(@response.body)
         # assert_equal response[0]["property_type"], "Bungalow"
@@ -164,6 +170,273 @@ module Api
         # assert_response 200
         # response = Oj.load(@response.body)
         # assert_equal response.length, 0
+        ################## Term Tests #####################
+
+        # tenure
+        get :search, {tenure: "freehold"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["tenure"], "Freehold"
+
+        get :search, {tenure: "leasehold"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## epc
+        get :search, {epc: "no"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["epc"], "No"
+
+        get :search, {epc: "yes"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## property style
+        get :search, {property_style: "period"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["property_style"], "Period"
+
+        get :search, {property_style: "contemporary"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## listed status
+        get :search, {listed_status: "none"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["listed_status"], "None"
+
+        get :search, {listed_status: "locally listed"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## decorative condition
+        get :search, {decorative_condition: "excellent"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["decorative_condition"], "Excellent"
+
+        get :search, {decorative_condition: "good"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## central heating
+        get :search, {central_heating: "none"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["central_heating"], "None"
+
+        get :search, {central_heating: "good"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## photos
+
+        ## floorplan
+        get :search, {floorplan: "no"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["floorplan"], "No"
+
+        get :search, {floorplan: "yes"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## chain free
+        get :search, {chain_free: "yes"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["chain_free"], "Yes"
+
+        get :search, {chain_free: "no"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## council tax band
+        get :search, {council_tax_band: "a"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["council_tax_band"], "A"
+
+        get :search, {council_tax_band: "b"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## verification
+
+        ## property_brochure
+
+        ## new_homes
+
+        ## retirement_homes
+
+        ## shared_ownership
+
+        ## memorandum_of_sale
+
+        ## verification_status
+        get :search, {verification_status: false}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["verification_status"], false
+
+        get :search, {verification_status: true}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## agent_id
+        get :search, {agent_id: 1}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["agent_id"], 1
+
+        get :search, {agent_id: 2}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## district
+        get :search, {district: SAMPLE_DISTRICT.downcase}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["district"], SAMPLE_DISTRICT
+
+        get :search, {district: SAMPLE_DISTRICT.upcase}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## udprn
+        get :search, {udprn: SAMPLE_UDPRN}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["udprn"], SAMPLE_UDPRN
+
+        get :search, {udprn: SAMPLE_UDPRN + "1"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## vendor_id
+        get :search, {vendor_id: 1}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["vendor_id"], 1
+
+        get :search, {vendor_id: 2}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## postcode
+        get :search, {postcode: SAMPLE_POSTCODE.split(' ').join('').downcase}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["postcode"], SAMPLE_POSTCODE.split(' ').join('')
+
+        get :search, {postcode: SAMPLE_POSTCODE.upcase}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## sector
+        ## Sector should be analyzed or non analyzed
+        ## term not working but match working
+        # get :search, {sector: SAMPLE_SECTOR}
+        # assert_response 200
+        # response = Oj.load(@response.body)
+        # assert_equal response[0]["sector"], SAMPLE_SECTOR
+
+        # get :search, {sector: SAMPLE_SECTOR.downcase}
+        # assert_response 200
+        # response = Oj.load(@response.body)
+        # assert_equal response.length, 0
+
+        ## unit
+        get :search, {unit: "CH428NN".downcase}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["unit"], "CH428NN"
+
+        get :search, {unit: "CH428NNN"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## building_name
+        ## Sector should be analyzed or non analyzed
+        ## term not working but match working
+        # get :search, {building_name: SAMPLE_BUILDING_NAME.downcase}
+        # assert_response 200
+        # response = Oj.load(@response.body)
+        # assert_equal response[0]["building_name"], SAMPLE_BUILDING_NAME
+
+        # get :search, {building_name: SAMPLE_BUILDING_NAME.upcase}
+        # assert_response 200
+        # response = Oj.load(@response.body)
+        # assert_equal response.length, 0
+
+        ## building_number
+        get :search, {building_number: SAMPLE_BUILDING_NUMBER}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["building_number"], SAMPLE_BUILDING_NUMBER
+
+        get :search, {building_number: SAMPLE_BUILDING_NUMBER + "1"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## sub_building_name
+        ## Sector should be analyzed or non analyzed
+        ## term not working but match working
+        # get :search, {sub_building_name: "Ember Society".downcase}
+        # assert_response 200
+        # response = Oj.load(@response.body)
+        # assert_equal response[0]["sub_building_name"], "Ember Society"
+
+        # get :search, {sub_building_name: "Ember Society".upcase}
+        # assert_response 200
+        # response = Oj.load(@response.body)
+        # assert_equal response.length, 0
+
+        ## post_code
+        ## Sector should be analyzed or non analyzed
+        ## term not working but match working
+        # get :search, {post_code: SAMPLE_POSTCODE.downcase}
+        # assert_response 200
+        # response = Oj.load(@response.body)
+        # assert_equal response[0]["post_code"], SAMPLE_POSTCODE
+
+        # get :search, {post_code: SAMPLE_POSTCODE.upcase}
+        # assert_response 200
+        # response = Oj.load(@response.body)
+        # assert_equal response.length, 0
+
+        ## ads
+
+        ## accepting_quotes
+        get :search, {accepting_quotes: false}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["accepting_quotes"], false
+
+        get :search, {accepting_quotes: true}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
 
         ################### Range Tests #####################
 

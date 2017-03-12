@@ -9,7 +9,7 @@ class PropertySearchApi
   ES_EC2_HOST = Rails.configuration.remote_es_host
   FIELDS = {
     terms: [ :property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :keyword_types, :udprns, :vendor_ids, :postcodes, :post_codes ],
-    term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status, :agent_id, :district, :udprn, :vendor_id, :postcode, :district, :sector, :unit, :vendor_id, :building_name, :building_number, :sub_building_name, :post_code, :ads, :accepting_quotes ],
+    term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :council_tax_band, :verification, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status, :agent_id, :district, :udprn, :vendor_id, :postcode, :sector, :unit, :building_name, :building_number, :sub_building_name, :post_code, :ads, :accepting_quotes ],
     range: [ :cost_per_month, :date_added, :floors, :year_built, :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, :time_frame, :beds, :baths, :receptions, :current_valuation, :dream_price ],
   }
 
@@ -137,7 +137,6 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
 
   def filter
     inst = self
-    inst.append_pagination_filter
     modify_filtered_params
     append_premium_or_featured_filter
     inst.apply_filters
@@ -148,8 +147,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
 
   def adjust_size
     if @filtered_params.has_key?(:limit)
-      @filtered_params[:limit].to_i < 1000 ? limit = @filtered_params[:limit] : limit = 1000
-      @query[:size] = 1000000
+      @query[:size] = [@filtered_params[:limit], 1000].min
     elsif @filtered_params.has_key?(:count) && @filtered_params[:count] == 'true'
       @query[:size] = 0
     end
@@ -174,7 +172,6 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
   end
 
   def modify_query
-    inst = self
     if @filtered_params.has_key?(:match_type)
       type_of_match = @filtered_params[:match_type]
       modify_type_of_match_query(type_of_match)
