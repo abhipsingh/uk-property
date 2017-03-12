@@ -59,7 +59,7 @@ module Api
           "receptions"=>SAMPLE_RECEPTIONS,
           "decorative_condition"=>"Needs modernisation",
           "price_last_updated"=>nil,
-          "total_property_size"=>nil,
+          "total_property_size"=>7000,
           "agent_employee_mobile_number"=>"9876543210",
           "assigned_agent_employee_address"=>"5 Bina Gardens",
           "last_sale_date"=>"2016-06-27",
@@ -75,7 +75,7 @@ module Api
           "improvement_spend"=>5557,
           "price"=>720000,
           "beds"=>SAMPLE_BEDS,
-          "internal_property_size"=>nil,
+          "internal_property_size"=>6789,
           "street_view_image_url"=>"https://s3-us-west-2.amazonaws.com/propertyuk/11292578_street_view.jpg",
           "verification_status"=>false,
           "last_sale_price"=>503999,
@@ -114,7 +114,7 @@ module Api
           "tenure"=>"Freehold",
           "dream_price"=>720000,
           "status_last_updated"=>"2016-07-30 21:32:44",
-          "external_property_size"=>nil
+          "external_property_size"=>6889
         }
       }
       SAMPLE_LOCATION_DOC = {
@@ -155,10 +155,171 @@ module Api
 
       def test_search
         ## Property types
-        get :search, {property_type: "Bungalow"}
+        # get :search, {property_types: "Bungalow"}
+        # assert_response 200
+        # response = Oj.load(@response.body)
+        # assert_equal response[0]["property_type"], "Bungalow"
+
+        # get :search, {property_types: "Flat"}
+        # assert_response 200
+        # response = Oj.load(@response.body)
+        # assert_equal response.length, 0
+
+        ################### Range Tests #####################
+
+        ## Cost per month
+        get :search, {min_cost_per_month: 4000}
         assert_response 200
         response = Oj.load(@response.body)
-        assert_equal response["details"]["property_type"], "Bungalow"
+        assert_equal response[0]["cost_per_month"], 4900
+
+        get :search, {min_cost_per_month: 5000}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## Date added
+        get :search, {min_date_added: "2016-06-30"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["date_added"], "2016-07-31"
+
+        get :search, {min_date_added: "2016-08-01"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        # Floors
+        get :search, {min_floors: 6}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["floors"], 6
+
+        get :search, {min_floors: 7}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## Year built
+        get :search, {min_year_built: "1961-01-01"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["year_built"], "1961-01-01"
+
+        get :search, {min_year_built: "1961-01-02"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        # Internal property size
+        get :search, {min_internal_property_size: 6788}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["internal_property_size"], 6789
+
+        get :search, {min_internal_property_size: 6790}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## External property size
+        get :search, {min_external_property_size: 6889}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["external_property_size"], 6889
+
+        get :search, {min_external_property_size: 6890}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## total property size
+        get :search, {min_total_property_size: 7000}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["total_property_size"], 7000
+
+        get :search, {min_total_property_size: 7001}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## improvement spend
+        get :search, {min_improvement_spend: 5555}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["improvement_spend"], 5557
+
+        get :search, {min_improvement_spend: 6666}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## time frame
+        get :search, {min_time_frame: "2012-01-01"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["time_frame"], "2012-01-01"
+
+        get :search, {min_time_frame: "2013-01-02"}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## beds
+        get :search, {min_beds: SAMPLE_BEDS}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["beds"], SAMPLE_BEDS
+
+        get :search, {min_beds: SAMPLE_BEDS+1}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## baths
+        get :search, {min_baths: SAMPLE_BATHS}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["baths"], SAMPLE_BATHS
+
+        get :search, {min_baths: SAMPLE_BATHS+1}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## receptions
+        get :search, {min_receptions: SAMPLE_RECEPTIONS}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["receptions"], SAMPLE_RECEPTIONS
+
+        get :search, {min_receptions: SAMPLE_RECEPTIONS+1}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## current valuation
+        get :search, {min_current_valuation: 553846}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["current_valuation"], 553846
+
+        get :search, {min_current_valuation: 553847}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
+
+        ## dream price
+        get :search, {min_dream_price: 720000}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response[0]["dream_price"], 720000
+
+        get :search, {min_dream_price: 720001}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response.length, 0
       end
 
       def teardown
