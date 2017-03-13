@@ -668,9 +668,23 @@ module Api
         # assert_equal response, 1
       end
 
+      def test_save_searches
+        email = "a@a.com"
+        password = "123"
+        name = "a"
+        account_type = "a"
+        PropertyBuyer.create!(email_id: email, password: password, name: name, account_type: account_type)
+        sleep(1)
+        post :save_searches, {email_id: email, new_search: {name: "xyz", search_hash: {}}}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_includes response, 'searches'
+      end
+
       def teardown
         delete_es_address(SAMPLE_UDPRN)
         BuyerSearch.destroy_all
+        PropertyBuyer.destroy_all
       end
 
     end
