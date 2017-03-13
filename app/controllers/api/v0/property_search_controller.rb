@@ -52,6 +52,7 @@ module Api
         saved_flag = true
         messages = [],
         searches = nil
+        ## if search hash is not validated or email id is not found then saved flag should be false?
         PropertyBuyer.where(email_id: params[:email_id]).each do |property_buyer|
           searches = property_buyer.searches
           new_search_hash = params[:new_search]
@@ -70,7 +71,7 @@ module Api
       end
 
       def show_save_searches
-        searches, name, email_id = nil
+        searches, name, email_id = nil, nil, nil
         PropertyBuyer.where(email_id: params[:email_id]).select([:email_id, :name, :searches]).each do |property_buyer|
           searches = property_buyer.searches
           name = property_buyer.name
