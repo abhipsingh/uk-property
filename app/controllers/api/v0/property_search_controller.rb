@@ -29,6 +29,7 @@ module Api
 
       ### curl -XGET 'http://localhost/api/v0/properties/matching/count?hash_str=LIVERPOOL&hash_type=Text&count=true'
       def matching_property_count
+        ## hash_str compulsory?
         api = ::PropertySearchApi.new(filtered_params: params)
         result, status = api.matching_property_count
         render :json => result, :status => status

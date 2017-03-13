@@ -160,6 +160,8 @@ module Api
       end
 
       def test_search
+
+        ################## Terms Tests #####################
         ## Property types
         get :search, {property_types: "bungalow"}
         assert_response 200
@@ -229,7 +231,7 @@ module Api
 
         ################## Term Tests #####################
 
-        # tenure
+        ## tenure
         get :search, {tenure: "freehold"}
         assert_response 200
         response = Oj.load(@response.body)
@@ -652,8 +654,23 @@ module Api
         assert_equal response.length, 0
       end
 
+      def test_matching_property_count
+        get :matching_property_count, {hash_str: SAMPLE_HASH.downcase}
+        assert_response 200
+        response = Oj.load(@response.body)
+        assert_equal response, 1
+
+        ## use case of this
+        ## this part of flow contains bug
+        # get :matching_property_count, {hash_str: SAMPLE_HASH.downcase, hash_type: "postcode"}
+        # assert_response 200
+        # response = Oj.load(@response.body)
+        # assert_equal response, 1
+      end
+
       def teardown
         delete_es_address(SAMPLE_UDPRN)
+        BuyerSearch.destroy_all
       end
 
     end
