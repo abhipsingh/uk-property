@@ -131,7 +131,7 @@ Rails.application.routes.draw do
   get 'agents/branch/:branch_id',                               to: 'agents#branch_details'
 
   #### Agents routes for agent details
-  get 'agents/company/:agent_id',                               to: 'agents#agent_details'
+  get 'agents/company/:company_id',                             to: 'agents#company_details'
 
   #### Agents routes for agent group details
   get 'agents/group/:group_id',                                 to: 'agents#group_details'

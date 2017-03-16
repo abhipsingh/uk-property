@@ -2,8 +2,8 @@
 class QuotesController < ApplicationController
 
   #### When a vendor changes the status to Green or when a vendor selects a Fixed or Ala Carte option,
-  #### He submits his preferences about the type of quotes he would want to receieve, Fixed or Ala carte
-  #### He does it through this api. Examples are given below
+  #### He/She submits his preferences about the type of quotes he would want to receieve, Fixed or Ala carte
+  #### He/She does it through this api. Examples are given below
   #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/quotes/property/10966139' -d '{ "services_required" : "Ala Carte", "payment_terms" : "Pay upfront", "quote_details" : "\{ \"setup\" : \{ \"price\" : null, \"list_of_services\" : \[ \{ \"type\" : \"Photographs\", \"price\" : null \} \]  \}, \"advertising\" : \{ \"price\":null, \"list_of_services\" : \[ \]\}, \"buyer_qualification\" :  \{ \"price\": null, \"list_of_services\" : \[ \]  \},  \"schedule_viewings\" : \{ \"price\" : null, \"list_of_services\" : \[\]  \},  \"sales_progression\" : \{ \"price\" : null, \"list_of_services\" : \[  \]  \}     \}", "assigned_agent": true }'
   #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/quotes/property/10966139' -d '{ "services_required" : "Ala Carte", "payment_terms" : "Pay upfront", "quote_details" : "\{ \"setup\" : \{ \"price\" : null, \"list_of_services\" : \[\"Photographs\"\]  \}, \"advertising\" : \{ \"price\":null, \"list_of_services\" : \[ \"For sale board\", \"Featured property listing on our site for search terms(30 days)\", \"Premium property listing on our site for search terms(30 days)\", \"Zoopla listing\", \"Primelocation listing\"  \]\}, \"buyer_qualification\" :  \{ \"price\": null, \"list_of_services\" : \[ \]  \},  \"schedule_viewings\" : \{ \"price\" : null, \"list_of_services\" : \[\]  \},  \"sales_progression\" : \{ \"price\" : null, \"list_of_services\" : \[ \"under_offer\", \"memorandum_of_sale\", \"mortgage_valuation\", \"conveyancing\", \"exchange\", \"complete\" \]  \}     \}", "assigned_agent": true }'
   #### Another example.
@@ -41,6 +41,7 @@ class QuotesController < ApplicationController
     property_id = params[:udprn].to_i
     #### When the quote is won
     service = QuoteService.new(params[:udprn].to_i)
+    agent_id = Agents::Branches::AssignedAgents::Quote.find(quote_id).agent_id
     message = service.accept_quote_from_agent(agent_id)
     render json: message, status: 200
   end
@@ -49,7 +50,8 @@ class QuotesController < ApplicationController
   ##### curl -XGET  -H "Content-Type: application/json" 'http://localhost/property/quotes/agents/10966139'
   def quotes_per_property
     property_id = params[:udprn].to_i
-    agents_for_quotes = Agents::Branches::AssignedAgents::Quote.where(status: nil).where.not(agent_id: nil).where.not(agent_id: 1).where(property_id: property_id)
+    status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
+    agents_for_quotes = Agents::Branches::AssignedAgents::Quote.where(status: status).where.not(agent_id: nil).where.not(agent_id: 1).where(property_id: property_id)
     final_result = []
     agents_for_quotes.each do |each_agent_id|
       quotes = AgentApi.new(property_id.to_i, each_agent_id.agent_id.to_i).calculate_quotes

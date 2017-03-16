@@ -3,32 +3,13 @@ require 'test_helper'
 require_relative '../helpers/es_helper'
 require_relative '../helpers/events_helper'
 require_relative '../helpers/quotes_helper'
+require_relative '../helpers/udprn_helper'
 # ruby -Itest path/to/tc_file.rb --name test_method_name
 class EventsControllerTest < ActionController::TestCase
   include EsHelper
   include EventsHelper
   include QuotesHelper
-  SAMPLE_TEXT_STR = 'douglas road liverpool'
-  SAMPLE_HASH = 'LIVERPOOL_Douglas Road'
-  SAMPLE_OUTPUT = "Douglas Road, LIVERPOOL, Merseyside"
-  SAMPLE_THOROUGHFARE_DESCRIPTOR = 'Douglas Road'
-  SAMPLE_BUILDING_NUMBER = '6'
-  SAMPLE_BUILDING_NAME = SAMPLE_BUILDING_NUMBER + ' Ember Society'
-  SAMPLE_COUNTY = 'Merseyside'
-  SAMPLE_POST_TOWN = 'LIVERPOOL'
-  SAMPLE_AREA = 'L'
-  SAMPLE_DISTRICT = 'L4'
-  SAMPLE_POSTCODE = 'L4 2RQ'
-  SAMPLE_SECTOR = 'L4 2'
-  SAMPLE_DEPENDENT_LOCALITY = "Birkenhead"
-  SAMPLE_HIERARCHY = "#{SAMPLE_THOROUGHFARE_DESCRIPTOR}|#{SAMPLE_DEPENDENT_LOCALITY}|#{SAMPLE_POST_TOWN}|#{SAMPLE_COUNTY}"
-  SAMPLE_ROAD = 'Mount Road'
-  SAMPLE_UDPRN = "12345"
-  SAMPLE_ADDRESS_DOC = {"_index"=>"test_addresses", "_type"=>"test_address", "_id"=>SAMPLE_UDPRN, "_score"=>1.0, "_source"=>{"area"=> SAMPLE_AREA, "building_number"=> SAMPLE_BUILDING_NUMBER, "county"=> SAMPLE_COUNTY, "dependent_locality"=> SAMPLE_DEPENDENT_LOCALITY, "dependent_thoroughfare_description"=>SAMPLE_ROAD, "district"=> SAMPLE_DISTRICT, "hashes"=>["BIRKENHEAD", "Merseyside", "BIRKENHEAD_Birkenhead", "BIRKENHEAD_Birkenhead_Mount Road", "BIRKENHEAD", "Merseyside", "BIRKENHEAD_Oxton", "BIRKENHEAD_Oxton_Mount Road", "BIRKENHEAD", "Merseyside", "BIRKENHEAD_Prenton", "BIRKENHEAD_Prenton_Mount Road", "BIRKENHEAD", "Merseyside", "BIRKENHEAD_Rock Ferry", "BIRKENHEAD_Rock Ferry_Mount Road", "BIRKENHEAD_Rock Ferry_Mount Road_142"], "match_type_str"=>["BIRKENHEAD|Normal", "Merseyside|Normal", "BIRKENHEAD_Birkenhead|Normal", "BIRKENHEAD_Birkenhead_Mount Road|Normal", "BIRKENHEAD|Normal", "Merseyside|Normal", "BIRKENHEAD_Oxton|Normal", "BIRKENHEAD_Oxton_Mount Road|Normal", "BIRKENHEAD|Normal", "Merseyside|Normal", "BIRKENHEAD_Prenton|Normal", "BIRKENHEAD_Prenton_Mount Road|Normal", "BIRKENHEAD|Normal", "Merseyside|Normal", "BIRKENHEAD_Rock Ferry|Normal", "BIRKENHEAD_Rock Ferry_Mount Road|Normal", "BIRKENHEAD_Rock Ferry_Mount Road_142|Normal"], "post_code"=>SAMPLE_POSTCODE, "post_town"=>"BIRKENHEAD", "postcode"=>SAMPLE_POSTCODE.split(' ').join(''), "postcode_type"=>"S", "sector"=>SAMPLE_SECTOR, "unit"=>SAMPLE_POSTCODE.split(' ').join(''), "udprn"=>SAMPLE_UDPRN, "vanity_url"=>"6-embers-society-mount-road-birkenhead-merseyside-CH428NN", "photo_urls"=>[], "agent_employee_email_address"=>"b@c.com", "property_style"=>"Don’t know", "epc"=>"No", "receptions"=>nil, "decorative_condition"=>"Needs modernisation", "price_last_updated"=>nil, "total_property_size"=>nil, "agent_employee_mobile_number"=>"9876543210", "assigned_agent_employee_address"=>"5 Bina Gardens", "last_sale_date"=>"2016-06-27", "valuation"=>128000, "floors"=>6, "assigned_agent_employee_name"=>"John Smith", "description"=>nil, "cost_per_month"=>4900, "property_status_type"=>"Green", "year_built"=>"1961-01-01", "listing_type"=>"Basic", "chain_free"=>"Yes", "improvement_spend"=>5557, "price"=>720000, "beds"=>nil, "internal_property_size"=>nil, "street_view_image_url"=>"https://s3-us-west-2.amazonaws.com/propertyuk/11292578_street_view.jpg", "verification_status"=>false, "last_sale_price"=>503999, "last_listing_updated"=>"2 minutes ago", "agent_employee_name"=>"John Clarke", "budget"=>280000, "agent_employee_profile_image"=>"https://st.zoocdn.com/zoopla_static_agent_logo_(44631).data", "outside_space_type"=>"Terrace", "parking_type"=>"Single garage", "central_heating"=>"None", "valuation_date"=>"2016-01-15", "added_by"=>"Us", "date_added"=>"2016-07-31", "broker_branch_contact"=>"020 3641 4259", "additional_features_type"=>["Swimming pool"], "last_sale_price_date"=>"2012-01-14", "floorplan"=>"No", "monitoring_type"=>"No", "time_frame"=>"2012-01-01", "baths"=>nil, "agent_logo"=>nil, "assigned_agent_employee_image"=>nil, "broker_logo"=>nil, "last_updated_date"=>"2015-09-21", "listed_status"=>"Locally listed", "verification_time"=>"2016-06-18 21:32:44", "photos"=>["https://s3-us-west-2.amazonaws.com/propertyuk/11292578_street_view.jpg"], "current_valuation"=>553846, "property_type"=>nil, "agent_branch_name"=>"Dwellings", "address"=>"142, Mount Road, Birkenhead", "date_updated"=>"2017-01-11", "agent_contact"=>"020 3641 4259", "tenure"=>nil, "dream_price"=>720000, "status_last_updated"=>"2016-07-30 21:32:44", "external_property_size"=>nil, "asking_price" => 65000, "pictures" => [] }}
-  SAMPLE_LOCATION_DOC = { "_index"=> "test_locations", "_type"=> "test_location", "_id"=> SAMPLE_HASH, "_score"=> 1, "_source"=> { "hashes"=> SAMPLE_HASH, "suggest"=> { "input"=> [ SAMPLE_TEXT_STR ], "output"=> SAMPLE_TEXT_STR, "weight"=> 10, "payload"=> { "hash"=> SAMPLE_HASH, "hierarchy_str"=> SAMPLE_HIERARCHY, "postcode"=> SAMPLE_POSTCODE, "type"=> "thoroughfare_description" } } } }
-  SAMPLE_BEDS = 3
-  SAMPLE_BATHS = 3
-  SAMPLE_RECEPTIONS = 2
+  include UdprnHelper
 
   def setup
     @address_doc = SAMPLE_ADDRESS_DOC.deep_dup
@@ -265,7 +246,6 @@ class EventsControllerTest < ActionController::TestCase
 
   #### Tests for action recent_properties_for_quotes
   def test_recent_properties_for_quotes
-    new_quote_for_property(SAMPLE_UDPRN)
     agent = Agents::Branches::AssignedAgent.last
     branch = Agents::Branch.last
     agent.branch_id = branch.id
@@ -278,7 +258,9 @@ class EventsControllerTest < ActionController::TestCase
     assert_response 200
     assert_equal response.length, 0
 
-    update_es_address(SAMPLE_UDPRN, { verification_status: true } )
+    new_quote_for_property(SAMPLE_UDPRN)
+    sleep(2)
+    # update_es_address(SAMPLE_UDPRN, { verification_status: true } )
     
     get :recent_properties_for_quotes, { agent_id: agent_id }
     response = Oj.load(@response.body)
@@ -329,7 +311,191 @@ class EventsControllerTest < ActionController::TestCase
 
   #### Tests for action recent_properties_for_claim
   def test_recent_properties_for_claim
+    property_service = PropertyService.new(SAMPLE_UDPRN)
+    agent = Agents::Branches::AssignedAgent.last
+    branch = Agents::Branch.last
+    agent.branch_id = branch.id
+    branch.district = SAMPLE_DISTRICT
+    assert agent.save!
+    assert branch.save!
+    vendor_id = Vendor.last.id
+
+    get :recent_properties_for_claim, { agent_id: agent.id }
+    assert_response 200
+    response = Oj.load(@response.body)
+    assert_equal response.length, 0
+
+    property_service.attach_vendor_to_property(vendor_id)
+    get :recent_properties_for_claim, { agent_id: agent.id }
+    assert_response 200
+    response = Oj.load(@response.body)
+    assert_equal response.length, 1
+    assert_equal response.first['udprn'].to_i, SAMPLE_UDPRN.to_i
+
+
+    #### Test filters
+    get :recent_properties_for_claim, { agent_id: agent.id, status: 'Won' }
+    assert_response 200
+    response = Oj.load(@response.body)
+    assert_equal response.length, 0
+
+    get :recent_properties_for_claim, { agent_id: agent.id, status: 'New' }
+    assert_response 200
+    response = Oj.load(@response.body)
+    assert_equal response.length, 1
+  end
+
+
+  ### property_enquiries test is similar to agents_new_enquiries
+  def test_detailed_properties_for_leads_properties
+    property_service = PropertyService.new(SAMPLE_UDPRN)
+    agent = Agents::Branches::AssignedAgent.last
+    branch = Agents::Branch.last
+    agent.branch_id = branch.id
+    branch.district = SAMPLE_DISTRICT
+    assert agent.save!
+    assert branch.save!
+    vendor_id = Vendor.last.id
+
+    get :detailed_properties, { agent_id: agent.id }
+    assert_response 200
+    response = Oj.load(@response.body)
+    assert_equal response.length, 0
+
+    ### Create a new lead
+    property_service.attach_vendor_to_property(vendor_id)
+
+    ### Claim that lead for the agent
+    post :claim_property, { udprn: SAMPLE_UDPRN.to_i, agent_id: agent.id }
+
+    get :detailed_properties, { agent_id: agent.id }
+
+    assert_response 200
+    response = Oj.load(@response.body)
+    assert_equal response.length, 1
+  end
+
+  def test_detailed_properties_for_quotes_properties
+    new_quote_for_property(SAMPLE_UDPRN)
+    agent = Agents::Branches::AssignedAgent.last
+    branch = Agents::Branch.last
+    agent.branch_id = branch.id
+    branch.district = SAMPLE_DISTRICT
+    assert agent.save!
+    assert branch.save!
+
+    get :detailed_properties, { agent_id: agent.id }
+    response = Oj.load(@response.body)
+    assert_response 200
+    assert_equal response.length, 0
+
+    new_quote_by_agent(SAMPLE_UDPRN, agent.id)
+    get :detailed_properties, { agent_id: agent.id }
+    response = Oj.load(@response.body)
+    assert_response 200
+    assert_equal response.length, 1
+
+    accept_quote_from_agent(SAMPLE_UDPRN, agent.id)
+    get :detailed_properties, { agent_id: agent.id }
+    response = Oj.load(@response.body)
+    assert_response 200
+    assert_equal response.length, 1
+  end
+
+  def test_detailed_properties_for_agents_properties
+    agent = Agents::Branches::AssignedAgent.last
+    branch = Agents::Branch.last
+    agent.branch_id = branch.id
+    branch.district = SAMPLE_DISTRICT
+    assert agent.save!
+    assert branch.save!
+    verification_status = true
+
+    attach_agent_to_property_and_update_details(agent.id, SAMPLE_UDPRN, 'Green', 
+                                                verification_status, SAMPLE_BEDS, SAMPLE_BATHS, 
+                                                SAMPLE_RECEPTIONS)
+    get :detailed_properties, { agent_id: agent.id }
+    response = Oj.load(@response.body)
+    assert_response 200
+    assert_equal response.length, 1
+  end
+
+
+  def test_detailed_properties_filters
+    other_test_udprns = (1..2).map { |e| SAMPLE_UDPRN.to_i + e }
+    other_test_udprns.each do |other_udprn|
+      address_doc = SAMPLE_ADDRESS_DOC.deep_dup
+      address_doc['_source']['udprn'] = other_udprn
+      index_es_address(other_udprn, address_doc['_source'])
+    end
+    sleep(2)
+
+    #### agent data fixing part
+    agent = Agents::Branches::AssignedAgent.last
+    branch = Agents::Branch.last
+    agent.branch_id = branch.id
+    branch.district = SAMPLE_DISTRICT
+    assert agent.save!
+    assert branch.save!
+    verification_status = true
+    vendor_id = Vendor.last.id
+
+    #### Attach agent to sample udprn
+    attach_agent_to_property_and_update_details(agent.id, SAMPLE_UDPRN, 'Green', 
+                                                verification_status, SAMPLE_BEDS, SAMPLE_BATHS, 
+                                                SAMPLE_RECEPTIONS)
+
+
+    #### Submit quote for second property
+    new_quote_for_property(other_test_udprns.first)
+    new_quote_by_agent(other_test_udprns.first, agent.id)
+
+    #### Claim third property
+    property_service = PropertyService.new(other_test_udprns.second)
+    property_service.attach_vendor_to_property(vendor_id)
+    post :claim_property, { udprn: other_test_udprns.second.to_i, agent_id: agent.id }
+
+    get :detailed_properties, { agent_id: agent.id }
+    response = Oj.load(@response.body)
+    assert_response 200
+    assert_equal response.length, 3
+
+
+    ### Test ads false filter
+    update_es_address(SAMPLE_UDPRN, { ads: false })
     
+    get :detailed_properties, { agent_id: agent.id, ads: false }
+    response = Oj.load(@response.body)
+    assert_response 200
+    assert_equal response.length, 1
+
+    get :detailed_properties, { agent_id: agent.id, ads: true }
+    response = Oj.load(@response.body)
+    assert_response 200
+    assert_equal response.length, 0
+
+
+    ### Test property status type filter
+    update_es_address(other_test_udprns.first, { property_status_type: 'Red' })
+    update_es_address(other_test_udprns.second, { property_status_type: 'Amber' })
+    get :detailed_properties, { agent_id: agent.id, property_status_type: 'Red' }
+    response = Oj.load(@response.body)
+    assert_response 200
+    assert_equal response.length, 1
+
+    get :detailed_properties, { agent_id: agent.id, property_status_type: 'Amber' }
+    response = Oj.load(@response.body)
+    assert_response 200
+    assert_equal response.length, 1
+
+    get :detailed_properties, { agent_id: agent.id, property_status_type: 'Green' }
+    response = Oj.load(@response.body)
+    assert_response 200
+    assert_equal response.length, 1
+
+    other_test_udprns.each do |other_udprn|
+      delete_es_address(other_udprn.to_s)
+    end
   end
 
   ### Test 

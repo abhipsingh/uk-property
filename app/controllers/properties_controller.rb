@@ -1,26 +1,5 @@
 ### Base controller
 class PropertiesController < ActionController::Base
-
-  def edit
-    udprn = params[:udprn]
-    @udprn = udprn
-    property = PropertyDetails.details(udprn)['_source']
-    Rails.logger.info(property)
-    property = property['_source'] if property.has_key?('_source')
-    @building_unit = ''
-    @building_unit += property['building_number'] if property.has_key?('building_number')
-    @building_unit += ', ' + property['sub_building_name'] if property.has_key?('sub_building_name')
-    @building_unit += ', ' + property['building_name'] if property.has_key?('building_name')
-    @postcode = property['postcode']
-    @historical_details = PropertyHistoricalDetail.where(udprn: udprn).select([:price, :date])
-    @address = PropertyDetails.address(property)
-    @map_view_url = PropertyDetails.get_map_view_iframe_url(property)
-    vendor_api = VendorApi.new(udprn)
-    @valuations = vendor_api.calculate_valuations
-    @quotes = vendor_api.calculate_quotes
-    render 'edit'
-  end
-
   #### Edit property url
   #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/properties/10966139/edit/details' -d '{ "details" : { "property_type" : "Terraced House", "beds" : 3, "baths" : 2, "receptions" : 2, "property_status_type" : "Green", "property_style" : "Period", "tenure" : "Freehold", "floors" : 2, "listed_status" : "Grade 1", "year_built" : "2011-01-01", "central_heating" : "Partial", "parking_type" : "Single garage", "outside_space_type" : "Private garden", "additional_features" : ["Attractive views", "Fireplace"], "decorative_condition" : "Newly refurbished", "council_tax_band" : "A", "lighting_cost" : 120, "lighting_cost_unit_type" : "month", "heating_cost": 100, "heating_cost_unit_type" : "month", "hot_water_cost" : 200, "hot_water_cost_unit_type" : "month", "annual_ground_water_cost" : 1100, "annual_service_charge" : 200, "resident_parking_cost" : 1200, "other_costs" : [{ "name" : "Cost 1", "value" : 200, "unit_type" : "month" } ], "improvement_types" : [ { "name" : "Total refurbishment", "value" : 200, "date": "2016-06-01" }  ], "current_valuation" : 32000, "dream_price" : 42000, "rental_price" : 1000, "floorplan_url" : "some random url", "pictures" : [{"category" : "Front", "url" : "random url" }, { "category" : "Garden", "url" : "Some random url" } ], "property_brochure_url" : "some random url", "video_walkthrough_url" : "some random url", "property_sold_status" : "Under offer", "agreed_sale_value" : 37000, "expected_completion_date" : "2017-03-13", "actual_completion_date" : "2017-04-01", "new_owner_email_id" : "a@b.com" , "vendor_address" : "Some address" } }'
   def edit_property_details
@@ -45,79 +24,6 @@ class PropertiesController < ActionController::Base
     PropertyDetails.update_details(client, udprn, update_hash) if !update_hash.empty?
     details = PropertyDetails.details(udprn)['_source']
     render json: { message: 'Property details edited', response: details }, status: 200
-  end
-
-  def short_form
-    @udprn = params[:udprn]
-    render 'short_form'
-  end
-
-  def claim_property
-    @detail = TempPropertyDetail.create(details: short_form_params, udprn: params[:udprn]) if params[:udprn]
-    @udprn = params[:udprn]
-    @user = params[:user]
-    @detail_id = params[:detail_id]
-    render 'short_contact_form'
-  end
-
-  def complete_profile
-    p params
-    @user = PropertyUser.from_omniauth(params)
-    detail_id = params[:property_detail].to_i
-    @user.save
-    @temp = TempPropertyDetail.where(id: detail_id).first
-    if @user.profile_type == 'Vendor'
-      @temp.vendor_id = @user.id
-    else
-      @temp.agent_id = @temp['details']['branch'].to_i
-    end
-    @temp.user_id = @user.id
-    @temp.save
-    render 'complete_signup'
-  end
-
-  def signup_after_confirmation
-    user = params[:user_id]
-    detail = params[:id]
-    @detail = TempPropertyDetail.where(id: detail).first
-    @property_user = PropertyUser.where(id: user).last
-    @email = @property_user.email
-    resource = @property_user
-    render 'signup_after_confirmation'
-  end
-
-  def property_status
-    user = PropertyUser.find_by_email(params['property_user']['email'])
-    if user && user.valid_password?(params['property_user']['password'])
-      Rails.logger.info("INFOO_#{user.id}")
-      temp_detail = TempPropertyDetail.where('user_id = ?', user.id).last
-      if temp_detail
-        @property_status = temp_detail.details['property_status']
-        @property_id = temp_detail.id
-        render 'property_status'
-      end
-    end
-  end
-
-
-  def custom_agent_service
-    if params['property_status'] == 'Green' && params['property_status_value'] != 'Green'
-      @property_id = params['property_id']
-      temp_detail = TempPropertyDetail.where(id: @property_id).last
-      @agent_name = Agents::Branch.where(id: temp_detail.details['branch'].to_i).last.name rescue ''
-      @agent_id = Agents::Branch.where(id: temp_detail.details['branch'].to_i).last.id rescue ''
-      render 'menu_form'
-    end
-  end
-
-  def final_quotes
-    agent_services = params.except(:controller, :action, :property_id, :agent_id)
-    property_id = params[:property_id]
-    temp_property = TempPropertyDetail.where(id: property_id.to_i).last
-    temp_property.agent_services = agent_services
-    temp_property.save
-    @udprn = temp_property.udprn
-    render 'finish'
   end
 
   ### When a request is made to fetch the historic pricing details for a udprn
@@ -256,12 +162,8 @@ class PropertiesController < ActionController::Base
   def claim_udprn
     udprn = params[:udprn].to_i
     vendor_id = params[:vendor_id]
-    details = PropertyDetails.details(udprn)
-    district = details['_source']['district']
-    client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
-    PropertyDetails.update_details(client, udprn, { vendor_id: vendor_id , claimed_at: Time.now.to_s })
-    Vendor.find(vendor_id).update_attributes(property_id: udprn)
-    Agents::Branches::AssignedAgents::Lead.create(district: district, property_id: udprn, vendor_id: vendor_id)
+    property_service = PropertyService.new(udprn)
+    property_service.attach_vendor_to_property(vendor_id)
     render json: { message: 'You have claimed this property Successfully. All the agents in this district will be notified' }, status: 200
   rescue Exception
     render json: { message: 'Sorry, this udprn has already been claimed' }, status: 400

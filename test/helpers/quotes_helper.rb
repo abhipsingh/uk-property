@@ -1,4 +1,5 @@
 module QuotesHelper
+  include EsHelper
   SAMPLE_SERVICES_REQUIRED = 'Fixed Price'
   SAMPLE_PAYMENT_TERMS = 'Pay upfront'
   SAMPLE_QUOTE_DETAILS = { "fixed_price_services_requested" => { "price" => nil, "list_of_services" => ["Full"] } }
@@ -14,9 +15,11 @@ module QuotesHelper
 
   def new_quote_by_agent(id, agent_id)
     service = QuoteService.new(id)
-    SAMPLE_QUOTE_DETAILS['fixed_price_services_requested']['price'] = 1200
+    doc = get_es_address(id)
+    quote_details = Oj.load(doc['_source']['quotes'])
+    quote_details['fixed_price_services_requested']['price'] = 1200
     response = service.submit_price_for_quote(agent_id, SAMPLE_PAYMENT_TERMS, 
-                                              SAMPLE_QUOTE_DETAILS.to_json, 
+                                              quote_details.to_json, 
                                               SAMPLE_SERVICES_REQUIRED)
   end
 

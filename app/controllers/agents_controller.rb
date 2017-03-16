@@ -67,7 +67,8 @@ class AgentsController < ApplicationController
   def assigned_agent_details
     assigned_agent_id = params[:assigned_agent_id]
     assigned_agent = Agents::Branches::AssignedAgent.find(assigned_agent_id)
-    agent_details = assigned_agent.as_json(methods: [:active_properties])
+    agent_details = assigned_agent.as_json(methods: [:active_properties], except: [:password_digest, 
+                                          :password, :provider, :uid, :oauth_token, :oauth_expires_at])
     agent_details[:company_id] = assigned_agent.branch.agent_id
     agent_details[:group_id] = assigned_agent.branch.agent.group_id
     render json: agent_details, status: 200
@@ -78,7 +79,8 @@ class AgentsController < ApplicationController
   def branch_details
     branch_id = params[:branch_id]
     branch = Agents::Branch.find(branch_id)
-    branch_details = branch.as_json(include: {assigned_agents: {methods: [:active_properties]}})
+    branch_details = branch.as_json(include: {assigned_agents: {methods: [:active_properties], except: [:password_digest, 
+                                          :password, :provider, :uid, :oauth_token, :oauth_expires_at]}}, except: [:verification_hash])
     branch_details[:company_id] = branch.agent_id
     branch_details[:group_id] = branch.agent.group.id
     render json: branch_details, status: 200
@@ -86,11 +88,12 @@ class AgentsController < ApplicationController
 
   ### Details of the company
   ### curl -XGET 'http://localhost/agents/company/6290'
-  def agent_details
-    agent_id = params[:agent_id]
-    agent = Agent.find(agent_id)
-    agent_details = agent.as_json(include:  { branches: { include: { assigned_agents: {methods: [:active_properties]}}}})
-    render json: agent_details, status: 200
+  def company_details
+    company_id = params[:company_id]
+    company_details = Agent.find(company_id)
+    company_details = company_details.as_json(include:  { branches: { include: { assigned_agents: {methods: [:active_properties], except: [:password_digest, 
+                                          :password, :provider, :uid, :oauth_token, :oauth_expires_at]}}, except: [:verification_hash]}})
+    render json: company_details, status: 200
   end
 
   ### Details of the group

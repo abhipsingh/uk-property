@@ -121,10 +121,13 @@ class EventsController < ApplicationController
   #### On demand quicklink for all the properties of agents, or group or branch or company
   #### To get list of properties for the concerned agent
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties?agent_id=1234'
-  #### Filters on property status, ads
+  #### Filters on property_status_type, ads
   def detailed_properties
     response = []
-    status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
+    status = [ 
+               Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New'],
+               Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']
+             ]
     if !params[:agent_id].nil?
       #### TODO: Need to fix agents quotes when verified by the vendor
       search_params = { limit: 10000, fields: 'udprn' }
@@ -132,7 +135,7 @@ class EventsController < ApplicationController
       search_params[:property_status_type] = 'Green'
       search_params[:verification_status] = true
       search_params[:ads] = params[:ads] if params[:ads] == true
-      property_ids, lead_property_ids, other_ids, udprns = []
+      property_ids = lead_property_ids = other_ids = udprns = []
       if !(params[:ads].to_s == 'true' || params[:ads].to_s == 'false')
         property_ids = Agents::Branches::AssignedAgents::Quote.where(agent_id: params[:agent_id], status: status).pluck(:property_id)
         lead_property_ids = Agents::Branches::AssignedAgents::Lead.where(agent_id: params[:agent_id].to_i).pluck(:property_id)
@@ -150,6 +153,7 @@ class EventsController < ApplicationController
       property_ids = other_ids + udprns
       Rails.logger.info(property_ids)
       response = property_ids.uniq.map { |e| Trackers::Buyer.new.push_events_details(PropertyDetails.details(e)) }
+      response = response.select{ |t| t['_source']['property_status_type'] == params[:property_status_type] } if params[:property_status_type]
     end
     render json: response, status: 200
   end
@@ -168,7 +172,7 @@ class EventsController < ApplicationController
     body, status = api.fetch_data_from_es
     # Rails.logger.info(body)
     response = body.map { |e| e['udprn'] }
-    render json: response, status: 200
+    render json: response, status: sta
   end
 
   #### When an agent click the claim to a property, the agent gets a chance to visit
@@ -176,14 +180,9 @@ class EventsController < ApplicationController
   #### for claiming.
   #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/events/property/claim/4745413' -d { "agent_id" : 1235 }
   def claim_property
-    lead = Agents::Branches::AssignedAgents::Lead.where(property_id: params[:udprn].to_i, agent_id: nil).last
-    if lead
-      lead.agent_id = params[:agent_id]
-      lead.save
-      render json: { message: 'You have claimed this property Successfully. Now survey this property within 30 days' }, status: 200
-    else
-      render json: { message: 'Sorry, this property has already been claimed' }, status: 200
-    end
+    property_service = PropertyService.new(params[:udprn].to_i)
+    message, status = property_service.claim_new_property(params[:agent_id].to_i)
+    render json: { message: message }, status: status
   end
 
 end

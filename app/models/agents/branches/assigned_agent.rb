@@ -26,7 +26,6 @@ module Agents
           sort_order: 'desc',
           sort_key: 'status_last_updated',
           district: self.branch.district,
-          verification_status: true,
           accepting_quotes: true
         }
         if search_params[:district] == "L37"
