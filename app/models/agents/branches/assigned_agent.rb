@@ -195,7 +195,7 @@ module Agents
 
           ### Picture
           new_row[:photo_url] = details['photos'][0]
-          new_row[:pictures] = property_details['pictures']
+          new_row[:pictures] = details['pictures']
 
           ### beds
           new_row[:beds] = details['beds']
