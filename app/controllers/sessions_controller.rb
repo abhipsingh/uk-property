@@ -1,5 +1,6 @@
 ### Main controller which handles the requests to show
 ### index pages and the mobile offers page
+
 class SessionsController < ApplicationController
   def create
     Rails.logger.info(params[:facebook])
@@ -34,19 +35,25 @@ class SessionsController < ApplicationController
   end
 
   ### Used to create a first time agent
-  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/register/agents/' -d '{ "agent" : { "name" : "Jackie Bing", "email" : "jackie.bing@friends.com", "mobile" : "9873628231", "password" : "1234567890", "branch_id" : 9851 } }'
+  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost:3000/register/agents/' -d '{ "agent" : { "name" : "Jackie Bing", "email" : "jackie.bing@friends.com", "mobile" : "9873628231", "password" : "1234567890", "branch_id" : 9851 } }'
   def create_agent
     agent_params = params[:agent].as_json
     agent_params.delete('company_id')
-    agent = Agents::Branches::AssignedAgent.new(agent_params)
-    agent.save!
-    command = AuthenticateUser.call(agent_params['email'], agent_params['password'], Agents::Branches::AssignedAgent)
-    agent.password = nil
-    agent.password_digest = nil
-    agent_details = agent.as_json
-    agent_details['group_id'] = agent.branch.agent.group_id
-    agent_details['company_id'] = agent.branch.agent.id
-    render json: { auth_token: command.result, details: agent_details } 
+    if Agents::Branches::AssignedAgent.exists?(email: agent_params["email"])
+      response = {"message" => "Error! Agent already registered. Please login", "status" => "FAILURE"}
+    else
+      agent = Agents::Branches::AssignedAgent.new(agent_params)
+      if agent.save
+        command = AuthenticateUser.call(agent_params['email'], agent_params['password'], Agents::Branches::AssignedAgent)
+        agent_details = agent.as_json
+        agent_details['group_id'] = agent.branch && agent.branch.agent ? agent.branch.agent.group_id : nil
+        agent_details['company_id'] = agent.branch && agent.branch.agent ? agent.branch.agent.id : nil
+        response = {"auth_token" => command.result, "details" => agent_details, "status" => "SUCCESS"}
+      else
+        response = {"message" => "Error in saving agent. Please check username and password.", "status" => "FAILURE"}
+      end
+    end    
+      render json: response
   end
 
   #### Used for login for an agent
