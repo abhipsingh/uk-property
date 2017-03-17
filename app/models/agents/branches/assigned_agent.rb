@@ -8,6 +8,7 @@ module Agents
 
       belongs_to :branch
       attr_accessor :vendor_email, :vendor_address, :email_udprn, :verification_hash
+      attr_reader :id, :name, :email, :mobile, :branch_id, :title, :office_phone_number, :mobile_phone_number, :image_url, :invited_agents, :provider, :uid
 
       ##### All recent quotes for the agent being displayed
       ##### Data being fetched from this function
@@ -308,6 +309,23 @@ module Agents
         details = PropertyDetails.details(udprn)['_source']
         self.vendor_address = details['address']
         VendorMailer.welcome_email(self).deliver_now
+      end
+
+      #add only columns relevant to the front end, change if some of these are not required.
+      def as_json options={}
+      { id: id,
+        name: name,
+        email: email,
+        mobile: mobile,
+        branch_id: branch_id,
+        title: title,
+        office_phone_number: office_phone_number,
+        mobile_phone_number: mobile_phone_number,
+        image_url: image_url,
+        invited_agents: invited_agents,
+        provider: provider,
+        uid: uid
+      }
       end
 
     end
