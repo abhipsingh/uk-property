@@ -311,22 +311,6 @@ module Agents
         VendorMailer.welcome_email(self).deliver_now
       end
 
-      #add only columns relevant to the front end, change if some of these are not required.
-      def as_json options={}
-      { id: id,
-        name: name,
-        email: email,
-        mobile: mobile,
-        branch_id: branch_id,
-        title: title,
-        office_phone_number: office_phone_number,
-        mobile_phone_number: mobile_phone_number,
-        image_url: image_url,
-        invited_agents: invited_agents,
-        provider: provider,
-        uid: uid
-      }
-      end
 
     end
   end

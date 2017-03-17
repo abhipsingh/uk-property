@@ -35,7 +35,7 @@ class SessionsController < ApplicationController
   end
 
   ### Used to create a first time agent
-  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost:3000/register/agents/' -d '{ "agent" : { "name" : "Jackie Bing", "email" : "jackie.bing@friends.com", "mobile" : "9873628231", "password" : "1234567890", "branch_id" : 9851 } }'
+  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost:8000/register/agents/' -d '{ "agent" : { "name" : "Jackie Bing", "email" : "jackie.bing@friends.com", "mobile" : "9873628231", "password" : "1234567890", "branch_id" : 9851 } }'
   def create_agent
     agent_params = params[:agent].as_json
     agent_params.delete('company_id')
@@ -45,6 +45,8 @@ class SessionsController < ApplicationController
       agent = Agents::Branches::AssignedAgent.new(agent_params)
       if agent.save
         command = AuthenticateUser.call(agent_params['email'], agent_params['password'], Agents::Branches::AssignedAgent)
+        agent.password = nil
+        agent.password_digest = nil
         agent_details = agent.as_json
         agent_details['group_id'] = agent.branch && agent.branch.agent ? agent.branch.agent.group_id : nil
         agent_details['company_id'] = agent.branch && agent.branch.agent ? agent.branch.agent.id : nil
