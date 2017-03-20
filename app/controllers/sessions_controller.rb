@@ -114,9 +114,7 @@ class SessionsController < ApplicationController
   def agent_details
     authenticate_request
     if @current_user
-      details = @current_user.as_json
-      details.delete('password')
-      details.delete('password_digest')
+      details = @current_user.details
       render json: details, status: 200
     end
   end

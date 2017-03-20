@@ -4,8 +4,8 @@ Rails.application.configure do
 
   # Code is not reloaded between requests.
   config.cache_classes = true
-  # Rails.logger = ActiveSupport::Logger.new(File.expand_path('/mnt3/rails_logs/production.log', __FILE__))
-  Rails.logger = Logger.new('log/production.log')
+  Rails.logger = ActiveSupport::Logger.new(File.expand_path('/mnt3/rails_logs/production.log', __FILE__))
+  # Rails.logger = ActiveSupport::Logger.new('log/production.log')
   # Eager load code on boot. This eager loads most of Rails and
   # your application in memory, allowing both threaded web servers
   # and those relying on copy on write to perform better.
@@ -38,5 +38,5 @@ Rails.application.configure do
   config.active_support.deprecation = :notify
 
   # Use default logging formatter so that PID and timestamp are not suppressed.
-  # config.log_formatter = ::Logger::Formatter.new
+  config.log_formatter = ::Logger::Formatter.new
 end

@@ -8,12 +8,14 @@ module Agents
 
       belongs_to :branch
       attr_accessor :vendor_email, :vendor_address, :email_udprn, :verification_hash
-      attr_reader :id, :name, :email, :mobile, :branch_id, :title, :office_phone_number, :mobile_phone_number, :image_url, :invited_agents, :provider, :uid
 
       ##### All recent quotes for the agent being displayed
       ##### Data being fetched from this function
       ##### Example run the following in irb
       ##### Agents::Branches::AssignedAgent.last.recent_properties_for_quotes
+      ### TODO: Refactoring required. Figure out a better way of dumping details of a user through a consensus
+      DETAIL_ATTRS = [:id, :name, :email, :mobile, :branch_id, :title, :office_phone_number, :mobile_phone_number, :image_url, :invited_agents, :provider, :uid]
+
       def recent_properties_for_quotes(payment_terms_params=nil, service_required_param=nil, status_param=nil, search_str=nil)
         results = []
 
@@ -311,6 +313,10 @@ module Agents
         VendorMailer.welcome_email(self).deliver_now
       end
 
+      ### TODO: Refactoring required. Figure out a better way of dumping details of a user through a consensus
+      def details
+        as_json(only: DETAIL_ATTRS)
+      end
 
     end
   end
