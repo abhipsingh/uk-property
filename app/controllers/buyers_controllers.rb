@@ -27,10 +27,7 @@ class BuyersController < ActionController::Base
 		buyer.name = params[:name] if params[:name]
 		buyer.password = params[:password] if params[:password]
 		buyer.save!
-		details = buyer.as_json
-		details.delete('password')
-		details.delete('password_digest')
-		render json: { message: 'Saved buyer successfully', details: details }, status: 201
+		render json: { message: 'Saved buyer successfully', details: buyer.as_json }, status: 201
 	end
 
 end

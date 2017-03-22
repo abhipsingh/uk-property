@@ -37,15 +37,14 @@ class SessionsController < ApplicationController
   #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/register/agents/' -d '{ "agent" : { "name" : "Jackie Bing", "email" : "jackie.bing@friends.com", "mobile" : "9873628231", "password" : "1234567890", "branch_id" : 9851 } }'
   def create_agent
     agent_params = params[:agent].as_json
-    agent_params.delete('company_id')
+    Rails.logger.info "agent params for create agent = #{agent_params.inspect}"
+    agent_params.delete('company_id') if agent_params['company_id']
     agent = Agents::Branches::AssignedAgent.new(agent_params)
     agent.save!
     command = AuthenticateUser.call(agent_params['email'], agent_params['password'], Agents::Branches::AssignedAgent)
-    agent.password = nil
-    agent.password_digest = nil
     agent_details = agent.as_json
-    agent_details['group_id'] = agent.branch.agent.group_id
-    agent_details['company_id'] = agent.branch.agent.id
+    agent_details['group_id'] = agent.branch.agent.group_id if agent.branch
+    agent_details['company_id'] = agent.branch.agent.id if agent.branch
     render json: { auth_token: command.result, details: agent_details } 
   end
 
@@ -62,7 +61,6 @@ class SessionsController < ApplicationController
   def create_vendor
     vendor_params = params[:vendor].as_json
     vendor_params['name'] = '' if vendor_params['name']
-    hash_value = vendor_params["hash_value"]
     vendor_params.delete("hash_value")
     vendor = Vendor.new(vendor_params)
     vendor.save!
@@ -74,13 +72,10 @@ class SessionsController < ApplicationController
     vendor.buyer_id = buyer.id
     vendor.save!
     command = AuthenticateUser.call(vendor_params['email'], vendor_params['password'], Vendor)
-    vendor.password = nil
-    vendor.password_digest = nil
-    vendor_details = vendor.as_json
-    render json: { auth_token: command.result, details: vendor_details } 
+    render json: { auth_token: command.result, details: vendor.as_json } 
   end
 
-  #### Used for login for an agent
+  #### Used for login for a vendor
   #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/login/vendors/' -d '{ "vendor" : { "email" : "jackie.bing1@friends.com","password" : "1234567890" } }'
   def login_vendor
     vendor_params = params[:vendor].as_json
@@ -93,10 +88,7 @@ class SessionsController < ApplicationController
   def vendor_details
     authenticate_request('Vendor')
     if @current_user
-      details = @current_user.as_json
-      details.delete('password')
-      details.delete('password_digest')
-      render json: details, status: 200
+      render json: @current_user.as_json, status: 200
     end
   end
 
@@ -127,9 +119,11 @@ class SessionsController < ApplicationController
     email = params[:email]
     salt_str = email
     verification_hash = BCrypt::Password.create salt_str
-    email = 'test@prophety.co.uk'
+  
     VerificationHash.create(hash_value: verification_hash, email: email, entity_type: 'PropertyBuyer')
     email_link = 'http://prophety.herokuapp.com/auth?verification_hash=' + verification_hash  + '&user_type=Buyer'
+
+    email = 'test@prophety.co.uk'
     params_hash = { verification_hash: verification_hash, email: email, link: email_link }
     UserMailer.signup_email(params_hash).deliver_now
     render json: { message:  'Please check your email id and click on the link sent'}, status: 200
@@ -141,8 +135,8 @@ class SessionsController < ApplicationController
     email = params[:email]
     salt_str = email
     verification_hash = BCrypt::Password.create salt_str
-    email = 'test@prophety.co.uk'
     VerificationHash.create(hash_value: verification_hash, email: email, entity_type: 'Vendor')
+    email = 'test@prophety.co.uk'
     email_link = 'http://prophety.herokuapp.com/auth?verification_hash=' + verification_hash + '&user_type=Vendor'
     params_hash = { verification_hash: verification_hash, email: email, link: email_link }
     VendorMailer.signup_email(params_hash).deliver_now
@@ -167,10 +161,7 @@ class SessionsController < ApplicationController
     buyer_params.delete("hash_value")
     buyer = PropertyBuyer.new(buyer_params)
     if buyer.save!
-      details = buyer.as_json
-      details.delete('password')
-      details.delete('password_digest')
-      render json: { message: 'New buyer created', details: details }, status: 200
+      render json: { message: 'New buyer created', details: buyer.as_json }, status: 200
     else
       render json: { message: 'Buyer creation failed', errors: buyer.errors }, status: 400
     end
@@ -189,10 +180,7 @@ class SessionsController < ApplicationController
   def buyer_details
     authenticate_request('Buyer')
     if @current_user
-      details = @current_user.as_json
-      details.delete('password')
-      details.delete('password_digest')
-      render json: details, status: 200
+      render json: @current_user.as_json, status: 200
     end
   end
 

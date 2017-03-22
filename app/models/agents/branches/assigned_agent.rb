@@ -310,6 +310,9 @@ module Agents
         VendorMailer.welcome_email(self).deliver_now
       end
 
+      def as_json option = {}
+        super(:except => [:password, :password_digest])
+      end
     end
   end
 end
