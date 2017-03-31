@@ -13,6 +13,9 @@ module Agents
       ##### Data being fetched from this function
       ##### Example run the following in irb
       ##### Agents::Branches::AssignedAgent.last.recent_properties_for_quotes
+      ### TODO: Refactoring required. Figure out a better way of dumping details of a user through a consensus
+      DETAIL_ATTRS = [:id, :name, :email, :mobile, :branch_id, :title, :office_phone_number, :mobile_phone_number, :image_url, :invited_agents, :provider, :uid]
+
       def recent_properties_for_quotes(payment_terms_params=nil, service_required_param=nil, status_param=nil, search_str=nil)
         results = []
 
@@ -193,7 +196,7 @@ module Agents
 
           ### Picture
           new_row[:photo_url] = details['photos'][0]
-          new_row[:pictures] = property_details['pictures']
+          new_row[:pictures] = details['pictures']
 
           ### beds
           new_row[:beds] = details['beds']
@@ -312,6 +315,11 @@ module Agents
       def as_json option = {}
         super(:except => [:password, :password_digest])
       end
+      ### TODO: Refactoring required. Figure out a better way of dumping details of a user through a consensus
+      def details
+        as_json(only: DETAIL_ATTRS)
+      end
+
     end
   end
 end

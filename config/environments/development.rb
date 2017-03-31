@@ -8,6 +8,8 @@ Rails.application.configure do
   config.cache_classes = false
   Rails.logger = Logger.new('log/development.log')
 
+  Rails.logger = Logger.new('log/development.log')
+
   # Do not eager load code on boot.
   config.eager_load = false
 
