@@ -337,6 +337,8 @@ class MatrixViewController < ActionController::Base
     if post_code.is_a?(Array)
       post_code = post_code.first
     end
+    
+    area, district, sector, unit = compute_postcode_units(post_code)
 
     Rails.logger.info("FIRST_TYPE___#{first_type}")
     if first_type == 'county'
@@ -434,19 +436,20 @@ class MatrixViewController < ActionController::Base
     elsif first_type == 'dependent_locality' || first_type == 'double_dependent_locality'
       area = post_code.split(' ')[0].match(/([A-Z]{0,3})([0-9]{0,3})/)[1]
       district = post_code.split(' ')[0]
+
       # insert_terms_aggs(aggs, 'sector')
       # inner_aggs = insert_terms_aggs({}, 'dependent_thoroughfare_description')
       # aggs['sector_aggs']['aggs'] = inner_aggs
       insert_term_filters(filters, 'hashes', hash_value)
 
       append_filtered_aggs(aggs, 'district', 'area', area)
-      append_nested_filtered_aggs(aggs, 'dependent_locality', 'area', area, 'district')
-      append_nested_filtered_aggs(aggs, 'unit', 'district', district, 'sector')
-      append_nested_filtered_aggs(aggs, 'sector', 'area', area, 'district')
+      append_nested_filtered_aggs(aggs, 'dependent_locality', 'district', district, 'district')
+      append_nested_filtered_aggs(aggs, 'unit', 'sector', sector, 'sector')
+      append_nested_filtered_aggs(aggs, 'sector', 'district', district, 'district')
       append_filtered_aggs(aggs, 'post_town', 'area', area)
       append_filtered_aggs(aggs, 'area', 'area', area)
       append_filtered_aggs(aggs, 'county', 'area', area)
-      append_nested_filtered_aggs(aggs, 'dependent_thoroughfare_description', 'district', district, 'sector')
+      append_nested_filtered_aggs(aggs, 'dependent_thoroughfare_description', 'sector', sector, 'sector')
       # p filtered_inner_aggs
       # insert_global_aggs(aggs, first_type, append_filtered_aggs({}, first_type, 'area', area, filtered_inner_aggs))
       query[:size] = 1
@@ -513,15 +516,15 @@ class MatrixViewController < ActionController::Base
       sector_unit = post_code.split(' ')[1]
       insert_term_filters(filters, 'hashes', hash_value)
       area = district.match(/([A-Z]{0,3})([0-9]{0,3})/)[1]
-      sector = sector_unit.match(/([0-9]{0,3})([A-Z]{0,3})/)[1]
+      # sector = sector_unit.match(/([0-9]{0,3})([A-Z]{0,3})/)[1]
       append_filtered_aggs(aggs, 'district', 'area', area)
-      append_nested_filtered_aggs(aggs, 'dependent_locality', 'area', area, 'district')
-      append_nested_filtered_aggs(aggs, 'unit', 'district', district, 'sector')
-      append_nested_filtered_aggs(aggs, 'sector', 'area', area, 'district')
+      append_nested_filtered_aggs(aggs, 'dependent_locality', 'district', district, 'district')
+      append_nested_filtered_aggs(aggs, 'unit', 'sector', sector, 'sector')
+      append_nested_filtered_aggs(aggs, 'sector', 'district', district, 'district')
       append_filtered_aggs(aggs, 'post_town', 'area', area)
       append_filtered_aggs(aggs, 'area', 'area', area)
       append_filtered_aggs(aggs, 'county', 'area', area)
-      append_nested_filtered_aggs(aggs, first_type, 'district', district, 'sector')
+      append_nested_filtered_aggs(aggs, first_type, 'sector', sector, 'sector')
       query[:size] = 1
       query[:aggs] = aggs
       query[:filter] = filters
@@ -529,7 +532,8 @@ class MatrixViewController < ActionController::Base
       response = Oj.load(body).with_indifferent_access
       response_hash = Hash.new { [] }
       response_hash[:type] = first_type
-      response_hash[:dependent_thoroughfare_descriptions] = []
+      response_hash['dependent_thoroughfare_descriptions'] = []
+      response_hash['thoroughfare_descriptions'] = []
       Rails.logger.info("RESPONSE_#{response}")
       Rails.logger.info("QUERY_#{query}")
       # begin
@@ -920,6 +924,16 @@ class MatrixViewController < ActionController::Base
       response_hash[:area] = response[:hits][:hits].first[:_source][:area]
     end
     return body, status    
+  end
+
+  def compute_postcode_units(postcode)
+    district_part, sector_part = postcode.split(' ')
+    area = district_part.match(/([A-Z]{0,3})([0-9]{0,3})/)[1]
+    district = district_part
+    sector_half = sector_part.match(/([0-9]{0,3})([A-Z]{0,3})/)[1]
+    sector = district + ' ' + sector_half
+    unit = postcode
+    return area, district, sector, unit
   end
 
   def insert_terms_aggs(aggs, term)

@@ -1,7 +1,9 @@
 class VendorApi
   attr_accessor :udprn, :branch_id, :agent_id, :vendor_id
 
+  ### TODO: Put this in a config
   INFLATION_RATE = 2.5
+
   def initialize(udprn, branch_id = nil, vendor_id=nil)
     @udprn ||= udprn
     @branch_id ||= branch_id
@@ -10,7 +12,7 @@ class VendorApi
 
   #### Called by the pricing api to fetch pricing information about the udprn
   #### Example VendorApi.new('10966139').calculate_valuations
-  #### TODO remove udprn hardcoding
+  #### TODO: remove udprn hardcoding
   def calculate_valuations
     historical_details = PropertyHistoricalDetail.where(udprn: @udprn).order(:date)
     sale_info = []
@@ -62,7 +64,7 @@ class VendorApi
 
     dream_price_info = calculate_price_info(dream_price, sale_info.last, sale_info.first)
     valuation_info = calculate_price_info(current_valuation, sale_info.last, sale_info.first)
-    {sale_info: sale_info, dream_price_info: dream_price_info, valuation_info: valuation_info}
+    { sale_info: sale_info, dream_price_info: dream_price_info, valuation_info: valuation_info }
   end
 
   def calculate_quotes
