@@ -41,6 +41,7 @@ module TestApp
       enable_starttls_auto: true  
     }
 
+
     config.action_mailer.preview_path = '/app/mailers/previews'
     
   end

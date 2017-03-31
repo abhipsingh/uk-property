@@ -72,9 +72,15 @@ class MatrixViewController < ActionController::Base
   end
 
   def predictive_search
-    str = params[:str].gsub(',',' ').downcase
+    regexes = [ /^([A-Z]{1,2})([0-9]{0,3})$/, /^([0-9]{1,2})([A-Z]{0,3})$/]
+    str = nil
+    if check_if_postcode?(params[:str].upcase, regexes)
+      str = params[:str].upcase
+    else
+      str = params[:str].gsub(',',' ').downcase
+    end
     results, code = get_results_from_es_suggest(str, 50)
-    Rails.logger.info(results)
+    #Rails.logger.info(results)
     predictions = [ ]
     predictions = Oj.load(results)['postcode_suggest'].map { |e| e['options'].map{ |t| { hash: t['payload']['hash'], output: t['payload']['hierarchy_str'].split('|').join(', ') } } }.flatten if Oj.load(results)['postcode_suggest']
     render json: predictions, status: code
