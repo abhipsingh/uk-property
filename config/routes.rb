@@ -48,6 +48,9 @@ Rails.application.routes.draw do
 
   ### Get all properties quicklinks for the queried agent_id, or branch or group or company id
   get 'agents/properties',                   to: 'events#detailed_properties'
+
+  ### Request to unsubscribe a buyer for a particular event for a udprn
+  get 'events/unsubscribe',                   to: 'events#unsubscribe'
   #####################################################################
   #####################################################################
   #####################################################################
@@ -296,6 +299,9 @@ Rails.application.routes.draw do
 
       ### verify info about the properties which invited the vendor who is registering to verify
       get 'properties/details/:property_id',         to: 'property_search#details'
+
+      ### Predict the locations and tag those locations with their type
+      get 'locations/predict',                       to: 'locations_search#predict'
     end
   end
   post 'buyers/new/search',                       to: 'property_users/searches#new_saved_search'

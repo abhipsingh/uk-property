@@ -143,7 +143,7 @@ class Trackers::Buyer
 
       #### Enquiries
       total_enquiries = generic_event_count(ENQUIRY_EVENTS, nil, udprn, :multiple)
-      buyer_enquiries = generic_event_count_buyer(ENQUIRY_EVENTS, nil, udprn, each_row.buyer_id, :multiple)
+      buyer_enquiries = generic_event_count_buyer(ENQUIRY_EVENTS, nil, udprn, each_row.buyer_id)
       new_row[:enquiries] = buyer_enquiries.to_i.to_s + '/' + total_enquiries.to_i.to_s
 
       #### Type of match
@@ -264,6 +264,7 @@ class Trackers::Buyer
   def push_property_details(new_row, details)
     new_row[:address] = PropertyDetails.address(details)
     new_row[:image_url] = details['photos'][0]
+    new_row[:pictures] = details['pictures']
     new_row[:verification_status] = details['verification_status']
     if details['verification_status'] == 'Green'
       keys = ['asking_price', 'offers_price', 'fixed_price']
@@ -1231,11 +1232,11 @@ class Trackers::Buyer
   end
 
   def get_emails_of_buyer_trackers udprn
-    Event.where(udprn: udprn).where(event: TRACKING_EVENTS.map { |e| EVENTS[e] }).select("buyer_name, buyer_email, created_at").as_json
+    Event.where(udprn: udprn).where(event: TRACKING_EVENTS.map { |e| EVENTS[e] }).select("buyer_name, buyer_email, created_at, buyer_id, event").as_json
   end
 
   def get_emails_of_buyer_enquiries udprn
-    Event.where(udprn: udprn).where(event: ENQUIRY_EVENTS.map { |e| EVENTS[e] }).select("buyer_name, buyer_email, created_at").as_json
+    Event.where(udprn: udprn).where(event: ENQUIRY_EVENTS.map { |e| EVENTS[e] }).select("buyer_name, buyer_email, created_at, buyer_id, event").as_json
   end
 
   private

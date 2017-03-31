@@ -16,19 +16,20 @@ module Api
     class PropertySearchController < ActionController::Base
       include EventsHelper
       def search
-        response = Hash.new
         api = ::PropertySearchApi.new(filtered_params: params)
         result, status = api.filter
         result = result[:results].sort_by{|t| t[:score]}.reverse
         result = result.each{|t| t[:photo_urls] = [] }
         #Rails.logger.info(result)
-        result.first[:breadcrumb] = params[:hash_str].split('_').join(', ')
+        ## TODO - Confirm this
+        # result.first[:breadcrumb] = params[:hash_str].split('_').join(', ')
         insert_new_search 
         render :json => result, :status => status
       end
 
       ### curl -XGET 'http://localhost/api/v0/properties/matching/count?hash_str=LIVERPOOL&hash_type=Text&count=true'
       def matching_property_count
+        ## hash_str compulsory?
         api = ::PropertySearchApi.new(filtered_params: params)
         result, status = api.matching_property_count
         render :json => result, :status => status
@@ -51,6 +52,7 @@ module Api
         saved_flag = true
         messages = [],
         searches = nil
+        ## if search hash is not validated or email id is not found then saved flag should be false?
         PropertyBuyer.where(email_id: params[:email_id]).each do |property_buyer|
           searches = property_buyer.searches
           new_search_hash = params[:new_search]
@@ -69,7 +71,7 @@ module Api
       end
 
       def show_save_searches
-        searches, name, email_id = nil
+        searches, name, email_id = nil, nil, nil
         PropertyBuyer.where(email_id: params[:email_id]).select([:email_id, :name, :searches]).each do |property_buyer|
           searches = property_buyer.searches
           name = property_buyer.name

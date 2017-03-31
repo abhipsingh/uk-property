@@ -372,8 +372,6 @@ class AgentsController < ApplicationController
     end
   end
 
-
-
   def test_view
     render "test_view"
   end

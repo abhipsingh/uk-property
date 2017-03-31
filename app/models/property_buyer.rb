@@ -49,4 +49,8 @@ class PropertyBuyer < ActiveRecord::Base
       user.save!
     end
   end
+
+  def as_json option = {}
+    super(:except => [:password, :password_digest])
+  end
 end

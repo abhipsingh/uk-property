@@ -9,7 +9,7 @@ class PropertySearchApi
   ES_EC2_HOST = Rails.configuration.remote_es_host
   FIELDS = {
     terms: [ :property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :keyword_types, :udprns, :vendor_ids, :postcodes, :post_codes ],
-    term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :council_tax_band, :verification, :property_style, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status, :agent_id, :district, :udprn, :vendor_id, :postcode, :district, :sector, :unit, :vendor_id, :building_name, :building_number, :sub_building_name, :post_code, :ads, :accepting_quotes ],
+    term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :council_tax_band, :verification, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status, :agent_id, :district, :udprn, :vendor_id, :postcode, :sector, :unit, :building_name, :building_number, :sub_building_name, :post_code, :ads, :accepting_quotes ],
     range: [ :cost_per_month, :date_added, :floors, :year_built, :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, :time_frame, :beds, :baths, :receptions, :current_valuation, :dream_price ],
   }
 
@@ -115,7 +115,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
 
   def initialize(options={})
     # index = options[:index] || 'property_details'
-    client = Elasticsearch::Client.new url: options[:url], log: options[:log]
+    # client = Elasticsearch::Client.new url: options[:url], log: options[:log]
     @filtered_params = options[:filtered_params].symbolize_keys
     @query = self.class.append_empty_hash
     @query = options[:query] if @is_query_custom == true
@@ -131,13 +131,12 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     inst = inst.append_term_filters
     inst = inst.append_range_filters
     inst = inst.append_sort_filters
-    inst
+    # inst
     Rails.logger.info(inst.query)
   end
 
   def filter
     inst = self
-    inst.append_pagination_filter
     modify_filtered_params
     append_premium_or_featured_filter
     inst.apply_filters
@@ -148,8 +147,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
 
   def adjust_size
     if @filtered_params.has_key?(:limit)
-      @filtered_params[:limit].to_i < 1000 ? limit = @filtered_params[:limit] : limit = 1000
-      @query[:size] = 1000000
+      @query[:size] = [@filtered_params[:limit], 1000].min
     elsif @filtered_params.has_key?(:count) && @filtered_params[:count] == 'true'
       @query[:size] = 0
     end
@@ -166,14 +164,14 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     # Rails.logger.info(inst.query)
     body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name)
     body = Oj.load(body)['hits']['hits'].map do |t|
-      t['_source']['score'] = t['matched_queries'].count
+      ## TODO - Confirm this
+      # t['_source']['score'] = t['matched_queries'].count
       t['_source']
     end
     return body, status
   end
 
   def modify_query
-    inst = self
     if @filtered_params.has_key?(:match_type)
       type_of_match = @filtered_params[:match_type]
       modify_type_of_match_query(type_of_match)
@@ -360,22 +358,22 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
   def self.index_es_records(scroll_id)
     start_date = 3.months.ago
     ending_date = 4.hours.ago
-    years = (1955..2015).step(10).to_a
+    # years = (1955..2015).step(10).to_a
     time_frame_years = (2004..2016).step(1).to_a
-    days = (1..24).to_a
+    # days = (1..24).to_a
     body = []
     client = Elasticsearch::Client.new host: ES_EC2_HOST
     characters = (1..10).to_a
     alphabets = ('A'..'Z').to_a
-    addresses = get_bulk_addresses
+    # addresses = get_bulk_addresses
     names = Agent.last(10).map{ |t| t.name }
-    google_api_crawler = GoogleApiCrawler.new
+    # google_api_crawler = GoogleApiCrawler.new
     scroll_id = scroll_id
     glob_counter = 0
     loop do
-      get_records_url = ES_EC2_URL + '/_search/scroll'
+      # get_records_url = ES_EC2_URL + '/_search/scroll'
       scroll_hash = { scroll: '30m', scroll_id: scroll_id }
-      response , status = post_url_new(scroll_hash)
+      response , _status = post_url_new(scroll_hash)
       udprns = JSON.parse(response)["hits"]["hits"].map { |t| t['_source']['udprn']  }
       response_arr = Oj.load(response)['hits']['hits'].map { |e| e['_source'] }
       break if udprns.length == 0

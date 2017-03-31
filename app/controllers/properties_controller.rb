@@ -1,22 +1,22 @@
-### Base controller
 class PropertiesController < ActionController::Base
   #### Edit property url
   #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/properties/10966139/edit/details' -d '{ "details" : { "property_type" : "Terraced House", "beds" : 3, "baths" : 2, "receptions" : 2, "property_status_type" : "Green", "property_style" : "Period", "tenure" : "Freehold", "floors" : 2, "listed_status" : "Grade 1", "year_built" : "2011-01-01", "central_heating" : "Partial", "parking_type" : "Single garage", "outside_space_type" : "Private garden", "additional_features" : ["Attractive views", "Fireplace"], "decorative_condition" : "Newly refurbished", "council_tax_band" : "A", "lighting_cost" : 120, "lighting_cost_unit_type" : "month", "heating_cost": 100, "heating_cost_unit_type" : "month", "hot_water_cost" : 200, "hot_water_cost_unit_type" : "month", "annual_ground_water_cost" : 1100, "annual_service_charge" : 200, "resident_parking_cost" : 1200, "other_costs" : [{ "name" : "Cost 1", "value" : 200, "unit_type" : "month" } ], "improvement_types" : [ { "name" : "Total refurbishment", "value" : 200, "date": "2016-06-01" }  ], "current_valuation" : 32000, "dream_price" : 42000, "rental_price" : 1000, "floorplan_url" : "some random url", "pictures" : [{"category" : "Front", "url" : "random url" }, { "category" : "Garden", "url" : "Some random url" } ], "property_brochure_url" : "some random url", "video_walkthrough_url" : "some random url", "property_sold_status" : "Under offer", "agreed_sale_value" : 37000, "expected_completion_date" : "2017-03-13", "actual_completion_date" : "2017-04-01", "new_owner_email_id" : "a@b.com" , "vendor_address" : "Some address" } }'
-  #### TODO:
+  #### TODO: Validations
   def edit_property_details
     udprn = params[:udprn].to_i
     details = params[:details]
     client = Elasticsearch::Client.new(host: Rails.configuration.remote_es_host)
     update_hash = {}
     attributes = [
-                  :property_type, :beds, :baths, :receptions, :property_style, :tenure, :floors, :listed_status, 
+                  :property_type, :beds, :baths, :receptions, :property_style, :tenure, :floors, :listed_status,
                   :year_built, :central_heating, :parking_type, :outside_space_type, :additional_features, :decorative_condition,
                   :council_tax_band, :lighting_cost, :lighting_cost_unit_type, :heating_cost, :heating_cost_unit_type,
                   :hot_water_cost, :hot_water_cost_unit_type, :annual_ground_water_cost, :annual_service_charge,
                   :resident_parking_cost, :other_costs, :total_cost_per_month, :total_cost_per_year, :improvement_types, :dream_price,
                   :current_valuation, :floorplan_url, :pictures, :property_sold_status, :agreed_sale_value,
                   :expected_completion_date, :actual_completion_date, :new_owner_email_id, :vendor_address, :property_status_type,
-                  :inner_area, :outer_area, :property_brochure_url, :video_walkthrough_url, :offers_over, :asking_price, :fixed_price
+                  :inner_area, :outer_area, :property_brochure_url, :video_walkthrough_url, :dream_price, :asking_price, :offers_price,
+                  :fixed_price, :offers_over, :area_type
                 ]
 
     attributes.each do |attribute|

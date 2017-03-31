@@ -79,10 +79,7 @@ class VendorsController < ApplicationController
       vendor.password = vendor_params[:password] if vendor_params[:password]
       vendor.image_url = vendor_params[:image_url] if vendor_params[:image_url]
       if vendor.save
-        details = vendor.as_json
-        details.delete('password')
-        details.delete('password_digest')
-        render json: { message: 'Vendor successfully updated', details:  details }, status: 200
+        render json: { message: 'Vendor successfully updated', details:  vendor.as_json }, status: 200
       else
         render json: { message: 'Vendor not able to update' }, status: 400
       end
