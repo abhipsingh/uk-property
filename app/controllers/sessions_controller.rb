@@ -134,7 +134,6 @@ class SessionsController < ApplicationController
     email = params[:email]
     salt_str = email
     verification_hash = BCrypt::Password.create salt_str
-    email = 'test@prophety.co.uk'
     VerificationHash.create(hash_value: verification_hash, email: email, entity_type: 'PropertyBuyer')
     email_link = 'http://prophety.herokuapp.com/auth?verification_hash=' + verification_hash  + '&user_type=Buyer'
     params_hash = { verification_hash: verification_hash, email: email, link: email_link }
@@ -148,7 +147,6 @@ class SessionsController < ApplicationController
     email = params[:email]
     salt_str = email
     verification_hash = BCrypt::Password.create salt_str
-    email = 'test@prophety.co.uk'
     VerificationHash.create(hash_value: verification_hash, email: email, entity_type: 'Vendor')
     email_link = 'http://prophety.herokuapp.com/auth?verification_hash=' + verification_hash + '&user_type=Vendor'
     params_hash = { verification_hash: verification_hash, email: email, link: email_link }

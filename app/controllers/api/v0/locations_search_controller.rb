@@ -17,8 +17,15 @@ module Api
       ### Autosuggest api (the new one)
       ### curl -XGET http://localhost/api/v0/locations/predict?str=liv
       def predict
-        suggestions, status = get_results_from_es_suggest(params[:str])
-        #Rails.logger.info(suggestions)
+        regexes = [ /^([A-Z]{1,2})([0-9]{0,3})$/, /^([0-9]{1,2})([A-Z]{0,3})$/]
+        str = nil
+        if check_if_postcode?(params[:str].upcase, regexes)
+          str = params[:str].upcase
+        else
+          str = params[:str].gsub(',',' ').downcase
+        end
+        suggestions, status = get_results_from_es_suggest(str)
+        Rails.logger.info(suggestions)
         predictions = [ ]
         predictions = Oj.load(suggestions)['postcode_suggest'].map { |e| e['options'].map{ |t| { hash: t['payload']['hash'], output: t['payload']['hierarchy_str'].split('|').join(', '), location_type: t['payload']['type'] } } }.flatten if Oj.load(suggestions)['postcode_suggest']
         #Rails.logger.info(predictions)
@@ -39,6 +46,10 @@ module Api
         res, code = post_url('locations', query_str)
       end
 
+      def check_if_postcode?(str, regexes)
+        str.split(" ").each_with_index.all?{|i, ind| i.match(regexes[ind]) }
+      end
+      
       def post_url(index, query = {}, type='_suggest', host='localhost')
         uri = URI.parse(URI.encode("#{ES_EC2_URL}/#{index}/#{type}")) if host != 'localhost'
         uri = URI.parse(URI.encode("http://#{host}:9200/#{index}/#{type}")) if host == 'localhost'

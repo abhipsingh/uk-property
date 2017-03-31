@@ -373,7 +373,8 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     addresses = get_bulk_addresses
     names = Agent.last(10).map{ |t| t.name }
     google_api_crawler = GoogleApiCrawler.new
-    scroll_id = "cXVlcnlUaGVuRmV0Y2g7NTs3MjExOjFvR2Z2bVo0U3QtcHJTRkZnU0F5dkE7NzIxNDoxb0dmdm1aNFN0LXByU0ZGZ1NBeXZBOzcyMTU6MW9HZnZtWjRTdC1wclNGRmdTQXl2QTs3MjEyOjFvR2Z2bVo0U3QtcHJTRkZnU0F5dkE7NzIxMzoxb0dmdm1aNFN0LXByU0ZGZ1NBeXZBOzA7"
+    scroll_id = 'cXVlcnlUaGVuRmV0Y2g7NTs0MjU3Nzoxb0dmdm1aNFN0LXByU0ZGZ1NBeXZBOzQyNTc2OjFvR2Z2bVo0U3QtcHJTRkZnU0F5dkE7NDI1Nzk6MW9HZnZtWjRTdC1wclNGRmdTQXl2QTs0MjU3ODoxb0dmdm1aNFN0LXByU0ZGZ1NBeXZBOzQyNTgwOjFvR2Z2bVo0U3QtcHJTRkZnU0F5dkE7MDs='
+
     glob_counter = 0
     loop do
       get_records_url = ES_EC2_URL + '/_search/scroll'
@@ -386,9 +387,23 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
       body = []
       udprns.each_with_index do |udprn, index|
         doc = {}
-        doc[:property_status_type] = 'Unknown'
-        # hash_value = response_arr[index]['hashes'].last
-        # building_text = "";
+        # doc[:property_status_type] = 'Unknown'
+        # p response_arr[index]
+       # building_text = "";
+        hashes = response_arr[index]['hashes']
+        district = response_arr[index]['district']
+        sector = response_arr[index]['sector']
+        unit = response_arr[index]['unit']
+        sector = district + " " + sector.split(district).last 
+        unit = district + " " + unit.split(district).last 
+        extra_attrs = [ response_arr[index]['district'], sector, unit ]
+        new_hashes = hashes + extra_attrs
+        doc['hashes'] = new_hashes
+
+        match_type_strs = response_arr[index]['match_type_str']
+        extra_attrs_match_type = extra_attrs.map { |e| e.to_s+'|Normal' }
+        normal_attrs = doc['hashes'].map { |e| e.to_s+'|Normal'  }
+        doc['match_type_str'] = normal_attrs
         # building_text = building_text + response_arr[index]['building_number'] + " " if response_arr[index]['building_number']
         # building_text = building_text + response_arr[index]['building_name'] + " " if response_arr[index]['building_name']
         # building_text = building_text + response_arr[index]['sub_building_name'] + " " if response_arr[index]['sub_building_name']
@@ -458,8 +473,8 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
         body.push({ update:  { _index: Rails.configuration.address_index_name, _type: 'address', _id: udprn, data: { doc: doc } }})
       end
       response = client.bulk body: body unless body.empty?
-      p response['items'].first
-      p "#{glob_counter} pASS completed"
+      # p response['items'].first
+      p "#{glob_counter} pASS completed for #{body.count} ITEMS"
       glob_counter += 1
     end
   end
