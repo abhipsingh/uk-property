@@ -5,7 +5,7 @@ Rails.application.configure do
   # Code is not reloaded between requests.
   config.cache_classes = true
   Rails.logger = ActiveSupport::Logger.new(File.expand_path('/mnt3/rails_logs/production.log', __FILE__))
-
+  # Rails.logger = ActiveSupport::Logger.new('log/production.log')
   # Eager load code on boot. This eager loads most of Rails and
   # your application in memory, allowing both threaded web servers
   # and those relying on copy on write to perform better.

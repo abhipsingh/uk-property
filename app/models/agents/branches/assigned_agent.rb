@@ -13,6 +13,9 @@ module Agents
       ##### Data being fetched from this function
       ##### Example run the following in irb
       ##### Agents::Branches::AssignedAgent.last.recent_properties_for_quotes
+      ### TODO: Refactoring required. Figure out a better way of dumping details of a user through a consensus
+      DETAIL_ATTRS = [:id, :name, :email, :mobile, :branch_id, :title, :office_phone_number, :mobile_phone_number, :image_url, :invited_agents, :provider, :uid]
+
       def recent_properties_for_quotes(payment_terms_params=nil, service_required_param=nil, status_param=nil, search_str=nil)
         results = []
 
@@ -39,7 +42,6 @@ module Agents
 
         body, status = api.fetch_data_from_es
         Rails.logger.info(body)
-        #body = body.sort_by{ |t| t['status_last_updated'] }.reverse
         if status.to_i == 200
           body.each do |property_details|
             next if property_details['assigned_agent_quote'] && property_details['assigned_agent_quote'] == true && property_details['agent_id'] && property_details['agent_id'] != self.id
@@ -72,6 +74,7 @@ module Agents
             new_row[:activated_on] = property_details['status_last_updated']
             new_row[:type] = 'SALE'
             new_row[:photo_url] = property_details['photos'][0]
+            new_row[:pictures] = property_details['pictures']
             new_row[:street_view_url] = property_details['street_view_image_url']
             new_row[:address] = PropertyDetails.address(property_details)
             new_row[:claimed_on] = property_details['claimed_at']
@@ -125,7 +128,7 @@ module Agents
             if winning_quote
               new_row[:winning_agent] = winning_quote.agent.name
               new_row[:quote_price] = winning_quote.compute_price
-              new_row[:deadline] = winning_quote.created_at.to_s 
+              new_row[:deadline] = winning_quote.created_at.to_s
               new_row[:quote_accepted] = true
             else
               new_row[:winning_quote] = nil
@@ -145,7 +148,7 @@ module Agents
       ##### All leads for agents will be fetched using this method
       #### To try this in console
       #### Agents::Branches::AssignedAgent.last.recent_properties_for_claim
-      #### New properties udprns for testing 
+      #### New properties udprns for testing
       #### 4745413, 4745410, 4745409, 4745408, 4745399
       #### To test this function, create the following lead.
       #### Agents::Branches::AssignedAgents::Lead.create(district: "CH45", property_id: 4745413, vendor_id: 1)
@@ -163,7 +166,7 @@ module Agents
           query = query.where.not(agent_id: self.id).where.not(agent_id: nil)
         end
         leads = query.order('created_at DESC').limit(20)
-        
+
         results = []
 
         leads.each do |lead|
@@ -194,6 +197,7 @@ module Agents
 
           ### Picture
           new_row[:photo_url] = details['photos'][0]
+          new_row[:pictures] = details['pictures']
 
           ### beds
           new_row[:beds] = details['beds']
@@ -256,11 +260,11 @@ module Agents
 
           ### Verified or not
           if new_row[:status] == 'Won'
-            
+
           end
 
           results.push(new_row)
-            
+
         end
 
         results
@@ -307,6 +311,11 @@ module Agents
         details = PropertyDetails.details(udprn)['_source']
         self.vendor_address = details['address']
         VendorMailer.welcome_email(self).deliver_now
+      end
+
+      ### TODO: Refactoring required. Figure out a better way of dumping details of a user through a consensus
+      def details
+        as_json(only: DETAIL_ATTRS)
       end
 
     end

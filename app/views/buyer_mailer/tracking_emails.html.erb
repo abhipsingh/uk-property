@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta content='text/html; charset=UTF-8' http-equiv='Content-Type' />
+  </head>
+  <body>
+    <h5>Hi <%= @tracking_buyer["buyer_name"] %></h5>
+    <h5>Start Tracking</h5>
+    <h6>You started tracking <%= @udprn_address =%> on <%= @tracking_buyer["created_at"] =%>. The owner of the property has changed the status from <%= @last_property_status_type =%> to <%= @new_property_status_type =%>. <h6>
+    <a href= <%= @unsubscribe_link =%>>Unsubscribe</a>
+  </body>
+</html>
+
