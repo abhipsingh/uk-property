@@ -170,7 +170,7 @@ module Api
 
         ################## Terms Tests #####################
         ## Property types
-        get :search, {property_types: "bungalow"}
+        get :search, {property_types: "Bungalow"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response[0]["property_type"], "Bungalow"
@@ -181,29 +181,29 @@ module Api
         assert_equal response.length, 0
 
         ## monitoring types
-        get :search, {monitoring_types: "no"}
+        get :search, {monitoring_types: "No"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response[0]["monitoring_type"], "No"
 
-        get :search, {monitoring_types: "yes"}
+        get :search, {monitoring_types: "Yes"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response.length, 0
 
         ## property status types
-        get :search, {property_status_types: "green"}
+        get :search, {property_status_types: "Green"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response[0]["property_status_type"], "Green"
 
-        get :search, {property_status_types: "amber"}
+        get :search, {property_status_types: "Amber"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response.length, 0
 
         ## parking types
-        get :search, {parking_types: "underground"}
+        get :search, {parking_types: "Underground"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response[0]["parking_type"], "Underground"
@@ -214,12 +214,12 @@ module Api
         assert_equal response.length, 0
 
         ## outside space type
-        get :search, {outside_space_types: "terrace"}
+        get :search, {outside_space_types: "Terrace"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response[0]["outside_space_type"], "Terrace"
 
-        get :search, {outside_space_types: "private garden"}
+        get :search, {outside_space_types: "Private garden"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response.length, 0
@@ -239,67 +239,67 @@ module Api
         ################## Term Tests #####################
 
         ## tenure
-        get :search, {tenure: "freehold"}
+        get :search, {tenure: "Freehold"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response[0]["tenure"], "Freehold"
 
-        get :search, {tenure: "leasehold"}
+        get :search, {tenure: "Leasehold"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response.length, 0
 
         ## epc
-        get :search, {epc: "no"}
+        get :search, {epc: "No"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response[0]["epc"], "No"
 
-        get :search, {epc: "yes"}
+        get :search, {epc: "Yes"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response.length, 0
 
         ## property style
-        get :search, {property_style: "period"}
+        get :search, {property_style: "Period"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response[0]["property_style"], "Period"
 
-        get :search, {property_style: "contemporary"}
+        get :search, {property_style: "Contemporary"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response.length, 0
 
         ## listed status
-        get :search, {listed_status: "none"}
+        get :search, {listed_status: "None"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response[0]["listed_status"], "None"
 
-        get :search, {listed_status: "locally listed"}
+        get :search, {listed_status: "Locally listed"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response.length, 0
 
         ## decorative condition
-        get :search, {decorative_condition: "excellent"}
+        get :search, {decorative_condition: "Excellent"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response[0]["decorative_condition"], "Excellent"
 
-        get :search, {decorative_condition: "good"}
+        get :search, {decorative_condition: "Good"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response.length, 0
 
         ## central heating
-        get :search, {central_heating: "none"}
+        get :search, {central_heating: "None"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response[0]["central_heating"], "None"
 
-        get :search, {central_heating: "good"}
+        get :search, {central_heating: "Good"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response.length, 0
@@ -307,34 +307,34 @@ module Api
         ## photos
 
         ## floorplan
-        get :search, {floorplan: "no"}
+        get :search, {floorplan: "No"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response[0]["floorplan"], "No"
 
-        get :search, {floorplan: "yes"}
+        get :search, {floorplan: "Yes"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response.length, 0
 
         ## chain free
-        get :search, {chain_free: "yes"}
+        get :search, {chain_free: "Yes"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response[0]["chain_free"], "Yes"
 
-        get :search, {chain_free: "no"}
+        get :search, {chain_free: "No"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response.length, 0
 
         ## council tax band
-        get :search, {council_tax_band: "a"}
+        get :search, {council_tax_band: "A"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response[0]["council_tax_band"], "A"
 
-        get :search, {council_tax_band: "b"}
+        get :search, {council_tax_band: "B"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response.length, 0
@@ -374,12 +374,12 @@ module Api
         assert_equal response.length, 0
 
         ## district
-        get :search, {district: SAMPLE_DISTRICT.downcase}
+        get :search, {district: SAMPLE_DISTRICT}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response[0]["district"], SAMPLE_DISTRICT
 
-        get :search, {district: SAMPLE_DISTRICT.upcase}
+        get :search, {district: SAMPLE_DISTRICT.downcase}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response.length, 0
@@ -407,12 +407,12 @@ module Api
         assert_equal response.length, 0
 
         ## postcode
-        get :search, {postcode: SAMPLE_POSTCODE.split(' ').join('').downcase}
+        get :search, {postcode: SAMPLE_POSTCODE.split(' ').join('')}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response[0]["postcode"], SAMPLE_POSTCODE.split(' ').join('')
 
-        get :search, {postcode: SAMPLE_POSTCODE.upcase}
+        get :search, {postcode: SAMPLE_POSTCODE.downcase}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response.length, 0
@@ -431,7 +431,7 @@ module Api
         # assert_equal response.length, 0
 
         ## unit
-        get :search, {unit: "CH428NN".downcase}
+        get :search, {unit: "CH428NN"}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response[0]["unit"], "CH428NN"
@@ -662,11 +662,11 @@ module Api
       end
 
       def test_matching_property_count
-        get :matching_property_count, {hash_str: SAMPLE_HASH.downcase}
+        get :matching_property_count, {hash_str: SAMPLE_HASH}
         assert_response 200
         response = Oj.load(@response.body)
         assert_equal response, 1
-
+ 
         ## use case of this
         ## this part of flow contains bug
         # get :matching_property_count, {hash_str: SAMPLE_HASH.downcase, hash_type: "postcode"}

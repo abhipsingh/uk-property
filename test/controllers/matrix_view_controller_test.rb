@@ -69,7 +69,7 @@ class MatrixViewControllerTest < ActionController::TestCase
     new_address['hashes'] = hashes
     new_address['match_type_str'] = match_type_str
     index_es_address(@id, new_address)
-    sleep 1
+    sleep 3
     get :matrix_view, str: 'douglas road liverpool'
     response = Oj.load(@response.body)
     include_keys = ['dependent_thoroughfare_descriptions', 'type', 'thoroughfare_descriptions', 'dependent_localities',

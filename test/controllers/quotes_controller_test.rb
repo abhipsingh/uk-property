@@ -89,7 +89,7 @@ class QuotesControllerTest < ActionController::TestCase
     assert_equal response.length, 0
 
     new_quote_for_property(SAMPLE_UDPRN)
-    sleep(2)
+    sleep(3)
     agent_id = Agents::Branches::AssignedAgent.last.id
     new_quote_by_agent(SAMPLE_UDPRN, agent_id)
 

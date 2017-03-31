@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170227185018) do
+ActiveRecord::Schema.define(version: 20170331165142) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -127,6 +127,18 @@ ActiveRecord::Schema.define(version: 20170227185018) do
   add_index "agents_branches_crawled_properties", ["postcode"], name: "index_agents_branches_crawled_properties_on_postcode", using: :btree
   add_index "agents_branches_crawled_properties", ["tags"], name: "index_agents_branches_crawled_properties_on_tags", using: :gin
   add_index "agents_branches_crawled_properties", ["zoopla_id"], name: "index_agents_branches_crawled_properties_on_zoopla_id", unique: true, using: :btree
+
+  create_table "agents_branches_crawled_properties_rents", force: :cascade do |t|
+    t.string   "price"
+    t.string   "locality"
+    t.string   "description"
+    t.text     "image_urls",  default: [],              array: true
+    t.string   "agent_url"
+    t.float    "latitude"
+    t.float    "longitude"
+    t.datetime "created_at",               null: false
+    t.datetime "updated_at",               null: false
+  end
 
   create_table "agents_groups", force: :cascade do |t|
     t.string   "name"

@@ -284,6 +284,8 @@ Rails.application.routes.draw do
   namespace :api do
     namespace :v0 do
       get  'properties/search',                      to: 'property_search#search'
+      get  'properties/saved/searches',              to: 'property_search#show_save_searches'
+      post  'properties/search/searches',            to: 'property_search#save_searches'
       get  'agents/search',                          to: 'agents#search'
       get  'ads/availability',                       to: 'vendor_ad#ads_availablity'
       get  'locations/:id/version',                  to: 'vendor_ad#correct_version'
