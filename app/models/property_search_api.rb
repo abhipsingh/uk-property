@@ -381,66 +381,80 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
       body = []
       udprns.each_with_index do |udprn, index|
         doc = {}
-        doc[:property_status_type] = 'Unknown'
-        hash_value = response_arr[index]['hashes'].last
-        building_text = "";
-        building_text = building_text + response_arr[index]['building_number'] + " " if response_arr[index]['building_number']
-        building_text = building_text + response_arr[index]['building_name'] + " " if response_arr[index]['building_name']
-        building_text = building_text + response_arr[index]['sub_building_name'] + " " if response_arr[index]['sub_building_name']
-        building_text = building_text[0..building_text.length-2] if building_text[building_text.length-1] == " "
+        # doc[:property_status_type] = 'Unknown'
+        # p response_arr[index]
+       # building_text = "";
         hashes = response_arr[index]['hashes']
-        hash_value = hash_value + '_' + building_text
-        hashes.push(hash_value)
-        doc['hashes'] = hashes
-        match_type_strs = response_arr[index]['match_type_str']
-        match_type_strs.push(hash_value+'|Normal')
-        doc['match_type_str'] = match_type_strs
-         RANDOM_SEED_MAP.each do |key, values|
-           doc[key] = values.sample(1).first
-         end
-        doc[:address] = PropertyDetails.address(response_arr[index])
-        doc[:year_built] = doc[:year_built].to_s+"-01-01"
-        doc[:date_added] = Time.at((start_date.to_f - ending_date.to_f)*rand + start_date.to_f).utc.strftime('%Y-%m-%d')
-        doc[:time_frame] = time_frame_years.sample(1).first.to_s + "-01-01"
-        doc[:external_property_size] = doc[:internal_property_size] + 100
-        doc[:total_property_size] = doc[:external_property_size] + 100
-        doc[:additional_features_type] = [doc[:additional_features_type]]
-        doc[:current_valuation] = (doc[:price].to_f/(1.3)).to_i
-        doc[:valuation_date] = (1..30).to_a.sample(1).first.days.ago.to_date.to_s
-        dream_price_greater_than_valuation = [true, false].sample
-        if dream_price_greater_than_valuation
-          doc[:dream_price] = (1.1 * doc[:price]).to_i
-        else
-          doc[:dream_price] = (0.9 * doc[:price]).to_i
-        end
-        doc[:dream_price] = doc[:price]
-        doc[:last_sale_price] = ((doc[:price].to_f)/(2.3)).to_f
-        doc[:last_sale_price_date] = (1..5).to_a.sample(1).first.years.ago.to_date.to_s
-        doc[:description] = 'Lorem Ipsum'
-        doc[:agent_branch_name] = names.sample(1).first
-        doc[:assigned_agent_employee_name] = NAMES.sample(1).first
-        doc[:assigned_agent_employee_address] = "5 Bina Gardens"
-        doc[:assigned_agent_employee_image] = nil
-        doc[:last_updated_date] = "2015-09-21"
-        # doc[:agent_logo] = "http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/prop.jpg"
-        doc[:broker_branch_contact] = "020 3641 4259"
-        doc[:date_updated] = 3.days.ago.to_date.to_s
-        # doc[:agent_id] = 1234
-        if doc[:photos] == "Yes"
-          doc[:photo_count] = 0
-          doc[:photo_urls] = []
-        else
-          doc[:photo_urls] = []
-        end
+        district = response_arr[index]['district']
+        sector = response_arr[index]['sector']
+        unit = response_arr[index]['unit']
+        sector = district + " " + sector.split(district).last 
+        unit = district + " " + unit.split(district).last 
+        extra_attrs = [ response_arr[index]['district'], sector, unit ]
+        new_hashes = hashes + extra_attrs
+        doc['hashes'] = new_hashes
 
-        # doc[:broker_logo] = "http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/prop3.jpg"
-        doc[:agent_contact] = "020 3641 4259"
-        description = ''
-        doc[:description] = characters.sample(1).first.times do
-          description += alphabets.sample(1).first
-        end
-        ### Process last sale price
-        doc[:last_sale_price] = (doc[:price] * 0.7).to_i
+        match_type_strs = response_arr[index]['match_type_str']
+        extra_attrs_match_type = extra_attrs.map { |e| e.to_s+'|Normal' }
+        normal_attrs = doc['hashes'].map { |e| e.to_s+'|Normal'  }
+        doc['match_type_str'] = normal_attrs
+        # building_text = building_text + response_arr[index]['building_number'] + " " if response_arr[index]['building_number']
+        # building_text = building_text + response_arr[index]['building_name'] + " " if response_arr[index]['building_name']
+        # building_text = building_text + response_arr[index]['sub_building_name'] + " " if response_arr[index]['sub_building_name']
+        # building_text = building_text[0..building_text.length-2] if building_text[building_text.length-1] == " "
+        # hashes = response_arr[index]['hashes']
+        # hash_value = hash_value + '_' + building_text
+        # hashes.push(hash_value)
+        # doc['hashes'] = hashes
+        # match_type_strs = response_arr[index]['match_type_str']
+        # match_type_strs.push(hash_value+'|Normal')
+        # doc['match_type_str'] = match_type_strs
+        #  RANDOM_SEED_MAP.each do |key, values|
+        #    doc[key] = values.sample(1).first
+        #  end
+        # doc[:address] = google_api_crawler.address(response_arr[index])
+        # doc[:year_built] = doc[:year_built].to_s+"-01-01"
+        # doc[:date_added] = Time.at((start_date.to_f - ending_date.to_f)*rand + start_date.to_f).utc.strftime('%Y-%m-%d')
+        # doc[:time_frame] = time_frame_years.sample(1).first.to_s + "-01-01"
+        # doc[:external_property_size] = doc[:internal_property_size] + 100
+        # doc[:total_property_size] = doc[:external_property_size] + 100
+        # doc[:additional_features_type] = [doc[:additional_features_type]]
+        # doc[:current_valuation] = (doc[:price].to_f/(1.3)).to_i
+        # doc[:valuation_date] = (1..30).to_a.sample(1).first.days.ago.to_date.to_s
+        # dream_price_greater_than_valuation = [true, false].sample
+        # if dream_price_greater_than_valuation
+        #   doc[:dream_price] = (1.1 * doc[:price]).to_i
+        # else
+        #   doc[:dream_price] = (0.9 * doc[:price]).to_i
+        # end
+        # doc[:dream_price] = doc[:price]
+        # doc[:last_sale_price] = ((doc[:price].to_f)/(2.3)).to_f
+        # doc[:last_sale_price_date] = (1..5).to_a.sample(1).first.years.ago.to_date.to_s
+        # doc[:description] = 'Lorem Ipsum'
+        # doc[:agent_branch_name] = names.sample(1).first
+        # doc[:assigned_agent_employee_name] = NAMES.sample(1).first
+        # doc[:assigned_agent_employee_address] = "5 Bina Gardens"
+        # doc[:assigned_agent_employee_image] = nil
+        # doc[:last_updated_date] = "2015-09-21"
+        # # doc[:agent_logo] = "http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/prop.jpg"
+        # doc[:broker_branch_contact] = "020 3641 4259"
+        # doc[:date_updated] = 3.days.ago.to_date.to_s
+        # # doc[:agent_id] = 1234
+        # if doc[:photos] == "Yes"
+        #   doc[:photo_count] = 0
+        #   doc[:photo_urls] = []
+        # else
+        #   doc[:photo_urls] = []
+        # end
+
+        # # doc[:broker_logo] = "http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/prop3.jpg"
+        # doc[:agent_contact] = "020 3641 4259"
+        # description = ''
+        # doc[:description] = characters.sample(1).first.times do
+        #   description += alphabets.sample(1).first
+        # end
+        # ### Process last sale price
+        # doc[:last_sale_price] = (doc[:price] * 0.7).to_i
 
         # ### Status last updated
         # doc[:status_last_updated] = (150..365).to_a.sample.days.ago.to_time.strftime("%Y-%m-%d %H:%M:%S").to_s
@@ -453,8 +467,8 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
         body.push({ update:  { _index: Rails.configuration.address_index_name, _type: 'address', _id: udprn, data: { doc: doc } }})
       end
       response = client.bulk body: body unless body.empty?
-      p response['items'].first
-      p "#{glob_counter} pASS completed"
+      # p response['items'].first
+      p "#{glob_counter} pASS completed for #{body.count} ITEMS"
       glob_counter += 1
     end
   end

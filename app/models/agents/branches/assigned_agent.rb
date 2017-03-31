@@ -9,13 +9,13 @@ module Agents
       belongs_to :branch, class_name: 'Agents::Branch'
       attr_accessor :vendor_email, :vendor_address, :email_udprn, :verification_hash
 
+      ### TODO: Refactoring required. Figure out a better way of dumping details of a user through a consensus
+      DETAIL_ATTRS = [:id, :name, :email, :mobile, :branch_id, :title, :office_phone_number, :mobile_phone_number, :image_url, :invited_agents, :provider, :uid]
+
       ##### All recent quotes for the agent being displayed
       ##### Data being fetched from this function
       ##### Example run the following in irb
       ##### Agents::Branches::AssignedAgent.last.recent_properties_for_quotes
-      ### TODO: Refactoring required. Figure out a better way of dumping details of a user through a consensus
-      DETAIL_ATTRS = [:id, :name, :email, :mobile, :branch_id, :title, :office_phone_number, :mobile_phone_number, :image_url, :invited_agents, :provider, :uid]
-
       def recent_properties_for_quotes(payment_terms_params=nil, service_required_param=nil, status_param=nil, search_str=nil)
         results = []
 
@@ -305,7 +305,6 @@ module Agents
         hash_obj = VerificationHash.create!(email: vendor_email, hash_value: hash_value, entity_id: self.id, entity_type: self.class, udprn: udprn.to_i)
         self.verification_hash = hash_obj.hash_value
         self.vendor_email = vendor_email
-        self.vendor_email = "test@prophety.co.uk"
         self.email_udprn = udprn
         details = PropertyDetails.details(udprn)['_source']
         self.vendor_address = details['address']

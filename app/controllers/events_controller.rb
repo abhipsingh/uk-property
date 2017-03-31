@@ -150,6 +150,7 @@ class EventsController < ApplicationController
       api = PropertySearchApi.new(filtered_params: search_params)
       api.apply_filters
       body, status = api.fetch_data_from_es
+      #Rails.logger.info(body)
       udprns = body.map { |e| e['udprn'] }
 
       ### Get all properties for whom the agent has won leads
