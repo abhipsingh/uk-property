@@ -128,20 +128,22 @@ module OnTheMarketRentCrawler
     html = Nokogiri::HTML(response)
     price = html.css('div.details-heading-top p.price span.price-data').text
     description = html.css('div.details-heading-top div.details-heading h1').text
-    locality = html.css('div.details-heading-top div.details-heading p').last.text
+    locality = html.css('div.details-heading-top div.details-heading p').last.text rescue nil
     image_urls = html.css('div.images img').map{ |t| t['src'] }
     description_content = html.css('div.description-tabcontent').to_s
     agent_url = html.css('div.agent-details div.panel-content a').map { |e| e['href'] }.first
-    coordinate_html = html.css('script').select{|t| t.children.to_s.include?("MEDIA_PREFIX")}.first.children.to_s
-    start_index = coordinate_html.index("AM.property.location")
-    relevant_str = coordinate_html[start_index..coordinate_html.length-1]
-    start_of_coord_str = relevant_str.index('{')
-    end_of_coord_str = relevant_str.index('}')
-    lat_lon_str = relevant_str[start_of_coord_str+1..end_of_coord_str-1]
-    lat_lon_parts = lat_lon_str.split(',')
-    latitude = eval(lat_lon_parts[1].split(":")[1].strip).to_f
-    longitude = eval(lat_lon_parts[0].split(":")[1].strip).to_f
-    Agents::Branches::CrawledProperties::Rent.create(id: id, price: price, description: description, locality: locality, agent_url: agent_url, latitude: latitude, longitude: longitude)
+    coordinate_html = html.css('script').select{|t| t.children.to_s.include?("MEDIA_PREFIX")}.first.children.to_s rescue nil
+    if coordinate_html
+      start_index = coordinate_html.index("AM.property.location")
+      relevant_str = coordinate_html[start_index..coordinate_html.length-1]
+      start_of_coord_str = relevant_str.index('{')
+      end_of_coord_str = relevant_str.index('}')
+      lat_lon_str = relevant_str[start_of_coord_str+1..end_of_coord_str-1]
+      lat_lon_parts = lat_lon_str.split(',')
+      latitude = eval(lat_lon_parts[1].split(":")[1].strip).to_f
+      longitude = eval(lat_lon_parts[0].split(":")[1].strip).to_f
+      Agents::Branches::CrawledProperties::Rent.create(id: id, price: price, description: description, locality: locality, agent_url: agent_url, latitude: latitude, longitude: longitude, image_urls: image_urls)
+    end
     price, description, locality, image_urls, description_content, agent_url, coordinate_html, relevant_str, start_of_coord_str, end_of_coord_str, lat_lon_str,lat_lon_parts, latitude, longitude = nil
   end
 
@@ -152,11 +154,32 @@ module OnTheMarketRentCrawler
       ids.each do |id|
         unless Agents::Branches::CrawledProperties::Rent.where(id: id).last
           crawl_property(id)
-          binding.pry
         end
       end
       GC.start(full_mark: true, immediate_sweep: true)
     end
+  end
+
+  def self.crawl_agents_branch(agent_url)
+    # p agent_url
+    response = generic_url_processor(agent_url)
+    if response
+      html = Nokogiri::HTML(response)
+      agent_name = html.css('div.details div.property a').first.text
+      address = html.css('div.details div.property p.address').first.text.strip
+      phone = html.css('div.agent-telephone span.phone').first.text.strip
+      agent_image_url = html.css('div.agent-image img').first['src']
+      Agents::Branches::OnTheMarketRent.create(name: agent_name, address: address, phone: phone, image_url: agent_image_url)
+    end
+  end
+
+  def self.crawl_all_agents_branch_of_alphabet(alphabet)
+    agent_list = File.read("#{alphabet}_agent_list")
+    agent_urls = Oj.load(agent_list)
+    agent_urls.map { |e| e.split('/').last }
+                            .map { |e| URL_PREFIX + '/agent/' + e + '/' }
+                            .map { |branch_url| crawl_agents_branch(branch_url) }
+    nil
   end
 
 end
