@@ -29,7 +29,11 @@ module OnTheMarketRentCrawler
 
   def self.generic_url_processor(url,limit = 10)
     return nil if url == 'https://www.onthemarket.com'
-    uri = URI.parse(url)
+    begin
+      uri = URI.parse(url)
+    rescue URI::InvalidURIError
+      return nil
+    end
     body = nil
     Rails.logger.info("CRAWLING #{url}|____#{limit}")
     if uri.class == URI::HTTP || uri.class == URI::HTTPS
@@ -165,11 +169,13 @@ module OnTheMarketRentCrawler
     response = generic_url_processor(agent_url)
     if response
       html = Nokogiri::HTML(response)
-      agent_name = html.css('div.details div.property a').first.text
-      address = html.css('div.details div.property p.address').first.text.strip
-      phone = html.css('div.agent-telephone span.phone').first.text.strip
-      agent_image_url = html.css('div.agent-image img').first['src']
-      Agents::Branches::OnTheMarketRent.create(name: agent_name, address: address, phone: phone, image_url: agent_image_url)
+      agent_image_url = html.css('div.agent-image img').first['src'] rescue nil
+      html.css('ul#properties div.property').each do |property_html|
+        agent_name = property_html.css('a').first.text
+        address = property_html.css('p.address').first.text.strip
+        phone = property_html.css('div.agent-telephone span.phone').first.text.strip
+        Agents::Branches::OnTheMarketRent.create(name: agent_name, address: address, phone: phone, image_url: agent_image_url)
+      end
     end
   end
 
@@ -187,6 +193,65 @@ module OnTheMarketRentCrawler
     alphabets.map { |alphabet| crawl_all_agents_branch_of_alphabet(alphabet) }
   end
 
+  def self.crawl_property_images(id)
+    Agents::Branches::CrawledProperties::Rent.where(id: id).select([:image_urls]).each do |property|
+      property.image_urls.map { |image_url| crawl_image(image_url, id) }
+    end
+    nil
+  end
+
+  def self.crawl_image(image_url, id, bucket='rent-mto-properties')
+    s3 = Aws::S3::Resource.new
+    if image_url
+      s3_file_name = "#{id}/#{File.basename(image_url)}"
+      file_name = File.basename(image_url)
+      file_name = file_name + '_' + id.to_s
+      p "#{file_name}_____#{id}"
+      begin
+        open(image_url,"User-Agent" => "Whatever you want here") {|f|
+          File.open(file_name,"wb") do |file|
+            file.puts f.read
+          end
+        }
+        obj = s3.bucket(bucket).object(s3_file_name)
+        obj.upload_file(file_name, acl: 'public-read')
+        File.delete(file_name)
+      rescue OpenURI::HTTPError => e
+        Rails.logger.info("FAILED_TO_CRAWL_IMAGE_WITH_URL_#{image_url}")
+      rescue Errno::ENOENT => e
+        Rails.logger.info("FILE_ERROR_#{id}_#{e}")
+      rescue URI::InvalidURIError => e
+        Rails.logger.info("INVALID_URI_ERROR_#{id}_#{e}")
+      rescue Net::ReadTimeout => e
+        Rails.logger.info("READ_TIMEOUT_#{id}_#{e}")
+      rescue OpenSSL::SSL::SSLError => e
+        Rails.logger.info("OPENSSL_ERROR__#{id}_#{e}")
+      end
+    end
+  end
+
+  def self.crawl_all_property_images(from, to)
+    ids = Agents::Branches::CrawledProperties::Rent.where("id >= ?", from).where("id <= ?", to).pluck(:id).sort
+    ids.each do |id|
+      crawl_property_images(id)
+      GC.start(full_mark: true, immediate_sweep: true)
+    end 
+  end
+
+  def self.crawl_all_agent_logos(from, to)
+    ids = Agents::Branches::OnTheMarketRent.where("id >= ?", from).where("id <= ?", to).pluck(:id).sort
+    ids.each do |id|
+      crawl_agent_logo(id)
+    end 
+  end
+
+  def self.crawl_agent_logo(id)
+    Agents::Branches::OnTheMarketRent.where(id: id).select(:image_url).each do |agent|
+      crawl_image(agent.image_url, id, 'rent-mto-agents') 
+      GC.start(full_mark: true, immediate_sweep: true)
+    end
+    nil
+  end
 end
 
 
