@@ -17,8 +17,8 @@ ActiveRecord::Schema.define(version: 20170401032407) do
   enable_extension "plpgsql"
 
   create_table "agents", force: :cascade do |t|
-    t.string  "name"
-    t.string  "branches_url"
+    t.string  "name",         limit: 255
+    t.string  "branches_url", limit: 255
     t.integer "group_id"
     t.string  "email"
     t.string  "phone_number"
@@ -31,13 +31,13 @@ ActiveRecord::Schema.define(version: 20170401032407) do
   add_index "agents", ["name", "branches_url"], name: "index_agents_on_name_and_branches_url", unique: true, using: :btree
 
   create_table "agents_branches", force: :cascade do |t|
-    t.string  "name"
-    t.string  "property_urls"
+    t.string  "name",              limit: 255
+    t.string  "property_urls",     limit: 255
     t.integer "agent_id"
-    t.string  "address"
+    t.string  "address",           limit: 255
     t.string  "postcode"
     t.string  "district"
-    t.text    "udprns",            default: [], array: true
+    t.text    "udprns",                        default: [], array: true
     t.string  "image_url"
     t.string  "email"
     t.string  "phone_number"
@@ -210,7 +210,7 @@ ActiveRecord::Schema.define(version: 20170401032407) do
 
   create_table "property_buyers", force: :cascade do |t|
     t.jsonb    "searches",          default: [], null: false
-    t.string   "name",                           null: false
+    t.string   "name"
     t.string   "email_id",                       null: false
     t.string   "account_type",                   null: false
     t.jsonb    "visited_udprns",    default: [], null: false
@@ -310,7 +310,7 @@ ActiveRecord::Schema.define(version: 20170401032407) do
   create_table "users_email_users", force: :cascade do |t|
     t.datetime "created_at",                     null: false
     t.datetime "updated_at",                     null: false
-    t.string   "email",                          null: false
+    t.string   "email",              limit: 255, null: false
     t.string   "encrypted_password", limit: 128, null: false
     t.string   "confirmation_token", limit: 128
     t.string   "remember_token",     limit: 128, null: false

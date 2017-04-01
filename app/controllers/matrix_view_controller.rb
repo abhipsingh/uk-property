@@ -336,14 +336,13 @@ class MatrixViewController < ActionController::Base
     first_type = parsed_json['postcode_suggest'][0]['options'][0]['payload']['type']
     hash_value = parsed_json['postcode_suggest'][0]['options'][0]['payload']['hash']
     county_value = parsed_json['postcode_suggest'][0]['options'][0]['payload']['county'].capitalize rescue nil
-    post_code = parsed_json['postcode_suggest'][0]['options'][0]['payload']['postcode']
+    post_code = parsed_json['postcode_suggest'][0]['options'][0]['payload']['post_code'] || parsed_json['postcode_suggest'][0]['options'][0]['payload']['postcode']
     ### query = {:query=>{:filtered=>{:filter=>{:or=>{:filters=>[{:term=>{:match_type_str=>"ASCOT_Sunningdale|Normal", :_name=>:match_type_str}}, {:terms=>{"hashes"=>["ASCOT_Sunningdale"], :_name=>"hashes"}}]}}}}}
     ### dependent_locality__ASCOT_Sunningdale____SL5 0AA
     # Rails.logger.info("PARSED_JSON__#{parsed_json}")
     if post_code.is_a?(Array)
       post_code = post_code.first
     end
-    
     area, district, sector, unit = compute_postcode_units(post_code)
 
     Rails.logger.info("FIRST_TYPE___#{first_type}")
@@ -936,9 +935,11 @@ class MatrixViewController < ActionController::Base
     district_part, sector_part = postcode.split(' ')
     area = district_part.match(/([A-Z]{0,3})([0-9]{0,3})/)[1]
     district = district_part
-    sector_half = sector_part.match(/([0-9]{0,3})([A-Z]{0,3})/)[1]
-    sector = district + ' ' + sector_half
-    unit = postcode
+    sector_half = sector_part.match(/([0-9]{0,3})([A-Z]{0,3})/)[1] if sector_part
+    sector = district 
+    sector = sector + ' ' + sector_half.to_s if sector_half
+    unit = district_part
+    unit = unit + ' ' + sector_part.to_s if sector_half
     return area, district, sector, unit
   end
 
