@@ -182,6 +182,11 @@ module OnTheMarketRentCrawler
     nil
   end
 
+  def self.crawl_all_alphabets_agent
+    alphabets = ('a'..'z').to_a
+    alphabets.map { |alphabet| crawl_all_agents_branch_of_alphabet(alphabet) }
+  end
+
 end
 
 
