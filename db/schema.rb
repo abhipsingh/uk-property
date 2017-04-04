@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170401032407) do
+ActiveRecord::Schema.define(version: 20170403180120) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -128,6 +128,19 @@ ActiveRecord::Schema.define(version: 20170401032407) do
   add_index "agents_branches_crawled_properties", ["tags"], name: "index_agents_branches_crawled_properties_on_tags", using: :gin
   add_index "agents_branches_crawled_properties", ["zoopla_id"], name: "index_agents_branches_crawled_properties_on_zoopla_id", unique: true, using: :btree
 
+  create_table "agents_branches_crawled_properties_buys", force: :cascade do |t|
+    t.string   "price"
+    t.string   "description"
+    t.string   "locality"
+    t.string   "agent_url"
+    t.float    "latitude"
+    t.float    "longitude"
+    t.text     "image_urls",     default: [],              array: true
+    t.text     "floorplan_urls", default: [],              array: true
+    t.datetime "created_at",                  null: false
+    t.datetime "updated_at",                  null: false
+  end
+
   create_table "agents_branches_crawled_properties_rents", force: :cascade do |t|
     t.string   "price"
     t.string   "locality"
@@ -147,6 +160,7 @@ ActiveRecord::Schema.define(version: 20170401032407) do
     t.string   "image_url"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string   "agent_url"
   end
 
   create_table "agents_groups", force: :cascade do |t|
@@ -351,5 +365,21 @@ ActiveRecord::Schema.define(version: 20170401032407) do
   end
 
   add_index "verification_hashes", ["hash_value"], name: "index_verification_hashes_on_hash_value", unique: true, using: :btree
+
+  create_table "visited_localities", force: :cascade do |t|
+    t.string   "locality"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  add_index "visited_localities", ["locality"], name: "index_visited_localities_on_locality", using: :btree
+
+  create_table "visited_urls", force: :cascade do |t|
+    t.string   "url"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  add_index "visited_urls", ["url"], name: "index_visited_urls_on_url", using: :btree
 
 end

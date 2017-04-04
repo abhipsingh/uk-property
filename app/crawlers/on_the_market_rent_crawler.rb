@@ -8,25 +8,7 @@ module OnTheMarketRentCrawler
   KLASS = Agents::Branches::CrawledProperty
   URL_PREFIX = 'https://www.onthemarket.com'
   UK_LOCATIONS_LIST = ['england', 'scotland', 'wales']
-
-  def self.process_agent_url(agent_url, agent_id)
-    response = generic_url_processor(agent_url)
-    if response
-      html = Nokogiri::HTML(response)
-      b = html.css("div.agents-results").css("h2").css("a")
-      hrefs = b.map{ |t| t['href'] }
-      names = b.map{ |t| t.text }
-      addresses = html.css("div.agents-results").css("p").css("span").map{ |t| t.text }
-      names.each_with_index do |name, index|
-        begin
-          Agents::Branch.create(name: name, property_urls: hrefs[index], address: addresses[index], agent_id: agent_id)
-        rescue Exception => e
-          p "#{name}_#{hrefs[index]}_#{addresses[index]}_#{agent_id}"
-        end
-      end
-    end
-  end
-
+  
   def self.generic_url_processor(url,limit = 10)
     return nil if url == 'https://www.onthemarket.com'
     begin
@@ -46,7 +28,7 @@ module OnTheMarketRentCrawler
         when 200 then body = response.body
         when 301 then 
           Rails.logger.info("REDIRECTION HAPPENING #{response['location']}")
-          body = generic_url_processor(response['location'], limit -1)
+          body = generic_url_processor(URL_PREFIX + response['location'], limit -1)
         else
           Rails.logger.info("FAILURE_TO_CRAWL_#{url}_#{response.code}")
         end
@@ -85,8 +67,8 @@ module OnTheMarketRentCrawler
     end
   end
 
-  def self.crawl_properties_from_localities
-    locality_cond, page_cond = false
+  def self.crawl_properties_from_localities(property_type='to-rent')
+    locality_cond = page_cond = true
     if_locality = 'london-region'
     if_page = 39
     UK_LOCATIONS_LIST.each do |locality|
@@ -95,7 +77,7 @@ module OnTheMarketRentCrawler
       localities.each do |each_locality|
         page = 0
         loop do
-          url = URL_PREFIX + '/to-rent/property/' + each_locality + "/?page=#{page}&view=grid"
+          url = URL_PREFIX + "/#{property_type}/property/" + each_locality + "/?page=#{page}&view=grid"
           p "PAGE #{page} AND LOCALITY #{each_locality}"
           if each_locality == if_locality
             locality_cond = true
@@ -112,7 +94,7 @@ module OnTheMarketRentCrawler
             if property_links.empty?
               break
             else
-              File.open('property_links.txt', 'a'){ |t| t.puts property_links.to_json }
+              File.open('buy_property_links.txt', 'a'){ |t| t.puts property_links.to_json }
             end
             page = page + 1
           elsif locality_cond
@@ -126,7 +108,7 @@ module OnTheMarketRentCrawler
     end
   end
 
-  def self.crawl_property(id)
+  def self.crawl_property(id, property_type='rent')
     url = 'https://www.onthemarket.com/details/' + id.to_s + '/'
     response = generic_url_processor(url)
     html = Nokogiri::HTML(response)
@@ -146,18 +128,41 @@ module OnTheMarketRentCrawler
       lat_lon_parts = lat_lon_str.split(',')
       latitude = eval(lat_lon_parts[1].split(":")[1].strip).to_f
       longitude = eval(lat_lon_parts[0].split(":")[1].strip).to_f
-      Agents::Branches::CrawledProperties::Rent.create(id: id, price: price, description: description, locality: locality, agent_url: agent_url, latitude: latitude, longitude: longitude, image_urls: image_urls)
+      if property_type == 'rent'
+        begin
+          Agents::Branches::CrawledProperties::Rent.create(id: id, price: price, description: description, locality: locality, agent_url: agent_url, latitude: latitude, longitude: longitude, image_urls: image_urls)
+        rescue ActiveRecord::RecordNotUnique
+        end
+      else
+        floorplan_urls = html.css('div.floorplans-tabcontent img').map{ |t| t['href'] }
+        begin
+          Agents::Branches::CrawledProperties::Buy.create(id: id, price: price, description: description, locality: locality, agent_url: agent_url, latitude: latitude, longitude: longitude, image_urls: image_urls, floorplan_urls: floorplan_urls)
+        rescue ActiveRecord::RecordNotUnique
+        end
+      end
     end
     price, description, locality, image_urls, description_content, agent_url, coordinate_html, relevant_str, start_of_coord_str, end_of_coord_str, lat_lon_str,lat_lon_parts, latitude, longitude = nil
   end
 
-  def self.crawl_all_properties
-    File.open('property_links.txt', 'r').each_line do |line|
+  def self.crawl_all_rent_properties(suffix)
+    File.open("rent_links/rent_links#{suffix}", 'r').each_line do |line|
       urls = Oj.load(line)
       ids = urls.map { |e| e.split('/').last.to_i }
       ids.each do |id|
         unless Agents::Branches::CrawledProperties::Rent.where(id: id).last
           crawl_property(id)
+        end
+      end
+    end
+  end
+
+  def self.crawl_all_buy_properties(suffix)
+    File.open("buy_links/buy_links#{suffix}", 'r').each_line do |line|
+      urls = Oj.load(line)
+      ids = urls.map { |e| e.split('/').last.to_i }
+      ids.each do |id|
+        if Agents::Branches::CrawledProperties::Buy.where(id: id).last.nil?
+          crawl_property(id, 'buy')
         end
       end
       GC.start(full_mark: true, immediate_sweep: true)
@@ -172,15 +177,17 @@ module OnTheMarketRentCrawler
       agent_image_url = html.css('div.agent-image img').first['src'] rescue nil
       html.css('ul#properties div.property').each do |property_html|
         agent_name = property_html.css('a').first.text
-        address = property_html.css('p.address').first.text.strip
-        phone = property_html.css('div.agent-telephone span.phone').first.text.strip
-        Agents::Branches::OnTheMarketRent.create(name: agent_name, address: address, phone: phone, image_url: agent_image_url)
+        agent_url = property_html.css('a').first['href']
+        #address = property_html.css('p.address').first.text.strip
+        #phone = property_html.css('div.agent-telephone span.phone').first.text.strip
+        #Agents::Branches::OnTheMarketRent.create(name: agent_name, address: address, phone: phone, image_url: agent_image_url)
+        Agents::Branches::OnTheMarketRent.where(name: agent_name).update_all(agent_url: agent_url)
       end
     end
   end
 
   def self.crawl_all_agents_branch_of_alphabet(alphabet)
-    agent_list = File.read("#{alphabet}_agent_list")
+    agent_list = File.read("agents_list/#{alphabet}_agent_list")
     agent_urls = Oj.load(agent_list)
     agent_urls.map { |e| e.split('/').last }
                             .map { |e| URL_PREFIX + '/agent/' + e + '/' }
@@ -194,8 +201,15 @@ module OnTheMarketRentCrawler
   end
 
   def self.crawl_property_images(id)
-    Agents::Branches::CrawledProperties::Rent.where(id: id).select([:image_urls]).each do |property|
+    Agents::Branches::CrawledProperties::Rent.where("created_at > ?", 5.hours.ago).where(id: id).select([:image_urls]).each do |property|
       property.image_urls.map { |image_url| crawl_image(image_url, id) }
+    end
+    nil
+  end
+
+  def self.crawl_property_images_buy(id)
+    Agents::Branches::CrawledProperties::Buy.where(id: id).select([:image_urls]).each do |property|
+      property.image_urls.map { |image_url| crawl_image(image_url, id, 'buy-mto-properties') }
     end
     nil
   end
@@ -234,7 +248,20 @@ module OnTheMarketRentCrawler
     ids = Agents::Branches::CrawledProperties::Rent.where("id >= ?", from).where("id <= ?", to).pluck(:id).sort
     ids.each do |id|
       crawl_property_images(id)
-      GC.start(full_mark: true, immediate_sweep: true)
+    end 
+  end
+
+  def self.crawl_rent_images_from_file(filename)
+    ids = Oj.load(File.read(filename))
+    ids.each do |id|
+      crawl_property_images(id)
+    end 
+  end
+
+  def self.crawl_buy_images_from_file(filename)
+    ids = Oj.load(File.read(filename))
+    ids.each do |id|
+      crawl_property_images_buy(id)
     end 
   end
 
@@ -252,7 +279,75 @@ module OnTheMarketRentCrawler
     end
     nil
   end
+
+	def self.crawl_properties_buy_rent_for_all_localities
+    UK_LOCATIONS_LIST.each do |locality|
+			crawl_localities_from_seed(locality)
+    end
+	end
+
+  def self.crawl_localities_from_seed(locality)
+    url = URL_PREFIX + '/property/' + locality + '/'
+    crawl_localities_recursive(url)
+  end
+
+  def self.crawl_localities_recursive(url)
+    resp = generic_url_processor(url)
+    if resp
+      html = Nokogiri::HTML(resp)
+      locality_node = html.css('h2#top-children').first
+      locality_cond = true
+      if url == 'https://www.onthemarket.com//property/east-london/waltham-forest/e4/north-east-london/'
+        locality_cond = true
+      end
+      if locality_node
+        parent = locality_node.parent
+        locality_hrefs = parent.css('ul.list-of-links li a').map { |e| e['href'] }
+        extra_hrefs = html.css('div.expand-text li a').map { |e| e['href'] }
+        all_hrefs = locality_hrefs + extra_hrefs
+        all_hrefs.map { |href| URL_PREFIX + '/' + href }
+                 .map { |url| File.open('localities_hierarchy.txt', 'a') { |t| t.puts url } }
+        p "URL_#{url}"
+        existing_url = VisitedUrl.where(url: url).last
+        if existing_url.nil?
+          all_hrefs.map { |href| URL_PREFIX + href }
+                   .map { |url| crawl_localities_recursive(url); }
+          all_hrefs.map { |href| URL_PREFIX + href }
+                   .map { |url| VisitedUrl.create(url: url) }
+          VisitedUrl.create(url: url)
+        end
+      elsif locality_cond
+        locality_suffix = url.split('/').last
+        existing_locality = VisitedLocality.where(locality: locality_suffix).last
+        if existing_locality.nil?
+          crawl_properties_for_locality(locality_suffix)
+          VisitedLocality.create(locality: locality_suffix)
+        end
+      end
+    end
+  end
+
+  def self.crawl_properties_for_locality(locality_suffix)
+    ['to-rent', 'for-sale'].each do |service|
+      page = 0
+      loop do
+        url = URL_PREFIX + '/' + service + '/property/' + locality_suffix + "/?page=#{page}&view=grid"
+        resp = generic_url_processor(url)
+        if resp
+          html = Nokogiri::HTML(resp)
+          property_links = html.css('div.property-image a').map { |e| e['href'] }
+          if property_links.empty?
+            break
+          else
+            File.open("#{service}_property_links.txt", 'a'){ |t| t.puts property_links.to_json }
+          end
+        else
+          break
+        end
+        page = page + 1
+      end
+    end
+  end
+
 end
-
-
 
