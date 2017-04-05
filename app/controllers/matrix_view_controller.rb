@@ -871,16 +871,23 @@ class MatrixViewController < ActionController::Base
           response_hash[:areas] = response_hash[:areas].push({ area: value[:key], flat_count: value[:doc_count] })
         end
       rescue StandardError => e
+        Rails.logger.error "error in response aggregation"
+        Rails.logger.error e
       end
-      body = response_hash
-      response_hash[:county] = response[:hits][:hits].first[:_source][:county]
-      response_hash[:post_town] = response[:hits][:hits].first[:_source][:post_town]
-      response_hash[:unit] = response[:hits][:hits].first[:_source][:unit]
-      response_hash[:district] = response[:hits][:hits].first[:_source][:district]
-      response_hash[:dependent_locality] = response[:hits][:hits].first[:_source][:dependent_locality]
-      response_hash[:dependent_thoroughfare_description] = response[:hits][:hits].first[:_source][:dependent_thoroughfare_description]
-      response_hash[:sector] = response[:hits][:hits].first[:_source][:sector]
-      response_hash[:area] = response[:hits][:hits].first[:_source][:area]
+      begin
+        body = response_hash
+        response_hash[:county] = response[:hits][:hits].first[:_source][:county]
+        response_hash[:post_town] = response[:hits][:hits].first[:_source][:post_town]
+        response_hash[:unit] = response[:hits][:hits].first[:_source][:unit]
+        response_hash[:district] = response[:hits][:hits].first[:_source][:district]
+        response_hash[:dependent_locality] = response[:hits][:hits].first[:_source][:dependent_locality]
+        response_hash[:dependent_thoroughfare_description] = response[:hits][:hits].first[:_source][:dependent_thoroughfare_description]
+        response_hash[:sector] = response[:hits][:hits].first[:_source][:sector]
+        response_hash[:area] = response[:hits][:hits].first[:_source][:area]
+      rescue => e
+        Rails.logger.error "Error in data from es for response = #{response}, response_hash = #{response_hash}"
+        Rails.logger.error e
+      end
 
     elsif [area].all? { |e| !e.nil? && !e.empty? }
       append_filtered_aggs(aggs, 'district', 'area', area)
@@ -918,15 +925,20 @@ class MatrixViewController < ActionController::Base
         end
       rescue StandardError => e
       end
-      body = response_hash
-      response_hash[:county] = response[:hits][:hits].first[:_source][:county]
-      response_hash[:post_town] = response[:hits][:hits].first[:_source][:post_town]
-      response_hash[:unit] = response[:hits][:hits].first[:_source][:unit]
-      response_hash[:district] = response[:hits][:hits].first[:_source][:district]
-      response_hash[:dependent_locality] = response[:hits][:hits].first[:_source][:dependent_locality]
-      response_hash[:dependent_thoroughfare_description] = response[:hits][:hits].first[:_source][:dependent_thoroughfare_description]
-      response_hash[:sector] = response[:hits][:hits].first[:_source][:sector]
-      response_hash[:area] = response[:hits][:hits].first[:_source][:area]
+      begin
+        body = response_hash
+        response_hash[:county] = response[:hits][:hits].first[:_source][:county]
+        response_hash[:post_town] = response[:hits][:hits].first[:_source][:post_town]
+        response_hash[:unit] = response[:hits][:hits].first[:_source][:unit]
+        response_hash[:district] = response[:hits][:hits].first[:_source][:district]
+        response_hash[:dependent_locality] = response[:hits][:hits].first[:_source][:dependent_locality]
+        response_hash[:dependent_thoroughfare_description] = response[:hits][:hits].first[:_source][:dependent_thoroughfare_description]
+        response_hash[:sector] = response[:hits][:hits].first[:_source][:sector]
+        response_hash[:area] = response[:hits][:hits].first[:_source][:area]
+      rescue => e
+        Rails.logger.error "Error in data from es for response = #{response}, response_hash = #{response_hash}"
+        Rails.logger.error e
+      end
     end
     return body, status    
   end

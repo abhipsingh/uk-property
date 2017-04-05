@@ -13,18 +13,18 @@ class PropertyDetails
   def self.address(details)
     details = details.with_indifferent_access
     published_address = ''
-    published_address += ', ' + details[:sub_building_name] if details.has_key?(:sub_building_name)
-    published_address += ', ' + details[:building_name] if details.has_key?(:building_name)
-    published_address += ', ' + details[:building_number] if details.has_key?(:building_number)
-    published_address += ', ' + details[:dependent_thoroughfare_description] if details.has_key?(:dependent_thoroughfare_description)
-    if details.has_key?(:dependent_locality) && details[:dependent_locality].is_a?(Array)
+    published_address += ', ' + details[:sub_building_name] if details[:sub_building_name]
+    published_address += ', ' + details[:building_name] if details[:building_name]
+    published_address += ', ' + details[:building_number] if details[:building_number]
+    published_address += ', ' + details[:dependent_thoroughfare_description] if details[:dependent_thoroughfare_description]
+    if details[:dependent_locality] && details[:dependent_locality].is_a?(Array)
       published_address += ', ' + details[:dependent_locality].join(',')
     else
-      published_address += ', ' + details[:dependent_locality] if details.has_key?(:dependent_locality)
+      published_address += ', ' + details[:dependent_locality] if details[:dependent_locality]
     end
-    published_address += ', ' + details[:post_town] if details.has_key?(:post_town)
-    published_address += ', ' + details[:county] if details.has_key?(:county)
-    published_address += ', ' + details[:postcode] if details.has_key?(:postcode)
+    published_address += ', ' + details[:post_town] if details[:post_town]
+    published_address += ', ' + details[:county] if details[:county]
+    published_address += ', ' + details[:postcode] if details[:postcode]
     published_address[1, published_address.length-1]
   end
 
