@@ -470,7 +470,7 @@ class Trackers::Buyer
     new_row[:price] = details['price'] rescue nil
     new_row[:image_url] = details['street_view_image_url'] || details['photo_urls'].first rescue nil
     new_row[:street_view_image_url] = details['street_view_image_url']
-    new_row[:photo_url] = details['pictures'][0]
+    new_row[:photo_url] = details['pictures'][0] rescue nil
     new_row[:udprn] = details['udprn'] rescue nil
     new_row[:status] = details['property_status_type'] rescue nil
     new_row[:offers_over] = details['offers_over'] rescue nil
