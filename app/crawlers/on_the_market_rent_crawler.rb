@@ -186,6 +186,22 @@ module OnTheMarketRentCrawler
     end
   end
 
+  def self.crawl_agents_branch_details(agent_url)
+    # p agent_url
+    uri=URI.parse(agent_url)
+    if Agents::Branches::OnTheMarketRent.where(agent_url: uri.path).last.nil?
+      response = generic_url_processor(agent_url)
+      if response
+        html = Nokogiri::HTML(response)
+        agent_name = html.css('div.panel-header h1').text
+        address = html.css('div.panel-header p').text
+        phone = html.css('div.agent-phone-link').text.strip
+        agent_image_url = html.css('div.agent-details img').first['src']
+        Agents::Branches::OnTheMarketRent.create(name: agent_name, address: address, phone: phone, image_url: agent_image_url, agent_url: uri.path)
+      end
+    end
+  end
+
   def self.crawl_all_agents_branch_of_alphabet(alphabet)
     agent_list = File.read("agents_list/#{alphabet}_agent_list")
     agent_urls = Oj.load(agent_list)

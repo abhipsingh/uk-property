@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170403180120) do
+ActiveRecord::Schema.define(version: 20170405143515) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -139,6 +139,7 @@ ActiveRecord::Schema.define(version: 20170403180120) do
     t.text     "floorplan_urls", default: [],              array: true
     t.datetime "created_at",                  null: false
     t.datetime "updated_at",                  null: false
+    t.integer  "agent_id"
   end
 
   create_table "agents_branches_crawled_properties_rents", force: :cascade do |t|
@@ -151,6 +152,7 @@ ActiveRecord::Schema.define(version: 20170403180120) do
     t.float    "longitude"
     t.datetime "created_at",               null: false
     t.datetime "updated_at",               null: false
+    t.integer  "agent_id"
   end
 
   create_table "agents_branches_on_the_market_rents", force: :cascade do |t|
@@ -162,6 +164,8 @@ ActiveRecord::Schema.define(version: 20170403180120) do
     t.datetime "updated_at", null: false
     t.string   "agent_url"
   end
+
+  add_index "agents_branches_on_the_market_rents", ["name"], name: "index_agents_branches_on_the_market_rents_on_name", unique: true, using: :btree
 
   create_table "agents_groups", force: :cascade do |t|
     t.string   "name"
@@ -263,75 +267,33 @@ ActiveRecord::Schema.define(version: 20170403180120) do
 
   add_index "property_historical_details", ["udprn"], name: "index_property_historical_details_on_udprn", using: :btree
 
-  create_table "property_users", force: :cascade do |t|
-    t.string   "full_name",              default: "", null: false
-    t.string   "image",                  default: "", null: false
-    t.string   "email",                  default: "", null: false
-    t.string   "encrypted_password",     default: "", null: false
-    t.string   "reset_password_token"
-    t.datetime "reset_password_sent_at"
-    t.datetime "remember_created_at"
-    t.integer  "sign_in_count",          default: 0,  null: false
-    t.datetime "current_sign_in_at"
-    t.datetime "last_sign_in_at"
-    t.string   "current_sign_in_ip"
-    t.string   "last_sign_in_ip"
-    t.string   "confirmation_token"
-    t.datetime "confirmed_at"
-    t.datetime "confirmation_sent_at"
-    t.string   "unconfirmed_email"
-    t.datetime "created_at",                          null: false
-    t.datetime "updated_at",                          null: false
-    t.string   "provider"
-    t.string   "uid"
-    t.string   "first_name"
-    t.string   "last_name"
-    t.string   "profile_type"
-    t.jsonb    "saved_searches",         default: []
-    t.integer  "shortlisted_flat_ids",   default: [],              array: true
-    t.jsonb    "messages",               default: []
-    t.jsonb    "callbacks",              default: []
-    t.jsonb    "viewings",               default: []
-    t.jsonb    "offers",                 default: []
-    t.jsonb    "matrix_searches",        default: []
+  create_table "uk_properties", force: :cascade do |t|
+    t.string  "post_code"
+    t.string  "post_town"
+    t.string  "dependent_locality"
+    t.string  "double_dependent_locality"
+    t.string  "thoroughfare_descriptor"
+    t.string  "dependent_thoroughfare_description"
+    t.string  "building_number"
+    t.string  "building_name"
+    t.string  "sub_building_name"
+    t.string  "po_box_no"
+    t.string  "department_name"
+    t.string  "organization_name"
+    t.integer "udprn"
+    t.string  "postcode_type"
+    t.string  "su_organisation_indicator"
+    t.string  "delivery_point_suffix"
+    t.string  "building_text"
+    t.string  "area"
+    t.string  "district"
+    t.string  "sector"
+    t.string  "unit"
+    t.string  "county"
   end
 
-  add_index "property_users", ["confirmation_token"], name: "index_property_users_on_confirmation_token", unique: true, using: :btree
-  add_index "property_users", ["email"], name: "index_property_users_on_email", unique: true, using: :btree
-  add_index "property_users", ["provider"], name: "index_property_users_on_provider", using: :btree
-  add_index "property_users", ["reset_password_token"], name: "index_property_users_on_reset_password_token", unique: true, using: :btree
-  add_index "property_users", ["uid"], name: "index_property_users_on_uid", using: :btree
+  add_index "uk_properties", ["udprn"], name: "index_uk_properties_on_udprn", unique: true, using: :btree
 
-  create_table "registrations", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-  end
-
-  create_table "temp_property_details", force: :cascade do |t|
-    t.jsonb    "details"
-    t.string   "session_id"
-    t.string   "udprn"
-    t.datetime "created_at",     null: false
-    t.datetime "updated_at",     null: false
-    t.integer  "vendor_id"
-    t.integer  "agent_id"
-    t.jsonb    "agent_services"
-    t.integer  "user_id"
-  end
-
-  add_index "temp_property_details", ["user_id"], name: "index_temp_property_details_on_user_id", using: :btree
-
-  create_table "users_email_users", force: :cascade do |t|
-    t.datetime "created_at",                     null: false
-    t.datetime "updated_at",                     null: false
-    t.string   "email",              limit: 255, null: false
-    t.string   "encrypted_password", limit: 128, null: false
-    t.string   "confirmation_token", limit: 128
-    t.string   "remember_token",     limit: 128, null: false
-  end
-
-  add_index "users_email_users", ["email"], name: "index_users_email_users_on_email", using: :btree
-  add_index "users_email_users", ["remember_token"], name: "index_users_email_users_on_remember_token", using: :btree
 
   create_table "vendors", force: :cascade do |t|
     t.string   "full_name"
