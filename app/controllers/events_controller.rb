@@ -105,9 +105,19 @@ class EventsController < ApplicationController
   #### Those properties have just been claimed recently in the area
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent/claims?agent_id=1234'
   def recent_properties_for_claim
-    response = []
-    status = params[:status]
-    response = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i).recent_properties_for_claim(status) if !params[:agent_id].nil?
+    response = {}
+    begin
+      result = []
+      status = params[:status]
+      if params[:agent_id].nil?
+        response = {"message" => "Agent ID missing"}
+      else
+        result = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i).recent_properties_for_claim(status)
+        response = {"recent_claims" => result}
+      end
+    rescue ActiveRecord::RecordNotFound
+      response = {"message" => "Agent not found in database"}
+    end
     render json: response, status: 200
   end
 

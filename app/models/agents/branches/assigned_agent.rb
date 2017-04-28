@@ -155,8 +155,6 @@ module Agents
       def recent_properties_for_claim(status=nil)
         district = self.branch.district
         query = Agents::Branches::AssignedAgents::Lead.where(district: district).where('created_at > ?', 1.week.ago)
-        won_query = query
-        lost_query = query
         if status == 'New'
           query = query.where(agent_id: nil)
         elsif status == 'Won'
@@ -179,38 +177,12 @@ module Agents
             new_row[:submitted_on] = nil
           end
 
-          ### address of the property
           details = PropertyDetails.details(lead.property_id)
-          details = details['_source']
+          details = details['_source'] ? details['_source'] : {}
 
+          new_row = new_row.merge(['property_type', 'street_view_url', 'udprn', 'beds', 'baths', 'receptions', 'dream_price', 'pictures'].reduce({}) {|h, k| h[k] = details[k]; h })
           new_row[:address] = PropertyDetails.address(details)
-
-          ### Property type
-          new_row[:property_type] = details['property_type']
-
-          ### Street image url
-          new_row[:street_view_url] = details['street_view_url']
-
-          #### Udprn of the property
-          new_row[:udprn] = details['udprn']
-
-          ### Picture
-          new_row[:photo_url] = details['photos'][0]
-          new_row[:pictures] = details['pictures']
-
-          ### beds
-          new_row[:beds] = details['beds']
-
-          ### dream price
-          new_row[:baths] = details['baths']
-
-          ### receptions
-          new_row[:receptions] = details['receptions']
-
-          ### dream_price
-          new_row[:dream_price] = details['dream_price']
-
-          ### last sale price
+          new_row[:photo_url] = details['photos'] ? details['photos'][0] : "Image not available"
           new_row[:last_sale_prices] = PropertyHistoricalDetail.where(udprn: details['udprn']).order('date DESC').pluck(:price)
 
           #### Vendor details
@@ -258,9 +230,9 @@ module Agents
           end
 
           ### Verified or not
-          if new_row[:status] == 'Won'
+          # if new_row[:status] == 'Won'
 
-          end
+          # end
 
           results.push(new_row)
 
