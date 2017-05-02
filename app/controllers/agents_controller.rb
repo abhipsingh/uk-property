@@ -128,10 +128,10 @@ class AgentsController < ApplicationController
     if branch.verify_hash(verification_hash) && company.save! && group.save! && branch.save!
       render json: { message: 'Branch details updated successfully', details: branch }, status: 201
     else
-      render json: { message: 'Branch details not saved successfully', details: branch }, status: 400
+      render json: { message: 'Branch details not saved successfully', details: params }, status: 400
     end
   rescue 
-    render json: { message: 'Branch details not found', details: branch }, status: 400
+    render json: { message: 'Branch details not found', details: params }, status: 400
   end
 
   #### Invite the other agents to register

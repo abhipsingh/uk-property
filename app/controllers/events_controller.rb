@@ -113,7 +113,7 @@ class EventsController < ApplicationController
         response = {"message" => "Agent ID missing"}
       else
         result = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i).recent_properties_for_claim(status)
-        response = {"recent_claims" => result}
+        response = {"properties" => result}
       end
     rescue ActiveRecord::RecordNotFound
       response = {"message" => "Agent not found in database"}
@@ -136,12 +136,13 @@ class EventsController < ApplicationController
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties?agent_id=1234'
   #### Filters on property_status_type, ads
   def detailed_properties
-    response = []
+    response = {}
+    results = []
     status = [ 
                Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New'],
                Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']
              ]
-    if !params[:agent_id].nil?
+    unless params[:agent_id].nil?
       #### TODO: Need to fix agents quotes when verified by the vendor
       search_params = { limit: 10000, fields: 'udprn' }
       search_params[:agent_id] = params[:agent_id].to_i
@@ -165,9 +166,13 @@ class EventsController < ApplicationController
 
       ### Get all properties for whom the agent has won leads
       property_ids = other_ids + udprns
-      Rails.logger.info(property_ids)
-      response = property_ids.uniq.map { |e| Trackers::Buyer.new.push_events_details(PropertyDetails.details(e)) }
-      response = response.select{ |t| t['_source']['property_status_type'] == params[:property_status_type] } if params[:property_status_type]
+      Rails.logger.info("property ids found for detailed properties (agent) = #{property_ids}")
+      results = property_ids.uniq.map { |e| Trackers::Buyer.new.push_events_details(PropertyDetails.details(e)) }
+      results = results.select{ |t| t['_source']['property_status_type'] == params[:property_status_type] } if params[:property_status_type]
+      response = results.empty? ? {"message" : "No properties to show"} : {"properties" => results}
+      Rails.logger.info "Sending results for detailed properties (agent) => #{results.inspect}"
+    else
+      response = {"message": "Agent ID mandatory for getting properties"}
     end
     render json: response, status: 200
   end

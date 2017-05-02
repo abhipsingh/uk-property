@@ -35,5 +35,8 @@ module Agents
       end
     end
 
+    def as_json option = {}
+      super(:except => [:verification_hash])
+    end
   end
 end

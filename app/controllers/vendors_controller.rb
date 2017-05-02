@@ -53,7 +53,7 @@ class VendorsController < ApplicationController
   # curl -XGET -H "Content-Type: application/json" 'http://localhost/vendors/properties/:vendor_id'
   # curl -XGET -H "Content-Type: application/json" 'http://localhost/vendors/properties/1'
   def properties
-    vendor = Vendor.find(params[:vendor_id])
+    # vendor = Vendor.find(params[:vendor_id])
     pd = PropertySearchApi.new(filtered_params: { vendor_id: params[:vendor_id].to_i } )
     results, status = pd.filter
     results[:results].each { |e| e[:address] = PropertyDetails.address(e) }

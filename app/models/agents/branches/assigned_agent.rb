@@ -221,12 +221,16 @@ module Agents
 
 
           ### Status of the link
-          if lead.agent_id == self.id
-            new_row[:status] = 'Won'
-          elsif lead.agent_id.nil?
-            new_row[:status] = 'New'
+          if status.nil?
+            if lead.agent_id == self.id
+              new_row[:status] = 'Won'
+            elsif lead.agent_id.nil?
+              new_row[:status] = 'New'
+            else
+              new_row[:status] = 'Lost'
+            end
           else
-            new_row[:status] = 'Lost'
+            new_row[:status] = status
           end
 
           ### Verified or not
