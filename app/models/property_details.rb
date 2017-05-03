@@ -138,7 +138,7 @@ class PropertyDetails
     last_property_status_type = property_details['property_status_type']
     update_hash['status_last_updated'] = Time.now.to_s[0..Time.now.to_s.rindex(" ")-1]
     begin
-      client.update index: nil, type: Rails.configuration.address_type_name, id: @udprn, body: { doc: update_hash }
+      client.update index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn, body: { doc: update_hash }
       response = {"message" => "Successfully updated"}
     rescue => e
       Rails.logger.info "Error updating details for udprn #{udprn} => #{e}"

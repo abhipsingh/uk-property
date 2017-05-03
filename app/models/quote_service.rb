@@ -11,12 +11,12 @@ class QuoteService
     services_required = Agents::Branches::AssignedAgents::Quote::SERVICES_REQUIRED_HASH[services_required]
     status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
     Rails.logger.info("QUOTE_DETAILS_#{quote_details}")
-    details = PropertyDetails.details(udprn)['_source']
+    details = PropertyDetails.details(@udprn)['_source']
     district = details['district']
     quote = Agents::Branches::AssignedAgents::Quote.create!(
       deadline: deadline,
       agent_id: agent_id,
-      property_id: udprn,
+      property_id: @udprn,
       status: status,
       payment_terms: payment_terms,
       quote_details: quote_details,
