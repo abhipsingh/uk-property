@@ -10,9 +10,9 @@ class QuotesController < ApplicationController
   #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/quotes/property/10966139' -d '{ "services_required" : "Fixed Price", "payment_terms" : "Pay upfront", "quote_details" : "\{ \"fixed_price_services_requested\" : \{ \"price\" : null, \"list_of_services\" : \[\"Full\"\]  \}  \}", "assigned_agent": true }'
   def new_quote_for_property
     service = QuoteService.new(params[:udprn].to_i)
-    response = service.new_quote_for_property(params[:services_required], params[:payment_terms],
+    response, status = service.new_quote_for_property(params[:services_required], params[:payment_terms],
                                               params[:quote_details], params[:assigned_agent])
-    render json: response, status: 200
+    render json: response, status: status
   #rescue Exception => e
   #  render json: e, status: 400
   end

@@ -45,14 +45,17 @@ class PropertyDetails
 
   def self.details(udprn)
     remote_es_url = Rails.configuration.remote_es_url
+    Rails.logger.info "remote_es_url = #{remote_es_url.inspect}"
     response = Net::HTTP.get(URI.parse(remote_es_url + "/#{Rails.configuration.address_index_name}/#{Rails.configuration.address_type_name}/" + udprn.to_s))
     response = Oj.load(response) rescue {}
+    
     if response["_source"]["inner_area"] && response["_source"]["outer_area"]
       response['total_area'] = response["_source"]["inner_area"].to_i + response["_source"]["outer_area"].to_i
     else
       response['total_area'] = 0
     end
     response['address'] = address(response['_source'])
+    Rails.logger.info "Response from ES = #{response.inspect}"
     response
   end
 
@@ -128,13 +131,23 @@ class PropertyDetails
   end
 
   def self.update_details(client, udprn, update_hash)
+    response = {}
+    status = 200
     update_hash['pictures'] = update_hash['pictures'].sort_by{|x| x['priority']} if update_hash.key?('pictures')
     property_details = details(udprn)['_source']
     last_property_status_type = property_details['property_status_type']
     update_hash['status_last_updated'] = Time.now.to_s[0..Time.now.to_s.rindex(" ")-1]
-    client.update index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn,
-                        body: { doc: update_hash }
+    begin
+      client.update index: nil, type: Rails.configuration.address_type_name, id: @udprn, body: { doc: update_hash }
+      response = {"message" => "Successfully updated"}
+    rescue => e
+      Rails.logger.info "Error updating details for udprn #{udprn} => #{e}"
+      response = {"message" => "Error in updating udprn #{udprn}", "details" => e.message}
+      status = 500
+    end
     send_email_to_trackers(udprn, update_hash, last_property_status_type, property_details) if update_hash.key?('property_status_type')
+    Rails.logger.info "update details response = #{response}, status = #{status}"
+    return response, status
   end
 
 end

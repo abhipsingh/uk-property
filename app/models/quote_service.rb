@@ -27,17 +27,15 @@ class QuoteService
 
   def new_quote_for_property(services_required, payment_terms, quote_details, assigned_agent)
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
-    current_time = Time.now.to_s
-    current_time = current_time[0..current_time.rindex(" ")-1]
     doc = {
       services_required: services_required,
       payment_terms: payment_terms,
       quotes: quote_details,
       assigned_agent_quote: assigned_agent,
-      status_last_updated: current_time,
       accepting_quotes: true
     }
-    response = PropertyDetails.update_details(client, udprn, doc)
+    response, status = PropertyDetails.update_details(client, @udprn, doc)
+    return response, status
   end
 
   def accept_quote_from_agent(agent_id)

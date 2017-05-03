@@ -118,6 +118,7 @@ class EventsController < ApplicationController
     rescue ActiveRecord::RecordNotFound
       response = {"message" => "Agent not found in database"}
     end
+    Rails.logger.info "sending response for recent claims property #{response.inspect}"
     render json: response, status: 200
   end
 
@@ -169,11 +170,12 @@ class EventsController < ApplicationController
       Rails.logger.info("property ids found for detailed properties (agent) = #{property_ids}")
       results = property_ids.uniq.map { |e| Trackers::Buyer.new.push_events_details(PropertyDetails.details(e)) }
       results = results.select{ |t| t['_source']['property_status_type'] == params[:property_status_type] } if params[:property_status_type]
-      response = results.empty? ? {"message" : "No properties to show"} : {"properties" => results}
+      response = results.empty? ? {"message" => "No properties to show"} : {"properties" => results}
       Rails.logger.info "Sending results for detailed properties (agent) => #{results.inspect}"
     else
       response = {"message": "Agent ID mandatory for getting properties"}
     end
+    Rails.logger.info "Sending response for detailed properties (agent) => #{response.inspect}"
     render json: response, status: 200
   end
 

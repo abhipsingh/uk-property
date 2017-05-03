@@ -233,8 +233,9 @@ class AgentsController < ApplicationController
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     udprn = params[:udprn].to_i
     agent_id = params[:agent_id].to_i
-    PropertyDetails.update_details(client, udprn, { property_status_type: 'Green', verification_status: true, agent_id: agent_id })
-    render json: { message: 'Agent Verification succeed' }, status: 200
+    response, status = PropertyDetails.update_details(client, udprn, { property_status_type: 'Green', verification_status: true, agent_id: agent_id })
+    response['message'] = "Agent verification successful." unless status.nil? || status!=200
+    render json: response, status: status
   rescue Exception => e
     Rails.logger.info("VERIFICATION_FAILURE_#{e}")
     render json: { message: 'Verification failed due to some error' }, status: 400
@@ -251,8 +252,9 @@ class AgentsController < ApplicationController
     property_id = params[:property_id].to_i
     Agents::Branches::CrawledProperty.where(id: property_id).update_all({udprn: udprn})
     property_type = params[:property_type]
-    PropertyDetails.update_details(client, udprn, { property_status_type: 'Green', verification_status: true, property_type: property_type, receptions: receptions, beds: beds, baths: baths, other_property_id: property_id })
-    render json: { message: 'Property Verification succeed' }, status: 200
+    response, status = PropertyDetails.update_details(client, udprn, { property_status_type: 'Green', verification_status: true, property_type: property_type, receptions: receptions, beds: beds, baths: baths, other_property_id: property_id })
+    response['message'] = "Property verification successful." unless status.nil? || status!=200
+    render json: response, status: status
   rescue Exception => e
     Rails.logger.info("VERIFICATION_FAILURE_#{e}")
     render json: { message: 'Verification failed due to some error' }, status: 400
