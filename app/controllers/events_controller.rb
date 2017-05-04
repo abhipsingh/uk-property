@@ -113,12 +113,12 @@ class EventsController < ApplicationController
     response = {}
     status = 200
     begin
-      result = []
+      results = []
       status = params[:status]
       if params[:agent_id].nil?
         response = {"message" => "Agent ID missing"}
       else
-        result = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i).recent_properties_for_claim(status)
+        results = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i).recent_properties_for_claim(status)
         response = results.empty? ? {"leads" => results, "message" => "No leads to show"} : {"leads" => results}
       end
     rescue ActiveRecord::RecordNotFound
