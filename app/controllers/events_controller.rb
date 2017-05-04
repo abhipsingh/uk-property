@@ -64,21 +64,20 @@ class EventsController < ApplicationController
   #### v) By Buyer's funding type, chain free, biggest problems etc
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/enquiries/new/1234'
   def agent_new_enquiries
-    enquiry_type = params[:enquiry_type]
-    type_of_match = params[:type_of_match]
-    qualifying_stage = params[:qualifying_stage]
-    rating = params[:rating]
-    buyer_status = params[:buyer_status]
-    buyer_funding = params[:buyer_funding]
-    buyer_biggest_problem = params[:buyer_biggest_problem]
-    buyer_chain_free = params[:buyer_chain_free]
-    search_str = params[:search_str]
-    budget_from = params[:budget_from]
-    budget_to = params[:budget_to]
-    response = []
+    results = []; response = {}; status = 200
     # Rails.logger.info("#{params[:agent_id].to_i}_#{enquiry_type}_#{type_of_match}_#{qualifying_stage}_#{rating}_#{buyer_status}_#{buyer_funding}_#{buyer_biggest_problem}_#{buyer_chain_free}_#{search_str}_#{budget_from}_#{budget_to}")
-    response = Trackers::Buyer.new.property_enquiry_details_buyer(params[:agent_id].to_i, enquiry_type, type_of_match, qualifying_stage, rating, buyer_status, buyer_funding, buyer_biggest_problem, buyer_chain_free, search_str, budget_from, budget_to) if params[:agent_id]
-    render json: response, status: 200
+    begin
+      results = Trackers::Buyer.new.property_enquiry_details_buyer(params[:agent_id].to_i, params[:enquiry_type], params[:type_of_match], 
+        params[:qualifying_stage], params[:rating], params[:buyer_status], params[:buyer_funding], params[:buyer_biggest_problem], params[:buyer_chain_free], 
+        params[:search_str], params[:budget_from], params[:budget_to]) if params[:agent_id]
+      response = results.empty? ? {"enquiries" => results, "message" => "No quotes to show"} : {"enquiries" => results}
+      Rails.logger.info "sending response for agent new enquiries => #{response}"
+    rescue => e
+      Rails.logger.error "Error with agent enquiries => #{e}"
+      response = {"enquiries" => results, "message" => "Error in showing enquiries", "details" => e.message}
+      status = 500
+    end
+    render json: response, status: status
   end
 
   #### For agents the quotes page has to be shown in which all his recent or the new properties in the area
@@ -91,13 +90,19 @@ class EventsController < ApplicationController
   #### ii) quote_status
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent/quotes?agent_id=1234&quote_status=Won'
   def recent_properties_for_quotes
-    services_required = params[:services_required]
-    quote_status = params[:quote_status]
-    payment_terms = params[:payment_terms]
-    search_str = params[:search_str]
-    response = []
-    response = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i).recent_properties_for_quotes(payment_terms, services_required, quote_status, search_str) if params[:agent_id]
-    render json: response, status: 200
+    results = []
+    response = {}
+    status = 200
+    begin
+      results = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i).recent_properties_for_quotes(params[:payment_terms], params[:services_required], params[:quote_status], params[:search_str]) if params[:agent_id]
+      response = results.empty? ? {"quotes" => results, "message" => "No quotes to show"} : {"quotes" => results}
+    rescue => e
+      Rails.logger.error "Error with agent quotes => #{e}"
+      response = {"quotes" => results, "message" => "Error in showing quotes", "details" => e.message}
+      status = 500
+    end
+    
+    render json: response, status: status
   end
 
 
@@ -106,6 +111,7 @@ class EventsController < ApplicationController
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent/claims?agent_id=1234'
   def recent_properties_for_claim
     response = {}
+    status = 200
     begin
       result = []
       status = params[:status]
@@ -113,13 +119,16 @@ class EventsController < ApplicationController
         response = {"message" => "Agent ID missing"}
       else
         result = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i).recent_properties_for_claim(status)
-        response = {"properties" => result}
+        response = results.empty? ? {"leads" => results, "message" => "No leads to show"} : {"leads" => results}
       end
     rescue ActiveRecord::RecordNotFound
       response = {"message" => "Agent not found in database"}
+    rescue => e
+      response = {"leads" => results, "message" => "Error in showing leads", "details" => e.message}
+      status = 500
     end
     Rails.logger.info "sending response for recent claims property #{response.inspect}"
-    render json: response, status: 200
+    render json: response, status: status
   end
 
   #### When an agent wants to see the property specific statistics(trackings,

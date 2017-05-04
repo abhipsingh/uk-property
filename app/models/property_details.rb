@@ -55,7 +55,7 @@ class PropertyDetails
       response['total_area'] = 0
     end
     response['address'] = address(response['_source'])
-    Rails.logger.info "Response from ES = #{response.inspect}"
+    # Rails.logger.info "Response from ES = #{response.inspect}"
     response
   end
 

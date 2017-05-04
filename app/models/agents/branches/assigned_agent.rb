@@ -73,18 +73,17 @@ module Agents
             new_row[:activated_on] = property_details['status_last_updated']
             new_row[:type] = 'SALE'
             new_row[:photo_url] = property_details['photos'] ? property_details['photos'][0] : "Image not available"
-            new_row[:pictures] = property_details['pictures']
+
+            new_row = new_row.merge(['property_type', 'beds', 'baths', 'receptions', 'floor_plan_url', 'services_required',
+              'verification_status','asking_price','fixed_price', 'dream_price', 'pictures', 'payment_terms', 'quotes'].reduce({}) {|h, k| h[k] = property_details[k]; h })
+            
+            new_row[:current_agent] = self.name
+
             new_row[:street_view_url] = property_details['street_view_image_url']
             new_row[:address] = PropertyDetails.address(property_details)
             new_row[:claimed_on] = property_details['claimed_at']
 
-            ### Price details starts
-            new_row[:asking_price] = property_details['asking_price']
-            new_row[:offers_price] = property_details['offers_price']
-            new_row[:fixed_price] = property_details['fixed_price']
-            new_row[:dream_price] = property_details['dream_price']
             new_row[:latest_valuation] = property_details['current_valuation']
-            ### Price details ends
 
             ### Historical prices
             property_historical_prices = PropertyHistoricalDetail.where(udprn: "#{property_id}").order("date DESC").pluck(:price)
@@ -107,18 +106,6 @@ module Agents
             new_row[:assigned_branch_logo] = self.branch.image_url
             new_row[:assigned_branch_name] = self.branch.name
             new_row[:assigned_agent_id] = property_details['agent_id']
-
-            new_row[:property_type] = property_details['property_type']
-            new_row[:beds] = property_details['beds']
-            new_row[:baths] = property_details['baths']
-            new_row[:receptions] = property_details['receptions']
-            new_row[:floor_plan_url] = property_details['floor_plan_url']
-            new_row[:current_agent] = self.name
-            new_row[:services_required] = property_details['services_required']
-            new_row[:verification_status] = property_details['verification_status']
-
-            new_row[:payment_terms] = property_details['payment_terms']
-            new_row[:quotes] = property_details['quotes']
 
             new_row[:quotes_received] = Agents::Branches::AssignedAgents::Quote.where(property_id: property_id).where('created_at > ?', 1.week.ago).count
 
