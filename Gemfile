@@ -69,5 +69,8 @@ gem 'simple_command'
 gem 'pg_search'
 
 ### For code related issues
-gem "appsignal"
+#gem "appsignal"
+
+### For search
+gem 'textacular', '~> 3.0'
 

@@ -11,10 +11,11 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170405143515) do
+ActiveRecord::Schema.define(version: 20170421192608) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
+  enable_extension "pg_trgm"
 
   create_table "agents", force: :cascade do |t|
     t.string  "name",         limit: 255
@@ -113,13 +114,24 @@ ActiveRecord::Schema.define(version: 20170405143515) do
     t.datetime "updated_at"
     t.decimal  "latitude"
     t.decimal  "longitude"
-    t.string   "tags",               default: [], array: true
+    t.string   "tags",                               default: [], array: true
     t.string   "postcode"
     t.integer  "zoopla_id"
-    t.text     "image_urls",         default: [], array: true
+    t.text     "image_urls",                         default: [], array: true
     t.integer  "udprn"
     t.jsonb    "additional_details"
     t.string   "district"
+    t.string   "county"
+    t.string   "post_town"
+    t.string   "dep_locality"
+    t.string   "street"
+    t.string   "area"
+    t.string   "sector"
+    t.string   "unit"
+    t.string   "thoroughfare_descriptor"
+    t.string   "double_dependent_locality"
+    t.string   "dependent_locality"
+    t.string   "dependent_thoroughfare_description"
   end
 
   add_index "agents_branches_crawled_properties", ["district"], name: "index_agents_branches_crawled_properties_on_district", using: :btree
@@ -135,24 +147,50 @@ ActiveRecord::Schema.define(version: 20170405143515) do
     t.string   "agent_url"
     t.float    "latitude"
     t.float    "longitude"
-    t.text     "image_urls",     default: [],              array: true
-    t.text     "floorplan_urls", default: [],              array: true
-    t.datetime "created_at",                  null: false
-    t.datetime "updated_at",                  null: false
+    t.text     "image_urls",                         default: [],              array: true
+    t.text     "floorplan_urls",                     default: [],              array: true
+    t.datetime "created_at",                                      null: false
+    t.datetime "updated_at",                                      null: false
     t.integer  "agent_id"
+    t.string   "postcode"
+    t.string   "county"
+    t.string   "post_town"
+    t.string   "dep_locality"
+    t.string   "street"
+    t.string   "area"
+    t.string   "district"
+    t.string   "sector"
+    t.string   "unit"
+    t.string   "thoroughfare_descriptor"
+    t.string   "double_dependent_locality"
+    t.string   "dependent_locality"
+    t.string   "dependent_thoroughfare_description"
   end
 
   create_table "agents_branches_crawled_properties_rents", force: :cascade do |t|
     t.string   "price"
     t.string   "locality"
     t.string   "description"
-    t.text     "image_urls",  default: [],              array: true
+    t.text     "image_urls",                         default: [],              array: true
     t.string   "agent_url"
     t.float    "latitude"
     t.float    "longitude"
-    t.datetime "created_at",               null: false
-    t.datetime "updated_at",               null: false
+    t.datetime "created_at",                                      null: false
+    t.datetime "updated_at",                                      null: false
     t.integer  "agent_id"
+    t.string   "postcode"
+    t.string   "county"
+    t.string   "post_town"
+    t.string   "dep_locality"
+    t.string   "street"
+    t.string   "area"
+    t.string   "district"
+    t.string   "sector"
+    t.string   "unit"
+    t.string   "thoroughfare_descriptor"
+    t.string   "double_dependent_locality"
+    t.string   "dependent_locality"
+    t.string   "dependent_thoroughfare_description"
   end
 
   create_table "agents_branches_on_the_market_rents", force: :cascade do |t|
@@ -215,6 +253,12 @@ ActiveRecord::Schema.define(version: 20170405143515) do
 
   add_index "messages", ["from"], name: "index_messages_on_from", using: :btree
   add_index "messages", ["to"], name: "index_messages_on_to", using: :btree
+
+  create_table "pb_details", force: :cascade do |t|
+    t.jsonb    "details"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
 
   create_table "property_ads", force: :cascade do |t|
     t.integer  "property_id"
@@ -292,8 +336,8 @@ ActiveRecord::Schema.define(version: 20170405143515) do
     t.string  "county"
   end
 
+  add_index "uk_properties", ["post_code"], name: "trgm_postcode_indx", using: :gist
   add_index "uk_properties", ["udprn"], name: "index_uk_properties_on_udprn", unique: true, using: :btree
-
 
   create_table "vendors", force: :cascade do |t|
     t.string   "full_name"

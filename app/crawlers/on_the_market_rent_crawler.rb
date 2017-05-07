@@ -365,5 +365,35 @@ module OnTheMarketRentCrawler
     end
   end
 
+  def self.crawl_postcodes_buy(from, to)
+    Agents::Branches::CrawledProperties::Buy.where("id > ?", from).where("id < ?", to).select([:id, :latitude, :longitude]).each do |property|
+      latitude = property.latitude
+      longitude = property.longitude
+      url = "http://api.postcodes.io/postcodes?lon=#{longitude}&lat=#{latitude}"
+      res = Net::HTTP.get_response(URI.parse(url))
+      if res.code.to_i == 200
+        postcode = Oj.load(res.body)['result'].first['postcode'] rescue nil
+        Agents::Branches::CrawledProperties::Buy.where(id: property.id).update_all(postcode: postcode) if postcode
+        Rails.logger.info("POSTCODE FETCHING FAILED FOR #{property.id}") unless postcode
+      end
+      p property.id
+    end
+  end
+
+  def self.crawl_postcodes_rent(from, to)
+    Agents::Branches::CrawledProperties::Rent.where("id > ?", from).where("id < ?", to).select([:id, :latitude, :longitude]).each do |property|
+      latitude = property.latitude
+      longitude = property.longitude
+      url = "http://api.postcodes.io/postcodes?lon=#{longitude}&lat=#{latitude}"
+      res = Net::HTTP.get_response(URI.parse(url))
+      if res.code.to_i == 200
+        postcode = Oj.load(res.body)['result'].first['postcode'] rescue nil
+        Agents::Branches::CrawledProperties::Rent.where(id: property.id).update_all(postcode: postcode) if postcode
+        Rails.logger.info("POSTCODE FETCHING FAILED FOR #{property.id}") unless postcode
+      end
+      p property.id
+    end
+  end
+
 end
 

@@ -295,7 +295,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
   def append_terms_filters
     inst = self
     terms_filters = @filtered_params.keys & FIELDS[:terms]
-    terms_filters.each{|t|  inst = inst.append_terms_filter_query(t.to_s.singularize, @filtered_params[t].split(","), :and)}
+    terms_filters.each{|t|  inst = inst.append_terms_filter_query(t.to_s.singularize, @filtered_params[t].split(","), :and) if @filtered_params[t]}
     inst
   end
 

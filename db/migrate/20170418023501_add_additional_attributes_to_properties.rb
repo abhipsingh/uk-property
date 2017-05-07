@@ -1,0 +1,28 @@
+class AddAdditionalAttributesToProperties < ActiveRecord::Migration
+  def change
+    add_column(:agents_branches_crawled_properties, :county, :string)
+    add_column(:agents_branches_crawled_properties, :post_town, :string)
+    add_column(:agents_branches_crawled_properties, :dep_locality, :string)
+    add_column(:agents_branches_crawled_properties, :street, :string)
+    add_column(:agents_branches_crawled_properties, :area, :string)
+    # add_column(:agents_branches_crawled_properties, :district, :string)
+    add_column(:agents_branches_crawled_properties, :sector, :string)
+    add_column(:agents_branches_crawled_properties, :unit, :string)
+    add_column(:agents_branches_crawled_properties_buys, :county, :string)
+    add_column(:agents_branches_crawled_properties_buys, :post_town, :string)
+    add_column(:agents_branches_crawled_properties_buys, :dep_locality, :string)
+    add_column(:agents_branches_crawled_properties_buys, :street, :string)
+    add_column(:agents_branches_crawled_properties_buys, :area, :string)
+    add_column(:agents_branches_crawled_properties_buys, :district, :string)
+    add_column(:agents_branches_crawled_properties_buys, :sector, :string)
+    add_column(:agents_branches_crawled_properties_buys, :unit, :string)
+    add_column(:agents_branches_crawled_properties_rents, :county, :string)
+    add_column(:agents_branches_crawled_properties_rents, :post_town, :string)
+    add_column(:agents_branches_crawled_properties_rents, :dep_locality, :string)
+    add_column(:agents_branches_crawled_properties_rents, :street, :string)
+    add_column(:agents_branches_crawled_properties_rents, :area, :string)
+    add_column(:agents_branches_crawled_properties_rents, :district, :string)
+    add_column(:agents_branches_crawled_properties_rents, :sector, :string)
+    add_column(:agents_branches_crawled_properties_rents, :unit, :string)
+  end
+end

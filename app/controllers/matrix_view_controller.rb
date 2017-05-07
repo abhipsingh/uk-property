@@ -108,7 +108,7 @@ class MatrixViewController < ActionController::Base
       res, code = aggs_data_for_postcode(params[:str].upcase)
     else
       str = params[:str].gsub(',',' ').downcase
-      results, code = get_results_from_es_suggest(str)
+      results, code = get_results_from_es_suggest(str, 1)
       parsed_json = JSON.parse(results)
       #parsed_json = {"_shards"=>{"total"=>1, "successful"=>1, "failed"=>0}, "postcode_suggest"=>[{"text"=>"sunningdale", "offset"=>0, "length"=>11, "options"=>[{"text"=>"ascot sunningdale ", "score"=>100.0, "payload"=>{"hash"=>"ASCOT_Sunningdale", "hierarchy_str"=>"Sunningdale|Ascot|Berkshire", "post_code"=>"SL5 0AA", "type"=>"dependent_locality"}}, {"text"=>"leeds alwoodley sunningdale avenue ", "score"=>10.0, "payload"=>{"hash"=>"LEEDS_Alwoodley_Sunningdale Avenue", "hierarchy_str"=>"Sunningdale Avenue|Alwoodley|Leeds|West Yorkshire", "post_code"=>"LS17 7SD", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"york leeman road area sunningdale close ", "score"=>10.0, "payload"=>{"hash"=>"YORK_Leeman Road Area_Sunningdale Close", "hierarchy_str"=>"Sunningdale Close|Leeman Road Area|York|North Yorkshire", "post_code"=>"YO26 5PD", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"london bermondsey (part of) sunningdale close ", "score"=>10.0, "payload"=>{"hash"=>"LONDON_Bermondsey (Part Of)_Sunningdale Close", "hierarchy_str"=>"Sunningdale Close|Bermondsey (Part Of)|London|London", "post_code"=>"SE16 3BU", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"abergele llangernyw sunningdale ", "score"=>10.0, "payload"=>{"hash"=>"ABERGELE_Llangernyw_Sunningdale", "hierarchy_str"=>"Sunningdale|Llangernyw|Abergele|Clwyd", "post_code"=>"LL22 7UB", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"york nether poppleton sunningdale close ", "score"=>10.0, "payload"=>{"hash"=>"YORK_Nether Poppleton_Sunningdale Close", "hierarchy_str"=>"Sunningdale Close|Nether Poppleton|York|North Yorkshire", "post_code"=>"YO26 5PD", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"ascot sunningdale alpine close hancocks mount ", "score"=>10.0, "payload"=>{"hash"=>"ASCOT_Sunningdale_Alpine Close_Hancocks Mount", "hierarchy_str"=>"Hancocks Mount|Alpine Close|Sunningdale|Ascot|Berkshire", "post_code"=>"SL5 9WB", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"ascot sunningdale agincourt ", "score"=>10.0, "payload"=>{"hash"=>"ASCOT_Sunningdale_Agincourt", "hierarchy_str"=>"Agincourt|Sunningdale|Ascot|Berkshire", "post_code"=>"SL5 7SJ", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"manchester beswick sunningdale avenue ", "score"=>10.0, "payload"=>{"hash"=>"MANCHESTER_Beswick_Sunningdale Avenue", "hierarchy_str"=>"Sunningdale Avenue|Beswick|Manchester|Lancashire", "post_code"=>"M11 4HS", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"leigh bedford sunningdale grove ", "score"=>10.0, "payload"=>{"hash"=>"LEIGH_Bedford_Sunningdale Grove", "hierarchy_str"=>"Sunningdale Grove|Bedford|Leigh|Lancashire", "post_code"=>"WN7 2XQ", "type"=>"dependent_thoroughfare_description"}}]}]}
       hash_value = top_suggest_result(parsed_json)
@@ -193,7 +193,7 @@ class MatrixViewController < ActionController::Base
         }
       }
     }
-    Rails.logger.info(query_str)
+    #Rails.logger.info(query_str)
     res, code = post_url(Rails.configuration.location_index_name, query_str)
   end
 
@@ -314,6 +314,8 @@ class MatrixViewController < ActionController::Base
       }
     }
 
+    filter_hash = filter_hash.reject { |e| e.values.first[:_name].to_s == 'match_type_str' || e.values.first[:_name].to_s == 'hashes' }
+
     if filter_hash.is_a?(Hash) && filter_hash[:or] && filter_hash[:or][:filters]
       query[:query] = {
         filtered: {
@@ -331,19 +333,26 @@ class MatrixViewController < ActionController::Base
         }
       }
     end
+    if query[:query][:filtered][:filter][:or][:filters].none?{ |t| t.keys.first.to_s == 'and'}
+      query[:query][:filtered][:filter][:or][:filters].push({ and: { filters: [] }})
+    end
+    filter_index = query[:query][:filtered][:filter][:or][:filters].find_index { |t| t.keys.first.to_s == 'and' }
 
     Rails.logger.info(parsed_json)
-    first_type = parsed_json['postcode_suggest'][0]['options'][0]['payload']['type']
-    hash_value = parsed_json['postcode_suggest'][0]['options'][0]['payload']['hash']
-    county_value = parsed_json['postcode_suggest'][0]['options'][0]['payload']['county'].capitalize rescue nil
-    post_code = parsed_json['postcode_suggest'][0]['options'][0]['payload']['post_code'] || parsed_json['postcode_suggest'][0]['options'][0]['payload']['postcode']
+    first_type, hash_value, county_value, post_code = nil
+    if parsed_json['postcode_suggest'][0]['options'].length > 0
+      first_type = parsed_json['postcode_suggest'][0]['options'][0]['payload']['type']
+      hash_value = parsed_json['postcode_suggest'][0]['options'][0]['payload']['hash']
+      county_value = parsed_json['postcode_suggest'][0]['options'][0]['payload']['county'].capitalize rescue nil
+      post_code = parsed_json['postcode_suggest'][0]['options'][0]['payload']['post_code'] || parsed_json['postcode_suggest'][0]['options'][0]['payload']['postcode']
+    end
     ### query = {:query=>{:filtered=>{:filter=>{:or=>{:filters=>[{:term=>{:match_type_str=>"ASCOT_Sunningdale|Normal", :_name=>:match_type_str}}, {:terms=>{"hashes"=>["ASCOT_Sunningdale"], :_name=>"hashes"}}]}}}}}
     ### dependent_locality__ASCOT_Sunningdale____SL5 0AA
     # Rails.logger.info("PARSED_JSON__#{parsed_json}")
     if post_code.is_a?(Array)
       post_code = post_code.first
     end
-    area, district, sector, unit = compute_postcode_units(post_code)
+    area, district, sector, unit = compute_postcode_units(post_code) if post_code
 
     Rails.logger.info("FIRST_TYPE___#{first_type}")
     if first_type == 'county'
@@ -352,12 +361,14 @@ class MatrixViewController < ActionController::Base
       insert_term_filters(filters, 'county', hash_value)
       query[:size] = 1
       query[:aggs] = aggs
-      query[:query] = { filtered: { filter: filters } }
+      query[:query][:filtered][:filter][:or][:filters][filter_index][:and][:filters].push({ term: { county: hash_value }})
       body, status = post_url(Rails.configuration.address_index_name, query, '_search', ES_EC2_URL)
       response = Oj.load(body).with_indifferent_access
       response_hash = Hash.new { [] }
       response_hash[:type] = first_type
       Rails.logger.info(response)
+      Rails.logger.info("QUERY")
+      Rails.logger.info(query)
       response[:aggregations][:area_post_town_aggs][:buckets].each do |nested_value|
         nested_value[:post_town_aggs][:buckets].each do |value|
           response_hash[:post_towns] = response_hash[:post_towns].push({ post_town: value[:key].capitalize, flat_count: value[:doc_count], scoped_postcode: nested_value[:key] })
@@ -392,10 +403,9 @@ class MatrixViewController < ActionController::Base
       append_nested_filtered_aggs(aggs, 'dependent_locality', 'county', county_value, 'district')
       append_nested_filtered_aggs(aggs, 'post_town', 'county', county_value, 'area')
       append_nested_filtered_aggs(aggs, 'district', 'county', county_value, 'area')
-      insert_term_filters(filters, first_type, hash_value)
       query[:size] = 1
       query[:aggs] = aggs
-      query[:filter] = filters
+      query[:query][:filtered][:filter][:or][:filters][filter_index][:and][:filters].push({ term: { county: county_value }})
       body, status = post_url(Rails.configuration.address_index_name, query, '_search', ES_EC2_URL)
       response = Oj.load(body).with_indifferent_access
       response_hash = Hash.new { [] }
@@ -445,7 +455,6 @@ class MatrixViewController < ActionController::Base
       # insert_terms_aggs(aggs, 'sector')
       # inner_aggs = insert_terms_aggs({}, 'dependent_thoroughfare_description')
       # aggs['sector_aggs']['aggs'] = inner_aggs
-      insert_term_filters(filters, 'hashes', hash_value)
 
       append_filtered_aggs(aggs, 'district', 'area', area)
       append_nested_filtered_aggs(aggs, 'dependent_locality', 'district', district, 'district')
@@ -459,7 +468,7 @@ class MatrixViewController < ActionController::Base
       # insert_global_aggs(aggs, first_type, append_filtered_aggs({}, first_type, 'area', area, filtered_inner_aggs))
       query[:size] = 1
       query[:aggs] = aggs
-      query[:filter] = filters
+      query[:query][:filtered][:filter][:or][:filters][filter_index][:and][:filters].push({ term: { district: district }})
       body, status = post_url(Rails.configuration.address_index_name, query, '_search', ES_EC2_URL)
       Rails.logger.info("QUERY")
       Rails.logger.info(query)
@@ -519,7 +528,6 @@ class MatrixViewController < ActionController::Base
     elsif ['thoroughfare_description', 'dependent_thoroughfare_description'].include?(first_type)
       district = post_code.split(' ')[0]
       sector_unit = post_code.split(' ')[1]
-      insert_term_filters(filters, 'hashes', hash_value)
       area = district.match(/([A-Z]{0,3})([0-9]{0,3})/)[1]
       # sector = sector_unit.match(/([0-9]{0,3})([A-Z]{0,3})/)[1]
       append_filtered_aggs(aggs, 'district', 'area', area)
@@ -532,7 +540,7 @@ class MatrixViewController < ActionController::Base
       append_nested_filtered_aggs(aggs, first_type, 'sector', sector, 'sector')
       query[:size] = 1
       query[:aggs] = aggs
-      query[:filter] = filters
+      query[:query][:filtered][:filter][:or][:filters][filter_index][:and][:filters].push({ term: { sector: sector }})
       body, status = post_url(Rails.configuration.address_index_name, query, '_search', ES_EC2_URL)
       response = Oj.load(body).with_indifferent_access
       response_hash = Hash.new { [] }
