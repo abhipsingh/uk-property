@@ -45,10 +45,10 @@ class PropertyDetails
 
   def self.details(udprn)
     remote_es_url = Rails.configuration.remote_es_url
-    Rails.logger.info "remote_es_url = #{remote_es_url.inspect}"
+    # Rails.logger.info "remote_es_url = #{remote_es_url.inspect}"  ### The url can be checked from application.yml file
     response = Net::HTTP.get(URI.parse(remote_es_url + "/#{Rails.configuration.address_index_name}/#{Rails.configuration.address_type_name}/" + udprn.to_s))
     response = Oj.load(response) rescue {}
-    
+    #### TODO: Declutter area logic from details function
     if response["_source"]["inner_area"] && response["_source"]["outer_area"]
       response['total_area'] = response["_source"]["inner_area"].to_i + response["_source"]["outer_area"].to_i
     else

@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170421192608) do
+ActiveRecord::Schema.define(version: 20170507212626) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -86,6 +86,7 @@ ActiveRecord::Schema.define(version: 20170421192608) do
   add_index "agents_branches_assigned_agents_leads", ["district"], name: "index_agents_branches_assigned_agents_leads_on_district", using: :btree
   add_index "agents_branches_assigned_agents_leads", ["property_id", "agent_id", "vendor_id"], name: "prop_agent", unique: true, using: :btree
   add_index "agents_branches_assigned_agents_leads", ["property_id"], name: "index_agents_branches_assigned_agents_leads_on_property_id", using: :btree
+  add_index "agents_branches_assigned_agents_leads", ["property_id"], name: "unique_vendor_property_claims", unique: true, using: :btree
 
   create_table "agents_branches_assigned_agents_quotes", force: :cascade do |t|
     t.datetime "deadline"

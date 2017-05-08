@@ -143,29 +143,37 @@ class VendorApi
 
     #### Agent details
     agent_id = details['agent_id']
-    agent = Agents::Branches::AssignedAgent.find(agent_id)
-    details['assigned_agent_name'] = agent.name
-    details['assigned_agent_branch_name'] = agent.branch.name
-    details['assigned_agent_company_name'] = agent.branch.agent.name
-    details['assigned_agent_group_name'] = agent.branch.agent.group.name
-    details['assigned_agent_image_url'] = agent.image_url
-    details['assigned_agent_mobile'] = agent.mobile
-    details['assigned_agent_email'] = agent.email
-    details['assigned_agent_office_number'] = agent.office_phone_number
-    details['assigned_agent_branch_address'] = agent.branch.address
-    details['assigned_agent_branch_number'] = agent.branch.phone_number
-    details['assigned_agent_branch_logo'] = agent.branch.image_url
-    details['assigned_agent_branch_email'] = agent.branch.email
-    
-    ### No of properties sold for this branch
-    event = Trackers::Buyer::EVENTS[:sold]
-    agent_ids = Agents::Branches::AssignedAgent.find(agent_id).branch.assigned_agents.pluck(:id)
-    sold_udprns = Event.where(event: event).where(agent_id: agent_ids).pluck(:udprn)
-    details['branch_properties_sold'] = sold_udprns.count
+    agent = Agents::Branches::AssignedAgent.where(id: agent_id).first
+    agent_keys = ['assigned_agent_name', 'assigned_agent_branch_name', 'assigned_agent_company_name', 'assigned_agent_group_name',
+                  'assigned_agent_image_url', 'assigned_agent_mobile', 'assigned_agent_email', 'assigned_agent_office_number',
+                  'assigned_agent_branch_address', 'assigned_agent_branch_number', 'assigned_agent_branch_logo', 'assigned_agent_branch_email',
+                  'branch_properties_sold', 'branch_properties_on_sale']
+    agent_keys.each{ |t| details[t] = nil }
+    if agent
+      details['assigned_agent_name'] = agent.name
+      details['assigned_agent_branch_name'] = agent.branch.name
+      details['assigned_agent_company_name'] = agent.branch.agent.name
+      details['assigned_agent_group_name'] = agent.branch.agent.group.name
+      details['assigned_agent_image_url'] = agent.image_url
+      details['assigned_agent_mobile'] = agent.mobile
+      details['assigned_agent_email'] = agent.email
+      details['assigned_agent_office_number'] = agent.office_phone_number
+      details['assigned_agent_branch_address'] = agent.branch.address
+      details['assigned_agent_branch_number'] = agent.branch.phone_number
+      details['assigned_agent_branch_logo'] = agent.branch.image_url
+      details['assigned_agent_branch_email'] = agent.branch.email
 
-    #### No of properties on sale
-    total_udprns = Event.where.not(event: event).where(agent_id: agent_ids).pluck(:udprn)
-    details['branch_properties_on_sale'] = (total_udprns.uniq - sold_udprns).count
+      ### No of properties sold for this branch
+      event = Trackers::Buyer::EVENTS[:sold]
+      agent_ids = Agents::Branches::AssignedAgent.find(agent_id).branch.assigned_agents.pluck(:id)
+      sold_udprns = Event.where(event: event).where(agent_id: agent_ids).pluck(:udprn)
+      details['branch_properties_sold'] = sold_udprns.count
+
+      #### No of properties on sale
+      total_udprns = Event.where.not(event: event).where(agent_id: agent_ids).pluck(:udprn)
+      details['branch_properties_on_sale'] = (total_udprns.uniq - sold_udprns).count
+    end
+   
 
     ### Advertised or not
     details['advertised'] = details['match_type_str'].any? { |e| ['Featured', 'Premium'].include?(e.split('|').last) }
@@ -189,3 +197,4 @@ class VendorApi
   end
 
 end
+
