@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170507212626) do
+ActiveRecord::Schema.define(version: 20170508163505) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -360,6 +360,7 @@ ActiveRecord::Schema.define(version: 20170507212626) do
   end
 
   add_index "vendors", ["email"], name: "index_vendors_on_email", unique: true, using: :btree
+  add_index "vendors", ["property_id"], name: "index_vendors_on_property_id", unique: true, using: :btree
 
   create_table "verification_hashes", force: :cascade do |t|
     t.integer  "entity_id"
