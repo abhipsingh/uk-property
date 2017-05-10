@@ -27,7 +27,7 @@ module Api
         suggestions, status = get_results_from_es_suggest(str)
         Rails.logger.info(suggestions)
         predictions = [ ]
-        predictions = Oj.load(suggestions)['postcode_suggest'].map { |e| e['options'].map{ |t| { hash: t['payload']['hash'], output: t['payload']['hierarchy_str'].split('|').join(', '), location_type: t['payload']['type'] } } }.flatten if Oj.load(suggestions)['postcode_suggest']
+        predictions = Oj.load(suggestions)['postcode_suggest'].map { |e| e['options'].map{ |t| { hash: t['payload']['hash'], output: (t['payload']['hierarchy_str'].split('|').join(', ') + ', '+ t['payload']['postcode'] rescue ''  ), location_type: t['payload']['type'] } } }.flatten if Oj.load(suggestions)['postcode_suggest']
         #Rails.logger.info(predictions)
         predictions = predictions.group_by{ |t| t[:location_type] }
         render json: predictions, status: status

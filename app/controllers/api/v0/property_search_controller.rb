@@ -23,7 +23,7 @@ module Api
         #Rails.logger.info(result)
         ## TODO - Confirm this
         # result.first[:breadcrumb] = params[:hash_str].split('_').join(', ')
-        insert_new_search 
+        #insert_new_search 
         render :json => result, :status => status
       end
 

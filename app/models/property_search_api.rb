@@ -131,8 +131,19 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     inst = inst.append_term_filters
     inst = inst.append_range_filters
     inst = inst.append_sort_filters
-    # inst
+    shift_query_keys
     Rails.logger.info(inst.query)
+  end
+
+  def shift_query_keys
+    query_clone = @query.deep_dup
+    @query = {}
+    @query[:size] = query_clone[:size]
+    @query[:from] = query_clone[:from]
+    keys = query_clone.keys - [:size, :from]
+    keys.each do |key|
+      @query[key] = query_clone[key]
+    end
   end
 
   def filter
@@ -381,23 +392,31 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
       body = []
       udprns.each_with_index do |udprn, index|
         doc = {}
+        double_dependent_locality = response_arr[index]['double_dependent_locality']
+        thoroughfare_description = response_arr[index]['thoroughfare_description']
+        dependent_locality = response_arr[index]['dependent_locality']
+        dependent_thoroughfare_description = response_arr[index]['dependent_thoroughfare_description']
+        doc[:dependent_locality] = double_dependent_locality if dependent_locality.nil? && !double_dependent_locality.nil?
+        doc[:dependent_thoroughfare_description] = thoroughfare_description if dependent_thoroughfare_description.nil? && !thoroughfare_description.nil?
         # doc[:property_status_type] = 'Unknown'
         # p response_arr[index]
        # building_text = "";
-        hashes = response_arr[index]['hashes']
-        district = response_arr[index]['district']
-        sector = response_arr[index]['sector']
-        unit = response_arr[index]['unit']
-        sector = district + " " + sector.split(district).last 
-        unit = district + " " + unit.split(district).last 
-        extra_attrs = [ response_arr[index]['district'], sector, unit ]
-        new_hashes = hashes + extra_attrs
-        doc['hashes'] = new_hashes
-
-        match_type_strs = response_arr[index]['match_type_str']
-        extra_attrs_match_type = extra_attrs.map { |e| e.to_s+'|Normal' }
-        normal_attrs = doc['hashes'].map { |e| e.to_s+'|Normal'  }
-        doc['match_type_str'] = normal_attrs
+        #hashes = response_arr[index]['hashes']
+#        district = response_arr[index]['district']
+#        sector = response_arr[index]['sector']
+#        unit = response_arr[index]['unit']
+#        sector = district + " " + sector.split(district).last 
+#        unit = district + " " + unit.split(district).last 
+        #county = response_arr[index]['county']
+        # extra_attrs = [ response_arr[index]['district'], sector, unit ]
+#        extra_attrs = [ county ]
+#        new_hashes = hashes + extra_attrs
+#        doc['hashes'] = new_hashes
+#
+#        match_type_strs = response_arr[index]['match_type_str']
+#        extra_attrs_match_type = extra_attrs.map { |e| e.to_s+'|Normal' }
+#        normal_attrs = doc['hashes'].map { |e| e.to_s+'|Normal'  }
+#        doc['match_type_str'] = normal_attrs
         # building_text = building_text + response_arr[index]['building_number'] + " " if response_arr[index]['building_number']
         # building_text = building_text + response_arr[index]['building_name'] + " " if response_arr[index]['building_name']
         # building_text = building_text + response_arr[index]['sub_building_name'] + " " if response_arr[index]['sub_building_name']
