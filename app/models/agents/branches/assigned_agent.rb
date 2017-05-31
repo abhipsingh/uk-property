@@ -247,7 +247,7 @@ module Agents
       def self.from_omniauth(auth)
         new_params = auth.as_json.with_indifferent_access
         user_details = nil
-        Rails.logger.info(new_params)
+        #Rails.logger.info(new_params)
         where(new_params.slice(:provider, :uid)).first_or_initialize.tap do |user|
           user.provider = new_params['provider']
           user.uid = new_params['uid']
@@ -262,7 +262,7 @@ module Agents
       end
 
       ### Agents::Branches::AssignedAgent.find(23).send_vendor_email("test@prophety.co.uk", 10968961)
-      def send_vendor_email(vendor_email, udprn)
+      def send_vendor_email(vendor_email, udprn, assigned_agent_present=true, alternate_agent_email=nil)
         salt_str = "#{vendor_email}_#{self.id}_#{self.class}"
         hash_value = BCrypt::Password.create salt_str
         hash_obj = VerificationHash.create!(email: vendor_email, hash_value: hash_value, entity_id: self.id, entity_type: self.class, udprn: udprn.to_i)
@@ -271,6 +271,8 @@ module Agents
         self.email_udprn = udprn
         details = PropertyDetails.details(udprn)['_source']
         self.vendor_address = details['address']
+        self.assigned_agent_present = assigned_agent_present
+        self.alternate_agent_email = alternate_agent_email
         VendorMailer.welcome_email(self).deliver_now
       end
 

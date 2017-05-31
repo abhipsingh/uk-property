@@ -218,10 +218,10 @@ Rails.application.routes.draw do
   get 'vendors/invite/udprns/:udprn/agents/info',               to: 'agents#info_for_agent_verification'
 
   ### verify info about the agents which invited the vendor who is registering to verify
-  post 'vendors/udprns/:udprn/agents/:agent_id/verify',         to: 'agents#verify_agent'
+  post 'vendors/udprns/:udprn/agents/:agent_id/verify',         to: 'agents#verify_property_from_vendor'
 
   ### verify info about the properties which invited the vendor who is registering to verify
-  post 'vendors/udprns/:udprn/verify',                          to: 'agents#verify_property'
+  post 'vendors/udprns/:udprn/verify',                          to: 'agents#verify_property_for_vendor'
 
   ### Get a presigned url for every image to be uploaded on S3
   get 's3/upload/url',                                          to: 's3#presigned_url'
@@ -247,15 +247,22 @@ Rails.application.routes.draw do
   ### Edit branch details
   post 'companies/:id/edit',                                    to: 'agents#edit_company_details' 
 
-
   ### Edit group details
   post 'groups/:id/edit',                                       to: 'agents#edit_group_details' 
-
 
   ### Edit property details
   post 'properties/:udprn/edit/details',                        to: 'properties#edit_property_details'
 
+  ### Update property details, attach udprn to crawled properties, send
+  ### vendor email and add assigned agents to properties
+  post 'agents/properties/:udprn/verify',                       to: 'agents#verify_property_from_agent'
 
+  ### Verify property details, agent_id from the vendor
+  post 'vendors/:udprn/verify/',                                to: 'vendors#verify_property_from_vendor'
+
+  ### Update property details, attach udprn to manually added properties, send
+  ### vendor email and add assigned agents to properties
+  post 'agents/properties/:udprn/manual/verify',                to: 'agents#verify_manual_property_from_agent'
 
   #####################################################################
   #####################################################################

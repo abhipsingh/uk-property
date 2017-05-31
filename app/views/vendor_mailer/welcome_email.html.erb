@@ -8,38 +8,63 @@
     <p>
       We're Prophety® (Prophety.co.uk), the UK's largest online property buying and selling research tool.
     </p>
-    <p>
-      We understand that <%= @user.name %> at <%= @user.branch.name %> is selling the following property for you:
-<%= @user.vendor_address%>
-    </p>
+    <% if assigned_agent_present? %>
+      <%# When the assigned agent is present in the database %>
+      <p>
+        We understand that <%= @user.name %> at <%= @user.branch.name %> is selling the following property for you:
+  <%= @user.vendor_address%>
+      </p>
 
-    <p>
-      To start seeing all the inbound enquiries your property receives from potential buyers and just how many people are visiting your property listing online in real-time, simply click on the 'login' button to access your Prophety® account. (Or, if you have any questions for <%= @user.name %> and why you should be using Prophety®, please get in touch with them directly below)
-    </p>
+      <p>
+        To start seeing all the inbound enquiries your property receives from potential buyers and just how many people are visiting your property listing online in real-time, simply click on the 'login' button to access your Prophety® account. (Or, if you have any questions for <%= @user.name %> and why you should be using Prophety®, please get in touch with them directly below)
+      </p>
 
-    <p>
-      Assigned Agent Name: <%= @user.name %>
-    </p>
+      <p>
+        Assigned Agent Name: <%= @user.name %>
+      </p>
 
-    <p>
-      Assigned Agent Job Title: <%= @user.title %>
-    </p>
+      <p>
+        Assigned Agent Job Title: <%= @user.title %>
+      </p>
 
-    <p>
-      Assigned Agent Mobile Number: <%= @user.mobile %>
-    </p>
+      <p>
+        Assigned Agent Mobile Number: <%= @user.mobile %>
+      </p>
 
-    <p>
-      Assigned Agent Email Address: <%= @user.email %>
-    </p>
+      <p>
+        Assigned Agent Email Address: <%= @user.email %>
+      </p>
 
-    <p>
-      Assigned Agent Company Name: <%= @user.branch.agent.name %>
-    </p>
+      <p>
+        Assigned Agent Company Name: <%= @user.branch.agent.name %>
+      </p>
 
-    <p>
-      Assigned Agent Branch Name: <%= @user.branch.name %>
-    </p>
+      <p>
+        Assigned Agent Branch Name: <%= @user.branch.name %>
+      </p>
+    <% else %>
+      <%# When the assigned agent is not present in the database %>
+      <p>
+        We understand that <%= @user.branch.name %> is selling the following property for you:
+  <%= @user.vendor_address%>
+      </p>
+
+      <p>
+        To start seeing all the inbound enquiries your property receives from potential buyers and just how many people are visiting your property listing online in real-time, simply click on the 'login' button to access your Prophety® account. (Or, if you have any questions for <%= @user.branch.name %> and why you should be using Prophety®, please get in touch with them directly below)
+      </p>
+
+      <p>
+        Alternate Agent Email Address: <%= @user.alternate_agent_email %>
+      </p>
+
+      <p>
+        Assigned Agent Company Name: <%= @user.branch.agent.name %>
+      </p>
+
+      <p>
+        Assigned Agent Branch Name: <%= @user.branch.name %>
+      </p>
+    <% end %>
 
     <p>
       ['LOGIN' BUTTON (URL LINKING TO USER LOGIN PAGE http://prophety.herokuapp.com/auth)]
