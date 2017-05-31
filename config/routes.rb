@@ -166,6 +166,9 @@ Rails.application.routes.draw do
   #### Edit basic details of a property
   post 'properties/claim/basic/:udprn/edit',                    to: 'properties#edit_basic_details'
 
+  #### Update basic details of a property by a vendor
+  post 'properties/vendor/basic/:udprn/update',                 to: 'properties#update_basic_details_by_vendor'
+
   #### Edit basic details of a buyer
   post 'buyers/:id/edit',                                       to: 'buyers#edit_basic_details'
 

@@ -161,6 +161,27 @@ class PropertiesController < ActionController::Base
     render json: { message: 'Update failed' }, status: 400
   end
 
+  ### Update basic details of a property by a vendor
+  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/properties/vendor/basic/10966139/update' -d '{ "beds" : 2, "baths": 190, "receptions" : 34, "property_status_type" : "Green", "vendor_id" : 1, "property_type": "Countryside" }'
+  def update_basic_details_by_vendor
+    update_basic_details_by_vendor_params
+    udprn = params[:udprn].to_i
+    client = Elasticsearch::Client.new(host: Rails.configuration.remote_es_host)
+    body = {}
+    body[:vendor_id] = params[:vendor_id].to_i
+    body[:beds] = params[:beds].to_i
+    body[:baths] = params[:baths].to_i
+    body[:receptions] = params[:receptions].to_i
+    body[:property_status_type] = params[:property_status_type]
+    body[:property_type] = params[:property_type]
+    body[:verification_status] = false
+    client.update index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn,
+                  body: { doc: body }
+    render json: { message: 'Successfully updated' }, status: 200
+  rescue Exception => e
+    render json: { message: 'Update failed' }, status: 400
+  end
+
   #### When a vendor click the claim to a property, the vendor gets a chance to visit
   #### the picture. The claim needs to be frozen and the property is no longer available
   #### for claiming.
@@ -179,6 +200,15 @@ class PropertiesController < ActionController::Base
 
   def short_form_params
     params.permit(:agent, :branch, :property_status, :receptions, :beds, :baths, :property_type, :dream_price, :udprn)
+  end
+
+  def update_basic_details_by_vendor_params
+    params.require(:vendor_id)
+    params.require(:beds)
+    params.require(:baths)
+    params.require(:receptions)
+    params.require(:property_status_type)
+    params.require(:property_type)
   end
 
 
