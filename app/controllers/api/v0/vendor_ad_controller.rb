@@ -5,7 +5,7 @@ module Api
       #### Example curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" -H "Content-Type: application/json" "http://localhost/api/v0/ads/availability?addresses%5B%5D=+33&addresses%5B%5D=+Loder+Drive&addresses%5B%5D=+City+Centre&addresses%5B%5D=+HEREFORD&addresses%5B%5D=+Herefordshire&udprn=10966139" 
       #### Parameters {"addresses"=>[" 33", " Loder Drive", " City Centre", " HEREFORD", " Herefordshire"], "udprn"=>"10966139"}
       def ads_availablity
-        if user_valid_for_viewing?(['Agent', 'Buyer'], params[:udprn].to_i)
+        if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
           score_map = {
             :county => 6,
             :post_town => 5,
