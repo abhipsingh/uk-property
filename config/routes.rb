@@ -151,6 +151,9 @@ Rails.application.routes.draw do
   #### Edit agents details 
   post 'agents/:id/edit',                                       to: 'agents#edit'
 
+  #### Update basic details of a property by a vendor
+  post 'properties/vendor/basic/:udprn/update',                 to: 'properties#update_basic_details_by_vendor'
+
   #### Shows details of a specific property owned by a vendor
   get 'vendors/properties/details/:vendor_id',                  to: 'vendors#property_details'
 
@@ -221,7 +224,7 @@ Rails.application.routes.draw do
   post 'vendors/udprns/:udprn/agents/:agent_id/verify',         to: 'agents#verify_property_from_vendor'
 
   ### verify info about the properties which invited the vendor who is registering to verify
-  post 'vendors/udprns/:udprn/verify',                          to: 'agents#verify_property_for_vendor'
+  post 'vendors/udprns/:udprn/verify',                          to: 'agents#verify_property_from_vendor'
 
   ### Get a presigned url for every image to be uploaded on S3
   get 's3/upload/url',                                          to: 's3#presigned_url'

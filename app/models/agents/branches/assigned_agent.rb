@@ -7,7 +7,7 @@ module Agents
       has_many :leads, class_name: 'Agents::Branches::AssignedAgents::Lead', foreign_key: 'agent_id'
 
       belongs_to :branch, class_name: 'Agents::Branch'
-      attr_accessor :vendor_email, :vendor_address, :email_udprn, :verification_hash
+      attr_accessor :vendor_email, :vendor_address, :email_udprn, :verification_hash, :assigned_agent_present, :alternate_agent_email
 
       ### TODO: Refactoring required. Figure out a better way of dumping details of a user through a consensus
       DETAIL_ATTRS = [:id, :name, :email, :mobile, :branch_id, :title, :office_phone_number, :mobile_phone_number, :image_url, :invited_agents, :provider, :uid]
