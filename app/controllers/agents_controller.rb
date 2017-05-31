@@ -241,22 +241,83 @@ class AgentsController < ApplicationController
     render json: { message: 'Verification failed due to some error' }, status: 400
   end
 
-  ### Verify the property as the intended agent and udprn as the correct udprn
-  ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/vendors/udprns/10968961/verify' -d '{ "property_type" : "Barn conversion", "beds" : 1, "baths" : 1, "receptions" : 1, "property_id" : 340620 }'
-  def verify_property
+  ### Verify the property as the intended agent and udprn as the correct udprn.
+  ### Done when the invited vendor(through email) verifies the property as his/her
+  ### property and the agent as his/her agent.
+  ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/vendors/udprns/10968961/verify' -d '{ verified: true }'
+  def verify_property_from_vendor
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
-    udprn = params[:udprn].to_i
-    beds = params[:beds].to_i
-    baths = params[:baths].to_i
-    receptions = params[:receptions].to_i
-    property_id = params[:property_id].to_i
-    Agents::Branches::CrawledProperty.where(id: property_id).update_all({udprn: udprn})
-    property_type = params[:property_type]
-    response, status = PropertyDetails.update_details(client, udprn, { property_status_type: 'Green', verification_status: true, property_type: property_type, receptions: receptions, beds: beds, baths: baths, other_property_id: property_id })
-    response['message'] = "Property verification successful." unless status.nil? || status!=200
+    response, status = nil
+    if params[:verified].to_s == 'true'
+      response, status = PropertyDetails.update_details(client, udprn, { property_status_type: 'Green', verification_status: true })
+      response['message'] = "Property verification successful." unless status.nil? || status!=200
+    else
+      response['message'] = "Property verification unsuccessful. This incident will be reported" unless status.nil? || status!=200
+      ### TODO: Take further action when the vendor rejects verification
+    end
     render json: response, status: status
   rescue Exception => e
-    Rails.logger.info("VERIFICATION_FAILURE_#{e}")
+    Rails.logger.info("VENDOR_PROPERTY_VERIFICATION_FAILURE_#{e}")
+    render json: { message: 'Verification failed due to some error' }, status: 400
+  end
+
+  ### Verify the property's basic attributes and attach the crawled property to a udprn
+  ### Done when the agent attaches the udprn to the property
+  ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/agents/properties/10968961/verify' -d '{ "property_type" : "Barn conversion", "beds" : 1, "baths" : 1, "receptions" : 1, "property_id" : 340620, "agent_id": 3 }'
+  def verify_property_from_agent
+    udprn = params[:udprn].to_i
+    agent_id = params[:agent_id].to_i
+    agent_service = AgentService.new(agent_id, udprn)
+    property_attrs = {
+      property_status_type: 'Green',
+      verification_status: false,
+      property_type: params[:property_type],
+      receptions: params[:receptions].to_i,
+      beds: params[:beds].to_i,
+      baths: params[:baths].to_i,
+      receptions: params[:receptions].to_i,
+      property_id: params[:property_id].to_i,
+      details_completed: true
+    }
+    vendor_email = params[:vendor_email]
+    assigned_agent_email = params[:assigned_agent_email]
+    agent_count = Agents::Branches::AssignedAgent.where(id: agent_id).count > 0
+    raise StandardError, "Branch and agent not found" if agent_count == 0
+    response, status = agent_service.verify_crawled_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
+    response['message'] = "Property details updated." unless status.nil? || status!=200
+    render json: response, status: status
+  rescue Exception => e
+    Rails.logger.info("AGENT_PROPERTY_VERIFICATION_FAILURE_#{e}")
+    render json: { message: 'Verification failed due to some error' }, status: 400
+  end
+
+  ### Add manual property's basic attributes and attach the crawled property to a udprn
+  ### Done when the agent attaches the udprn to the property
+  ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/agents/properties/10968961/manual/verify' -d '{ "property_type" : "Barn conversion", "beds" : 1, "baths" : 1, "receptions" : 1, "property_id" : 340620, "agent_id" : 3 }'
+  def verify_manual_property_from_agent
+    udprn = params[:udprn].to_i
+    agent_id = params[:agent_id].to_i
+    agent_service = AgentService.new(agent_id, udprn)
+    property_attrs = {
+      property_status_type: 'Green',
+      verification_status: false,
+      property_type: params[:property_type],
+      receptions: params[:receptions].to_i,
+      beds: params[:beds].to_i,
+      baths: params[:baths].to_i,
+      receptions: params[:receptions].to_i,
+      property_id: params[:property_id].to_i,
+      details_completed: false
+    }
+    vendor_email = params[:vendor_email]
+    assigned_agent_email = params[:assigned_agent_email]
+    agent_count = Agents::Branches::AssignedAgent.where(id: agent_id).count > 0
+    raise StandardError, "Branch and agent not found" if agent_count == 0
+    response, status = agent_service.verify_manual_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
+    response['message'] = "Property details updated." unless status.nil? || status!=200
+    render json: response, status: status
+  rescue Exception => e
+    Rails.logger.info("AGENT_MANUAL_PROPERTY_VERIFICATION_FAILURE_#{e}")
     render json: { message: 'Verification failed due to some error' }, status: 400
   end
 
@@ -350,7 +411,6 @@ class AgentsController < ApplicationController
       render json: { message: 'Company details not found' }, status: 404
     end
   end
-
 
   #### Edit group details
   ### `curl -XPOST -H "Content-Type: application/json"  'http://localhost/groups/6292/edit' -d '{ "group" : { "name" : "Jackie Bing", "address" : "8 The Precinct, Main Road, Church Village, Pontypridd, HR1 1SB", "phone_number" : "9873628232", "website" : "www.google.com", "image_url" : "some random url", "email" : "a@b.com"  } }'`

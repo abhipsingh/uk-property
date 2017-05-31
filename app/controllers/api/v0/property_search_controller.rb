@@ -20,6 +20,7 @@ module Api
         result, status = api.filter
         result = result[:results].sort_by{|t| t[:score]}.reverse
         result = result.each{|t| t[:photo_urls] = [] }
+        result = result.each{ |t| t[:photo_urls] = [ process_image(t) ] + t[:photo_urls] }
         #Rails.logger.info(result)
         ## TODO - Confirm this
         # result.first[:breadcrumb] = params[:hash_str].split('_').join(', ')

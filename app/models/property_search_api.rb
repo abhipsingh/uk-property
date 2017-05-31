@@ -343,7 +343,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
   end
 
   def append_sort_filters
-    sort_keys = [:budget, :popularity, :rent, :date_added, :valuation, :dream_price, :status_last_updated]
+    sort_keys = [:budget, :popularity, :rent, :date_added, :valuation, :dream_price, :status_last_updated, :building_number]
     inst = self
     sort_key = @filtered_params[:sort_key].to_sym rescue nil
     if sort_keys.include? sort_key

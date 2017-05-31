@@ -19,21 +19,37 @@ module Api
       def predict
         regexes = [ /^([A-Z]{1,2})([0-9]{0,3})$/, /^([0-9]{1,2})([A-Z]{0,3})$/]
         str = nil
-        if check_if_postcode?(params[:str].upcase, regexes)
-          str = params[:str].upcase
+        postcode_cond = check_if_postcode?(params[:str].upcase, regexes)
+        if postcode_cond
+          str = params[:str].upcase.strip
         else
-          str = params[:str].gsub(',',' ').downcase
+          str = params[:str].gsub(',',' ').downcase.strip
         end
         suggestions, status = get_results_from_es_suggest(str)
-        Rails.logger.info(suggestions)
-        predictions = [ ]
-        predictions = Oj.load(suggestions)['postcode_suggest'].map { |e| e['options'].map{ |t| { hash: t['payload']['hash'], output: (t['payload']['hierarchy_str'].split('|').join(', ') + ', '+ t['payload']['postcode'] rescue ''  ), location_type: t['payload']['type'] } } }.flatten if Oj.load(suggestions)['postcode_suggest']
+        predictions = Oj.load(suggestions)['postcode_suggest'][0]['options'] rescue []
+        predictions.each { |t| t['score'] = t['score']*100 if t['payload']['hash'] == params[:str].upcase.strip }
+        predictions.sort_by!{|t| (1.to_f/t['score'].to_f) }
+        final_predictions = []
+        predictions = predictions.each do |t|
+          hierarchy = t['payload']['hierarchy_str'].split('|')
+          output = nil
+          if t['payload']['type'] == 'building_type'&& hierarchy[0].to_i > 0
+            output = hierarchy[0] + ' ' + hierarchy[1..-1].join(', ')
+          else
+            output = hierarchy.join(', ')
+          end
+          if t['payload']['postcode'] && !postcode_cond
+            output = output + ', ' + t['payload']['postcode'].to_s
+          end
+          final_predictions.push({ hash: t['payload']['hash'], output: output, location_type: t['payload']['type']  })
+        end
+        
         #Rails.logger.info(predictions)
-        predictions = predictions.group_by{ |t| t[:location_type] }
-        render json: predictions, status: status
+        final_predictions = final_predictions.group_by{ |t| t[:location_type] }
+        render json: final_predictions, status: status
       end
 
-      def get_results_from_es_suggest(query_str, size=100)
+      def get_results_from_es_suggest(query_str, size=50)
         query_str = {
           postcode_suggest: {
             text: query_str,

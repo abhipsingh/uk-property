@@ -22,6 +22,11 @@ class PropertiesController < ActionController::Base
     attributes.each do |attribute|
       update_hash[attribute] = details[attribute] if details[attribute]
     end
+
+    ### Assume that details have been completed and are validated.
+    ### TODO: Fix validations and delay assigning the attribute till validations are
+    ### complete.
+    update_hash[:details_completed] = true
     PropertyDetails.update_details(client, udprn, update_hash) if !update_hash.empty?
     details = PropertyDetails.details(udprn)['_source']
     render json: { message: 'Property details edited', response: details }, status: 200

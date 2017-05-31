@@ -21,6 +21,12 @@ class SessionsController < ApplicationController
         user.save! && buyer.save!
       end
 
+      if user_type == 'Agent'
+        agent_id = user.id
+        udprns = InvitedAgent.where(email: user.email).pluck(:udprn)
+        client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
+        udprns.map { |udprn|  PropertyDetails.update_details(client, udprn, { agent_id: udprn }) }
+      end
 
       session[:user_id] = user.id
       session[:user_type] = user_type
