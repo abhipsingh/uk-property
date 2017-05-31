@@ -35,24 +35,32 @@ class PropertiesController < ActionController::Base
   ### When a request is made to fetch the historic pricing details for a udprn
   ### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/prices/10966139'
   def historic_pricing
-    details = PropertyDetails.historic_pricing_details(params[:udprn].to_i)
-    render json: details, status: 200
+      details = PropertyDetails.historic_pricing_details(params[:udprn].to_i)
+      render json: details, status: 200
   end
 
   ### This route provides all the details of the recent enquiries made by the users on this property
-  ### curl -XGET -H "Content-Type: application/json" 'http://localhost/enquiries/property/10966139'
+  ### curl -XGET -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/enquiries/property/10966139'
   def enquiries
-    enquiries = Trackers::Buyer.new.property_enquiries(params[:udprn].to_i)
-    render json: enquiries, status: 200
+    if user_valid_for_viewing?(['Agent', 'Buyer'], params[:udprn].to_i)
+      enquiries = Trackers::Buyer.new.property_enquiries(params[:udprn].to_i)
+      render json: enquiries, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
   end
 
   #### The following actions are specific for data related to buyer interest tables and pie charts
   #### From interest awareness table, this action gives the data regarding buyer activity related to
   #### the property.
-  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/interest/10966139'
+  #### curl -XGET -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/property/interest/10966139'
   def interest_info
-    interest_info = Trackers::Buyer.new.interest_info(params[:udprn].to_i)
-    render json: interest_info, status: 200
+    if user_valid_for_viewing?(['Agent', 'Buyer'], params[:udprn].to_i)
+      interest_info = Trackers::Buyer.new.interest_info(params[:udprn].to_i)
+      render json: interest_info, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
   end
 
   #### From supply table, this action gives the data regarding how many properties are similar to
@@ -181,6 +189,22 @@ class PropertiesController < ActionController::Base
     params.permit(:agent, :branch, :property_status, :receptions, :beds, :baths, :property_type, :dream_price, :udprn)
   end
 
+  def user_valid_for_viewing?(user_types, udprn)
+    user_types.any? do |user_type|
+      result = authenticate_request(user_type)
+      if user_type == 'Agent'
+        details = PropertyDetails.details(udprn)
+        details_completed = details['_source']['details_completed']
+        details_completed ||= false
+        result = result && details_completed
+      end
+      result
+    end
+  end
 
+  def authenticate_request(klass='Agent')
+    result = AuthorizeApiRequest.call(request.headers, klass).result
+    !result.nil?
+  end
 
 end
