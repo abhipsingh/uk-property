@@ -9,8 +9,6 @@ module Api
           :county => 6,
           :post_town => 5,
           :dependent_locality => 4,
-          :double_dependent_locality => 4,
-          :thoroughfare_descriptor => 3,
           :dependent_thoroughfare_description => 3
         }
         levels = []
@@ -122,9 +120,6 @@ module Api
         status = result.code
         return body,status
       end
-
-
-       
     end
   end
 end

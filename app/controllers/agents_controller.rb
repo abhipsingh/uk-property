@@ -251,8 +251,9 @@ class AgentsController < ApplicationController
     receptions = params[:receptions].to_i
     property_id = params[:property_id].to_i
     Agents::Branches::CrawledProperty.where(id: property_id).update_all({udprn: udprn})
+    status = params[:property_status_type] || 'Green'
     property_type = params[:property_type]
-    response, status = PropertyDetails.update_details(client, udprn, { property_status_type: 'Green', verification_status: true, property_type: property_type, receptions: receptions, beds: beds, baths: baths, other_property_id: property_id })
+    response, status = PropertyDetails.update_details(client, udprn, { property_status_type: status, verification_status: true, property_type: property_type, receptions: receptions, beds: beds, baths: baths, other_property_id: property_id })
     response['message'] = "Property verification successful." unless status.nil? || status!=200
     render json: response, status: status
   rescue Exception => e
