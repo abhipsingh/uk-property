@@ -88,6 +88,41 @@ class VendorsController < ApplicationController
       render json: { message: 'Vendor not found' }, status: 404
     end
   end
+  
+  ### After the agent who won the lead, surveyed the property, submitted the property details
+  ### and the email which was consequently sent to the vendor. This is the api called by the email
+  ### link to judge the vendor's response as affirmative or negative
+  ### curl  -XGET -H "Authorization: Random header" 'http://localhost/vendors/:udprn/:agent_id/lead/details/verify/:verified'
+  ### curl  -XGET -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoxMjM0LCJleHAiOjE0OTY2NzAwNzV9.QZKmD9Jrt_TuJH9JvA-QTr5xY77tNdDt6bF2vzK8kW0"  'http://localhost/vendors/12843737/1234/lead/details/verify/true'
+  def verify_details_submitted_from_agent_following_lead
+    if user_valid_for_viewing?(['Vendor'], params[:udprn].to_i)
+      verified = params[:verified] == 'true' ? true : false
+      vendor_id = @current_user.id
+      agent_id = params[:agent_id].to_i
+      if verified
+        PropertyService.new(params[:udprn].to_i).attach_assigned_agent(agent_id)
+        render json: { message: 'The agent has been chosen as your assigned agent' }, status: 200
+      else
+        ### TODO: Report to the admin
+        render json: { message: 'The incident will reported to admin' }, status: 400
+      end
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  private
+
+  def user_valid_for_viewing?(user_types, udprn)
+    user_types.any? do |user_type|
+      @current_user = authenticate_request(user_type).result
+      !@current_user.nil?
+    end
+  end
+
+  def authenticate_request(klass='Agent')
+    AuthorizeApiRequest.call(request.headers, klass)
+  end
 end
 
 

@@ -233,7 +233,7 @@ class AgentsController < ApplicationController
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     udprn = params[:udprn].to_i
     agent_id = params[:agent_id].to_i
-    response, status = PropertyDetails.update_details(client, udprn, { property_status_type: 'Green', verification_status: true, agent_id: agent_id })
+    response, status = PropertyDetails.update_details(client, udprn, { property_status_type: 'Green', verification_status: true, agent_id: agent_id, agent_status: 2 })
     response['message'] = "Agent verification successful." unless status.nil? || status!=200
     render json: response, status: status
   rescue Exception => e

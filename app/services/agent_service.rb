@@ -14,6 +14,10 @@ class AgentService
     branch = Agents::Branches::AssignedAgent.where(id: @agent_id.to_i).last.branch
     if assigned_agent
       property_attrs[:agent_id] = assigned_agent.id
+<<<<<<< HEAD
+=======
+      property_attrs[:agent_status] = 2
+>>>>>>> 91cb64f34465ea2e237ef7ece45c3c2efdd0c824
       assigned_agent_present = true
     else
       InvitedAgent.create!(email: assigned_agent_email, udprn: udprn)
@@ -35,6 +39,10 @@ class AgentService
     branch = Agents::Branches::AssignedAgent.where(id: @agent_id.to_i).last.branch
     if assigned_agent
       property_attrs[:agent_id] = assigned_agent.id
+<<<<<<< HEAD
+=======
+      property_attrs[:agent_status] = 2
+>>>>>>> 91cb64f34465ea2e237ef7ece45c3c2efdd0c824
       assigned_agent_present = true
     else
       InvitedAgent.create!(email: assigned_agent_email, udprn: udprn)

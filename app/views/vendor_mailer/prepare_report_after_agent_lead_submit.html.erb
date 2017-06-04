@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta content='text/html; charset=UTF-8' http-equiv='Content-Type' />
+  </head>
+  <body>
+    <h1>Hi <%= @vendor_name %></h1>
+    <p>
+      
+    </p>
+    <p>
+     Agent  <%= @agent_name %> has submitted the following details of your property located at <%= @property_details['address'] %>
+    </p>
+
+    <p>
+      Agent Name: <%= @agent_name %>
+    </p>
+
+    <p>
+      Agent Mobile: <%= @agent_mobile %>
+    </p>
+
+    <p>
+      Agent Email: <%= @agent_email %>
+    </p>
+    </br>
+    Property Details
+
+    <p>
+      Current Valuation submitted: <%= @property_details['current_valuation'] %>
+    </p>
+
+    <p>
+      Floor plan: <img src="<%= @property_details['floor_plan_url'] %>">
+    </p>
+
+    <p>
+      Property type: <%= @property_details['property_type'] %>
+    </p>
+
+    <p>
+      Beds: <%= @property_details['beds'] %>
+    </p>
+
+    <p>
+      Baths: <%= @property_details['baths'] %>
+    </p>
+
+  </body>
+</html>

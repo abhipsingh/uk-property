@@ -141,7 +141,8 @@ module Agents
       #### Then call the following function for the agent in that district
       def recent_properties_for_claim(status=nil)
         district = self.branch.district
-        query = Agents::Branches::AssignedAgents::Lead.where(district: district).where('created_at > ?', 1.week.ago)
+        query = Agents::Branches::AssignedAgents::Lead.where(district: district)
+                                                      .where('created_at > ?', 1.week.ago)
         if status == 'New'
           query = query.where(agent_id: nil)
         elsif status == 'Won'
@@ -282,6 +283,10 @@ module Agents
       ### TODO: Refactoring required. Figure out a better way of dumping details of a user through a consensus
       def details
         as_json(only: DETAIL_ATTRS)
+      end
+
+      def self.fetch_details(attrs=[], ids=[])
+        where(id: [ids]).select(attrs)
       end
 
     end

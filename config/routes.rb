@@ -169,6 +169,9 @@ Rails.application.routes.draw do
   #### Edit basic details of a property
   post 'properties/claim/basic/:udprn/edit',                    to: 'properties#edit_basic_details'
 
+  #### Update basic details of a property by a vendor
+  post 'properties/vendor/basic/:udprn/update',                 to: 'properties#update_basic_details_by_vendor'
+
   #### Edit basic details of a buyer
   post 'buyers/:id/edit',                                       to: 'buyers#edit_basic_details'
 
@@ -266,6 +269,9 @@ Rails.application.routes.draw do
   ### Update property details, attach udprn to manually added properties, send
   ### vendor email and add assigned agents to properties
   post 'agents/properties/:udprn/manual/verify',                to: 'agents#verify_manual_property_from_agent'
+
+  ### Verify the details submiitted by the agent and approve the agent as assigned_agent
+  get 'vendors/:udprn/:agent_id/lead/details/verify/:verified', to: 'vendors#verify_details_submitted_from_agent_following_lead'
 
   #####################################################################
   #####################################################################
