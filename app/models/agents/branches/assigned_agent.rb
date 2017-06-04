@@ -7,7 +7,7 @@ module Agents
       has_many :leads, class_name: 'Agents::Branches::AssignedAgents::Lead', foreign_key: 'agent_id'
 
       belongs_to :branch, class_name: 'Agents::Branch'
-      attr_accessor :vendor_email, :vendor_address, :email_udprn, :verification_hash
+      attr_accessor :vendor_email, :vendor_address, :email_udprn, :verification_hash, :assigned_agent_present, :alternate_agent_email
 
       ### TODO: Refactoring required. Figure out a better way of dumping details of a user through a consensus
       DETAIL_ATTRS = [:id, :name, :email, :mobile, :branch_id, :title, :office_phone_number, :mobile_phone_number, :image_url, :invited_agents, :provider, :uid]
@@ -141,17 +141,8 @@ module Agents
       #### Then call the following function for the agent in that district
       def recent_properties_for_claim(status=nil)
         district = self.branch.district
-        agent_count = Agents::Branches::AssignedAgent.where(district: district).count
-        area = nil
-        query = nil
-        ### TODO: Sector wise constraining logic
-        if agent_count < 20
-          area_district = district.match(/([A-Z]{1,3})([0-9]{0,3})/) if district
-          area = area_district[1]
-          query = Agents::Branches::AssignedAgents::Lead.where("district LIKE '#{area}%'").where('created_at > ?', 1.week.ago)
-        else
-          query = Agents::Branches::AssignedAgents::Lead.where(district: district).where('created_at > ?', 1.week.ago)
-        end
+        query = Agents::Branches::AssignedAgents::Lead.where(district: district)
+                                                      .where('created_at > ?', 1.week.ago)
         if status == 'New'
           query = query.where(agent_id: nil)
         elsif status == 'Won'
@@ -292,6 +283,10 @@ module Agents
       ### TODO: Refactoring required. Figure out a better way of dumping details of a user through a consensus
       def details
         as_json(only: DETAIL_ATTRS)
+      end
+
+      def self.fetch_details(attrs=[], ids=[])
+        where(id: [ids]).select(attrs)
       end
 
     end

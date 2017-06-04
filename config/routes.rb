@@ -267,6 +267,9 @@ Rails.application.routes.draw do
   ### vendor email and add assigned agents to properties
   post 'agents/properties/:udprn/manual/verify',                to: 'agents#verify_manual_property_from_agent'
 
+  ### Verify the details submiitted by the agent and approve the agent as assigned_agent
+  get 'vendors/:udprn/:agent_id/lead/details/verify/:verified', to: 'vendors#verify_details_submitted_from_agent_following_lead'
+
   #####################################################################
   #####################################################################
   #####################################################################

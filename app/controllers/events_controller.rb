@@ -202,7 +202,7 @@ class EventsController < ApplicationController
     body, status = api.fetch_data_from_es
     # Rails.logger.info(body)
     response = body.map { |e| e['udprn'] }
-    render json: response, status: sta
+    render json: response, status: status
   end
 
   #### When an agent click the claim to a property, the agent gets a chance to visit

@@ -233,7 +233,7 @@ class AgentsController < ApplicationController
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     udprn = params[:udprn].to_i
     agent_id = params[:agent_id].to_i
-    response, status = PropertyDetails.update_details(client, udprn, { property_status_type: 'Green', verification_status: true, agent_id: agent_id })
+    response, status = PropertyDetails.update_details(client, udprn, { property_status_type: 'Green', verification_status: true, agent_id: agent_id, agent_status: 2 })
     response['message'] = "Agent verification successful." unless status.nil? || status!=200
     render json: response, status: status
   rescue Exception => e
@@ -248,6 +248,7 @@ class AgentsController < ApplicationController
   def verify_property_from_vendor
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     response, status = nil
+    udprn = params[:udprn].to_i
     if params[:verified].to_s == 'true'
       response, status = PropertyDetails.update_details(client, udprn, { property_status_type: 'Green', verification_status: true })
       response['message'] = "Property verification successful." unless status.nil? || status!=200
@@ -263,7 +264,7 @@ class AgentsController < ApplicationController
 
   ### Verify the property's basic attributes and attach the crawled property to a udprn
   ### Done when the agent attaches the udprn to the property
-  ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/agents/properties/10968961/verify' -d '{ "property_type" : "Barn conversion", "beds" : 1, "baths" : 1, "receptions" : 1, "property_id" : 340620, "agent_id": 3 }'
+  ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/agents/properties/10968961/verify' -d '{ "property_type" : "Barn conversion", "beds" : 1, "baths" : 1, "receptions" : 1, "property_id" : 340620, "agent_id": 1234, "vendor_email": "residentevil293@prophety.co.uk", "assigned_agent_email" :  "residentevil293@prophety.co.uk" }'
   def verify_property_from_agent
     udprn = params[:udprn].to_i
     agent_id = params[:agent_id].to_i
@@ -293,7 +294,7 @@ class AgentsController < ApplicationController
 
   ### Add manual property's basic attributes and attach the crawled property to a udprn
   ### Done when the agent attaches the udprn to the property
-  ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/agents/properties/10968961/manual/verify' -d '{ "property_type" : "Barn conversion", "beds" : 1, "baths" : 1, "receptions" : 1, "property_id" : 340620, "agent_id" : 3 }'
+  ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/agents/properties/10968961/manual/verify' -d '{ "property_type" : "Barn conversion", "beds" : 1, "baths" : 1, "receptions" : 1, "agent_id": 1234, "vendor_email": "residentevil293@prophety.co.uk", "assigned_agent_email" :  "residentevil293@prophety.co.uk" }'
   def verify_manual_property_from_agent
     udprn = params[:udprn].to_i
     agent_id = params[:agent_id].to_i

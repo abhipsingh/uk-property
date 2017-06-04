@@ -147,8 +147,9 @@ class PropertyDetails
       response = {"message" => "Error in updating udprn #{udprn}", "details" => e.message}
       status = 500
     end
+    ### TODO: Email Offline or Daily
     send_email_to_trackers(udprn, update_hash, last_property_status_type, property_details) if update_hash.key?('property_status_type')
-    Rails.logger.info "update details response = #{response}, status = #{status}"
+    Rails.logger.info("update details response = #{response}, status = #{status}")
     return response, status
   end
 

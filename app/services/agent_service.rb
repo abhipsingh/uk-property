@@ -11,37 +11,43 @@ class AgentService
   def verify_crawled_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     assigned_agent = Agents::Branches::AssignedAgent.where(email: assigned_agent_email).first
+    branch = Agents::Branches::AssignedAgent.where(id: @agent_id.to_i).last.branch
     if assigned_agent
       property_attrs[:agent_id] = assigned_agent.id
+      property_attrs[:agent_status] = 2
+      assigned_agent_present = true
     else
       InvitedAgent.create!(email: assigned_agent_email, udprn: udprn)
       branch.invited_agents = [{ branch_id: branch.id, company_id: branch.agent_id, email: assigned_agent_email }]
       branch.save!
       branch.send_emails
+      assigned_agent_present = false
     end
     property_id = property_attrs[:property_id]
     Agents::Branches::CrawledProperty.where(id: property_id).update_all({udprn: udprn})
     response, status = PropertyDetails.update_details(client, udprn, property_attrs)
-    vendor_email = params[:vendor_email]
-    Agents::Branches::AssignedAgent.find(@agent_id).send_vendor_email(vendor_email, @udprn)
+    Agents::Branches::AssignedAgent.find(@agent_id).send_vendor_email(vendor_email, @udprn, assigned_agent_present, assigned_agent_email)
     return response, status
   end
 
   def verify_manual_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     assigned_agent = Agents::Branches::AssignedAgent.where(email: assigned_agent_email).first
+    branch = Agents::Branches::AssignedAgent.where(id: @agent_id.to_i).last.branch
     if assigned_agent
       property_attrs[:agent_id] = assigned_agent.id
+      property_attrs[:agent_status] = 2
+      assigned_agent_present = true
     else
       InvitedAgent.create!(email: assigned_agent_email, udprn: udprn)
       branch.invited_agents = [{ branch_id: branch.id, company_id: branch.agent_id, email: assigned_agent_email }]
       branch.save!
       branch.send_emails
+      assigned_agent_present = false
     end
     property_id = property_attrs[:property_id]
     response, status = PropertyDetails.update_details(client, udprn, property_attrs)
-    vendor_email = params[:vendor_email]
-    Agents::Branches::AssignedAgent.find(@agent_id).send_vendor_email(vendor_email, @udprn)
+    Agents::Branches::AssignedAgent.find(@agent_id).send_vendor_email(vendor_email, @udprn, assigned_agent_present, assigned_agent_email)
     return response, status
   end
 end

@@ -25,7 +25,7 @@ class SessionsController < ApplicationController
         agent_id = user.id
         udprns = InvitedAgent.where(email: user.email).pluck(:udprn)
         client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
-        udprns.map { |udprn|  PropertyDetails.update_details(client, udprn, { agent_id: udprn }) }
+        udprns.map { |udprn|  PropertyDetails.update_details(client, udprn, { agent_id: agent_id, agent_status: 2 }) }
       end
 
       session[:user_id] = user.id
@@ -76,12 +76,7 @@ class SessionsController < ApplicationController
   #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/register/vendors/' -d '{ "vendor" : { "name" : "Jackie Bing", "email" : "jackie.bing1@friends.com", "mobile" : "9873628231", "password" : "1234567890" } }'
   def create_vendor
     vendor_params = params[:vendor].as_json
-    if vendor_params['name'].blank?
-      vendor_params['name'] = ''
-    else
-      vendor_params['name'] = vendor_params['name'].split("-").join(" ").humanize.titleize
-    end
-    vendor_params['mobile'] = nil if vendor_params['mobile'].blank?
+    vendor_params['name'] = '' if vendor_params['name']
     vendor_params.delete("hash_value")
     vendor = Vendor.new(vendor_params)
     vendor.save!
@@ -147,15 +142,13 @@ class SessionsController < ApplicationController
   end
 
   ### Sends an email to the vendor's email address for registration
-  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/vendors/signup/' -d '{ "email"  : "jackie.bing2@gmail.com", "name": "Jackie Bing", "mobile": "9876543210" }'
+  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/vendors/signup/' -d '{ "email"  : "jackie.bing2@gmail.com" }'
   def vendor_signup
     email = params[:email]
-    name = params[:name]
-    mobile = params[:mobile]
     salt_str = email
     verification_hash = BCrypt::Password.create salt_str
     VerificationHash.create(hash_value: verification_hash, email: email, entity_type: 'Vendor')
-    email_link = 'http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=' + verification_hash + '&user_type=Vendor&name=' + name.parameterize + '&mobile=' + mobile
+    email_link = 'http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=' + verification_hash + '&user_type=Vendor'
     params_hash = { verification_hash: verification_hash, email: email, link: email_link }
     VendorMailer.signup_email(params_hash).deliver_now
     render json: { message:  'Please check your email id and click on the link sent'}, status: 200

@@ -28,4 +28,8 @@ class Vendor < ActiveRecord::Base
     super(:except => [:password, :password_digest])
   end
 
+  def self.fetch_details(attrs=[], ids=[])
+    where(id: ids).select(attrs)
+  end
+
 end
