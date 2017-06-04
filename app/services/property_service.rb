@@ -104,7 +104,11 @@ class PropertyService
   def attach_assigned_agent(agent_id)
     client = Elasticsearch::Client.new(host: Rails.configuration.remote_es_host)
     agent = Agents::Branches::AssignedAgent.find(agent_id)
+    lead = Agents::Branches::AssignedAgents::Lead.where(agent_id: agent_id, property_id: udprn).first
     branch = agent.branch
+    raise StandardError, "Backend error in leads #{agent_id} #{@udprn}" if lead.nil?
+    lead.submitted = true
+    lead.save!
     details = {}
 		details['assigned_agent_name'] = agent.name
     details['assigned_agent_email'] = agent.email
