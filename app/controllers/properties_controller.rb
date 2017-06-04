@@ -175,8 +175,7 @@ class PropertiesController < ActionController::Base
     body[:property_status_type] = params[:property_status_type]
     body[:property_type] = params[:property_type]
     body[:verification_status] = false
-    client.update index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn,
-                  body: { doc: body }
+    PropertyDetails.update_details(client, udprn, body)
     render json: { message: 'Successfully updated' }, status: 200
   rescue Exception => e
     render json: { message: 'Update failed' }, status: 400
@@ -210,7 +209,4 @@ class PropertiesController < ActionController::Base
     params.require(:property_status_type)
     params.require(:property_type)
   end
-
-
-
 end

@@ -141,7 +141,17 @@ module Agents
       #### Then call the following function for the agent in that district
       def recent_properties_for_claim(status=nil)
         district = self.branch.district
-        query = Agents::Branches::AssignedAgents::Lead.where(district: district).where('created_at > ?', 1.week.ago)
+        agent_count = Agents::Branches::AssignedAgent.where(district: district).count
+        area = nil
+        query = nil
+        ### TODO: Sector wise constraining logic
+        if agent_count < 20
+          area_district = district.match(/([A-Z]{1,3})([0-9]{0,3})/) if district
+          area = area_district[1]
+          query = Agents::Branches::AssignedAgents::Lead.where("district LIKE '#{area}%'").where('created_at > ?', 1.week.ago)
+        else
+          query = Agents::Branches::AssignedAgents::Lead.where(district: district).where('created_at > ?', 1.week.ago)
+        end
         if status == 'New'
           query = query.where(agent_id: nil)
         elsif status == 'Won'
