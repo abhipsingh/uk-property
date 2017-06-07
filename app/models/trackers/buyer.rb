@@ -1,4 +1,5 @@
 class Trackers::Buyer
+  include EventsHelper
 
   EVENTS = {
     viewed: 2,
@@ -263,8 +264,13 @@ class Trackers::Buyer
   ### with new row
   def push_property_details(new_row, details)
     new_row[:address] = PropertyDetails.address(details)
-    new_row[:image_url] = details['photos'] ? details['photos'][0] : "Image not available"
+    new_row[:image_url] = details['photo_urls'] ? details['photo_urls'][0] : "Image not available"
+    if new_row[:image_url].nil?
+      image_url = self.class.process_image(details)
+      new_row[:image_url] = image_url
+    end
     new_row[:pictures] = details['pictures']
+    new_row[:street_view_image_url] = new_row[:image_url]
     new_row[:verification_status] = details['verification_status']
     if details['verification_status'] == 'Green'
       keys = ['asking_price', 'offers_price', 'fixed_price']
@@ -469,7 +475,13 @@ class Trackers::Buyer
     new_row[:address] = PropertyDetails.address(details) rescue nil
     new_row[:price] = details['price'] rescue nil
     new_row[:image_url] = details['street_view_image_url'] || details['photo_urls'].first rescue nil
-    new_row[:street_view_image_url] = details['street_view_image_url']
+    if new_row[:image_url].nil?
+      image_url = process_image(details)
+      new_row[:image_url] = image_url
+    end
+    new_row[:pictures] = details['pictures']
+    new_row[:street_view_image_url] = new_row[:image_url]
+    #new_row[:street_view_image_url] = details['street_view_image_url']
     new_row[:photo_url] = details['pictures'][0] rescue nil
     new_row[:udprn] = details['udprn'] rescue nil
     new_row[:status] = details['property_status_type'] rescue nil

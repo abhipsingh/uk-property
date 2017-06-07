@@ -23,7 +23,7 @@ class PropertiesController < ActionController::Base
   ### This route provides all the details of the recent enquiries made by the users on this property
   ### curl -XGET -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/enquiries/property/10966139'
   def enquiries
-    if user_valid_for_viewing?(['Agent', 'Buyer'], params[:udprn].to_i)
+    if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
       enquiries = Trackers::Buyer.new.property_enquiries(params[:udprn].to_i)
       render json: enquiries, status: 200
     else
@@ -36,7 +36,7 @@ class PropertiesController < ActionController::Base
   #### the property.
   #### curl -XGET -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/property/interest/10966139'
   def interest_info
-    if user_valid_for_viewing?(['Agent', 'Buyer'], params[:udprn].to_i)
+    if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
       interest_info = Trackers::Buyer.new.interest_info(params[:udprn].to_i)
       render json: interest_info, status: 200
     else

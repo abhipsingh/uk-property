@@ -36,7 +36,6 @@ class AgentService
     branch = Agents::Branches::AssignedAgent.where(id: @agent_id.to_i).last.branch
     if assigned_agent
       property_attrs[:agent_id] = assigned_agent.id
-      property_attrs[:agent_status] = 2
       assigned_agent_present = true
     else
       InvitedAgent.create!(email: assigned_agent_email, udprn: udprn)

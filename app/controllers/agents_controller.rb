@@ -348,6 +348,7 @@ class AgentsController < ApplicationController
         response.push(new_row)
         postcodes |= [postcode]
       end
+      Rails.logger.info(postcodes)
       params_hash = { postcodes: postcodes, fields: "udprn,building_name,building_number,sub_building_name,post_code" }
       search_api = PropertySearchApi.new(filtered_params: params_hash)
       search_api.apply_filters
