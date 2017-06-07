@@ -50,24 +50,16 @@ class MatrixViewController < ActionController::Base
       params[:hash_type] = 'text'
       params[:listing_type] = 'Normal'
     
-
       ### @filtered_params= {:str=>"Sunningdale", :controller=>"application", :action=>"matrix_view", :hash_str=>"ASCOT_Sunningdale", :hash_type=>"text"}
       ### @query = {size: 10000}
       api.append_premium_or_featured_filter
       ### {:size=>10000, :filter=>{:and=>{:filters=>[{:term=>{:match_type_str=>"ASCOT_Sunningdale|Normal", :_name=>:match_type_str}}], :or=>{:filters=>[]}}}}
       ### {:str=>"Sunningdale", :controller=>"application", :action=>"matrix_view", :hash_str=>"ASCOT_Sunningdale", :hash_type=>"text", :listing_type=>"Normal"}
-      api.apply_filters
+      api.apply_filters_except_hash_filter
       api.modify_query
       ### Only query changes
       ### {:size=>20, :filter=>{:and=>{:filters=>[{:term=>{:match_type_str=>"ASCOT_Sunningdale|Normal", :_name=>:match_type_str}}, {:terms=>{"hashes"=>["ASCOT_Sunningdale"], :_name=>"hashes"}}], :or=>{:filters=>[]}}}, :from=>0}
-      res, code = nil
-      if api.query[:filter] && api.query[:filter][:and] && api.query[:filter][:and][:filters]
-        res, code = find_results(parsed_json, api.query[:filter][:and][:filters])
-      elsif api.query[:filter] && api.query[:filter][:or] && api.query[:filter][:or][:filters]
-        res, code = find_results(parsed_json, api.query[:filter])
-      else
-        res, code = find_results(parsed_json, [])
-      end
+      res, code = find_results(parsed_json, api.query[:filter]) 
       res = JSON.parse(res) if res.is_a?(String)
       # add_new_keys(res["hits"]["hits"][0]["_source"]) if res["hits"]["hits"].length > 0
     end
@@ -161,6 +153,7 @@ class MatrixViewController < ActionController::Base
     end
     return filters
   end
+
   def append_or_term_query(filters, term, value)
     if value
       filters[:or][:filters].push({
@@ -180,31 +173,11 @@ class MatrixViewController < ActionController::Base
     aggs = {}
     query = {}
 
-    filter_hash = filter_hash.reject { |e| e.values.first[:_name].to_s == 'match_type_str' || e.values.first[:_name].to_s == 'hashes' }
-
-    if filter_hash.is_a?(Hash) && filter_hash[:or] && filter_hash[:or][:filters]
-      query[:query] = {
-        filtered: {
-          filter: filter_hash
-        }
+    query[:query] = {
+      filtered: {
+        filter: filter_hash
       }
-    else
-      query[:query] = {
-        filtered: {
-          filter: {
-            or: {
-              filters: filter_hash
-            }
-          }
-        }
-      }
-    end
-    if query[:query][:filtered][:filter][:or][:filters].none?{ |t| t.keys.first.to_s == 'and'}
-      query[:query][:filtered][:filter][:or][:filters].push({ and: { filters: [] }})
-    end
-    filter_index = query[:query][:filtered][:filter][:or][:filters].find_index { |t| t.keys.first.to_s == 'and' }
-
-    Rails.logger.info(parsed_json)
+    }
     first_type, hash_value, county_value, post_code, address_unit_val = nil
     if parsed_json['postcode_suggest'][0]['options'].length > 0
       first_type = parsed_json['postcode_suggest'][0]['options'][0]['payload']['type']
@@ -221,9 +194,12 @@ class MatrixViewController < ActionController::Base
     end
     area, district, sector, unit = compute_postcode_units(post_code) if post_code
 
-    Rails.logger.info("FIRST_TYPE___#{first_type}")
+    ### TODO: Remove ugly hack
+    address_unit_val = address_unit_val.upcase if first_type == 'post_town'
+    Rails.logger.info("FIRST_TYPE___#{first_type}___#{address_unit_val}")
     context_map = { first_type => address_unit_val }
     context_map = context_map.with_indifferent_access
+    filter_index = 0
     if first_type == 'county'
       construct_aggs_query_from_fields(area, district, sector, unit, 'county', first_type, query, filter_index, :address, context_map)
     elsif first_type == 'post_town'

@@ -57,12 +57,20 @@ module MatrixViewHelper
       field = field_type[0]
       context = field_type[1]
       context_value = context_hash[context] || binding.local_variable_get(context)
+      context_value = context_value.upcase if context == 'post_town'
+      Rails.logger.info("#{aggs},#{field},#{context}, #{context_value}, #{context_hash}") 
       append_filtered_aggs(aggs, field, context, context_value)
     end
     query[:size] = 1
     query[:aggs] = aggs
     context_value = context_hash[postcode_context] || binding.local_variable_get(postcode_context)
-    query[:query][:filtered][:filter][:or][:filters][filter_index][:and][:filters].push({ term: { postcode_context => context_value }})
+    
+    if query[:query][:filtered] && query[:query][:filtered][:filter] &&  query[:query][:filtered][:filter][:or]
+      query[:query][:filtered][:filter][:or][:filters][filter_index][:and][:filters].push({ term: { postcode_context => context_value }})
+    elsif query[:query][:filtered] && query[:query][:filtered][:filter] && query[:query][:filtered][:filter][:and]
+      query[:query][:filtered][:filter][:and][:filters].push({ term: { postcode_context => context_value }})
+      query[:query][:filtered][:filter][:and].delete(:or)
+    end
   end
 
   def construct_response_body_postcode(area, district, sector, unit, es_response, postcode_type, search_type=:postcode, context_hash={})

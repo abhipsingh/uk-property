@@ -135,6 +135,19 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     Rails.logger.info(inst.query)
   end
 
+  def apply_filters_except_hash_filter
+    inst = self
+    inst.adjust_size
+    inst.adjust_included_fields
+    inst = inst.append_pagination_filter
+    inst = inst.append_terms_filters
+    inst = inst.append_term_filters
+    inst = inst.append_range_filters
+    inst = inst.append_sort_filters
+    shift_query_keys
+    Rails.logger.info(inst.query)
+  end
+
   def shift_query_keys
     query_clone = @query.deep_dup
     @query = {}
@@ -224,6 +237,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     or_skeletion = basic_and_query.clone
     fields = PROPERTY_MATCH_HASH["#{type_of_match}_#{buyer_status}_#{property_status_type}"]
     fields ||= []
+    @query[:filter] ||= { and: { filters: [] }}
     original_query = @query[:filter][:and][:filters]
     new_query = original_query.clone
     fields.map { |field| modify_query_for_field(field, original_query, new_query) }
