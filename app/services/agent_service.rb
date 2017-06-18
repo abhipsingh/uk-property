@@ -14,10 +14,7 @@ class AgentService
     branch = Agents::Branches::AssignedAgent.where(id: @agent_id.to_i).last.branch
     if assigned_agent
       property_attrs[:agent_id] = assigned_agent.id
-<<<<<<< HEAD
-=======
       property_attrs[:agent_status] = 2
->>>>>>> 91cb64f34465ea2e237ef7ece45c3c2efdd0c824
       assigned_agent_present = true
     else
       InvitedAgent.create!(email: assigned_agent_email, udprn: udprn)
@@ -27,22 +24,22 @@ class AgentService
       assigned_agent_present = false
     end
     property_id = property_attrs[:property_id]
+    response, status = verify_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
     Agents::Branches::CrawledProperty.where(id: property_id).update_all({udprn: udprn})
-    response, status = PropertyDetails.update_details(client, udprn, property_attrs)
-    Agents::Branches::AssignedAgent.find(@agent_id).send_vendor_email(vendor_email, @udprn, assigned_agent_present, assigned_agent_email)
     return response, status
   end
 
   def verify_manual_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
+    verify_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
+  end
+
+  def verify_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     assigned_agent = Agents::Branches::AssignedAgent.where(email: assigned_agent_email).first
     branch = Agents::Branches::AssignedAgent.where(id: @agent_id.to_i).last.branch
     if assigned_agent
       property_attrs[:agent_id] = assigned_agent.id
-<<<<<<< HEAD
-=======
       property_attrs[:agent_status] = 2
->>>>>>> 91cb64f34465ea2e237ef7ece45c3c2efdd0c824
       assigned_agent_present = true
     else
       InvitedAgent.create!(email: assigned_agent_email, udprn: udprn)

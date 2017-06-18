@@ -1,8 +1,8 @@
 module Api
   module V0
-    class VendorAdController < ActionController::Base
+    class VendorAdRentController < ActionController::Base
 
-      #### Example curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" -H "Content-Type: application/json" "http://localhost/api/v0/ads/availability?addresses%5B%5D=+33&addresses%5B%5D=+Loder+Drive&addresses%5B%5D=+City+Centre&addresses%5B%5D=+HEREFORD&addresses%5B%5D=+Herefordshire&udprn=10966139" 
+      #### Example curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" -H "Content-Type: application/json" "http://localhost/api/v0/ads/rent/availability?addresses%5B%5D=+33&addresses%5B%5D=+Loder+Drive&addresses%5B%5D=+City+Centre&addresses%5B%5D=+HEREFORD&addresses%5B%5D=+Herefordshire&udprn=10966139" 
       #### Parameters {"addresses"=>[" 33", " Loder Drive", " City Centre", " HEREFORD", " Herefordshire"], "udprn"=>"10966139"}
       def ads_availablity
         if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
@@ -24,14 +24,14 @@ module Api
             response[key.to_s + '_' + 'featured_count'] = nil
             response[key.to_s + '_' + 'featured_booked'] = nil
           end
-          PropertyAd.ads_info_all_address_levels(response, udprn)
+          PropertyAd.ads_info_all_address_levels_rent(response, udprn)
           render json: response, status: 200
         else
           render json: { message: 'Authorization failed' }, status: 401
         end
       end
 
-      # curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" -H "Content-Type: application/json"  "http://localhost/api/v0/ads/availability/update" -d  '{ "stripeEmail" : "abhiuec@gmail.com", "stripeToken":"tok_19WlE9AKL3KAwfPBkWwgTpqt", "udprn":10966139, "locations":{"0":{ "value":"10", "hash":"HEREFORD_City Centre_Loder Drive", "type":"Premium"}}, "months" : 2}'
+      # curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" -H "Content-Type: application/json"  "http://localhost/api/v0/ads/availability/rent/update" -d  '{ "stripeEmail" : "abhiuec@gmail.com", "stripeToken":"tok_19WlE9AKL3KAwfPBkWwgTpqt", "udprn":10966139, "locations":{"0":{ "value":"10", "hash":"HEREFORD_City Centre_Loder Drive", "type":"Premium"}}, "months" : 2}'
       def update_availability
         if user_valid_for_viewing?(['Buyer'], params[:udprn].to_i)
           charge = nil
@@ -76,7 +76,7 @@ module Api
             Rails.logger.info(location)
             if value > 0
               begin
-                ads = PropertyAd.create(hash_str: hash_value, property_id: udprn.to_i, ad_type: PropertyAd::TYPE_HASH[type])
+                ads = PropertyAd::Rent.create(hash_str: hash_value, property_id: udprn.to_i, ad_type: PropertyAd::TYPE_HASH[type])
                 message[:ads].push(ads)
                 match_type_strs.each do |each_str|
                   if each_str.split('|')[0] == hash_value
@@ -85,7 +85,7 @@ module Api
                     new_match_type_strs.push(each_str)
                   end
                 end
-                client.update index: Rails.configuration.address_index_name, type: 'address', id: udprn, body: { doc: { match_type_str: new_match_type_strs } }
+                client.update index: Rails.configuration.rent_address_index_name, type: 'address', id: udprn, body: { doc: { match_type_str: new_match_type_strs } }
                 ads_count += 1 if ads.id > 0
                 message[:ads_count] = ads_count
               rescue Exception => e

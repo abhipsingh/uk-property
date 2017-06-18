@@ -17,7 +17,8 @@ class PropertyAd < ActiveRecord::Base
     types = ['Featured', 'Premium']
     udprn = details['udprn'].to_i
     levels_arr = []
-    all_locality_levels = [ :county, :post_town, :dependent_locality, :double_dependent_locality, :thoroughfare_descriptor, :dependent_thoroughfare_description ]
+    all_locality_levels = [ :county, :post_town, :dependent_locality, :dependent_thoroughfare_description ]
+    all_postcode_units = [ :district, :unit, :sector ]
     types.each do |each_type|
       all_locality_levels.each do |each_locality_level|
         hash_str = hash_at_level(each_locality_level, details)
@@ -27,12 +28,20 @@ class PropertyAd < ActiveRecord::Base
         response["#{each_locality_level.to_s}_#{each_type.downcase}_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(property_id: udprn).select([:id, :created_at]).first
         response["#{each_locality_level.to_s}_#{each_type.downcase}_oldest_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).order('created_at ASC').first.created_at rescue nil
       end
+      all_postcode_units.each do |each_postcode_unit|
+        hash_str = details[each_postcode_unit]
+        response["#{each_postcode_unit.to_s}"] = hash_str
+        response["#{each_postcode_unit.to_s}_hash"] = hash_str
+        response["#{each_postcode_unit.to_s}_#{each_type.downcase}_count"] = MAX_ADS_HASH[each_type] - PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).count
+        response["#{each_postcode_unit.to_s}_#{each_type.downcase}_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(property_id: udprn).select([:id, :created_at]).first
+        response["#{each_postcode_unit.to_s}_#{each_type.downcase}_oldest_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).order('created_at ASC').first.created_at rescue nil
+      end
     end
   end
 
   def self.hash_at_level(level, details)
     details = details.with_indifferent_access
-    all_locality_levels = [ :county, :post_town, :dependent_locality, :double_dependent_locality, :thoroughfare_descriptor, :dependent_thoroughfare_description ]
+    all_locality_levels = [ :county, :post_town, :dependent_locality, :dependent_thoroughfare_description ]
     return details[level] if level == :county || level == :post_town
     hash_levels = []
     all_locality_levels.each do |each_locality_level|
