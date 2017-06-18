@@ -1,4 +1,5 @@
 class Trackers::Buyer
+  include EventsHelper
 
   EVENTS = {
     viewed: 2,
@@ -263,8 +264,15 @@ class Trackers::Buyer
   ### with new row
   def push_property_details(new_row, details)
     new_row[:address] = PropertyDetails.address(details)
-    new_row[:image_url] = details['photos'] ? details['photos'][0] : "Image not available"
+    new_row[:image_url] = details['photo_urls'] ? details['photo_urls'][0] : "Image not available"
+    if new_row[:image_url].nil?
+      image_url = self.class.process_image(details)
+
+      #image_url = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details['udprn']}/fov_120_#{details['udprn']}.jpg"
+      new_row[:image_url] = image_url
+    end
     new_row[:pictures] = details['pictures']
+    new_row[:street_view_image_url] = new_row[:image_url]
     new_row[:verification_status] = details['verification_status']
     if details['verification_status'] == 'Green'
       keys = ['asking_price', 'offers_price', 'fixed_price']
@@ -469,7 +477,14 @@ class Trackers::Buyer
     new_row[:address] = PropertyDetails.address(details) rescue nil
     new_row[:price] = details['price'] rescue nil
     new_row[:image_url] = details['street_view_image_url'] || details['photo_urls'].first rescue nil
-    new_row[:street_view_image_url] = details['street_view_image_url']
+    if new_row[:image_url].nil?
+      image_url = process_image(details)
+      #image_url = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details['udprn']}/fov_120_#{details['udprn']}.jpg"
+      new_row[:image_url] = image_url
+    end
+    new_row[:pictures] = details['pictures']
+    new_row[:street_view_image_url] = new_row[:image_url]
+    #new_row[:street_view_image_url] = details['street_view_image_url']
     new_row[:photo_url] = details['pictures'][0] rescue nil
     new_row[:udprn] = details['udprn'] rescue nil
     new_row[:status] = details['property_status_type'] rescue nil
@@ -1139,7 +1154,7 @@ class Trackers::Buyer
     query = query.search_address_and_agent_details(search_str) if search_str
 
     total_rows = query.order('created_at DESC').as_json
-
+    counter = 0
     total_rows.each do |each_row|
       new_row = {}
       new_row['received'] = each_row['created_at']
@@ -1178,8 +1193,10 @@ class Trackers::Buyer
       end
 
       #### Udprn of properties nearby
-      similar_udprns = PropertyDetails.similar_properties(each_row['udprn'])
-      new_row['udprns'] = similar_udprns.select{ |t| t.to_i != each_row['udprn'] }
+      #### TODO: Taking a lot of time. Fix this
+      # similar_udprns = PropertyDetails.similar_properties(each_row['udprn'])
+      # new_row['udprns'] = similar_udprns.select{ |t| t.to_i != each_row['udprn'] }
+      new_row['udprns'] = []
 
       #### Contact details of agents
       quote = Agents::Branches::AssignedAgents::Quote.where(property_id: each_row['udprn'].to_i).where(status: 3).first
@@ -1197,7 +1214,7 @@ class Trackers::Buyer
         new_row['assigned_agent_office_number'] = nil
         new_row['assigned_agent_image_url'] = nil
       end
-
+      counter += 1
       result.push(new_row)
     end
 
