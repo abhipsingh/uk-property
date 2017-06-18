@@ -273,6 +273,9 @@ Rails.application.routes.draw do
   ### Verify the details submiitted by the agent and approve the agent as assigned_agent
   get 'vendors/:udprn/:agent_id/lead/details/verify/:verified', to: 'vendors#verify_details_submitted_from_agent_following_lead'
 
+  #### Update basic details of a property by a vendor
+  post 'properties/vendor/basic/:udprn/update',                 to: 'properties#update_basic_details_by_vendor'
+
   #####################################################################
   #####################################################################
   #####################################################################

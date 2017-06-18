@@ -17,13 +17,20 @@ class PropertyService
     @udprn = udprn
   end
 
-  def attach_vendor_to_property(vendor_id)
-    details = PropertyDetails.details(udprn)
+  def attach_vendor_to_property(vendor_id, details={})
+    property_details = PropertyDetails.details(udprn)
+    details.merge!(property_details)
     district = details['_source']['district']
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     Vendor.find(vendor_id).update_attributes(property_id: udprn)
+    create_lead_and_update_vendor_details(district, udprn, vendor_id, details)
+  end
+
+  def create_lead_and_update_vendor_details(district, udprn, vendor_id, details)
     Agents::Branches::AssignedAgents::Lead.create(district: district, property_id: udprn, vendor_id: vendor_id)
-    PropertyDetails.update_details(client, udprn, { vendor_id: vendor_id , claimed_at: Time.now.to_s })
+    details[:vendor_id] = vendor_id
+    details[:claimed_at] = Time.now.to_s
+    PropertyDetails.update_details(client, udprn, details)
   end
 
   def claim_new_property(agent_id)

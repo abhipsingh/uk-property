@@ -164,6 +164,29 @@ class PropertiesController < ActionController::Base
     render json: { message: 'Sorry, this udprn has already been claimed' }, status: 400
   end
 
+  ### Update basic details of a property by a vendor. Part of vendor verification workflow process
+  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/properties/vendor/basic/10966139/update' -d '{ "beds" : 2, "baths": 190, "receptions" : 34, "property_status_type" : "Green", "vendor_id" : 1, "property_type": "Countryside" }'
+  def update_basic_details_by_vendor
+    update_basic_details_by_vendor_params
+    udprn = params[:udprn].to_i
+    client = Elasticsearch::Client.new(host: Rails.configuration.remote_es_host)
+    body = {}
+    vendor_id = params[:vendor_id].to_i
+    body[:vendor_id] = vendor_id
+    body[:beds] = params[:beds].to_i
+    body[:baths] = params[:baths].to_i
+    body[:receptions] = params[:receptions].to_i
+    body[:property_status_type] = params[:property_status_type]
+    body[:property_type] = params[:property_type]
+    body[:verification_status] = false
+    property_service = PropertyService.new
+    property_service.attach_vendor_to_property(vendor_id, body)
+    PropertyDetails.update_details(client, udprn, body)
+    render json: { message: 'Successfully updated' }, status: 200
+  rescue Exception => e
+    render json: { message: "Update failed  #{e}" }, status: 400
+  end
+
   private
 
   def short_form_params
@@ -180,5 +203,15 @@ class PropertiesController < ActionController::Base
   def authenticate_request(klass='Agent')
     AuthorizeApiRequest.call(request.headers, klass)
   end
+
+  def update_basic_details_by_vendor_params
+    params.require(:vendor_id)
+    params.require(:beds)
+    params.require(:baths)
+    params.require(:receptions)
+    params.require(:property_status_type)
+    params.require(:property_type)
+  end
+
 
 end
