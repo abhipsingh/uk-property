@@ -74,4 +74,5 @@ gem 'pg_search'
 
 ### For search
 gem 'textacular', '~> 3.0'
+gem 'dalli'
 

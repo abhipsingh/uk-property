@@ -1,33 +1,36 @@
 module Api
   module V0
     class VendorAdController < ActionController::Base
-
+      include CacheHelper
       #### Example curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" -H "Content-Type: application/json" "http://localhost/api/v0/ads/availability?addresses%5B%5D=+33&addresses%5B%5D=+Loder+Drive&addresses%5B%5D=+City+Centre&addresses%5B%5D=+HEREFORD&addresses%5B%5D=+Herefordshire&udprn=10966139" 
       #### Parameters {"addresses"=>[" 33", " Loder Drive", " City Centre", " HEREFORD", " Herefordshire"], "udprn"=>"10966139"}
       def ads_availablity
         if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
-          score_map = {
-            :county => 6,
-            :post_town => 5,
-            :dependent_locality => 4,
-            :dependent_thoroughfare_description => 3,
-            :district => 2,
-            :unit => 1,
-            :sector => 0
-          }
-          levels = []
-          response = {}
-          udprn = params[:udprn].to_i
-          score_map.each do |key, value|
-            response[key.to_s + '_' + 'premium_count'] = nil
-            response[key.to_s + '_'  + 'premium_booked'] = nil
-            response[key.to_s + '_' + 'featured_count'] = nil
-            response[key.to_s + '_' + 'featured_booked'] = nil
+          cache_response(params[:udprn].to_i, []) do
+        #if true
+            score_map = {
+              :county => 6,
+              :post_town => 5,
+              :dependent_locality => 4,
+              :dependent_thoroughfare_description => 3,
+              :district => 2,
+              :unit => 1,
+              :sector => 0
+            }
+            levels = []
+            response = {}
+            udprn = params[:udprn].to_i
+            score_map.each do |key, value|
+              response[key.to_s + '_' + 'premium_count'] = nil
+              response[key.to_s + '_'  + 'premium_booked'] = nil
+              response[key.to_s + '_' + 'featured_count'] = nil
+              response[key.to_s + '_' + 'featured_booked'] = nil
+            end
+            PropertyAd.ads_info_all_address_levels(response, udprn)
+            render json: response, status: 200
+          else
+            render json: { message: 'Authorization failed' }, status: 401
           end
-          PropertyAd.ads_info_all_address_levels(response, udprn)
-          render json: response, status: 200
-        else
-          render json: { message: 'Authorization failed' }, status: 401
         end
       end
 

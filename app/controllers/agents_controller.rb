@@ -330,7 +330,7 @@ class AgentsController < ApplicationController
     postcode = nil
     base_url = "https://s3-us-west-2.amazonaws.com/propertyuk/"
     response = []
-    postcodes = []
+    postcodes = ""
     if agent
       branch_id = agent.branch_id
       properties = Agents::Branches::CrawledProperty.where(branch_id: branch_id).select([:id, :postcode, :image_urls, :stored_response, :additional_details]).where.not(postcode: nil)
@@ -344,22 +344,25 @@ class AgentsController < ApplicationController
         new_row['image_urls'] = property.image_urls.map { |e| base_url + e }
         new_row['property_type'] = property.additional_details['property_type'] rescue nil
         new_row['post_code'] = property.postcode
-        postcode = property.postcode.split(" ").join('')
+        new_row['property_status_type'] = 'Green'
+        postcode = property.postcode
         response.push(new_row)
-        postcodes |= [postcode]
+        postcodes = postcodes + "," + postcode
       end
-      Rails.logger.info(postcodes)
-      params_hash = { postcodes: postcodes, fields: "udprn,building_name,building_number,sub_building_name,post_code" }
+      params_hash = { postcodes: postcodes, fields: "udprn,building_name,building_number,sub_building_name,post_code,property_status_type,postcode" }
       search_api = PropertySearchApi.new(filtered_params: params_hash)
       search_api.apply_filters
       body, status = search_api.fetch_data_from_es
+      logged_postcodes = []
       body.each do |each_doc|
         each_doc['building_name'] ||= nil
         each_doc['building_number'] ||= nil
         each_doc['sub_building_name'] ||= nil
+        each_doc['property_status'] = "Unknown"
       end
       response.each do |each_crawled_property_data|
-        matching_udprns = body.select{ |t| t['post_code'] == each_crawled_property_data['post_code'] }
+        matching_udprns = body.select{ |t| t['postcode'] == each_crawled_property_data['post_code'] }
+        Rails.logger.info("HELLO") if !matching_udprns.empty?
         each_crawled_property_data['matching_properties'] = matching_udprns
       end
       render json: { response: response }, status: 200
