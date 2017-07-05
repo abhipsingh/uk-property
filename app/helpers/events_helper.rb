@@ -48,6 +48,7 @@ module EventsHelper
     res = obj.upload_file(file_name, acl: 'public-read')
     File.delete(file_name) if res
   end
+
   def insert_events(agent_id1, property_id, buyer_id, message, type_of_match, property_status_type, event)
     property_id = property_id.to_i
     type_of_match = type_of_match.to_i
@@ -55,7 +56,7 @@ module EventsHelper
     event = event.to_i
     # Rails.logger.info("prop #{property_id}  type of match #{type_of_match} prop status #{property_status_type} event #{event}")
     #### Defend against null cases
-    Rails.logger.info("(#{agent_id1}, #{property_id}, #{buyer_id}, #{message}, #{type_of_match}, #{property_status_type}, #{event})")
+    # Rails.logger.info("(#{agent_id1}, #{property_id}, #{buyer_id}, #{message}, #{type_of_match}, #{property_status_type}, #{event})")
     if property_id && buyer_id && type_of_match && property_status_type && event
       
       date = Date.today.to_s
@@ -72,8 +73,25 @@ module EventsHelper
       agent_name = agent.name if agent
       agent_email = agent.email if agent
       agent_mobile = agent.mobile if agent
-      Event.create!(agent_id: agent_id,  buyer_id: buyer_id, message: message, udprn: property_id, type_of_match: type_of_match, agent_name: agent_name, agent_email: agent_email, agent_mobile: agent_mobile, buyer_name: buyer.name, buyer_email: buyer.email, buyer_mobile: buyer.mobile, address: address, event: event)
-      Rails.logger.info("prop #{property_id}  type of match #{type_of_match} prop status #{property_status_type} event #{event}")
+      property_status_type = Trackers::Buyers::PROPERTY_STATUS_TYPES[details['_source']['property_status_type']]
+      attrs_list = {
+        agent_id: agent_id,
+        buyer_id: buyer_id,
+        message: message,
+        udprn: property_id,
+        type_of_match: type_of_match,
+        agent_name: agent_name,
+        agent_email: agent_email,
+        agent_mobile: agent_mobile,
+        buyer_name: buyer.name,
+        buyer_email: buyer.email,
+        buyer_mobile: buyer.mobile,
+        address: address,
+        event: event,
+        property_status_type: property_status_type
+      }
+      Event.create!(attrs_list)
+      # Rails.logger.info("prop #{property_id}  type of match #{type_of_match} prop status #{property_status_type} event #{event}")
       response = {}
 
       if event == Trackers::Buyer::EVENTS[:sold]

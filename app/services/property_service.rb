@@ -21,13 +21,14 @@ class PropertyService
     property_details = PropertyDetails.details(udprn)
     details.merge!(property_details)
     district = details['_source']['district']
-    client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
+    property_status_type = Trackers::Buyers::PROPERTY_STATUS_TYPES[details['_source']['property_status_type']]
     Vendor.find(vendor_id).update_attributes(property_id: udprn)
-    create_lead_and_update_vendor_details(district, udprn, vendor_id, details)
+    create_lead_and_update_vendor_details(district, udprn, vendor_id, details, property_status_type)
   end
 
-  def create_lead_and_update_vendor_details(district, udprn, vendor_id, details)
-    Agents::Branches::AssignedAgents::Lead.create(district: district, property_id: udprn, vendor_id: vendor_id)
+  def create_lead_and_update_vendor_details(district, udprn, vendor_id, details, property_status_type)
+    client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
+    Agents::Branches::AssignedAgents::Lead.create(district: district, property_id: udprn, vendor_id: vendor_id, property_status_type: property_status_type)
     details[:vendor_id] = vendor_id
     details[:claimed_at] = Time.now.to_s
     PropertyDetails.update_details(client, udprn, details)
@@ -133,6 +134,17 @@ class PropertyService
   end
   
   def is_property_is_in_lead_stage?(details)
+  end
+
+  def self.post_url(index_name, type_name, endpoint='_search')
+    es_url = Rails.configuration.remote_es_url
+    uri = URI.parse(URI.encode("#{es_url}/#{index_name}/#{type_name}/#{endpoint}"))
+    query = (query == {}) ? "" : query.to_json
+    http = Net::HTTP.new(uri.host, uri.port)
+    result = http.post(uri,query)
+    body = result.body
+    status = result.code
+    return body, status
   end
 end
 

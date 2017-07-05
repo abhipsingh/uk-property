@@ -115,6 +115,7 @@ class PropertiesController < ActionController::Base
   end
 
   #### Gets the properties which satisfy the postcode, or the building name filter
+  ### curl -XGET -H "Content-Type: application/json" 'http://localhost/properties/search/claim?str=25'
   def properties_for_claiming
     search_str = params[:str]
     postcode = params[:postcode]

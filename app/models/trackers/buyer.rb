@@ -45,7 +45,8 @@ class Trackers::Buyer
   PROPERTY_STATUS_TYPES = {
     'Green' => 1,
     'Amber' => 2,
-    'Red'   => 3
+    'Red'   => 3,
+    'Rent'  => 4
   }
 
   LISTING_TYPES = {
@@ -115,15 +116,26 @@ class Trackers::Buyer
   ]
 
   #### API Responses for tables
+                
 
   #### Property specific enquiries
   #### Trackers::Buyer.new.property_enquiries(10966183)
-  def property_enquiries(udprn)
+  def property_enquiries(udprn, property_for='Sale')
     details = PropertyDetails.details(udprn)['_source']
     result = []
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
-    total_rows = Event.where(event: events).where(udprn: udprn.to_i).order('created_at DESC')
+
+    total_rows = []
+    query = Event
+    if property_for != 'Rent'
+      query = query.where.not(property_status_type: Trackers::Buyer::PROPERTY_STATUS_TYPES['Rent'])
+    else
+      query = query.where(property_status_type: Trackers::Buyer::PROPERTY_STATUS_TYPES['Rent'])
+    end
     buyer_ids = []
+    total_rows = query.where(event: events)
+                      .where(udprn: udprn.to_i)
+                      .order('created_at DESC')
 
     total_rows.each do |each_row|
       new_row = {}
@@ -208,6 +220,7 @@ class Trackers::Buyer
   def search_latest_enquiries(agent_id, property_status_type=nil, verification_status=nil, ads=nil, search_str=nil)
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
     query = Event.where(agent_id: agent_id).where(event: events)
+    query = query.where(property_status_type: PROPERTY_STATUS_TYPES[property_status_type]) if property_status_type
     query = query.search_address_and_buyer_details(search_str) if search_str
     property_ids = query.order('created_at DESC').pluck(:udprn).uniq
     response = property_ids.map { |e| Trackers::Buyer.new.property_and_enquiry_details(agent_id.to_i, e, property_status_type, verification_status, ads) }.compact
@@ -298,7 +311,7 @@ class Trackers::Buyer
   end
 
   def add_details_to_enquiry_row(new_row, details)
-    table = 'Simple.property_events_buyers_events'
+    table = ''
     property_id = details['udprn']
 
     ### Extra keys to be added
@@ -346,7 +359,7 @@ class Trackers::Buyer
 
   ##### Agent level mock in console for new enquries coming
   ##### Trackers::Buyer.new.property_enquiry_details_buyer(1234, 'requested_message', nil, nil, nil,nil, nil, nil, nil, nil, nil, nil)
-  def property_enquiry_details_buyer(agent_id, enquiry_type=nil, type_of_match=nil, qualifying_stage=nil, rating=nil, buyer_buying_status=nil, buyer_funding=nil, buyer_biggest_problem=nil, buyer_chain_free=nil, search_str=nil, budget_from=nil, budget_to=nil, property_udprn=nil)
+  def property_enquiry_details_buyer(agent_id, enquiry_type=nil, type_of_match=nil, qualifying_stage=nil, rating=nil, buyer_buying_status=nil, buyer_funding=nil, buyer_biggest_problem=nil, buyer_chain_free=nil, search_str=nil, budget_from=nil, budget_to=nil, property_udprn=nil, property_for='Sale')
     result = []
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
     filtered_buyer_ids = []
@@ -360,6 +373,13 @@ class Trackers::Buyer
     buyer_filter_flag = buyer_buying_status || buyer_funding || buyer_biggest_problem || buyer_chain_free || budget_from || budget_to
     ### Filter only the type_of_match which are asked by the caller
     query = Event.where(event: events)
+
+    if property_for == 'Sale'
+      query = query.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+    else
+      query = query.where(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+    end
+    
     query = query.where(buyer_id: filtered_buyer_ids) if buyer_filter_flag
     query = query.where(type_of_match:  TYPE_OF_MATCH[type_of_match.to_s.downcase.to_sym]) if type_of_match
     query = query.where(udprn: property_udprn) if property_udprn
@@ -382,6 +402,7 @@ class Trackers::Buyer
       new_row['type_of_enquiry'] = REVERSE_EVENTS[each_row['event']]
       new_row['time_of_event'] = each_row['created_at'].to_time.to_s
       new_row['buyer_id'] = each_row['buyer_id']
+      new_row['property_status_type'] = REVERSE_STATUS_TYPES[each_row['property_status_type']]
       new_row['type_of_match'] = REVERSE_TYPE_OF_MATCH[each_row['type_of_match']]
       property_id = each_row['udprn']
       push_property_details_row(new_row, property_id)
@@ -497,18 +518,24 @@ class Trackers::Buyer
     new_row[:verification_status] = details['verification_status'] rescue false
   end
 
-  def add_details_to_enquiry_row_buyer(new_row, property_id, event_details, agent_id)
+  def add_details_to_enquiry_row_buyer(new_row, property_id, event_details, agent_id, property_for='Sale')
     new_row['type_of_match'] = REVERSE_TYPE_OF_MATCH[event_details['type_of_match']].to_s.capitalize
     #### Tracking property or not
     tracking_property_event = EVENTS[:property_tracking]
     buyer_id = event_details['buyer_id']
-    result = Event.where(buyer_id: buyer_id).where(event: tracking_property_event).where(udprn: property_id).count.as_json
+    query = nil
+    if property_for == 'Sale'
+      query = Event.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+    else
+      query = Event.where(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+    end
+    result = query.where(buyer_id: buyer_id).where(event: tracking_property_event).where(udprn: property_id).count.as_json
 
     new_row[:property_tracking] = (result.to_i == 0 ? false : true)
     #### Property is hot or cold or warm
     if agent_id #### This featured is only when agent_id is not nil(i.e. to agents)
       hotness_events = [ EVENTS[:hot_property], EVENTS[:cold_property], EVENTS[:warm_property] ]
-      result = Event.where(buyer_id: buyer_id).where(event: hotness_events).where(udprn: property_id).order('created_at DESC').limit(1).first
+      result = query.where(buyer_id: buyer_id).where(event: hotness_events).where(udprn: property_id).order('created_at DESC').limit(1).first
       new_row[:hotness] = REVERSE_EVENTS[result.event] if result
       new_row[:hotness] ||= 'cold_property'
     end
@@ -517,25 +544,25 @@ class Trackers::Buyer
 
     ##### Saved search hashes in message section
     save_search_event = EVENTS[:save_search_hash]
-    result = Event.where(buyer_id: buyer_id).where(event: save_search_event).where(udprn: property_id).order('created_at DESC').limit(1).first
+    result = query.where(buyer_id: buyer_id).where(event: save_search_event).where(udprn: property_id).order('created_at DESC').limit(1).first
     new_row[:search_hash] = result.message.to_json rescue ({}.to_json)
     ##### Saved search hash ends
 
     #### Views
-    total_views = generic_event_count(EVENTS[:viewed], nil, property_id, :single)
-    buyer_views = generic_event_count_buyer(EVENTS[:viewed], nil, property_id, buyer_id)
+    total_views = generic_event_count(EVENTS[:viewed], nil, property_id, :single, property_for)
+    buyer_views = generic_event_count_buyer(EVENTS[:viewed], nil, property_id, buyer_id, property_for)
     new_row[:views] = buyer_views.to_i.to_s + '/' + total_views.to_i.to_s
 
     #### Enquiries
-    total_enquiries = generic_event_count(ENQUIRY_EVENTS, nil, property_id, :multiple)
-    buyer_enquiries = generic_event_count_buyer(ENQUIRY_EVENTS, nil, property_id, buyer_id, :multiple)
+    total_enquiries = generic_event_count(ENQUIRY_EVENTS, nil, property_id, :multiple, property_for)
+    buyer_enquiries = generic_event_count_buyer(ENQUIRY_EVENTS, nil, property_id, buyer_id, :multiple, property_for)
     new_row[:enquiries] = buyer_enquiries.to_i.to_s + '/' + total_enquiries.to_i.to_s
 
     #### Qualifying Stage Only shown to the agents
       #Rails.logger.info(future.rows)
     if agent_id
       qualifying_events = QUALIFYING_STAGE_EVENTS.map { |e| EVENTS[e] }
-      result = Event.where(agent_id: agent_id).where(event: qualifying_events).where(buyer_id: buyer_id).order('created_at DESC').first
+      result = query.where(agent_id: agent_id).where(event: qualifying_events).where(buyer_id: buyer_id).order('created_at DESC').first
       new_row[:qualifying] = REVERSE_EVENTS[result.event] rescue :qualifying_stage
     end
     new_row
@@ -551,16 +578,23 @@ class Trackers::Buyer
   ##### tracked                                            ######
   ##### Property level mock in console for new enquries coming
   ##### Trackers::Buyer.new.property_enquiry_details_vendor(10966183)
-  def property_enquiry_details_vendor(property_id)
+  def property_enquiry_details_vendor(property_id, property_for='Sale')
     result = []
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
     total_rows = []
-    total_rows = Event.where(event: events).where(udprn: property_id).order('created_at DESC').as_json
+    query = Event.where(event: events).where(udprn: property_id)
+    if property_for == 'Sale'
+      query = query.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+    else
+    end
+    total_rows = query.as_json
+
     buyer_ids = []
     total_rows.each do |each_row|
       new_row = {}
       new_row['received'] = each_row['created_at']
       new_row['type_of_enquiry'] = REVERSE_EVENTS[each_row['event']]
+      new_row['property_status_type'] = REVERSE_STATUS_TYPES[each_row['property_status_type']]
       new_row['time_of_event'] = each_row['created_at'].to_time.to_s
       new_row['buyer_id'] = each_row['buyer_id']
       new_row['type_of_match'] = REVERSE_TYPE_OF_MATCH[each_row['type_of_match']]
@@ -652,14 +686,15 @@ class Trackers::Buyer
 
   #### Track the number of searches of similar properties located around that property
   #### Trackers::Buyer.new.demand_info(10966139)
-  def demand_info(udprn)
+  #### TODO: Integrate it with rent
+  def demand_info(udprn, property_for='Sale')
     details = PropertyDetails.details(udprn.to_i)['_source']
     Rails.logger.info(details)
-    table = 'simple.property_events_buyers_events'
+    table = ''
     
     #### Similar properties to the udprn
     #### TODO: Remove HACK FOR SOME Results to be shown
-    p details['hashes']
+    # p details['hashes']
     default_search_params = {
       min_beds: details['beds'].to_i - 2,
       max_beds: details['beds'].to_i + 2,
@@ -680,7 +715,7 @@ class Trackers::Buyer
 
       search_params = default_search_params.clone
       search_params[region_type] = details[region_type.to_s]
-      Rails.logger.info(search_params)
+      # Rails.logger.info(search_params)
       search_stats[region_type][:value] = details[region_type.to_s] ### Populate the value of sector, district and unit
       api = PropertySearchApi.new(filtered_params: search_params)
       api.apply_filters
@@ -695,10 +730,18 @@ class Trackers::Buyer
       ### Accumulate data for each udprn
       type_of_match = TYPE_OF_MATCH[:perfect]
       event = EVENTS[:save_search_hash]
-      search_stats[region_type][:perfect_matches] = Event.where(udprn: udprns).where(event: event).where(type_of_match: type_of_match).count
+
+      query = nil
+      if property_for == 'Sale'
+        query = Event.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+      else
+        query = Event.where(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+      end
+
+      search_stats[region_type][:perfect_matches] = query.where(udprn: udprns).where(event: event).where(type_of_match: type_of_match).count
 
       type_of_match = TYPE_OF_MATCH[:potential]
-      search_stats[region_type][:potential_matches] = Event.where(udprn: udprns).where(event: event).where(type_of_match: type_of_match).count
+      search_stats[region_type][:potential_matches] = query.where(udprn: udprns).where(event: event).where(type_of_match: type_of_match).count
 
       search_stats[region_type][:total_matches] = search_stats[region_type][:perfect_matches] + search_stats[region_type][:potential_matches]
 
@@ -765,7 +808,7 @@ class Trackers::Buyer
 
   #### Track the number of similar properties located around that property
   #### Trackers::Buyer.new.buyer_intent_info(10966139)
-  def buyer_intent_info(udprn)
+  def buyer_intent_info(udprn, property_for='Sale')
     details = PropertyDetails.details(udprn.to_i)['_source']
     
     #### Similar properties to the udprn
@@ -803,7 +846,13 @@ class Trackers::Buyer
       ### Accumulate buyer_id for each udprn
       buyer_ids = []
       event = EVENTS[:save_search_hash]
-      buyer_ids = Event.where(event: event).where(udprn: udprns).pluck(:buyer_id).uniq
+      query = nil
+      if property_for == 'Sale'
+        query = Event.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+      else
+        query = Event.where(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+      end
+      buyer_ids = query.where(event: event).where(udprn: udprns).pluck(:buyer_id).uniq
 
       ### Extract status of the buyers in bulk
       buyers = PropertyBuyer.where(id: buyer_ids).select([:id, :status])
@@ -832,12 +881,20 @@ class Trackers::Buyer
   ##### Information about pie charts about the buyer. All related to the buyer
   #### To try this method run the following in the console
   #### Trackers::Buyer.new.buyer_profile_stats(10976419)
-  def buyer_profile_stats(udprn)
+  def buyer_profile_stats(udprn, property_for='Sale')
     result_hash = {}
     property_id = udprn.to_i
     details = PropertyDetails.details(udprn.to_i)['_source'] rescue {}
     event = EVENTS[:save_search_hash]
-    buyer_ids = Event.where(event: event).where(udprn: property_id).where(type_of_match: 1).pluck(:buyer_id).uniq
+
+    query = nil
+    if property_for == 'Sale'
+      query = Event.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+    else
+      query = Event.where(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+    end
+
+    buyer_ids = query.where(event: event).where(udprn: property_id).where(type_of_match: 1).pluck(:buyer_id).uniq
 
     ### Buying status stats
     buying_status_distribution = PropertyBuyer.where(id: buyer_ids).group(:buying_status).count
@@ -894,49 +951,55 @@ class Trackers::Buyer
   #### The following method gets the data for qualifying stage and hotness stats
   #### for the agents.
   #### Trackers::Buyer.new.agent_stage_and_rating_stats(10966139)
-  def agent_stage_and_rating_stats(udprn)
+  def agent_stage_and_rating_stats(udprn, property_for='Sale')
     aggregate_stats = {}
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
     table = 'Simple.property_events_buyers_events'
     property_id = udprn.to_i
-    buyer_ids = Event.where(event: events).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
+    query = nil
+    if property_for == 'Sale'
+      query = Event.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+    else
+      query = Event.where(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+    end
+    buyer_ids = query.where(event: events).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
     ### Filtered out the rows which are outdated
 
     ### Buyers who are in qualifying stage
     event = EVENTS[:qualifying_stage]
-    qualifying_buyer_ids = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
+    qualifying_buyer_ids = query.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
 
     ### Buyers who are in viewing scheduled stage
     event = EVENTS[:viewing_stage]
-    viewing_scheduled_buyer_ids = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
+    viewing_scheduled_buyer_ids = query.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
 
     ### Buyers who are in offer made stage
     event = EVENTS[:offer_made_stage]
-    offer_made_buyer_ids = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
+    offer_made_buyer_ids = query.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
 
     ### Buyers who are in offer made stage
     event = EVENTS[:offer_accepted_stage]
-    offer_accepted_buyer_ids = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
+    offer_accepted_buyer_ids = query.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
 
     ### Buyers who are in conveyancing stage
     event = EVENTS[:conveyance_stage]
-    conveyance_buyer_ids = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
+    conveyance_buyer_ids = query.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
 
     ### Buyers who are in conveyancing stage
     event = EVENTS[:contract_exchange_stage]
-    contract_exchange_buyer_ids = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
+    contract_exchange_buyer_ids = query.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
 
     ### Buyers who are in completion stage
     event = EVENTS[:completion_stage]
-    completion_stage_buyer_ids = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
+    completion_stage_buyer_ids = query.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
 
     ### Buyers who are in conveyancing stage
     event = EVENTS[:closed_won_stage]
-    closed_won_buyer_ids = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
+    closed_won_buyer_ids = query.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
     
     ### Buyers who are in closed lost stage
     event = EVENTS[:closed_lost_stage]
-    closed_lost_buyer_ids = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
+    closed_lost_buyer_ids = query.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
     
     ### Removing the common buyer ids in all the stages
     qualifying_buyer_ids = qualifying_buyer_ids - viewing_scheduled_buyer_ids
@@ -1001,18 +1064,18 @@ class Trackers::Buyer
 
     ### Hot property buyers
     event = EVENTS[:hot_property]
-    rating_stats[:hot_property_count] = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq.count
-    hot_property_buyers = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
+    rating_stats[:hot_property_count] = query.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq.count
+    hot_property_buyers = query.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
 
     ### Warm property buyers
     event = EVENTS[:warm_property]
-    rating_stats[:warm_property_count] = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq.count
-    warm_property_buyers = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
+    rating_stats[:warm_property_count] = query.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq.count
+    warm_property_buyers = query.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
 
     ### Cold property buyers
     event = EVENTS[:cold_property]
-    rating_stats[:cold_property_count] = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq.count
-    cold_property_buyers = Event.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
+    rating_stats[:cold_property_count] = query.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq.count
+    cold_property_buyers = query.where(event: event).where(udprn: property_id).where("created_at > ?", 5.months.ago).pluck(:buyer_id).uniq
 
     unknown_buyers = buyer_ids - ( hot_property_buyers + warm_property_buyers + cold_property_buyers )
     rating_stats[:unknown_rating_count] = unknown_buyers.length
@@ -1149,6 +1212,7 @@ class Trackers::Buyer
     result = []
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
     query = Event.where(buyer_id: buyer_id).where(event: events)
+    query = query.where(property_status_type: REVERSE_STATUS_TYPES[property_status_type]) if property_status_type
     query = query.where(type_of_match: TYPE_OF_MATCH[type_of_match]) if type_of_match
     query = query.where(event: EVENTS[enquiry_type.to_sym]) if enquiry_type
     query = query.search_address_and_agent_details(search_str) if search_str
@@ -1161,6 +1225,7 @@ class Trackers::Buyer
       new_row['type_of_enquiry'] = REVERSE_EVENTS[each_row['event']]
       new_row['time_of_event'] = each_row['created_at']
       new_row['buyer_id'] = each_row['buyer_id']
+      new_row['property_status_type'] = REVERSE_STATUS_TYPES[each_row['property_status_type']]
       new_row['udprn'] = each_row['udprn']
       details = PropertyDetails.details(each_row['udprn'])['_source']
 
@@ -1222,27 +1287,42 @@ class Trackers::Buyer
   end
 
 
-  def generic_event_count(event, table, property_id, type=:single)
+  def generic_event_count(event, table, property_id, type=:single, property_for='Sale')
     event_sql, count = nil
+    query = nil
+    if property_for == 'Sale'
+      query = Event.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+    else
+      query = Event.where(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+    end
+
     if type == :single
       event_type = event
-      count = Event.where(udprn: property_id).where(event: event_type).count
+      count = query.where(udprn: property_id).where(event: event_type).count
     else
       event_types = event.map { |e| EVENTS[e] }
-      count = Event.where(udprn: property_id).where(event: event_types).count
+      count = query.where(udprn: property_id).where(event: event_types).count
     end
     # p "_#{event_sql}_#{property_id}_#{table}_#{event}_#{type}"
     count
   end
 
-  def generic_event_count_buyer(event, table, property_id, buyer_id, type=:single)
+  def generic_event_count_buyer(event, table, property_id, buyer_id, type=:single, property_for='Sale')
     event_sql = nil
+
+    query = nil
+    if property_for == 'Sale'
+      query = Event.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+    else
+      query = Event.where(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+    end
+    
     if type == :single
       event_type = EVENTS[:event]
-      count = Event.where(udprn: property_id).where(buyer_id: buyer_id).where(event: event).count
+      count = query.where(udprn: property_id).where(buyer_id: buyer_id).where(event: event).count
     else
       event_types = event.map { |e| EVENTS[e] }
-      count = Event.where(udprn: property_id).where(buyer_id: buyer_id).where(event: event_types).count
+      count = query.where(udprn: property_id).where(buyer_id: buyer_id).where(event: event_types).count
     end
     # p "BUYER_#{event_sql}_#{property_id}_#{table}_#{event}_#{type}"
     count

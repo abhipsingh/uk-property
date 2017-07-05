@@ -11,15 +11,15 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170604172803) do
+ActiveRecord::Schema.define(version: 20170705210722) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
   enable_extension "pg_trgm"
 
   create_table "agents", force: :cascade do |t|
-    t.string  "name",         limit: 255
-    t.string  "branches_url", limit: 255
+    t.string  "name"
+    t.string  "branches_url"
     t.integer "group_id"
     t.string  "email"
     t.string  "phone_number"
@@ -32,13 +32,13 @@ ActiveRecord::Schema.define(version: 20170604172803) do
   add_index "agents", ["name", "branches_url"], name: "index_agents_on_name_and_branches_url", unique: true, using: :btree
 
   create_table "agents_branches", force: :cascade do |t|
-    t.string  "name",              limit: 255
-    t.string  "property_urls",     limit: 255
+    t.string  "name"
+    t.string  "property_urls"
     t.integer "agent_id"
-    t.string  "address",           limit: 255
+    t.string  "address"
     t.string  "postcode"
     t.string  "district"
-    t.text    "udprns",                        default: [], array: true
+    t.text    "udprns",            default: [], array: true
     t.string  "image_url"
     t.string  "email"
     t.string  "phone_number"
@@ -78,9 +78,10 @@ ActiveRecord::Schema.define(version: 20170604172803) do
     t.integer  "agent_id"
     t.string   "district"
     t.integer  "vendor_id"
-    t.datetime "created_at",  null: false
-    t.datetime "updated_at",  null: false
+    t.datetime "created_at",           null: false
+    t.datetime "updated_at",           null: false
     t.boolean  "submitted"
+    t.integer  "property_status_type"
   end
 
   add_index "agents_branches_assigned_agents_leads", ["agent_id"], name: "index_agents_branches_assigned_agents_leads_on_agent_id", using: :btree
@@ -97,13 +98,14 @@ ActiveRecord::Schema.define(version: 20170604172803) do
     t.string   "payment_terms"
     t.jsonb    "quote_details"
     t.boolean  "service_required"
-    t.datetime "created_at",       null: false
-    t.datetime "updated_at",       null: false
+    t.datetime "created_at",           null: false
+    t.datetime "updated_at",           null: false
     t.string   "district"
     t.string   "vendor_name"
     t.string   "vendor_email"
     t.string   "vendor_mobile"
     t.string   "address"
+    t.integer  "property_status_type"
   end
 
   add_index "agents_branches_assigned_agents_quotes", ["district"], name: "index_agents_branches_assigned_agents_quotes_on_district", using: :btree
@@ -231,8 +233,8 @@ ActiveRecord::Schema.define(version: 20170604172803) do
     t.integer  "agent_id"
     t.integer  "udprn"
     t.jsonb    "message"
-    t.integer  "type_of_match", limit: 2
-    t.integer  "event",         limit: 2
+    t.integer  "type_of_match",        limit: 2
+    t.integer  "event",                limit: 2
     t.integer  "buyer_id"
     t.string   "buyer_name"
     t.string   "buyer_email"
@@ -241,8 +243,9 @@ ActiveRecord::Schema.define(version: 20170604172803) do
     t.string   "agent_email"
     t.string   "agent_mobile"
     t.string   "address"
-    t.datetime "created_at",                              null: false
-    t.boolean  "is_deleted",              default: false
+    t.datetime "created_at",                                     null: false
+    t.boolean  "is_deleted",                     default: false
+    t.integer  "property_status_type"
   end
 
   create_table "invited_agents", force: :cascade do |t|
@@ -281,7 +284,7 @@ ActiveRecord::Schema.define(version: 20170604172803) do
 
   create_table "property_buyers", force: :cascade do |t|
     t.jsonb    "searches",          default: [], null: false
-    t.string   "name"
+    t.string   "name",                           null: false
     t.string   "email_id",                       null: false
     t.string   "account_type",                   null: false
     t.jsonb    "visited_udprns",    default: [], null: false
@@ -320,6 +323,64 @@ ActiveRecord::Schema.define(version: 20170604172803) do
 
   add_index "property_historical_details", ["udprn"], name: "index_property_historical_details_on_udprn", using: :btree
 
+  create_table "property_users", force: :cascade do |t|
+    t.string   "full_name",              default: "", null: false
+    t.string   "image",                  default: "", null: false
+    t.string   "email",                  default: "", null: false
+    t.string   "encrypted_password",     default: "", null: false
+    t.string   "reset_password_token"
+    t.datetime "reset_password_sent_at"
+    t.datetime "remember_created_at"
+    t.integer  "sign_in_count",          default: 0,  null: false
+    t.datetime "current_sign_in_at"
+    t.datetime "last_sign_in_at"
+    t.string   "current_sign_in_ip"
+    t.string   "last_sign_in_ip"
+    t.string   "confirmation_token"
+    t.datetime "confirmed_at"
+    t.datetime "confirmation_sent_at"
+    t.string   "unconfirmed_email"
+    t.datetime "created_at",                          null: false
+    t.datetime "updated_at",                          null: false
+    t.string   "provider"
+    t.string   "uid"
+    t.string   "first_name"
+    t.string   "last_name"
+    t.string   "profile_type"
+    t.jsonb    "saved_searches",         default: []
+    t.integer  "shortlisted_flat_ids",   default: [],              array: true
+    t.jsonb    "messages",               default: []
+    t.jsonb    "callbacks",              default: []
+    t.jsonb    "viewings",               default: []
+    t.jsonb    "offers",                 default: []
+    t.jsonb    "matrix_searches",        default: []
+  end
+
+  add_index "property_users", ["confirmation_token"], name: "index_property_users_on_confirmation_token", unique: true, using: :btree
+  add_index "property_users", ["email"], name: "index_property_users_on_email", unique: true, using: :btree
+  add_index "property_users", ["provider"], name: "index_property_users_on_provider", using: :btree
+  add_index "property_users", ["reset_password_token"], name: "index_property_users_on_reset_password_token", unique: true, using: :btree
+  add_index "property_users", ["uid"], name: "index_property_users_on_uid", using: :btree
+
+  create_table "registrations", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "temp_property_details", force: :cascade do |t|
+    t.jsonb    "details"
+    t.string   "session_id"
+    t.string   "udprn"
+    t.datetime "created_at",     null: false
+    t.datetime "updated_at",     null: false
+    t.integer  "vendor_id"
+    t.integer  "agent_id"
+    t.jsonb    "agent_services"
+    t.integer  "user_id"
+  end
+
+  add_index "temp_property_details", ["user_id"], name: "index_temp_property_details_on_user_id", using: :btree
+
   create_table "uk_properties", force: :cascade do |t|
     t.string  "post_code"
     t.string  "post_town"
@@ -347,6 +408,18 @@ ActiveRecord::Schema.define(version: 20170604172803) do
 
   add_index "uk_properties", ["post_code"], name: "trgm_postcode_indx", using: :gist
   add_index "uk_properties", ["udprn"], name: "index_uk_properties_on_udprn", unique: true, using: :btree
+
+  create_table "users_email_users", force: :cascade do |t|
+    t.datetime "created_at",                     null: false
+    t.datetime "updated_at",                     null: false
+    t.string   "email",                          null: false
+    t.string   "encrypted_password", limit: 128, null: false
+    t.string   "confirmation_token", limit: 128
+    t.string   "remember_token",     limit: 128, null: false
+  end
+
+  add_index "users_email_users", ["email"], name: "index_users_email_users_on_email", using: :btree
+  add_index "users_email_users", ["remember_token"], name: "index_users_email_users_on_remember_token", using: :btree
 
   create_table "vendors", force: :cascade do |t|
     t.string   "full_name"

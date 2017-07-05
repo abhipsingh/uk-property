@@ -36,6 +36,7 @@ class AgentsController < ApplicationController
     udprn = params[:udprn].to_i
     fields = [:agent_name, :agent_name, :agent_id, :agent_mobile]
     event = Event.where(event: Trackers::Buyer::EVENTS[:valuation_change])
+                .where.not(property_status_type: Trackers::Buyer::PROPERTY_STATUS_TYPES['Rent'])
                 .where(udprn: udprn)
                 .order('created_at DESC')
                 .select(fields)

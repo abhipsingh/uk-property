@@ -13,10 +13,12 @@ class QuoteService
     Rails.logger.info("QUOTE_DETAILS_#{quote_details}")
     details = PropertyDetails.details(@udprn)['_source']
     district = details['district']
+    property_status_type = Trackers::Buyers::PROPERTY_STATUS_TYPES[details['_source']['property_status_type']]
     quote = Agents::Branches::AssignedAgents::Quote.create!(
       deadline: deadline,
       agent_id: agent_id,
       property_id: @udprn,
+      property_status_type: property_status_type,
       status: status,
       payment_terms: payment_terms,
       quote_details: quote_details,
