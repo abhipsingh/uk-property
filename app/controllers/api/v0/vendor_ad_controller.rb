@@ -7,7 +7,6 @@ module Api
       def ads_availablity
         if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
           cache_response(params[:udprn].to_i, []) do
-        #if true
             score_map = {
               :county => 6,
               :post_town => 5,
@@ -28,9 +27,9 @@ module Api
             end
             PropertyAd.ads_info_all_address_levels(response, udprn)
             render json: response, status: 200
-          else
-            render json: { message: 'Authorization failed' }, status: 401
           end
+        else
+          render json: { message: 'Authorization failed' }, status: 401
         end
       end
 

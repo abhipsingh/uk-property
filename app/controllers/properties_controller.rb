@@ -132,7 +132,8 @@ class PropertiesController < ActionController::Base
     search_hash[:building_number] = params[:str] if params[:str] && !params[:str].empty?
     api = PropertySearchApi.new(filtered_params: search_hash )
     api.apply_filters
-    # Rails.logger.info(api.query)
+    api.add_not_exists_filter('vendor_id')
+    #Rails.logger.info(api.query)
     api.make_or_filters([:sub_building_name, :building_name, :building_number])
     body, status = api.fetch_data_from_es
     render json: body, status: status
@@ -167,8 +168,10 @@ class PropertiesController < ActionController::Base
     property_service = PropertyService.new(udprn)
     property_service.attach_vendor_to_property(vendor_id)
     render json: { message: 'You have claimed this property Successfully. All the agents in this district will be notified' }, status: 200
-  rescue Exception
+  rescue ActiveRecord::RecordNotUnique
     render json: { message: 'Sorry, this udprn has already been claimed' }, status: 400
+  #rescue Exception
+  #  render json: { message: 'Sorry, this udprn has already been claimed' }, status: 400
   end
 
   ### Update basic details of a property by a vendor. Part of vendor verification workflow process
