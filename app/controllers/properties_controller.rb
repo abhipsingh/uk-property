@@ -1,4 +1,5 @@
 class PropertiesController < ActionController::Base
+  include CacheHelper
   #### Edit property url
   #### curl -XPOST -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/properties/10966139/edit/details' -d '{ "details" : { "property_type" : "Terraced House", "beds" : 3, "baths" : 2, "receptions" : 2, "property_status_type" : "Green", "property_style" : "Period", "tenure" : "Freehold", "floors" : 2, "listed_status" : "Grade 1", "year_built" : "2011-01-01", "central_heating" : "Partial", "parking_type" : "Single garage", "outside_space_type" : "Private garden", "additional_features" : ["Attractive views", "Fireplace"], "decorative_condition" : "Newly refurbished", "council_tax_band" : "A", "lighting_cost" : 120, "lighting_cost_unit_type" : "month", "heating_cost": 100, "heating_cost_unit_type" : "month", "hot_water_cost" : 200, "hot_water_cost_unit_type" : "month", "annual_ground_water_cost" : 1100, "annual_service_charge" : 200, "resident_parking_cost" : 1200, "other_costs" : [{ "name" : "Cost 1", "value" : 200, "unit_type" : "month" } ], "improvement_types" : [ { "name" : "Total refurbishment", "value" : 200, "date": "2016-06-01" }  ], "current_valuation" : 32000, "dream_price" : 42000, "rental_price" : 1000, "floorplan_url" : "some random url", "pictures" : [{"category" : "Front", "url" : "random url" }, { "category" : "Garden", "url" : "Some random url" } ], "property_brochure_url" : "some random url", "video_walkthrough_url" : "some random url", "property_sold_status" : "Under offer", "agreed_sale_value" : 37000, "expected_completion_date" : "2017-03-13", "actual_completion_date" : "2017-04-01", "new_owner_email_id" : "a@b.com" , "vendor_address" : "Some address" } }'
   #### TODO: Validations
@@ -24,8 +25,10 @@ class PropertiesController < ActionController::Base
   ### curl -XGET -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/enquiries/property/10966139'
   def enquiries
     if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
-      enquiries = Trackers::Buyer.new.property_enquiries(params[:udprn].to_i)
-      render json: enquiries, status: 200
+      cache_response(params[:udprn].to_i, []) do
+        enquiries = Trackers::Buyer.new.property_enquiries(params[:udprn].to_i)
+        render json: enquiries, status: 200
+      end
     else
       render json: { message: 'Authorization failed' }, status: 401
     end
@@ -37,8 +40,10 @@ class PropertiesController < ActionController::Base
   #### curl -XGET -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/property/interest/10966139'
   def interest_info
     if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
-      interest_info = Trackers::Buyer.new.interest_info(params[:udprn].to_i)
-      render json: interest_info, status: 200
+      cache_response(params[:udprn].to_i, []) do
+        interest_info = Trackers::Buyer.new.interest_info(params[:udprn].to_i)
+        render json: interest_info, status: 200
+      end
     else
       render json: { message: 'Authorization failed' }, status: 401
     end
@@ -109,9 +114,11 @@ class PropertiesController < ActionController::Base
     type_of_match = params[:type_of_match].downcase.to_sym if params[:type_of_match]
     property_status_type = params[:property_status_type]
     search_str = params[:search_str]
-
-    ranking_info = Trackers::Buyer.new.history_enquiries(params[:buyer_id].to_i, enquiry_type, type_of_match, property_status_type, search_str)
-    render json: ranking_info, status: status
+    cache_parameters = [ :enquiry_type, :type_of_match, :property_status_type,:search_str].map{ |t| params[t].to_s }
+    cache_response(params[:buyer_id].to_i, cache_parameters) do
+      ranking_info = Trackers::Buyer.new.history_enquiries(params[:buyer_id].to_i, enquiry_type, type_of_match, property_status_type, search_str)
+      render json: ranking_info, status: status
+    end
   end
 
   #### Gets the properties which satisfy the postcode, or the building name filter
@@ -126,7 +133,8 @@ class PropertiesController < ActionController::Base
     search_hash[:building_number] = params[:str] if params[:str] && !params[:str].empty?
     api = PropertySearchApi.new(filtered_params: search_hash )
     api.apply_filters
-    # Rails.logger.info(api.query)
+    api.add_not_exists_filter('vendor_id')
+    #Rails.logger.info(api.query)
     api.make_or_filters([:sub_building_name, :building_name, :building_number])
     body, status = api.fetch_data_from_es
     render json: body, status: status
@@ -161,8 +169,10 @@ class PropertiesController < ActionController::Base
     property_service = PropertyService.new(udprn)
     property_service.attach_vendor_to_property(vendor_id)
     render json: { message: 'You have claimed this property Successfully. All the agents in this district will be notified' }, status: 200
-  rescue Exception
+  rescue ActiveRecord::RecordNotUnique
     render json: { message: 'Sorry, this udprn has already been claimed' }, status: 400
+  #rescue Exception
+  #  render json: { message: 'Sorry, this udprn has already been claimed' }, status: 400
   end
 
   ### Update basic details of a property by a vendor. Part of vendor verification workflow process

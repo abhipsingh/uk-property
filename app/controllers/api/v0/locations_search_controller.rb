@@ -26,6 +26,7 @@ module Api
           str = params[:str].gsub(',',' ').downcase.strip
         end
         suggestions, status = get_results_from_es_suggest(str)
+        Rails.logger.info(suggestions)
         predictions = Oj.load(suggestions)['postcode_suggest'][0]['options'] rescue []
         predictions.each { |t| t['score'] = t['score']*100 if t['payload']['hash'] == params[:str].upcase.strip }
         predictions.sort_by!{|t| (1.to_f/t['score'].to_f) }

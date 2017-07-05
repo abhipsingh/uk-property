@@ -63,6 +63,7 @@ GEM
       descendants_tracker (~> 0.0.1)
     crack (0.4.3)
       safe_yaml (~> 1.0.0)
+    dalli (2.7.6)
     descendants_tracker (0.0.4)
       thread_safe (~> 0.3, >= 0.3.1)
     domain_name (0.5.20160615)
@@ -290,6 +291,7 @@ DEPENDENCIES
   aws-sdk
   bcrypt (~> 3.1.7)
   bootstrap-sass (~> 3.3.4.1)
+  dalli
   elasticsearch-persistence
   elasticsearch-rails
   figaro

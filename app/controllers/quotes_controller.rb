@@ -1,5 +1,6 @@
 #### Emulation of a request for each action is given
 class QuotesController < ApplicationController
+  include CacheHelper
 
   #### When a vendor changes the status to Green or when a vendor selects a Fixed or Ala Carte option,
   #### He/She submits his preferences about the type of quotes he would want to receieve, Fixed or Ala carte
@@ -49,17 +50,19 @@ class QuotesController < ApplicationController
   ##### Shows all the quotes that were submitted by the agents to the vendors
   ##### curl -XGET  -H "Content-Type: application/json" 'http://localhost/property/quotes/agents/10966139'
   def quotes_per_property
-    property_id = params[:udprn].to_i
-    status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
-    agents_for_quotes = Agents::Branches::AssignedAgents::Quote.where(status: status).where.not(agent_id: nil).where.not(agent_id: 1).where(property_id: property_id)
-    final_result = []
-    agents_for_quotes.each do |each_agent_id|
-      quotes = AgentApi.new(property_id.to_i, each_agent_id.agent_id.to_i).calculate_quotes
-      quotes[:quote_id] = each_agent_id.id
-      final_result.push(quotes)
+    cache_response(params[:udprn].to_i, []) do
+      property_id = params[:udprn].to_i
+      status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
+      agents_for_quotes = Agents::Branches::AssignedAgents::Quote.where(status: status).where.not(agent_id: nil).where.not(agent_id: 1).where(property_id: property_id)
+      final_result = []
+      agents_for_quotes.each do |each_agent_id|
+        quotes = AgentApi.new(property_id.to_i, each_agent_id.agent_id.to_i).calculate_quotes
+        quotes[:quote_id] = each_agent_id.id
+        final_result.push(quotes)
+      end
+      final_result = final_result.uniq{ |t| t[:id] }
+      render json: final_result, status: 200
     end
-    final_result = final_result.uniq{ |t| t[:id] }
-    render json: final_result, status: 200
   end
   
   #### Shows all the properties available for quoting
