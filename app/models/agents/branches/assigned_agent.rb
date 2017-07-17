@@ -16,116 +16,124 @@ module Agents
       ##### Data being fetched from this function
       ##### Example run the following in irb
       ##### Agents::Branches::AssignedAgent.last.recent_properties_for_quotes
-      def recent_properties_for_quotes(payment_terms_params=nil, service_required_param=nil, status_param=nil, search_str=nil)
+      def recent_properties_for_quotes(payment_terms_params=nil, service_required_param=nil, status_param=nil, search_str=nil, property_for='Sale')
         results = []
 
+        won_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']
         # udprns = quotes.where(district: self.branch.district).order('created_at DESC').pluck(:property_id)
+        new_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
         query = Agents::Branches::AssignedAgents::Quote
         query = query.where(district: self.branch.district)
+        query = query.where('created_at > ?', 7.days.ago)
+        query = query.where(status: new_status)
+        query = query.where(agent_id: nil)
         query = query.search_address_and_vendor_details(search_str) if search_str
-        udprns = query.order('created_at DESC').pluck(:property_id).uniq
-
-        search_params = {
-          sort_order: 'desc',
-          sort_key: 'status_last_updated',
-          district: self.branch.district,
-          accepting_quotes: true
-        }
-        if search_params[:district] == "L37"
-        #  search_params[:district] = "L14"
+        if property_for != 'Sale'
+          query = query.where(property_status_type: 'Rent')
+        else
+          query = query.where.not(property_status_type: 'Rent')
         end
+        new_udprns = query.order('created_at DESC')
 
-        # search_params[:udprns] = udprns.join(',') if !udprns.empty?
-        api = PropertySearchApi.new(filtered_params: search_params)
-        api.apply_filters
-        api.add_exists_filter(:quotes)
-        body, status = api.fetch_data_from_es
-        Rails.logger.info(body)
+        won_and_lost_udprns = Agents::Branches::AssignedAgents::Quote.where(agent_id: id)
+        won_and_lost_quote_ids = won_and_lost_udprns.map(&:id).uniq
+        new_udprns = new_udprns.select{ |t| !won_and_lost_quote_ids.include?(t.id) }
+
+        total_udprns = (new_udprns + won_and_lost_udprns).sort_by{ |t| t.created_at }.reverse
+
         if status.to_i == 200
-          body.each do |property_details|
-            next if property_details['assigned_agent_quote'] && property_details['assigned_agent_quote'] == true && property_details['agent_id'] && property_details['agent_id'] != self.id
-            next if !property_details['payment_terms'] || !property_details.has_key?('services_required')
-            ### Payment terms params filter
-            next if payment_terms_params && payment_terms_params != property_details['payment_terms']
+        total_quotes.each do |each_quote|
+          property_details = PropertyDetails.details(each_quote.property_id)['_source']
+          next if each_quote.is_assigned_agent && property_details['agent_id'] && property_details['agent_id'] != self.id
+          next if !property_details['payment_terms'] || !property_details.has_key?('services_required')
+          ### Payment terms params filter
+          next if payment_terms_params && payment_terms_params != property_details['payment_terms']
 
-            ### Services required filter
-            next if service_required_param && service_required_param != property_details['services_required']
+          ### Services required filter
+          next if service_required_param && service_required_param != property_details['services_required']
 
-            ### Quotes status filter
+          ### Quotes status filter
+          property_id = property_details['udprn'].to_i
 
-            property_id = property_details['udprn'].to_i
-
-            quotes = self.quotes.where(property_id: property_id).where('created_at > ?', 1.year.ago)
-            quote_status = Agents::Branches::AssignedAgents::Quote::REVERSE_STATUS_HASH[quotes.last.status] if quotes.last
-            quote_status ||= 'New'
-            next if status_param && status_param != quote_status
-
-            new_row = {}
-            new_row[:udprn] = property_id
-            if quotes.count > 0
-              new_row[:submitted_on] = quotes.last.created_at.to_s
-              new_row[:status] = quote_status
-              new_row[:status] ||= 'PENDING'
-            else
-              new_row[:submitted_on] = nil
-              new_row[:status] = 'PENDING'
-            end
-            new_row[:activated_on] = property_details['status_last_updated']
-            new_row[:type] = 'SALE'
-            new_row[:photo_url] = property_details['photos'] ? property_details['photos'][0] : "Image not available"
-
-            new_row = new_row.merge(['property_type', 'beds', 'baths', 'receptions', 'floor_plan_url', 'services_required',
-              'verification_status','asking_price','fixed_price', 'dream_price', 'pictures', 'payment_terms', 'quotes'].reduce({}) {|h, k| h[k] = property_details[k]; h })
-            
-            new_row[:current_agent] = self.name
-
-            new_row[:street_view_url] = property_details['street_view_image_url']
-            new_row[:address] = PropertyDetails.address(property_details)
-            new_row[:claimed_on] = property_details['claimed_at']
-
-            new_row[:latest_valuation] = property_details['current_valuation']
-
-            ### Historical prices
-            property_historical_prices = PropertyHistoricalDetail.where(udprn: "#{property_id}").order("date DESC").pluck(:price)
-            new_row[:historical_prices] = property_historical_prices
-
-            vendor = Vendor.where(property_id: property_id).first
-            if vendor.present?
-              new_row[:vendor_name] = vendor.full_name
-              new_row[:vendor_email] = vendor.email
-              new_row[:vendor_mobile] = vendor.mobile
-              new_row[:vendor_image_url] = vendor.image_url
-            else
-              new_row[:vendor_name] = nil
-              new_row[:vendor_email] = nil
-              new_row[:vendor_mobile] = nil
-              new_row[:vendor_image_url] = nil
-            end
-
-            ### Branch and logo
-            new_row[:assigned_branch_logo] = self.branch.image_url
-            new_row[:assigned_branch_name] = self.branch.name
-            new_row[:assigned_agent_id] = property_details['agent_id']
-
-            new_row[:quotes_received] = Agents::Branches::AssignedAgents::Quote.where(property_id: property_id).where('created_at > ?', 1.week.ago).count
-
-            #### WINNING AGENT
-            winning_quote = Agents::Branches::AssignedAgents::Quote.where(status: Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won'], property_id: property_id).first
-            if winning_quote
-              new_row[:winning_agent] = winning_quote.agent.name
-              new_row[:quote_price] = winning_quote.compute_price
-              new_row[:deadline] = winning_quote.created_at.to_s
-              new_row[:quote_accepted] = true
-            else
-              new_row[:winning_quote] = nil
-              new_row[:quote_price] = nil
-              new_row[:deadline] = Time.at(Time.parse(property_details['status_last_updated']) + 48.hours - Time.now).utc.strftime "%H:%M:%S"
-              new_row[:quote_accepted] = false
-            end
-
-            results.push(new_row)
-
+          quote_status = nil
+          if each_quote.status == won_status
+            quote_status = 'Won'
+          elsif each_quote.status == new_status && each_quote.agent_id.nil?
+            quote_status = 'New'
+          elsif each_quote.status == new_status && !each_quote.agent_id.nil?
+            quote_status = 'Pending'
+          else
+            quote_status = 'Lost'
           end
+          next if status_param && status_param != quote_status
+
+          new_row = {}
+          new_row[:udprn] = property_id
+          if quote_status != 'Won'
+            new_row[:submitted_on] = each_quote.created_at.to_s
+            new_row[:status] = quote_status
+          else
+            new_row[:submitted_on] = nil
+            new_row[:status] = 'WON'
+          end
+          new_row[:property_status_type] = property_details['property_status_type']
+          new_row[:activated_on] = property_details['status_last_updated']
+          new_row[:type] = 'SALE'
+          new_row[:photo_url] = property_details['photos'] ? property_details['photos'][0] : "Image not available"
+
+          new_row = new_row.merge(['property_type', 'beds', 'baths', 'receptions', 'floor_plan_url', 'services_required',
+            'verification_status','asking_price','fixed_price', 'dream_price', 'pictures', 'payment_terms', 'quotes'].reduce({}) {|h, k| h[k] = property_details[k]; h })
+          
+          new_row[:current_agent] = self.name
+
+          new_row[:street_view_url] = property_details['street_view_image_url']
+          new_row[:address] = PropertyDetails.address(property_details)
+          new_row[:claimed_on] = property_details['claimed_at']
+
+          new_row[:latest_valuation] = property_details['current_valuation']
+
+          ### Historical prices
+          property_historical_prices = PropertyHistoricalDetail.where(udprn: "#{property_id}").order("date DESC").pluck(:price)
+          new_row[:historical_prices] = property_historical_prices
+
+          vendor = Vendor.where(property_id: property_id).first
+          if vendor.present?
+            new_row[:vendor_name] = vendor.full_name
+            new_row[:vendor_email] = vendor.email
+            new_row[:vendor_mobile] = vendor.mobile
+            new_row[:vendor_image_url] = vendor.image_url
+          else
+            new_row[:vendor_name] = nil
+            new_row[:vendor_email] = nil
+            new_row[:vendor_mobile] = nil
+            new_row[:vendor_image_url] = nil
+          end
+
+          ### Branch and logo
+          new_row[:assigned_branch_logo] = self.branch.image_url
+          new_row[:assigned_branch_name] = self.branch.name
+          new_row[:assigned_agent_id] = property_details['agent_id']
+
+          ### TODO: Fix for multiple lifetimes
+          new_row[:quotes_received] = Agents::Branches::AssignedAgents::Quote.where(property_id: property_id).where.not(agent_id: nil).count
+
+          ### TODO: Fix for multiple lifetimes
+          #### WINNING AGENT
+          winning_quote = Agents::Branches::AssignedAgents::Quote.where(status: Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won'], property_id: property_id).last
+          if winning_quote
+            new_row[:winning_agent] = winning_quote.agent.name
+            new_row[:quote_price] = winning_quote.compute_price
+            new_row[:deadline] = winning_quote.created_at.to_s
+            new_row[:quote_accepted] = true
+          else
+            new_row[:winning_quote] = nil
+            new_row[:quote_price] = nil
+            new_row[:deadline] = Time.at(Time.parse(property_details['status_last_updated']) + 48.hours - Time.now).utc.strftime "%H:%M:%S"
+            new_row[:quote_accepted] = false
+          end
+
+          results.push(new_row)
+
         end
         results
       end
@@ -139,10 +147,19 @@ module Agents
       #### To test this function, create the following lead.
       #### Agents::Branches::AssignedAgents::Lead.create(district: "CH45", property_id: 4745413, vendor_id: 1)
       #### Then call the following function for the agent in that district
-      def recent_properties_for_claim(status=nil)
+      def recent_properties_for_claim(status=nil, property_for='Sale')
         district = self.branch.district
-        query = Agents::Branches::AssignedAgents::Lead.where(district: district)
-                                                      .where('created_at > ?', 1.week.ago)
+        property_status_type = Trackers::Buyers::PROPERTY_STATUS_TYPES['Rent']
+
+        query = Agents::Branches::AssignedAgents::Lead
+        if property_for == 'Sale'
+          query = query.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+        else
+          query = query.where(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+        end
+
+        query = query.where(district: district).where('created_at > ?', 1.week.ago)
+
         if status == 'New'
           query = query.where(agent_id: nil)
         elsif status == 'Won'
@@ -243,6 +260,18 @@ module Agents
         body, status = api.fetch_data_from_es
         # Rails.logger.info(body)
         body.count
+      end
+
+      def rent_properties
+        search_params = { limit: 100, fields: 'udprn' }
+        search_params[:agent_id] = self.id
+        search_params[:property_status_type] = 'Rent'
+        search_params[:verification_status] = true
+        api = PropertySearchApi.new(filtered_params: search_params)
+        api.apply_filters
+        body, status = api.fetch_data_from_es
+        # Rails.logger.info(body)
+        body.count        
       end
 
       def self.from_omniauth(auth)

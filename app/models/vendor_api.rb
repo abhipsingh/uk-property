@@ -69,7 +69,10 @@ class VendorApi
 
   def calculate_quotes
     quotes = []
-    agent_quotes = Agents::Branches::AssignedAgents::Quote.where(property_id: udprn.to_i).where.not(agent_id: nil).where.not(agent_id: 1).where('created_at > ?', 1.week.ago).order('created_at DESC').limit(2)
+    agent_quotes = Agents::Branches::AssignedAgents::SubmiitedQuote.where(property_id: udprn.to_i)
+                                                                   .where.not(agent_id: nil)
+                                                                   .where.not(agent_id: 1)
+                                                                   .where('created_at > ?', 1.week.ago).order('created_at DESC').limit(2)
     agent_quotes.each do |agent_quote|
       agent_id = agent_quote.agent_id
       ### TODO: Remove this

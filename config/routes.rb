@@ -325,22 +325,15 @@ Rails.application.routes.draw do
       get 'locations/predict',                       to: 'locations_search#predict'
     end
   end
-  post 'buyers/new/search',                       to: 'property_users/searches#new_saved_search'
-  post 'buyers/override/search',                  to: 'property_users/searches#override_saved_searches'
-  get  'buyers/searches',                         to: 'property_users/searches#saved_searches'
-  get  'buyers/shortlist',                        to: 'property_users/searches#shortlisted_udprns'
-  post 'buyers/new/shortlist',                    to: 'property_users/searches#new_shortlist'
-  post 'buyers/delete/shortlist',                 to: 'property_users/searches#delete_shortlist'
-  get  'buyers/callbacks',                        to: 'property_users/searches#callbacks'
-  post 'buyers/new/callbacks',                    to: 'property_users/searches#new_callbacks'
-  get  'buyers/viewings',                         to: 'property_users/searches#viewings'
-  post 'buyers/new/viewings',                     to: 'property_users/searches#new_viewings'
-  get  'buyers/offers',                           to: 'property_users/searches#offers'
-  post 'buyers/new/offers',                       to: 'property_users/searches#new_offers'
-  get  'buyers/messages',                         to: 'property_users/searches#messages'
-  post 'buyers/new/message',                      to: 'property_users/searches#new_message'
-  get  'buyers/matrix/searches',                  to: 'property_users/searches#matrix_searches'
-  post 'buyers/new/matrix/search',                to: 'property_users/searches#new_matrix_search'
+
+  namespace :rents do
+    get 'agents/enquiries/new/:agent_id',                   to: 'agents_controller#agent_new_enquiries_rent'
+    get 'rents/agents/properties/:agent_id',                to: 'agents_controller#detailed_properties_rent'
+    get 'rents/agents/properties/recent/claims/:agent_id',  to: 'agents_controller#recent_properties_for_claim_rent'
+    get 'rents/agents/properties/recent/quotes/:agent_id',  to: 'agents_controller#recent_properties_for_quotes_rent'
+  end
+
+
   resources :charges
 
   ### Facebook login routes

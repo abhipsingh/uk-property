@@ -61,7 +61,7 @@ class AgentApi
     
     aggregate_stats[:pay_link] = 'Random link'
     aggregate_stats[:quote_price] = quote_price
-    quote = Agents::Branches::AssignedAgents::Quote.where(property_id: @udprn).where(agent_id: nil).last
+    quote = Agents::Branches::AssignedAgents::Quote.where(property_id: @udprn).last
     aggregate_stats[:payment_terms] = nil
     aggregate_stats[:payment_terms] = quote.payment_terms if quote
     aggregate_stats[:quote_details] = quote.quote_details if quote
@@ -132,13 +132,14 @@ class AgentApi
   #### Agents::Branches::AssignedAgents::Quote.create(deadline: Time.now, status: 1, property_id: 10976765, agent_id: 1234, created_at: 32.days.ago)
   #### Agents::Branches::AssignedAgents::Quote.create(deadline: Time.now, status: 1, property_id: 10975337, agent_id: 1234, created_at: 28.days.ago)
   #### Agents::Branches::AssignedAgents::Quote.create(deadline: Time.now, status: 1, property_id: 54042234, agent_id: 1234, created_at: 30.days.ago)
+  #### TODO: Fix me. Agent can be tagged in many ways to the property, not just quotes
   def average_no_of_days_to_sell(agent_id=nil)
     agent_id ||= @agent_id
     all_sales = all_sales_of_agent(agent_id)
     total_time_diff = 0
     count = 0
     all_sales.each do |each_sale|
-      start_date = Agents::Branches::AssignedAgents::Quote.where(property_id: each_sale.udprn).where(agent_id: agent_id).where.not(status: nil).first.created_at rescue nil
+      start_dates = Agents::Branches::AssignedAgents::Quote.where(property_id: each_sale.udprn).where(agent_id: agent_id).where(status: 3).pluck(:updated_at).last
       if start_date
         end_date = each_sale.created_at
         time_diff = (end_date - start_date).to_i/(24 * 60 * 60)

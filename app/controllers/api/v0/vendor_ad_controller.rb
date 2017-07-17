@@ -2,8 +2,8 @@ module Api
   module V0
     class VendorAdController < ActionController::Base
       include CacheHelper
-      #### Example curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" -H "Content-Type: application/json" "http://localhost/api/v0/ads/availability?addresses%5B%5D=+33&addresses%5B%5D=+Loder+Drive&addresses%5B%5D=+City+Centre&addresses%5B%5D=+HEREFORD&addresses%5B%5D=+Herefordshire&udprn=10966139" 
-      #### Parameters {"addresses"=>[" 33", " Loder Drive", " City Centre", " HEREFORD", " Herefordshire"], "udprn"=>"10966139"}
+      #### Example curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" -H "Content-Type: application/json" "http://localhost/api/v0/ads/availability?addresses%5B%5D=+33&addresses%5B%5D=+Loder+Drive&addresses%5B%5D=+City+Centre&addresses%5B%5D=+HEREFORD&addresses%5B%5D=+Herefordshire&udprn=10966139&property_status_type=Sale" 
+      #### Parameters {"addresses"=>[" 33", " Loder Drive", " City Centre", " HEREFORD", " Herefordshire"], "udprn"=>"10966139", "property_status_type" => 'Rent'}
       def ads_availablity
         if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
           cache_response(params[:udprn].to_i, []) do
@@ -25,7 +25,9 @@ module Api
               response[key.to_s + '_' + 'featured_count'] = nil
               response[key.to_s + '_' + 'featured_booked'] = nil
             end
-            PropertyAd.ads_info_all_address_levels(response, udprn)
+            property_for = params[:property_status_type]
+            property_for ||= 'Sale'
+            PropertyAd.ads_info_all_address_levels(response, udprn, property_for)
             render json: response, status: 200
           end
         else
@@ -70,6 +72,8 @@ module Api
           match_type_strs = details['match_type_str']
           new_match_type_strs = []
           ads_count = 0
+          service = nil
+          details['property_status_type'] != 'Rent' ? service = 1 : service = 2
           Rails.logger.info(locations)
           locations.each do |key, location|
             hash_value = location[:hash]
@@ -78,7 +82,7 @@ module Api
             Rails.logger.info(location)
             if value > 0
               begin
-                ads = PropertyAd.create(hash_str: hash_value, property_id: udprn.to_i, ad_type: PropertyAd::TYPE_HASH[type])
+                ads = PropertyAd.create(hash_str: hash_value, property_id: udprn.to_i, ad_type: PropertyAd::TYPE_HASH[type], service: service)
                 message[:ads].push(ads)
                 match_type_strs.each do |each_str|
                   if each_str.split('|')[0] == hash_value

@@ -17,16 +17,16 @@ class PropertyService
     @udprn = udprn
   end
 
-  def attach_vendor_to_property(vendor_id, details={})
+  def attach_vendor_to_property(vendor_id, details={}, property_for='Sale')
     property_details = PropertyDetails.details(udprn)
-    details.merge!(property_details)
-    district = details['_source']['district']
-    property_status_type = Trackers::Buyers::PROPERTY_STATUS_TYPES[details['_source']['property_status_type']]
+    details.merge!(property_details['_source'])
+    district = details['district']
     Vendor.find(vendor_id).update_attributes(property_id: udprn)
-    create_lead_and_update_vendor_details(district, udprn, vendor_id, details, property_status_type)
+    create_lead_and_update_vendor_details(district, udprn, vendor_id, details, property_for)
   end
 
-  def create_lead_and_update_vendor_details(district, udprn, vendor_id, details, property_status_type)
+  def create_lead_and_update_vendor_details(district, udprn, vendor_id, details, property_for='Sale')
+    details['property_status_type'] = 'Rent' if property_for != 'Sale'
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     Agents::Branches::AssignedAgents::Lead.create(district: district, property_id: udprn, vendor_id: vendor_id, property_status_type: property_status_type)
     details[:vendor_id] = vendor_id

@@ -41,7 +41,6 @@ class VendorsController < ApplicationController
 
   # curl -XPOST -H "Content-Type: application/json" 'http://localhost/events/new' -d '{"agent_id" : 1234, "udprn" : '54042234', "event" : "valuation_change", "message" : "\{ \"previous_valuation\" : 340000, \"current_valuation\" : 360000 \}", "type_of_match" : "perfect", "buyer_id" : 1, "property_status_type" : "Green" }'
 
-
   def quotes
     property_id = params[:udprn]
     vendor_api = VendorApi.new(property_id)

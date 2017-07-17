@@ -163,22 +163,26 @@ class EventsController < ApplicationController
     cache_response(params[:agent_id].to_i, cache_parameters) do
       response = {}
       results = []
-      status = [ 
-                 Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New'],
-                 Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']
-               ]
+
       unless params[:agent_id].nil?
         #### TODO: Need to fix agents quotes when verified by the vendor
-        search_params = { limit: 10000, fields: 'udprn' }
+        search_params = { limit: 100, fields: 'udprn' }
         search_params[:agent_id] = params[:agent_id].to_i
         search_params[:property_status_type] = 'Green'
         search_params[:verification_status] = true
         search_params[:ads] = params[:ads] if params[:ads] == true
-        property_ids = lead_property_ids = other_ids = udprns = []
+        property_ids = lead_property_ids = quote_property_ids = active_property_ids = []
+        quote_model = Agents::Branches::AssignedAgents::Quote
+        lead_model = Agents::Branches::AssignedAgents::Lead
+        property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES['Rent']
         if !(params[:ads].to_s == 'true' || params[:ads].to_s == 'false')
-          property_ids = Agents::Branches::AssignedAgents::Quote.where(agent_id: params[:agent_id], status: status).pluck(:property_id)
-          lead_property_ids = Agents::Branches::AssignedAgents::Lead.where(agent_id: params[:agent_id].to_i).pluck(:property_id)
-          other_ids = udprns + lead_property_ids + property_ids
+          quote_property_ids = quote_model.where(agent_id: params[:agent_id].to_i)
+                                          .where.not(property_status_type: property_status_type)
+                                          .pluck(:property_id)
+          lead_property_ids = lead_model.where(agent_id: params[:agent_id].to_i)
+                                        .where.not(property_status_type: property_status_type)
+                                        .pluck(:property_id)
+          property_ids = lead_property_ids + quote_property_ids
         else
           search_params[:ads] = params[:ads]
         end
@@ -186,14 +190,12 @@ class EventsController < ApplicationController
         api = PropertySearchApi.new(filtered_params: search_params)
         api.apply_filters
         body, status = api.fetch_data_from_es
-        #Rails.logger.info(body)
-        udprns = body.map { |e| e['udprn'] }
+        active_property_ids = body.map { |e| e['udprn'] }
   
         ### Get all properties for whom the agent has won leads
-        property_ids = other_ids + udprns
+        property_ids = (active_property_ids + property_ids).uniq
         Rails.logger.info("property ids found for detailed properties (agent) = #{property_ids}")
         results = property_ids.uniq.map { |e| Trackers::Buyer.new.push_events_details(PropertyDetails.details(e)) }
-        results = results.select{ |t| t['_source']['property_status_type'] == params[:property_status_type] } if params[:property_status_type]
         response = results.empty? ? {"properties" => results, "message" => "No properties to show"} : {"properties" => results}
         Rails.logger.info "Sending results for detailed properties (agent) => #{results.inspect}"
       else

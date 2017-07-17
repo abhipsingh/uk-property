@@ -120,10 +120,14 @@ class Trackers::Buyer
 
   #### Property specific enquiries
   #### Trackers::Buyer.new.property_enquiries(10966183)
-  def property_enquiries(udprn, property_for='Sale')
+  #### TODO: Fixme Multiple lifetimes of a property
+  def property_enquiries(udprn)
     details = PropertyDetails.details(udprn)['_source']
     result = []
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
+
+    property_for = nil
+    details['property_status_type'] != 'Rent' ? property_for = 'Sale' : property_for = 'Rent'
 
     total_rows = []
     query = Event
@@ -146,17 +150,17 @@ class Trackers::Buyer
 
       #### Tracking property id event
       tracking_property_event = EVENTS[:property_tracking]
-      event_count = Event.where(event: tracking_property_event).where(buyer_id: each_row.buyer_id).where(udprn: udprn.to_i).count
+      event_count = query.where(event: tracking_property_event).where(buyer_id: each_row.buyer_id).where(udprn: udprn.to_i).count
       new_row[:property_tracking] = event_count
       
       #### Views
-      total_views = generic_event_count(EVENTS[:viewed], nil, udprn, :single)
-      buyer_views = generic_event_count_buyer(EVENTS[:viewed], nil, udprn, each_row.buyer_id)
+      total_views = generic_event_count(EVENTS[:viewed], nil, udprn, :single, property_for)
+      buyer_views = generic_event_count_buyer(EVENTS[:viewed], nil, udprn, each_row.buyer_id, property_for)
       new_row[:views] = buyer_views.to_i.to_s + '/' + total_views.to_i.to_s
 
       #### Enquiries
-      total_enquiries = generic_event_count(ENQUIRY_EVENTS, nil, udprn, :multiple)
-      buyer_enquiries = generic_event_count_buyer(ENQUIRY_EVENTS, nil, udprn, each_row.buyer_id)
+      total_enquiries = generic_event_count(ENQUIRY_EVENTS, nil, udprn, :multiple, property_for)
+      buyer_enquiries = generic_event_count_buyer(ENQUIRY_EVENTS, nil, udprn, each_row.buyer_id, property_for)
       new_row[:enquiries] = buyer_enquiries.to_i.to_s + '/' + total_enquiries.to_i.to_s
 
       #### Type of match
@@ -165,7 +169,7 @@ class Trackers::Buyer
       #### Qualifying Stage Only shown to the agents
       #Rails.logger.info(future.rows)
       qualifying_events = QUALIFYING_STAGE_EVENTS.map { |e| EVENTS[e] }.join(',')
-      qualifying_result = Event.where(udprn: udprn).where(event: qualifying_events).where(buyer_id: each_row.buyer_id).order('created_at DESC').limit(1).first
+      qualifying_result = query.where(udprn: udprn).where(event: qualifying_events).where(buyer_id: each_row.buyer_id).order('created_at DESC').limit(1).first
       new_row[:qualifying] = :qualifying
       new_row[:qualifying] = REVERSE_EVENTS[qualifying_result.event] if qualifying_result
 
@@ -183,7 +187,7 @@ class Trackers::Buyer
 
       if details['agent_id']
         hotness_events = [ EVENTS[:hot_property], EVENTS[:cold_property], EVENTS[:warm_property] ]
-        event_result = Event.where(buyer_id: each_row.buyer_id).where(event: hotness_events).where(udprn: udprn).order('created_at DESC').limit(1).first
+        event_result = query.where(buyer_id: each_row.buyer_id).where(event: hotness_events).where(udprn: udprn).order('created_at DESC').limit(1).first
         new_row[:hotness] = REVERSE_EVENTS[event_result.event] if event_result
         new_row[:hotness] ||= 'cold_property'
       end
@@ -217,7 +221,7 @@ class Trackers::Buyer
 
   #### Agent enquiries latest implementation
   #### Trackers::Buyer.new.search_latest_enquiries(1234)
-  def search_latest_enquiries(agent_id, property_status_type=nil, verification_status=nil, ads=nil, search_str=nil)
+  def search_latest_enquiries(agent_id, property_status_type=nil, verification_status=nil, ads=nil, search_str=nil, property_for='Sale')
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
     query = Event.where(agent_id: agent_id).where(event: events)
     query = query.where(property_status_type: PROPERTY_STATUS_TYPES[property_status_type]) if property_status_type
@@ -235,17 +239,16 @@ class Trackers::Buyer
 
   ##### To mock this in the console try 
   ##### Trackers::Buyer.new.property_and_enquiry_details(1234, '10966139')
-  def property_and_enquiry_details(agent_id, property_id, property_status_type=nil, verification_status=nil, ads=nil)
+  def property_and_enquiry_details(agent_id, property_id, property_status_type=nil, verification_status=nil, ads=nil, property_for='Sale')
     details = PropertyDetails.details(property_id)['_source']
     # details = {}
     new_row = {}
 
-    property_enquiry_details(new_row, property_id, details)
+    property_enquiry_details(new_row, property_id, details, property_for)
 
     return nil if property_status_type && property_status_type != new_row[:property_status_type]
     return nil if !verification_status.nil? && verification_status.to_s != new_row[:verification_status].to_s
     return nil if !ads.nil? && ads.to_s != new_row[:advertised].to_s
-
 
     push_agent_details(new_row, agent_id)
 
@@ -254,9 +257,9 @@ class Trackers::Buyer
 
   #### Push event based additional details to each property details
   ### Trackers::Buyer.new.push_events_details(PropertyDetails.details(10966139))
-  def push_events_details(details)
+  def push_events_details(details, property_for='Sale')
     new_row = {}
-    add_details_to_enquiry_row(new_row, details['_source'])
+    add_details_to_enquiry_row(new_row, details['_source'], property_for)
     details['_source'].merge!(new_row)
     details
   end
@@ -268,9 +271,9 @@ class Trackers::Buyer
     agents.each { |e| keys.each { |k| new_row[k] = e[k.to_s] } }
   end
 
-  def property_enquiry_details(new_row, property_id, details)
+  def property_enquiry_details(new_row, property_id, details, property_for='Sale')
     push_property_details(new_row, details)
-    add_details_to_enquiry_row(new_row, details)
+    add_details_to_enquiry_row(new_row, details, property_for)
   end
 
   ### For every enquiry row, extract the info from details hash and merge it
@@ -310,22 +313,24 @@ class Trackers::Buyer
     new_row[:advertised] = details['match_type_str'].any? { |e| ['Featured', 'Premium'].include?(e.split('|').last) }
   end
 
-  def add_details_to_enquiry_row(new_row, details)
+  ### FIXME: 
+  ### TODO: Initial version of rent assumes that rent and buy udprns are exclusive
+  def add_details_to_enquiry_row(new_row, details, property_for='Sale')
     table = ''
     property_id = details['udprn']
 
     ### Extra keys to be added
-    new_row['total_visits'] = generic_event_count(EVENTS[:viewed], table, property_id, :single)
-    new_row['total_enquiries'] = generic_event_count(ENQUIRY_EVENTS, table, property_id, :multiple)
-    new_row['trackings'] = generic_event_count(TRACKING_EVENTS, table, property_id, :multiple)
-    new_row['requested_viewing'] = generic_event_count(EVENTS[:requested_viewing], table, property_id, :single)
-    new_row['offer_made_stage'] = generic_event_count(EVENTS[:offer_made_stage], table, property_id, :single)
-    new_row['requested_message'] = generic_event_count(EVENTS[:requested_message], table, property_id, :single)
-    new_row['requested_callback'] = generic_event_count(EVENTS[:requested_callback], table, property_id, :single)
-    new_row['interested_in_making_an_offer'] = generic_event_count(EVENTS[:interested_in_making_an_offer], table, property_id, :single)
-    new_row['interested_in_viewing'] = generic_event_count(EVENTS[:interested_in_viewing], table, property_id, :single)
+    new_row['total_visits'] = generic_event_count(EVENTS[:viewed], table, property_id, :single, property_for)
+    new_row['total_enquiries'] = generic_event_count(ENQUIRY_EVENTS, table, property_id, :multiple, property_for)
+    new_row['trackings'] = generic_event_count(TRACKING_EVENTS, table, property_id, :multiple, property_for)
+    new_row['requested_viewing'] = generic_event_count(EVENTS[:requested_viewing], table, property_id, :single, property_for)
+    new_row['offer_made_stage'] = generic_event_count(EVENTS[:offer_made_stage], table, property_id, :single, property_for)
+    new_row['requested_message'] = generic_event_count(EVENTS[:requested_message], table, property_id, :single, property_for)
+    new_row['requested_callback'] = generic_event_count(EVENTS[:requested_callback], table, property_id, :single, property_for)
+    new_row['interested_in_making_an_offer'] = generic_event_count(EVENTS[:interested_in_making_an_offer], table, property_id, :single, property_for)
+    new_row['interested_in_viewing'] = generic_event_count(EVENTS[:interested_in_viewing], table, property_id, :single, property_for)
     # new_row['impressions'] = generic_event_count(:impressions, table, property_id, :single)
-    new_row['deleted'] = generic_event_count(EVENTS[:deleted], table, property_id, :single)
+    new_row['deleted'] = generic_event_count(EVENTS[:deleted], table, property_id, :single, property_for)
   end
 
   ##### Trackers::Buyer.new.fetch_filtered_buyer_ids('First time buyer', 'Mortgage approved', 'Funding', true)
@@ -406,7 +411,7 @@ class Trackers::Buyer
       new_row['type_of_match'] = REVERSE_TYPE_OF_MATCH[each_row['type_of_match']]
       property_id = each_row['udprn']
       push_property_details_row(new_row, property_id)
-      add_details_to_enquiry_row_buyer(new_row, property_id, each_row, agent_id)
+      add_details_to_enquiry_row_buyer(new_row, property_id, each_row, agent_id, property_for)
 
       ### Check if filtered_buyer_ids is not empty and if its not
       ### Allow only buyer_id which matches each_row['buyer_id']
@@ -600,7 +605,7 @@ class Trackers::Buyer
       new_row['type_of_match'] = REVERSE_TYPE_OF_MATCH[each_row['type_of_match']]
       property_id = each_row['udprn']
       push_property_details_row(new_row, property_id)
-      add_details_to_enquiry_row_buyer(new_row, property_id, each_row, nil) #### Passing agent_id as nil
+      add_details_to_enquiry_row_buyer(new_row, property_id, each_row, nil, property_for) #### Passing agent_id as nil
       buyer_ids.push(each_row['buyer_id'])
       result.push(new_row)
     end
@@ -625,16 +630,20 @@ class Trackers::Buyer
     result
   end
 
-
   #### Buyer interest details. To test it, just run the following in the irb
   #### Trackers::Buyer.new.interest_info(10966139)
+  #### TODO: Fixme: When a udprn can be rent and the buy or vice-versa, it needs to be segregated
+  #### And over multiple lifetimes
   def interest_info(udprn)
+    details = PropertyDetails.details(udprn)['_source']
+    property_for = nil
+    details['property_status_type'] != 'Rent' ? property_for = 'Sale' : property_for = 'Rent'
     aggregated_result = {}
     property_id = udprn.to_i
     current_month = Date.today.month
 
     event = EVENTS[:viewed]
-    monthly_views = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}").as_json
+    monthly_views = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event} AND udprn=#{property_id} ").as_json
     aggregated_result[:monthly_views] =  monthly_views
 
     # event = EVENTS[:save_search_hash]
@@ -642,35 +651,35 @@ class Trackers::Buyer
     # aggregated_result[:save_search_hash] =  monthly_saved_search_hashes
 
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
-    monthly_enquiries = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event IN (#{events.join(',')})").as_json
+    monthly_enquiries = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event IN (#{events.join(',')})  AND udprn=#{property_id} ").as_json
     aggregated_result[:enquiries] =  monthly_enquiries
     
     event = EVENTS[:property_tracking]
-    monthly_property_tracking = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}").as_json
+    monthly_property_tracking = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}  AND udprn=#{property_id} ").as_json
     aggregated_result[:property_tracking] =  monthly_property_tracking
 
     event = EVENTS[:interested_in_viewing]
-    monthly_interested_in_viewing = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}").as_json
+    monthly_interested_in_viewing = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}  AND udprn=#{property_id} ").as_json
     aggregated_result[:interested_in_viewing] =  monthly_interested_in_viewing
     
     event = EVENTS[:interested_in_making_an_offer]
-    monthly_interested_in_making_an_offer = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}").as_json
+    monthly_interested_in_making_an_offer = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}  AND udprn=#{property_id} ").as_json
     aggregated_result[:interested_in_making_an_offer] =  monthly_interested_in_making_an_offer
 
     event = EVENTS[:requested_message]
-    monthly_requested_message = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}").as_json
+    monthly_requested_message = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}  AND udprn=#{property_id} ").as_json
     aggregated_result[:interested_in_making_an_offer] =  monthly_requested_message
 
     event = EVENTS[:requested_callback]
-    results = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}").as_json
+    results = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}  AND udprn=#{property_id} ").as_json
     aggregated_result[:requested_callback] =  results
 
     event = EVENTS[:requested_viewing]
-    results = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}").as_json
+    results = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}  AND udprn=#{property_id} ").as_json
     aggregated_result[:requested_viewing] =  results
 
     event = EVENTS[:deleted]
-    results = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}").as_json
+    results = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}  AND udprn=#{property_id} ").as_json
     aggregated_result[:deleted] =  results
 
     months = (1..12).to_a
@@ -881,6 +890,8 @@ class Trackers::Buyer
   ##### Information about pie charts about the buyer. All related to the buyer
   #### To try this method run the following in the console
   #### Trackers::Buyer.new.buyer_profile_stats(10976419)
+  #### TODO: This has lot of attributes relevant for Sale
+  #### Have to fork a new method for Rent
   def buyer_profile_stats(udprn, property_for='Sale')
     result_hash = {}
     property_id = udprn.to_i
@@ -1208,10 +1219,18 @@ class Trackers::Buyer
 
   ##### History of enquiries made by the user
   ##### Trackers::Buyer.new.history_enquiries(1)
-  def history_enquiries(buyer_id, enquiry_type=nil, type_of_match=nil, property_status_type=nil, search_str=nil)
+  def history_enquiries(buyer_id, enquiry_type=nil, type_of_match=nil, property_status_type=nil, search_str=nil, property_for='Sale')
     result = []
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
-    query = Event.where(buyer_id: buyer_id).where(event: events)
+
+    query = nil
+    if property_for == 'Sale'
+      query = Event.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+    else
+      query = Event.where(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+    end
+
+    query = query.where(buyer_id: buyer_id).where(event: events)
     query = query.where(property_status_type: REVERSE_STATUS_TYPES[property_status_type]) if property_status_type
     query = query.where(type_of_match: TYPE_OF_MATCH[type_of_match]) if type_of_match
     query = query.where(event: EVENTS[enquiry_type.to_sym]) if enquiry_type
@@ -1237,7 +1256,7 @@ class Trackers::Buyer
       new_row['type_of_match'] = REVERSE_TYPE_OF_MATCH[each_row['type_of_match']]
       property_id = each_row['udprn']
       push_property_details_row(new_row, property_id)
-      add_details_to_enquiry_row_buyer(new_row, property_id, each_row, nil)
+      add_details_to_enquiry_row_buyer(new_row, property_id, each_row, nil, property_for)
 
       #### Parse scheduled viewing date. If a viewing has been requested by the buyer.
       #### TODO: Scope for optimization. Fetching isn't needed, its already present.
@@ -1264,9 +1283,8 @@ class Trackers::Buyer
       new_row['udprns'] = []
 
       #### Contact details of agents
-      quote = Agents::Branches::AssignedAgents::Quote.where(property_id: each_row['udprn'].to_i).where(status: 3).first
-      if quote
-        agent = quote.agent
+      agent = Agents::Branches::AssignedAgent.find(details['agent_id'].to_i)
+      if agent
         new_row['assigned_agent_name'] = agent.name
         new_row['assigned_agent_email'] = agent.email
         new_row['assigned_agent_mobile'] = agent.mobile

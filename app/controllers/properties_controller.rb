@@ -114,9 +114,11 @@ class PropertiesController < ActionController::Base
     type_of_match = params[:type_of_match].downcase.to_sym if params[:type_of_match]
     property_status_type = params[:property_status_type]
     search_str = params[:search_str]
-    cache_parameters = [ :enquiry_type, :type_of_match, :property_status_type,:search_str].map{ |t| params[t].to_s }
+    property_for = params[:property_for]
+    property_for = 'Rent' if property_for != 'Sale'
+    cache_parameters = [ :enquiry_type, :type_of_match, :property_status_type,:search_str, :property_for].map{ |t| params[t].to_s }
     cache_response(params[:buyer_id].to_i, cache_parameters) do
-      ranking_info = Trackers::Buyer.new.history_enquiries(params[:buyer_id].to_i, enquiry_type, type_of_match, property_status_type, search_str)
+      ranking_info = Trackers::Buyer.new.history_enquiries(params[:buyer_id].to_i, enquiry_type, type_of_match, property_status_type, search_str, property_for)
       render json: ranking_info, status: status
     end
   end
@@ -162,12 +164,13 @@ class PropertiesController < ActionController::Base
   #### When a vendor click the claim to a property, the vendor gets a chance to visit
   #### the picture. The claim needs to be frozen and the property is no longer available
   #### for claiming.
-  #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/properties/udprns/claim/4745413' -d '{ "vendor_id" : 1235 }'
+  #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/properties/udprns/claim/4745413' -d '{ "vendor_id" : 1235, "property_for" : "Sale" }'
   def claim_udprn
     udprn = params[:udprn].to_i
     vendor_id = params[:vendor_id]
+    params[:property_for] != 'Sale' ? params[:property_for] = 'Rent' : params[:property_for] = 'Sale'
     property_service = PropertyService.new(udprn)
-    property_service.attach_vendor_to_property(vendor_id)
+    property_service.attach_vendor_to_property(vendor_id, params[:property_for])
     render json: { message: 'You have claimed this property Successfully. All the agents in this district will be notified' }, status: 200
   rescue ActiveRecord::RecordNotUnique
     render json: { message: 'Sorry, this udprn has already been claimed' }, status: 400
