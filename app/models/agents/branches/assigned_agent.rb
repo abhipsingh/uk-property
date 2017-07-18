@@ -21,13 +21,18 @@ module Agents
 
         won_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']
         # udprns = quotes.where(district: self.branch.district).order('created_at DESC').pluck(:property_id)
+        services_required = Agents::Branches::AssignedAgents::Quote::REVERSE_SERVICES_REQUIRED_HASH[service_required_param]
         new_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
         query = Agents::Branches::AssignedAgents::Quote
         query = query.where(district: self.branch.district)
         query = query.where('created_at > ?', 7.days.ago)
         query = query.where(status: new_status)
         query = query.where(agent_id: nil)
+        query = query.where(payment_terms: payment_terms_params) if payment_terms_params
+        query = query.where(service_required: services_required) if service_required_param
         query = query.search_address_and_vendor_details(search_str) if search_str
+
+        property_for ||= 'Sale'
         if property_for != 'Sale'
           query = query.where(property_status_type: 'Rent')
         else
@@ -40,17 +45,9 @@ module Agents
         new_udprns = new_udprns.select{ |t| !won_and_lost_quote_ids.include?(t.id) }
 
         total_udprns = (new_udprns + won_and_lost_udprns).sort_by{ |t| t.created_at }.reverse
-
-        if status.to_i == 200
-        total_quotes.each do |each_quote|
+        total_udprns.each do |each_quote|
           property_details = PropertyDetails.details(each_quote.property_id)['_source']
           next if each_quote.is_assigned_agent && property_details['agent_id'] && property_details['agent_id'] != self.id
-          next if !property_details['payment_terms'] || !property_details.has_key?('services_required')
-          ### Payment terms params filter
-          next if payment_terms_params && payment_terms_params != property_details['payment_terms']
-
-          ### Services required filter
-          next if service_required_param && service_required_param != property_details['services_required']
 
           ### Quotes status filter
           property_id = property_details['udprn'].to_i
@@ -149,13 +146,14 @@ module Agents
       #### Then call the following function for the agent in that district
       def recent_properties_for_claim(status=nil, property_for='Sale')
         district = self.branch.district
-        property_status_type = Trackers::Buyers::PROPERTY_STATUS_TYPES['Rent']
+        property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES['Rent']
 
         query = Agents::Branches::AssignedAgents::Lead
+        property_for ||= 'Sale'
         if property_for == 'Sale'
-          query = query.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+          query = query.where.not(property_status_type: property_status_type)
         else
-          query = query.where(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+          query = query.where(property_status_type: property_status_type)
         end
 
         query = query.where(district: district).where('created_at > ?', 1.week.ago)
@@ -315,7 +313,7 @@ module Agents
       end
 
       def self.fetch_details(attrs=[], ids=[])
-        where(id: [ids]).select(attrs)
+        where(id: ids).select(attrs)
       end
 
     end

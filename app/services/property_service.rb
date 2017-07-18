@@ -28,6 +28,7 @@ class PropertyService
   def create_lead_and_update_vendor_details(district, udprn, vendor_id, details, property_for='Sale')
     details['property_status_type'] = 'Rent' if property_for != 'Sale'
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
+    property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[details['property_status_type']]
     Agents::Branches::AssignedAgents::Lead.create(district: district, property_id: udprn, vendor_id: vendor_id, property_status_type: property_status_type)
     details[:vendor_id] = vendor_id
     details[:claimed_at] = Time.now.to_s
@@ -136,7 +137,7 @@ class PropertyService
   def is_property_is_in_lead_stage?(details)
   end
 
-  def self.post_url(index_name, type_name, endpoint='_search')
+  def self.post_url(index_name, type_name, endpoint='_search', query={})
     es_url = Rails.configuration.remote_es_url
     uri = URI.parse(URI.encode("#{es_url}/#{index_name}/#{type_name}/#{endpoint}"))
     query = (query == {}) ? "" : query.to_json

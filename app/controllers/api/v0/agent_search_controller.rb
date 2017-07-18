@@ -1,6 +1,6 @@
 module Api
   module V0
-    class AgentsController < ApplicationController
+    class AgentSearchController < ApplicationController
       def search
         klass = params[:type] == 'agent' ? Agent : Agents::Branch
         results = klass

@@ -51,6 +51,20 @@ module EsHelper
                   body: { doc: doc }
   end
 
+  def delete_all_docs(index=Rails.configuration.address_index_name, type=Rails.configuration.address_type_name)
+    query = { fields: [], query: { match_all: {}} }
+    body, status = PropertyService.post_url(index, type, '_search', query)
+    docs = Oj.load(body)
+    ids = docs['hits']['hits'].map{ |e| e['_id'] }
+    ids.each do |id|
+      if index == Rails.configuration.address_index_name
+        delete_es_address(id)
+      else
+        destroy_location_doc(id)
+      end
+    end
+  end
+
   def attach_agent_to_property_and_update_details(agent_id, udprn, property_status_type, verification_status, beds, baths, receptions)
     agent_id = Agents::Branches::AssignedAgent.last.id
     doc = {

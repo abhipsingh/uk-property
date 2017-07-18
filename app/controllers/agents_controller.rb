@@ -205,8 +205,8 @@ class AgentsController < ApplicationController
     vendor_email = params[:vendor_email]
     Agents::Branches::AssignedAgent.find(agent_id).send_vendor_email(vendor_email, udprn)
     render json: {message: 'Message sent successfully'}, status: 200
-  #rescue Exception
-  #  render json: {message: 'Message failed sending'}, status: 400
+  rescue Exception
+   render json: {message: 'Message failed sending'}, status: 400
   end
 
 
@@ -234,7 +234,11 @@ class AgentsController < ApplicationController
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     udprn = params[:udprn].to_i
     agent_id = params[:agent_id].to_i
-    response, status = PropertyDetails.update_details(client, udprn, { property_status_type: 'Green', verification_status: true, agent_id: agent_id, agent_status: 2 })
+    property_for = params[:property_for]
+    property_for ||= 'Sale'
+    property_status_type = nil
+    property_for == 'Sale' ? property_status_type = 'Green' : property_status_type = 'Rent'
+    response, status = PropertyDetails.update_details(client, udprn, { property_status_type: property_status_type, verification_status: true, agent_id: agent_id, agent_status: 2 })
     response['message'] = "Agent verification successful." unless status.nil? || status!=200
     render json: response, status: status
   rescue Exception => e
@@ -250,11 +254,15 @@ class AgentsController < ApplicationController
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     response, status = nil
     udprn = params[:udprn].to_i
+    property_for = params[:property_for]
+    property_for ||= 'Sale'
+    property_status_type = nil
+    property_for == 'Sale' ? property_status_type = 'Green' : property_status_type = 'Rent'
     if params[:verified].to_s == 'true'
-      response, status = PropertyDetails.update_details(client, udprn, { property_status_type: 'Green', verification_status: true })
+      response, status = PropertyDetails.update_details(client, udprn, { property_status_type: property_status_type, verification_status: true })
       response['message'] = "Property verification successful." unless status.nil? || status!=200
     else
-      response['message'] = "Property verification unsuccessful. This incident will be reported" unless status.nil? || status!=200
+      response['message'] = "Property verification unsuccessful. This incident will be reported" unless status.nil? || status != 200
       ### TODO: Take further action when the vendor rejects verification
     end
     render json: response, status: status
@@ -266,15 +274,18 @@ class AgentsController < ApplicationController
   ### Verify the property's basic attributes and attach the crawled property to a udprn
   ### Done when the agent attaches the udprn to the property
   ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/agents/properties/10968961/verify' -d '{ "property_type" : "Barn conversion", "beds" : 1, "baths" : 1, "receptions" : 1, "property_id" : 340620, "agent_id": 1234, "vendor_email": "residentevil293@prophety.co.uk", "assigned_agent_email" :  "residentevil293@prophety.co.uk" }'
-  def verify_property_from_agent
+  def verify_property_through_agent
     udprn = params[:udprn].to_i
     agent_id = params[:agent_id].to_i
     agent_service = AgentService.new(agent_id, udprn)
+    property_for = params[:property_for]
+    property_for ||= 'Sale'
+    property_status_type = nil
+    property_for == 'Sale' ? property_status_type = 'Green' : property_status_type = 'Rent'
     property_attrs = {
-      property_status_type: 'Green',
+      property_status_type: property_status_type,
       verification_status: false,
       property_type: params[:property_type],
-      receptions: params[:receptions].to_i,
       beds: params[:beds].to_i,
       baths: params[:baths].to_i,
       receptions: params[:receptions].to_i,
@@ -284,12 +295,12 @@ class AgentsController < ApplicationController
     vendor_email = params[:vendor_email]
     assigned_agent_email = params[:assigned_agent_email]
     agent_count = Agents::Branches::AssignedAgent.where(id: agent_id).count > 0
-    raise StandardError, "Branch and agent not found" if agent_count == 0
+    raise StandardError, 'Branch and agent not found' if agent_count == 0
     response, status = agent_service.verify_crawled_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
-    response['message'] = "Property details updated." unless status.nil? || status!=200
+    response['message'] = 'Property details updated.' unless status.nil? || status != 200
     render json: response, status: status
   rescue Exception => e
-    Rails.logger.info("AGENT_PROPERTY_VERIFICATION_FAILURE_#{e}")
+    Rails.logger.info("AGENT_PROPERTY_VERIFICATION_FAILURE_#{e.message}")
     render json: { message: 'Verification failed due to some error' }, status: 400
   end
 
@@ -300,14 +311,17 @@ class AgentsController < ApplicationController
     udprn = params[:udprn].to_i
     agent_id = params[:agent_id].to_i
     agent_service = AgentService.new(agent_id, udprn)
+    property_for = params[:property_for]
+    property_for ||= 'Sale'
+    property_status_type = nil
+    property_for == 'Sale' ? property_status_type = 'Green' : property_status_type = 'Rent'
     property_attrs = {
-      property_status_type: 'Green',
+      property_status_type: property_status_type,
       verification_status: false,
       property_type: params[:property_type],
       receptions: params[:receptions].to_i,
       beds: params[:beds].to_i,
       baths: params[:baths].to_i,
-      receptions: params[:receptions].to_i,
       property_id: params[:property_id].to_i,
       details_completed: false
     }
@@ -363,7 +377,7 @@ class AgentsController < ApplicationController
       end
       response.each do |each_crawled_property_data|
         matching_udprns = body.select{ |t| t['postcode'] == each_crawled_property_data['post_code'] }
-        Rails.logger.info("HELLO") if !matching_udprns.empty?
+        # Rails.logger.info("HELLO") if !matching_udprns.empty?
         each_crawled_property_data['matching_properties'] = matching_udprns
       end
       render json: { response: response }, status: 200
@@ -372,6 +386,10 @@ class AgentsController < ApplicationController
     end
   end
 
+  ### Verifies which address/udprn to the crawled properties for the agent
+  ### curl -XGET 'http://localhost/agents/rent/25/udprns/attach/verify'
+  def verify_udprn_to_crawled_property_for_rent
+  end
 
   #### Edit details of a branch
   ### curl -XPOST -H "Content-Type: application/json"  'http://localhost/branches/9851/edit' -d '{ "branch" : { "name" : "Jackie Bing", "address" : "8 The Precinct, Main Road, Church Village, Pontypridd, HR1 1SB", "phone_number" : "9873628232", "website" : "www.google.com", "image_url" : "some random url", "email" : "a@b.com"  } }'
@@ -425,7 +443,7 @@ class AgentsController < ApplicationController
     if group
       group_details = params[:group]
       group.name = group_details[:name] if group_details[:name] && !group_details[:name].blank?
-      group.image_url = group_details[:image_url] if group[:image_url] && !group[:image_url].blank?
+      group.image_url = group_details[:image_url] if group_details[:image_url] && !group_details[:image_url].blank?
       group.email = group_details[:email] if group_details[:email] && !group_details[:email].blank?
       group.phone_number = group_details[:phone_number] if group_details[:phone_number] && !group_details[:phone_number].blank?
       group.website = group_details[:website] if group_details[:website] && !group_details[:website].blank?

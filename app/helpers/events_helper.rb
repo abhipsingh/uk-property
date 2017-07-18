@@ -73,7 +73,7 @@ module EventsHelper
       agent_name = agent.name if agent
       agent_email = agent.email if agent
       agent_mobile = agent.mobile if agent
-      property_status_type = Trackers::Buyers::PROPERTY_STATUS_TYPES[details['_source']['property_status_type']]
+      property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[details['_source']['property_status_type']]
       attrs_list = {
         agent_id: agent_id,
         buyer_id: buyer_id,

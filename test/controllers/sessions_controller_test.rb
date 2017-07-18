@@ -107,10 +107,4 @@ class SessionsControllerTest < ActionController::TestCase
     assert_response 200
   end
 
-
-
-  # def teardown
-  #   destroy_location_doc(@location_id)
-  # end
-
 end

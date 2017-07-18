@@ -282,9 +282,8 @@ class Trackers::Buyer
     new_row[:address] = PropertyDetails.address(details)
     new_row[:image_url] = details['photo_urls'] ? details['photo_urls'][0] : "Image not available"
     if new_row[:image_url].nil?
-      image_url = self.class.process_image(details)
-
-      #image_url = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details['udprn']}/fov_120_#{details['udprn']}.jpg"
+      image_url = process_image(details) if Rails.env != 'test'
+      image_url ||= "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details['udprn']}/fov_120_#{details['udprn']}.jpg"
       new_row[:image_url] = image_url
     end
     new_row[:pictures] = details['pictures']
@@ -378,7 +377,7 @@ class Trackers::Buyer
     buyer_filter_flag = buyer_buying_status || buyer_funding || buyer_biggest_problem || buyer_chain_free || budget_from || budget_to
     ### Filter only the type_of_match which are asked by the caller
     query = Event.where(event: events)
-
+    property_for ||= 'Sale'
     if property_for == 'Sale'
       query = query.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
     else
@@ -389,7 +388,6 @@ class Trackers::Buyer
     query = query.where(type_of_match:  TYPE_OF_MATCH[type_of_match.to_s.downcase.to_sym]) if type_of_match
     query = query.where(udprn: property_udprn) if property_udprn
     query = query.search_address_and_buyer_details(search_str) if search_str
-
     total_rows = query.order('created_at DESC').as_json
 
     qualifying_matches = []
@@ -504,8 +502,8 @@ class Trackers::Buyer
     new_row[:price] = details['price'] rescue nil
     new_row[:image_url] = details['street_view_image_url'] || details['photo_urls'].first rescue nil
     if new_row[:image_url].nil?
-      image_url = process_image(details)
-      #image_url = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details['udprn']}/fov_120_#{details['udprn']}.jpg"
+      image_url = process_image(details) if Rails.env != 'test'
+      image_url ||= "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details['udprn']}/fov_120_#{details['udprn']}.jpg"
       new_row[:image_url] = image_url
     end
     new_row[:pictures] = details['pictures']
@@ -555,7 +553,7 @@ class Trackers::Buyer
 
     #### Views
     total_views = generic_event_count(EVENTS[:viewed], nil, property_id, :single, property_for)
-    buyer_views = generic_event_count_buyer(EVENTS[:viewed], nil, property_id, buyer_id, property_for)
+    buyer_views = generic_event_count_buyer(EVENTS[:viewed], nil, property_id, buyer_id, :single, property_for)
     new_row[:views] = buyer_views.to_i.to_s + '/' + total_views.to_i.to_s
 
     #### Enquiries

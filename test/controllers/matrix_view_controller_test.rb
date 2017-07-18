@@ -72,53 +72,50 @@ class MatrixViewControllerTest < ActionController::TestCase
     sleep 3
     get :matrix_view, str: 'douglas road liverpool'
     response = Oj.load(@response.body)
-    include_keys = ['dependent_thoroughfare_descriptions', 'type', 'thoroughfare_descriptions', 'dependent_localities',
-                    'districts', 'post_towns', 'units', 'sectors', 'areas', 'counties', 'thoroughfare_description', 'county',
+    include_keys = ['dependent_thoroughfare_descriptions', 'type', 'dependent_localities',
+                    'districts', 'post_towns', 'units', 'sectors', 'areas', 'counties', 'county',
                     'post_town', 'unit', 'district', 'dependent_locality', 'dependent_thoroughfare_description', 'sector']
     include_keys.map { |e|  assert_includes response, e }
 
-    p response
+    # p response
 
     assert_response 200
-    delete_es_address(@id)
   end
 
-  def test_matrix_view_building_type
-    building_hash = SAMPLE_LOCATION_DOC['_source'].deep_dup
-    building_hash['suggest']['payload']['type'] = 'building_type'
-    building_hash['suggest']['input'] =  [ (SAMPLE_BUILDING_NAME.downcase+' ' + building_hash['suggest']['input'].first) ]
-    building_hash['hashes'] = SAMPLE_HASH + '_' + SAMPLE_BUILDING_NAME
-    building_hash['suggest']['payload']['hash'] =  SAMPLE_HASH + '_' + SAMPLE_BUILDING_NAME
-    location_id_1 = SAMPLE_BUILDING_NAME + @location_id
-    create_location_doc(location_id_1, building_hash)
-    sleep(2)
-    get :matrix_view, str: building_hash['suggest']['input'].first
-    assert_response 200
-    sample_val = SAMPLE_ADDRESS_DOC
-    new_address = sample_val['_source'].deep_dup
-    new_address['thoroughfare_description'] = SAMPLE_THOROUGHFARE_DESCRIPTOR
-    new_address['udprn'] = @id
-    hashes = new_address['hashes']
-    match_type_str = new_address['match_type_str']
-    match_type_str.push(building_hash['suggest']['payload']['hash']+'|Normal')
-    hashes.push(building_hash['suggest']['payload']['hash'])
-    new_address['hashes'] = hashes
-    new_address['match_type_str'] = match_type_str
-    index_es_address(@id, new_address)
-    sleep(3)
-    get :matrix_view, str: building_hash['suggest']['input'].first
-    response = Oj.load(@response.body)
-    include_keys = ['dependent_thoroughfare_descriptions', 'type', 'thoroughfare_descriptions', 'dependent_localities',
-                    'districts', 'post_towns', 'units', 'sectors', 'areas', 'counties', 'thoroughfare_description', 'county',
-                    'post_town', 'unit', 'district', 'dependent_locality', 'dependent_thoroughfare_description', 'sector']
-    include_keys.map { |e|  assert_includes response, e }
+  # def test_matrix_view_building_type
+  #   building_hash = SAMPLE_LOCATION_DOC['_source'].deep_dup
+  #   building_hash['suggest']['payload']['type'] = 'building_type'
+  #   building_hash['suggest']['input'] =  [ (SAMPLE_BUILDING_NAME.downcase+' ' + building_hash['suggest']['input'].first) ]
+  #   building_hash['hashes'] = SAMPLE_HASH + '_' + SAMPLE_BUILDING_NAME
+  #   building_hash['suggest']['payload']['hash'] =  SAMPLE_HASH + '_' + SAMPLE_BUILDING_NAME
+  #   location_id_1 = SAMPLE_BUILDING_NAME + @location_id
+  #   create_location_doc(location_id_1, building_hash)
+  #   sleep(2)
+  #   get :matrix_view, str: building_hash['suggest']['input'].first
+  #   assert_response 200
+  #   sample_val = SAMPLE_ADDRESS_DOC
+  #   new_address = sample_val['_source'].deep_dup
+  #   new_address['thoroughfare_description'] = SAMPLE_THOROUGHFARE_DESCRIPTOR
+  #   new_address['udprn'] = @id
+  #   hashes = new_address['hashes']
+  #   match_type_str = new_address['match_type_str']
+  #   match_type_str.push(building_hash['suggest']['payload']['hash']+'|Normal')
+  #   hashes.push(building_hash['suggest']['payload']['hash'])
+  #   new_address['hashes'] = hashes
+  #   new_address['match_type_str'] = match_type_str
+  #   index_es_address(@id, new_address)
+  #   sleep(3)
+  #   get :matrix_view, str: building_hash['suggest']['input'].first
+  #   response = Oj.load(@response.body)
+  #   include_keys = ['dependent_thoroughfare_descriptions', 'type', 'thoroughfare_descriptions', 'dependent_localities',
+  #                   'districts', 'post_towns', 'units', 'sectors', 'areas', 'counties', 'thoroughfare_description', 'county',
+  #                   'post_town', 'unit', 'district', 'dependent_locality', 'dependent_thoroughfare_description', 'sector']
+  #   include_keys.map { |e|  assert_includes response, e }
 
-    p response
+  #   p response
 
-    assert_response 200
-    delete_es_address(@id)
-    destroy_location_doc(location_id_1)
-  end
+  #   assert_response 200
+  # end
 
   def test_matrix_view_street
     street_hash = SAMPLE_LOCATION_DOC['_source'].deep_dup
@@ -148,8 +145,6 @@ class MatrixViewControllerTest < ActionController::TestCase
     get :matrix_view, str: street_hash['suggest']['input'].first
     response = Oj.load(@response.body)
     p response
-    destroy_location_doc(hash_val)
-    delete_es_address(@id)
   end
 
   def test_matrix_view_locality
@@ -180,8 +175,6 @@ class MatrixViewControllerTest < ActionController::TestCase
     get :matrix_view, str: locality_hash['suggest']['input'].first
     response = Oj.load(@response.body)
     p response
-    destroy_location_doc(hash_val)
-    delete_es_address(@id)
   end
 
   def test_matrix_view_post_town
@@ -214,8 +207,6 @@ class MatrixViewControllerTest < ActionController::TestCase
     get :matrix_view, str: post_town_hash['suggest']['input'].first
     response = Oj.load(@response.body)
     p response
-    destroy_location_doc(hash_val)
-    delete_es_address(@id)
   end
 
   def test_matrix_view_county
@@ -248,8 +239,6 @@ class MatrixViewControllerTest < ActionController::TestCase
     get :matrix_view, str: county_hash['suggest']['input'].first
     response = Oj.load(@response.body)
     p response
-    destroy_location_doc(hash_val)
-    delete_es_address(@id)
   end
 
   def test_locality_siblings
@@ -324,17 +313,13 @@ class MatrixViewControllerTest < ActionController::TestCase
     response = Oj.load(@response.body)
     p response
     assert_equal response['dependent_localities'].count, 1
-    delete_es_address(@id.to_i+1)
-
-
-    destroy_location_doc(hash_val)
-    delete_es_address(@id)
   end
 
   def test_street_siblings
     street_hash = SAMPLE_LOCATION_DOC['_source'].deep_dup
     street_hash['suggest']['payload']['type'] = 'thoroughfare_description'
     text_str = SAMPLE_THOROUGHFARE_DESCRIPTOR.downcase + ' ' + SAMPLE_DEPENDENT_LOCALITY.downcase+' '+SAMPLE_POST_TOWN.downcase
+    locality_str = SAMPLE_DEPENDENT_LOCALITY.downcase+' '+SAMPLE_POST_TOWN.downcase
     street_hash['suggest']['input'] = [ text_str ]
     hash_val = SAMPLE_THOROUGHFARE_DESCRIPTOR + '_' + SAMPLE_POST_TOWN+'_'+SAMPLE_DEPENDENT_LOCALITY
     street_hash['suggest']['payload']['hash'] = hash_val
@@ -346,7 +331,7 @@ class MatrixViewControllerTest < ActionController::TestCase
     sample_val = SAMPLE_ADDRESS_DOC
     new_address = sample_val['_source'].deep_dup
     new_address['dependent_locality'] = SAMPLE_DEPENDENT_LOCALITY
-    new_address['thoroughfare_description'] = SAMPLE_THOROUGHFARE_DESCRIPTOR
+    new_address['dependent_thoroughfare_description'] = SAMPLE_THOROUGHFARE_DESCRIPTOR
     new_address['udprn'] = @id
     hashes = new_address['hashes']
     match_type_str = new_address['match_type_str']
@@ -359,7 +344,7 @@ class MatrixViewControllerTest < ActionController::TestCase
     sample_val = SAMPLE_ADDRESS_DOC
     new_address = sample_val['_source'].deep_dup
     new_address['dependent_locality'] = SAMPLE_DEPENDENT_LOCALITY
-    new_address['thoroughfare_description'] = SAMPLE_THOROUGHFARE_DESCRIPTOR+"a"
+    new_address['dependent_thoroughfare_description'] = SAMPLE_THOROUGHFARE_DESCRIPTOR+"a"
     new_address['udprn'] = @id.to_i+1
     hashes = new_address['hashes']
     match_type_str = new_address['match_type_str']
@@ -373,9 +358,8 @@ class MatrixViewControllerTest < ActionController::TestCase
 
     get :matrix_view, str: street_hash['suggest']['input'].first
     response = Oj.load(@response.body)
-    p response
-    assert_equal response['thoroughfare_descriptions'].count, 2
-    assert response['thoroughfare_descriptions'].any? { |e| e['thoroughfare_description']== SAMPLE_THOROUGHFARE_DESCRIPTOR+"a"}
+    assert_equal response['dependent_thoroughfare_descriptions'].count, 2
+    assert response['dependent_thoroughfare_descriptions'].any? { |e| e['dependent_thoroughfare_description']== SAMPLE_THOROUGHFARE_DESCRIPTOR+"a"}
     delete_es_address(@id.to_i+1)
 
     sleep(2)
@@ -399,23 +383,24 @@ class MatrixViewControllerTest < ActionController::TestCase
     sleep(2)
 
     ### Search for new doc
-    get :matrix_view, str: street_hash['suggest']['input'].first
+    locality_hash = SAMPLE_LOCATION_DOC['_source'].deep_dup
+    locality_hash['suggest']['payload']['type'] = 'dependent_locality'
+    locality_str = SAMPLE_DEPENDENT_LOCALITY.downcase+' '+SAMPLE_POST_TOWN.downcase
+    locality_hash['suggest']['input'] = [ locality_str ]
+    hash_val = SAMPLE_DEPENDENT_LOCALITY + '_' + SAMPLE_POST_TOWN
+    locality_hash['suggest']['payload']['hash'] = hash_val
+    create_location_doc(hash_val, locality_hash)
+    sleep(2)
+    get :matrix_view, str: locality_str
     response = Oj.load(@response.body)
     p response
     assert_equal response['dependent_localities'].count, 1
-    delete_es_address(@id.to_i+1)
-
-
-    destroy_location_doc(hash_val)
-    delete_es_address(@id)
   end
 
 
   def teardown
-    destroy_location_doc(@location_id)
+    delete_all_docs
+    delete_all_docs(Rails.configuration.location_index_name, Rails.configuration.location_type_name)
   end
-
-
-
 
 end

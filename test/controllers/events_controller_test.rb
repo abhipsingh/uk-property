@@ -13,7 +13,11 @@ class EventsControllerTest < ActionController::TestCase
 
   def setup
     @address_doc = SAMPLE_ADDRESS_DOC.deep_dup
+    @address_doc_rent = SAMPLE_ADDRESS_DOC.deep_dup
+    @address_doc_rent['_source']['property_status_type'] = 'Rent'
+    @address_doc_rent['_source']['udprn'] = '123456'
     index_es_address(SAMPLE_UDPRN, @address_doc['_source'])
+    index_es_address('123456', @address_doc_rent['_source'])
     sleep(1)
   end
 
@@ -51,6 +55,7 @@ class EventsControllerTest < ActionController::TestCase
     attach_agent_to_property_and_update_details(agent_id, SAMPLE_UDPRN, 'Green', 
                                                 verification_status, SAMPLE_BEDS, SAMPLE_BATHS, 
                                                 SAMPLE_RECEPTIONS)
+
     enquiry_count = 0
 
     Trackers::Buyer::ENQUIRY_EVENTS.each do |event|
@@ -125,67 +130,78 @@ class EventsControllerTest < ActionController::TestCase
     response = Oj.load(@response.body)
     assert_equal response.length, 1
 
+    create_rent_enquiry_event
+    attach_agent_to_property_and_update_details(agent_id, '123456', 'Rent', 
+                                                verification_status, SAMPLE_BEDS, SAMPLE_BATHS, 
+                                                SAMPLE_RECEPTIONS)
+
+
+    property_status_type = 'Rent'
+
+    get :agent_enquiries_by_property, { agent_id: agent_id, property_status_type: property_status_type }
+    assert_response 200
+    response = Oj.load(@response.body)
+    assert_equal response.length, 1
+    destroy_rent_enquiry_event
     ### TODO: Agent details have to be verified as well
   end
 
   ### Tests for agent_new_enquiries(Same as above action)
   def test_agent_new_enquiries
     agent_id = Agents::Branches::AssignedAgent.last.id
-    get :agent_new_enquiries, { agent_id: agent_id }
     verification_status = true
+    get :agent_new_enquiries, { agent_id: agent_id }
     attach_agent_to_property_and_update_details(agent_id, SAMPLE_UDPRN, 'Green', 
                                                 verification_status, SAMPLE_BEDS, SAMPLE_BATHS, 
                                                 SAMPLE_RECEPTIONS)
-    # p @response.body
-    assert_response 200
-    earlier_response = Oj.load(@response.body)
-    assert_equal earlier_response.length, 0
+
+    # assert_response 200
+    # earlier_response = Oj.load(@response.body)
+    # assert_equal earlier_response['enquiries'].length, 0
     len = 0
     buyer_id = PropertyBuyer.last.id
 
     property_details = get_es_address(SAMPLE_UDPRN)
     Trackers::Buyer::ENQUIRY_EVENTS.each do |event|
-      process_event_helper(event, @address_doc['_source'])
+      process_event_helper(event, @address_doc['_source'], agent_id)
       get :agent_new_enquiries, { agent_id: agent_id }
       len += 1
       assert_response 200
       response = Oj.load(@response.body)
-      assert_equal response.length, len
+      assert_equal response['enquiries'].length, len
 
       ### Test property attributes
       attrs = ['price', 'street_view_image_url', 'udprn', 'offers_over', 
                'fixed_price', 'asking_price', 'dream_price', 'current_valuation', 'verification_status']
       attrs.each do |attr_val|
-        assert_equal response.last[attr_val], property_details['_source'][attr_val]
+        assert_equal response['enquiries'].last[attr_val], property_details['_source'][attr_val]
       end
 
-      assert_equal response.last['status'], property_details['_source']['property_status_type']
+      assert_equal response['enquiries'].last['status'], property_details['_source']['property_status_type']
 
       ### Test buyer attributes
       buyer = PropertyBuyer.find(buyer_id).as_json
       buyer_attrs = ['id', 'status', 'full_name', 'email', 'image_url', 'mobile', 'budget_from', 'budget_to']
       buyer_attrs.each do |attr_val|
-        assert_equal response.last["buyer_#{attr_val}"], buyer[attr_val]
+        assert_equal response['enquiries'].last["buyer_#{attr_val}"], buyer[attr_val]
       end
 
-      assert_equal response.last['buyer_funding'], PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[buyer['funding']]
-      assert_equal response.last['buyer_biggest_problem'], PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[buyer['biggest_problem']]
-      assert_equal response.last['buyer_buying_status'], PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[buyer['buying_status']]
+      assert_equal response['enquiries'].last['buyer_funding'], PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[buyer['funding']]
+      assert_equal response['enquiries'].last['buyer_biggest_problem'], PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[buyer['biggest_problem']]
+      assert_equal response['enquiries'].last['buyer_buying_status'], PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[buyer['buying_status']]
       
       ### Test enquiries, views, hotness and qualifying_stage 
-      enquiries = response.last['enquiries']
+      enquiries = response['enquiries'].last['enquiries']
       buyer_enquiries = enquiries.split('/')[0].to_i
       total_enquiries = enquiries.split('/')[1].to_i
       assert_equal buyer_enquiries, total_enquiries
-
-
     end
 
     ### Test viewed
     process_event_helper('viewed', @address_doc['_source'])
     get :agent_new_enquiries, { agent_id: agent_id }
     response = Oj.load(@response.body)
-    views = response.last['views']
+    views = response['enquiries'].last['views']
     buyer_views = views.split('/')[0].to_i
     total_views = views.split('/')[1].to_i
     assert_equal total_views, 1
@@ -193,17 +209,17 @@ class EventsControllerTest < ActionController::TestCase
 
 
     ### Test hotness
-    assert_equal response.last['hotness'], 'cold_property'
+    assert_equal response['enquiries'].last['hotness'], 'cold_property'
     process_event_helper('warm_property', @address_doc['_source'])
     get :agent_new_enquiries, { agent_id: agent_id }
     response = Oj.load(@response.body)
-    hotness = response.last['hotness']
+    hotness = response['enquiries'].last['hotness']
     assert_equal hotness, 'warm_property'
 
     process_event_helper('hot_property', @address_doc['_source'])
     get :agent_new_enquiries, { agent_id: agent_id }
     response = Oj.load(@response.body)
-    hotness = response.last['hotness']
+    hotness = response['enquiries'].last['hotness']
     assert_equal hotness, 'hot_property'
 
     #### Test qualifying stage filter
@@ -211,12 +227,12 @@ class EventsControllerTest < ActionController::TestCase
       process_event_helper(event, @address_doc['_source'])
       get :agent_new_enquiries, { agent_id: agent_id }
       response = Oj.load(@response.body)
-      stage = response.last['qualifying']
+      stage = response['enquiries'].last['qualifying']
       assert_equal stage, event.to_s
 
       get :agent_new_enquiries, { agent_id: agent_id, qualifying_stage: event }
       response = Oj.load(@response.body)
-      response.each do |each_elem|
+      response['enquiries'].each do |each_elem|
         assert_equal each_elem['qualifying'], event.to_s
       end
 
@@ -227,21 +243,36 @@ class EventsControllerTest < ActionController::TestCase
     (Trackers::Buyer::ENQUIRY_EVENTS-[:viewing_stage]).each do |event|
       get :agent_new_enquiries, { agent_id: agent_id, enquiry_type: event }
       response = Oj.load(@response.body)
-      assert_equal response.length, 1
+      assert_equal response['enquiries'].length, 1
     end
 
     ### ii) type_of_match
     get :agent_new_enquiries, { agent_id: agent_id }
     response = Oj.load(@response.body)
-    response_length = response.length
+    response_length = response['enquiries'].length
 
     get :agent_new_enquiries, { agent_id: agent_id, type_of_match: 'Potential' }
     response = Oj.load(@response.body)
-    assert_equal response.length, 0
+    assert_equal response['enquiries'].length, 0
 
     get :agent_new_enquiries, { agent_id: agent_id, type_of_match: 'Perfect' }
     response = Oj.load(@response.body)
-    assert_equal response.length, response_length
+    # assert_equal response['enquiries'].length, response_length
+
+    ### Test for rent properties
+    create_rent_enquiry_event
+    attach_agent_to_property_and_update_details(agent_id, '123456', 'Rent', 
+                                                verification_status, SAMPLE_BEDS, SAMPLE_BATHS, 
+                                                SAMPLE_RECEPTIONS)
+
+
+    property_status_type = 'Rent'
+
+    get :agent_new_enquiries, { agent_id: agent_id, property_for: 'Rent' }
+    assert_response 200
+    response = Oj.load(@response.body)
+    assert_equal response.length, 1
+    destroy_rent_enquiry_event
   end
 
   #### Tests for action recent_properties_for_quotes
@@ -256,7 +287,7 @@ class EventsControllerTest < ActionController::TestCase
     get :recent_properties_for_quotes, { agent_id: agent_id }
     response = Oj.load(@response.body)
     assert_response 200
-    assert_equal response.length, 0
+    assert_equal response['quotes'].length, 0
 
     new_quote_for_property(SAMPLE_UDPRN)
     sleep(2)
@@ -265,48 +296,60 @@ class EventsControllerTest < ActionController::TestCase
     get :recent_properties_for_quotes, { agent_id: agent_id }
     response = Oj.load(@response.body)
     assert_response 200
-    assert_equal response.length, 1
+    assert_equal response['quotes'].length, 1
 
     ### Test filters
     #### i) payment_terms
     get :recent_properties_for_quotes, { agent_id: agent_id, payment_terms: 'random val' }
     response = Oj.load(@response.body)
     assert_response 200
-    assert_equal response.length, 0
+    assert_equal response['quotes'].length, 0
 
     get :recent_properties_for_quotes, { agent_id: agent_id, payment_terms: SAMPLE_PAYMENT_TERMS }
     response = Oj.load(@response.body)
     assert_response 200
-    assert_equal response.length, 1
+    assert_equal response['quotes'].length, 1
 
-    #### ii) services_required
+    ### ii) services_required
     get :recent_properties_for_quotes, { agent_id: agent_id, services_required: 'random val' }
     response = Oj.load(@response.body)
     assert_response 200
-    assert_equal response.length, 0
+    assert_equal response['quotes'].length, 0
 
     get :recent_properties_for_quotes, { agent_id: agent_id, services_required: SAMPLE_SERVICES_REQUIRED }
     response = Oj.load(@response.body)
     assert_response 200
-    assert_equal response.length, 1
+    assert_equal response['quotes'].length, 1
 
     ### iii) quotes status
     get :recent_properties_for_quotes, { agent_id: agent_id, quote_status: 'Won' }
     response = Oj.load(@response.body)
     assert_response 200
-    assert_equal response.length, 0
+    assert_equal response['quotes'].length, 0
 
     get :recent_properties_for_quotes, { agent_id: agent_id, quote_status: 'New' }
     response = Oj.load(@response.body)
     assert_response 200
-    assert_equal response.length, 1
+    assert_equal response['quotes'].length, 1
 
     new_quote_by_agent(SAMPLE_UDPRN, agent_id)
     accept_quote_from_agent(SAMPLE_UDPRN, agent_id)
     get :recent_properties_for_quotes, { agent_id: agent_id, quote_status: 'Won' }
     response = Oj.load(@response.body)
     assert_response 200
+    assert_equal response['quotes'].length, 1
+
+    ### Test for rent properties
+    new_quote_for_property('123456')
+    create_rent_enquiry_event
+    new_quote_by_agent('123456', agent_id)
+    accept_quote_from_agent('123456', agent_id)
+
+    get :agent_new_enquiries, { agent_id: agent_id, property_for: 'Rent' }
+    assert_response 200
+    response = Oj.load(@response.body)
     assert_equal response.length, 1
+    destroy_rent_enquiry_event
   end
 
   #### Tests for action recent_properties_for_claim
@@ -323,26 +366,41 @@ class EventsControllerTest < ActionController::TestCase
     get :recent_properties_for_claim, { agent_id: agent.id }
     assert_response 200
     response = Oj.load(@response.body)
-    assert_equal response.length, 0
+    assert_equal response['leads'].length, 0
 
     property_service.attach_vendor_to_property(vendor_id)
     get :recent_properties_for_claim, { agent_id: agent.id }
     assert_response 200
     response = Oj.load(@response.body)
-    assert_equal response.length, 1
-    assert_equal response.first['udprn'].to_i, SAMPLE_UDPRN.to_i
+    assert_equal response['leads'].length, 1
+    assert_equal response['leads'].first['udprn'].to_i, SAMPLE_UDPRN.to_i
 
 
     #### Test filters
     get :recent_properties_for_claim, { agent_id: agent.id, status: 'Won' }
     assert_response 200
     response = Oj.load(@response.body)
-    assert_equal response.length, 0
+    assert_equal response['leads'].length, 0
 
     get :recent_properties_for_claim, { agent_id: agent.id, status: 'New' }
     assert_response 200
     response = Oj.load(@response.body)
-    assert_equal response.length, 1
+    assert_equal response['leads'].length, 1
+
+
+    ### For rent properties
+    property_service = PropertyService.new('123456')
+    agent = Agents::Branches::AssignedAgent.last
+    branch = Agents::Branch.last
+    agent.branch_id = branch.id
+    branch.district = SAMPLE_DISTRICT
+    assert agent.save!
+    assert branch.save!
+    property_service.attach_vendor_to_property(vendor_id)
+    get :recent_properties_for_claim, { agent_id: agent.id, property_for: 'Rent' }
+    assert_response 200
+    response = Oj.load(@response.body)
+    assert_equal response['leads'].length, 1
   end
 
 
@@ -360,7 +418,7 @@ class EventsControllerTest < ActionController::TestCase
     get :detailed_properties, { agent_id: agent.id }
     assert_response 200
     response = Oj.load(@response.body)
-    assert_equal response.length, 0
+    assert_equal response['properties'].length, 0
 
     ### Create a new lead
     property_service.attach_vendor_to_property(vendor_id)
@@ -372,7 +430,35 @@ class EventsControllerTest < ActionController::TestCase
 
     assert_response 200
     response = Oj.load(@response.body)
-    assert_equal response.length, 1
+    assert_equal response['properties'].length, 1
+  end
+
+  ### property_enquiries test is similar to agents_new_enquiries
+  def test_detailed_properties_for_leads_properties_for_rent
+    property_service = PropertyService.new('123456')
+    agent = Agents::Branches::AssignedAgent.last
+    branch = Agents::Branch.last
+    agent.branch_id = branch.id
+    branch.district = SAMPLE_DISTRICT
+    assert agent.save!
+    assert branch.save!
+    vendor_id = Vendor.last.id
+
+    get :detailed_properties, { agent_id: agent.id, property_for: 'Rent' }
+    assert_response 200
+    response = Oj.load(@response.body)
+    assert_equal response['properties'].length, 0
+
+    ### Create a new lead
+    property_service.attach_vendor_to_property(vendor_id)
+
+    ### Claim that lead for the agent
+    post :claim_property, { udprn: '123456'.to_i, agent_id: agent.id }
+    sleep(3)
+    get :detailed_properties, { agent_id: agent.id, property_for: 'Rent' }
+    assert_response 200
+    response = Oj.load(@response.body)
+    assert_equal response['properties'].length, 1
   end
 
   def test_detailed_properties_for_quotes_properties
@@ -387,19 +473,47 @@ class EventsControllerTest < ActionController::TestCase
     get :detailed_properties, { agent_id: agent.id }
     response = Oj.load(@response.body)
     assert_response 200
-    assert_equal response.length, 0
+    assert_equal response['properties'].length, 0
 
     new_quote_by_agent(SAMPLE_UDPRN, agent.id)
     get :detailed_properties, { agent_id: agent.id }
     response = Oj.load(@response.body)
     assert_response 200
-    assert_equal response.length, 1
+    assert_equal response['properties'].length, 1
 
     accept_quote_from_agent(SAMPLE_UDPRN, agent.id)
     get :detailed_properties, { agent_id: agent.id }
     response = Oj.load(@response.body)
     assert_response 200
-    assert_equal response.length, 1
+    assert_equal response['properties'].length, 1
+  end
+
+  def test_detailed_properties_for_quotes_properties_for_rent
+    rent_udprn = '123456'
+    new_quote_for_property(rent_udprn)
+    agent = Agents::Branches::AssignedAgent.last
+    branch = Agents::Branch.last
+    agent.branch_id = branch.id
+    branch.district = SAMPLE_DISTRICT
+    assert agent.save!
+    assert branch.save!
+
+    get :detailed_properties, { agent_id: agent.id, property_for: 'Rent' }
+    response = Oj.load(@response.body)
+    assert_response 200
+    assert_equal response['properties'].length, 0
+
+    new_quote_by_agent(rent_udprn, agent.id)
+    get :detailed_properties, { agent_id: agent.id, property_for: 'Rent' }
+    response = Oj.load(@response.body)
+    assert_response 200
+    assert_equal response['properties'].length, 1
+
+    accept_quote_from_agent(rent_udprn, agent.id)
+    get :detailed_properties, { agent_id: agent.id, property_for: 'Rent' }
+    response = Oj.load(@response.body)
+    assert_response 200
+    assert_equal response['properties'].length, 1
   end
 
   def test_detailed_properties_for_agents_properties
@@ -417,7 +531,33 @@ class EventsControllerTest < ActionController::TestCase
     get :detailed_properties, { agent_id: agent.id }
     response = Oj.load(@response.body)
     assert_response 200
-    assert_equal response.length, 1
+    assert_equal response['properties'].length, 1
+  end
+
+  def test_detailed_properties_for_agents_properties_for_rent
+    agent = Agents::Branches::AssignedAgent.last
+    new_agent = Agents::Branches::AssignedAgent.new(Agents::Branches::AssignedAgent.last.as_json)
+    new_agent.id = nil
+    new_agent.email = "ghhh@j.com"
+    branch = Agents::Branch.last
+    new_agent.branch_id = branch.id
+    branch.district = SAMPLE_DISTRICT
+    assert new_agent.save!(validate: false)
+    assert branch.save!
+    verification_status = true
+
+    attach_agent_to_property_and_update_details(new_agent.id, '123456', 'Rent', 
+                                                verification_status, SAMPLE_BEDS, SAMPLE_BATHS, 
+                                                SAMPLE_RECEPTIONS)
+    get :detailed_properties, { agent_id: new_agent.id }
+    response = Oj.load(@response.body)
+    assert_response 200
+    assert_equal response['properties'].length, 0
+
+    get :detailed_properties, { agent_id: new_agent.id, property_for: 'Rent' }
+    response = Oj.load(@response.body)
+    assert_response 200
+    assert_equal response['properties'].length, 1
   end
 
 
@@ -458,7 +598,8 @@ class EventsControllerTest < ActionController::TestCase
     get :detailed_properties, { agent_id: agent.id }
     response = Oj.load(@response.body)
     assert_response 200
-    assert_equal response.length, 3
+    assert response.has_key?('properties')
+    assert_equal response['properties'].length, 3
 
 
     ### Test ads false filter
@@ -467,31 +608,32 @@ class EventsControllerTest < ActionController::TestCase
     get :detailed_properties, { agent_id: agent.id, ads: false }
     response = Oj.load(@response.body)
     assert_response 200
-    assert_equal response.length, 1
+    assert_equal response['properties'].length, 1
 
     get :detailed_properties, { agent_id: agent.id, ads: true }
     response = Oj.load(@response.body)
     assert_response 200
-    assert_equal response.length, 0
+    assert_equal response['properties'].length, 0
 
 
     ### Test property status type filter
     update_es_address(other_test_udprns.first, { property_status_type: 'Red' })
     update_es_address(other_test_udprns.second, { property_status_type: 'Amber' })
-    get :detailed_properties, { agent_id: agent.id, property_status_type: 'Red' }
+    sleep(2)
+    get :detailed_properties, { agent_id: agent.id, property_status_type: 'Amber' }
     response = Oj.load(@response.body)
     assert_response 200
-    assert_equal response.length, 1
+    assert_equal response['properties'].length, 1
 
     get :detailed_properties, { agent_id: agent.id, property_status_type: 'Amber' }
     response = Oj.load(@response.body)
     assert_response 200
-    assert_equal response.length, 1
+    assert_equal response['properties'].length, 1
 
     get :detailed_properties, { agent_id: agent.id, property_status_type: 'Green' }
     response = Oj.load(@response.body)
     assert_response 200
-    assert_equal response.length, 1
+    assert_equal response['properties'].length, 1
 
     other_test_udprns.each do |other_udprn|
       delete_es_address(other_udprn.to_s)

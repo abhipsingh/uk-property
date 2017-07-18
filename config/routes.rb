@@ -261,7 +261,7 @@ Rails.application.routes.draw do
 
   ### Update property details, attach udprn to crawled properties, send
   ### vendor email and add assigned agents to properties
-  post 'agents/properties/:udprn/verify',                       to: 'agents#verify_property_from_agent'
+  post 'agents/properties/:udprn/verify',                       to: 'agents#verify_property_through_agent'
 
   ### Verify property details, agent_id from the vendor
   post 'vendors/:udprn/verify/',                                to: 'vendors#verify_property_from_vendor'
@@ -275,6 +275,9 @@ Rails.application.routes.draw do
 
   #### Update basic details of a property by a vendor
   post 'properties/vendor/basic/:udprn/update',                 to: 'properties#update_basic_details_by_vendor'
+
+  ### Verify property as green and verified and the agent as assigned agent
+  # post 'vendors/udprns/:udprn/agents/:agent_id/verify',         to: 'agents#verify_property_from_agent'
 
   #####################################################################
   #####################################################################
@@ -305,7 +308,7 @@ Rails.application.routes.draw do
       get  'properties/search',                      to: 'property_search#search'
       get  'properties/saved/searches',              to: 'property_search#show_save_searches'
       post  'properties/search/searches',            to: 'property_search#save_searches'
-      get  'agents/search',                          to: 'agents#search'
+      get  'agents/search',                          to: 'agent_search#search'
       get  'ads/availability',                       to: 'vendor_ad#ads_availablity'
       get  'locations/:id/version',                  to: 'vendor_ad#correct_version'
       post 'ads/payments/new',                       to: 'vendor_ad#new_payment'
@@ -326,12 +329,12 @@ Rails.application.routes.draw do
     end
   end
 
-  namespace :rents do
-    get 'agents/enquiries/new/:agent_id',                   to: 'agents_controller#agent_new_enquiries_rent'
-    get 'rents/agents/properties/:agent_id',                to: 'agents_controller#detailed_properties_rent'
-    get 'rents/agents/properties/recent/claims/:agent_id',  to: 'agents_controller#recent_properties_for_claim_rent'
-    get 'rents/agents/properties/recent/quotes/:agent_id',  to: 'agents_controller#recent_properties_for_quotes_rent'
-  end
+  # namespace :rents do
+  #   get 'agents/enquiries/new/:agent_id',                   to: 'agents_controller#agent_new_enquiries_rent'
+  #   get 'rents/agents/properties/:agent_id',                to: 'agents_controller#detailed_properties_rent'
+  #   get 'rents/agents/properties/recent/claims/:agent_id',  to: 'agents_controller#recent_properties_for_claim_rent'
+  #   get 'rents/agents/properties/recent/quotes/:agent_id',  to: 'agents_controller#recent_properties_for_quotes_rent'
+  # end
 
 
   resources :charges
