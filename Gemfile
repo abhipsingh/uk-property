@@ -25,7 +25,6 @@ gem 'sdoc', '~> 0.4.0', group: :doc
 gem 'rack-cors'
 gem 'redis'
 gem 'pg'
-gem 'aws-sdk'
 gem 'figaro'
 gem 'stripe'
 

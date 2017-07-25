@@ -18,7 +18,7 @@ class AuthorizeApiRequest
   private 
   attr_reader  :headers 
 
-  def user (klass)
+  def user(klass)
     #Rails.logger.info "user = #{@user.inspect}"
     @user ||= errors.add(:user_type, 'Invalid user type') unless klass
     @user ||= klass.where(id: decoded_auth_token[:user_id]).last if decoded_auth_token && klass
@@ -28,7 +28,7 @@ class AuthorizeApiRequest
     @user
   end 
 
-  def decoded_auth_token 
+  def decoded_auth_token
     @decoded_auth_token ||= JsonWebToken.decode(http_auth_header) 
   end 
 

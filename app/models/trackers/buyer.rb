@@ -155,12 +155,12 @@ class Trackers::Buyer
       
       #### Views
       total_views = generic_event_count(EVENTS[:viewed], nil, udprn, :single, property_for)
-      buyer_views = generic_event_count_buyer(EVENTS[:viewed], nil, udprn, each_row.buyer_id, property_for)
+      buyer_views = generic_event_count_buyer(EVENTS[:viewed], nil, udprn, each_row.buyer_id, :single, property_for)
       new_row[:views] = buyer_views.to_i.to_s + '/' + total_views.to_i.to_s
 
       #### Enquiries
       total_enquiries = generic_event_count(ENQUIRY_EVENTS, nil, udprn, :multiple, property_for)
-      buyer_enquiries = generic_event_count_buyer(ENQUIRY_EVENTS, nil, udprn, each_row.buyer_id, property_for)
+      buyer_enquiries = generic_event_count_buyer(ENQUIRY_EVENTS, nil, udprn, each_row.buyer_id, :single, property_for)
       new_row[:enquiries] = buyer_enquiries.to_i.to_s + '/' + total_enquiries.to_i.to_s
 
       #### Type of match
@@ -666,7 +666,7 @@ class Trackers::Buyer
 
     event = EVENTS[:requested_message]
     monthly_requested_message = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}  AND udprn=#{property_id} ").as_json
-    aggregated_result[:interested_in_making_an_offer] =  monthly_requested_message
+    aggregated_result[:requested_message] =  monthly_requested_message
 
     event = EVENTS[:requested_callback]
     results = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}  AND udprn=#{property_id} ").as_json
@@ -1221,11 +1221,11 @@ class Trackers::Buyer
     result = []
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
 
-    query = nil
+    query = Event
     if property_for == 'Sale'
-      query = Event.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+      query = query.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
     else
-      query = Event.where(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+      query = query.where(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
     end
 
     query = query.where(buyer_id: buyer_id).where(event: events)
@@ -1233,7 +1233,6 @@ class Trackers::Buyer
     query = query.where(type_of_match: TYPE_OF_MATCH[type_of_match]) if type_of_match
     query = query.where(event: EVENTS[enquiry_type.to_sym]) if enquiry_type
     query = query.search_address_and_agent_details(search_str) if search_str
-
     total_rows = query.order('created_at DESC').as_json
     counter = 0
     total_rows.each do |each_row|
@@ -1281,7 +1280,7 @@ class Trackers::Buyer
       new_row['udprns'] = []
 
       #### Contact details of agents
-      agent = Agents::Branches::AssignedAgent.find(details['agent_id'].to_i)
+      agent = Agents::Branches::AssignedAgent.where(id: details['agent_id'].to_i).first
       if agent
         new_row['assigned_agent_name'] = agent.name
         new_row['assigned_agent_email'] = agent.email

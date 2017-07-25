@@ -10,7 +10,7 @@ assigned_agent_1:
   image_url: NULL
   invited_agents: NULL
   password: NULL
-  password_digest: $2a$10$69DH7xhhQZ74ou8CPF/eOeevb9rPt5yMGbxfYEdQxwEMMmeDfzx7W
+  password_digest: $2a$04$b61AuyfUajl3jiJO0SmUJekd0RKrGfNwXl6dBGymQH9SUwAPz1162
   provider: NULL
   uid: NULL
   oauth_token: NULL

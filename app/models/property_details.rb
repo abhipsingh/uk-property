@@ -15,7 +15,7 @@ class PropertyDetails
     published_address = ''
     published_address += ', ' + details[:sub_building_name] if details[:sub_building_name]
     published_address += ', ' + details[:building_name] if details[:building_name]
-    published_address += ', ' + details[:building_number] if details[:building_number]
+    published_address += ', ' + details[:building_number].to_s if details[:building_number]
     published_address += ', ' + details[:dependent_thoroughfare_description] if details[:dependent_thoroughfare_description]
     published_address += ', ' + details[:thoroughfare_description] if details[:thoroughfare_description]
     published_address += ', ' + details[:double_dependent_locality] if details[:double_dependent_locality]

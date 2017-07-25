@@ -8,10 +8,22 @@ class PropertyService
   ####    2 => 'AssignedAgent'
   #### }
   MANDATORY_ATTRS = [:property_type, :beds, :baths, :receptions, :pictures, :floorplan_url, :current_valuation, :inner_area, :outer_area]
+  EDIT_ATTRS = [
+                  :property_type, :beds, :baths, :receptions, :property_style, :tenure, :floors, :listed_status,
+                  :year_built, :central_heating, :parking_type, :outside_space_type, :additional_features, :decorative_condition,
+                  :council_tax_band, :lighting_cost, :lighting_cost_unit_type, :heating_cost, :heating_cost_unit_type,
+                  :hot_water_cost, :hot_water_cost_unit_type, :annual_ground_water_cost, :annual_service_charge,
+                  :resident_parking_cost, :other_costs, :total_cost_per_month, :total_cost_per_year, :improvement_types, :dream_price,
+                  :current_valuation, :floorplan_url, :pictures, :property_sold_status, :agreed_sale_value,
+                  :expected_completion_date, :actual_completion_date, :new_owner_email_id, :vendor_address, :property_status_type,
+                  :inner_area, :outer_area, :property_brochure_url, :video_walkthrough_url, :dream_price, :asking_price, :offers_price,
+                  :fixed_price, :offers_over, :area_type
+                ]
   AGENT_STATUS = {
     lead: 1,
     assigned: 2
   }
+
 
   def initialize(udprn)
     @udprn = udprn
@@ -19,7 +31,7 @@ class PropertyService
 
   def attach_vendor_to_property(vendor_id, details={}, property_for='Sale')
     property_details = PropertyDetails.details(udprn)
-    details.merge!(property_details['_source'])
+    details.reverse_merge!(property_details['_source'].symbolize_keys!)
     district = details['district']
     Vendor.find(vendor_id).update_attributes(property_id: udprn)
     create_lead_and_update_vendor_details(district, udprn, vendor_id, details, property_for)
@@ -32,6 +44,8 @@ class PropertyService
     Agents::Branches::AssignedAgents::Lead.create(district: district, property_id: udprn, vendor_id: vendor_id, property_status_type: property_status_type)
     details[:vendor_id] = vendor_id
     details[:claimed_at] = Time.now.to_s
+    # p details
+    normalize_all_attrs(details)
     PropertyDetails.update_details(client, udprn, details)
   end
 
@@ -75,17 +89,7 @@ class PropertyService
     client = Elasticsearch::Client.new(host: Rails.configuration.remote_es_host)
     details = details.with_indifferent_access
     update_hash = {}
-    attributes = [
-                  :property_type, :beds, :baths, :receptions, :property_style, :tenure, :floors, :listed_status,
-                  :year_built, :central_heating, :parking_type, :outside_space_type, :additional_features, :decorative_condition,
-                  :council_tax_band, :lighting_cost, :lighting_cost_unit_type, :heating_cost, :heating_cost_unit_type,
-                  :hot_water_cost, :hot_water_cost_unit_type, :annual_ground_water_cost, :annual_service_charge,
-                  :resident_parking_cost, :other_costs, :total_cost_per_month, :total_cost_per_year, :improvement_types, :dream_price,
-                  :current_valuation, :floorplan_url, :pictures, :property_sold_status, :agreed_sale_value,
-                  :expected_completion_date, :actual_completion_date, :new_owner_email_id, :vendor_address, :property_status_type,
-                  :inner_area, :outer_area, :property_brochure_url, :video_walkthrough_url, :dream_price, :asking_price, :offers_price,
-                  :fixed_price, :offers_over, :area_type
-                ]
+    attributes = EDIT_ATTRS
     earlier_details = details.deep_dup
     property_details = PropertyDetails.details(@udprn)['_source'].with_indifferent_access
     details.merge!(property_details)
@@ -106,8 +110,17 @@ class PropertyService
     agent_id = details[:agent_id]
     cond = !vendor_id.nil? && !agent_id.nil? && details[:agent_status] == AGENT_STATUS[:lead] && details_completed
     VendorService.new(vendor_id).send_email_following_agent_details_submission(agent_id, details) if cond
+    normalize_all_attrs(update_hash)
     PropertyDetails.update_details(client, udprn, update_hash) if !update_hash.empty?
     PropertyDetails.details(udprn)['_source']
+  end
+
+  def normalize_all_attrs(update_hash)
+    update_hash.each do |each_key, value|
+      if value.class.method_defined?(:to_i) && value == value.to_i.to_s
+        update_hash[each_key] = value.to_i
+      end
+    end
   end
 
   def attach_assigned_agent(agent_id)

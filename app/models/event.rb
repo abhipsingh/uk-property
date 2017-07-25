@@ -11,4 +11,5 @@ class Event < ActiveRecord::Base
                   :tsearch => {:any_word => true}
                 }               
   default_scope { where(is_deleted: false) }
+
 end

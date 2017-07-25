@@ -17,7 +17,7 @@ buyer_2:
   mortgage_approval: NULL
   biggest_problem: NULL
   password: NULL
-  password_digest:   $2a$10$GJsBl7mrjXa19HbHIoPHsuKYJpCNq3.XmWuMSVRBMs6SPE9.1cxn.  
+  password_digest: $2a$04$b61AuyfUajl3jiJO0SmUJekd0RKrGfNwXl6dBGymQH9SUwAPz1162
   image_url: NULL
   budget_from: 1
   budget_to: 100000

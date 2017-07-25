@@ -21,7 +21,8 @@ Rails.application.routes.draw do
   #####################################################################
   ### Post events to the server
   post 'events/new',                         to: 'events#process_event'
-
+  ### Post events to the server
+  post 'properties/events/new',              to: 'properties#process_event'
   ### Get property enquiries
   get 'property/enquiries/:property_id',     to: 'events#property_enquiries'
 
@@ -150,9 +151,6 @@ Rails.application.routes.draw do
 
   #### Edit agents details 
   post 'agents/:id/edit',                                       to: 'agents#edit'
-
-  #### Update basic details of a property by a vendor
-  post 'properties/vendor/basic/:udprn/update',                 to: 'properties#update_basic_details_by_vendor'
 
   #### Shows details of a specific property owned by a vendor
   get 'vendors/properties/details/:vendor_id',                  to: 'vendors#property_details'

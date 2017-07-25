@@ -115,6 +115,7 @@ class PropertiesController < ActionController::Base
     property_status_type = params[:property_status_type]
     search_str = params[:search_str]
     property_for = params[:property_for]
+    property_for ||= 'Sale'
     property_for = 'Rent' if property_for != 'Sale'
     cache_parameters = [ :enquiry_type, :type_of_match, :property_status_type,:search_str, :property_for].map{ |t| params[t].to_s }
     cache_response(params[:buyer_id].to_i, cache_parameters) do
@@ -152,10 +153,9 @@ class PropertiesController < ActionController::Base
     body[:beds] = params[:beds].to_i
     body[:baths] = params[:baths].to_i
     body[:receptions] = params[:receptions].to_i
-    body[:property_status_type] = params[:property_status_type]
+    body[:property_status_type] = params[:property_status_type] if params[:property_status_type]
     body[:verification_status] = false
-    client.update index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn,
-                  body: { doc: body }
+    PropertyDetails.update_details(client, udprn, body)
     render json: { message: 'Successfully updated' }, status: 200
   rescue Exception => e
     render json: { message: 'Update failed' }, status: 400
@@ -170,7 +170,7 @@ class PropertiesController < ActionController::Base
     vendor_id = params[:vendor_id]
     params[:property_for] != 'Sale' ? params[:property_for] = 'Rent' : params[:property_for] = 'Sale'
     property_service = PropertyService.new(udprn)
-    property_service.attach_vendor_to_property(vendor_id, params[:property_for])
+    property_service.attach_vendor_to_property(vendor_id, {}, params[:property_for])
     render json: { message: 'You have claimed this property Successfully. All the agents in this district will be notified' }, status: 200
   rescue ActiveRecord::RecordNotUnique
     render json: { message: 'Sorry, this udprn has already been claimed' }, status: 400
@@ -190,15 +190,24 @@ class PropertiesController < ActionController::Base
     body[:beds] = params[:beds].to_i
     body[:baths] = params[:baths].to_i
     body[:receptions] = params[:receptions].to_i
-    body[:property_status_type] = params[:property_status_type]
+    body[:property_status_type] = params[:property_status_type] if params[:property_status_type]
     body[:property_type] = params[:property_type]
     body[:verification_status] = false
-    property_service = PropertyService.new
+    property_service = PropertyService.new(udprn)
     property_service.attach_vendor_to_property(vendor_id, body)
     PropertyDetails.update_details(client, udprn, body)
     render json: { message: 'Successfully updated' }, status: 200
   rescue Exception => e
     render json: { message: "Update failed  #{e}" }, status: 400
+  end
+
+  ### Auxilliary action used for testing purposes
+  def process_event
+    event_controller = EventsController.new
+    event_controller.request = request
+    event_controller.response = response
+    event_controller.process_event
+    render json: { response: response.body }, status: 200
   end
 
   private

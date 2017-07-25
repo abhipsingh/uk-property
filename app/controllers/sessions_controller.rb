@@ -3,7 +3,7 @@
 
 class SessionsController < ApplicationController
   def create
-    Rails.logger.info(params[:facebook])
+    # Rails.logger.info(params[:facebook])
     req_params = params[:facebook]
     user_type = params[:user_type]
     if user_type && ['Vendor', 'Buyer', 'Agent'].include?(user_type)
