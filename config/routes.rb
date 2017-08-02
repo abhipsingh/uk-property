@@ -283,7 +283,7 @@ Rails.application.routes.draw do
   #####################################################################
   #####################################################################
   
-  get '/auth/:provider/callback', to: 'sessions#create'
+  post '/auth/:provider/callback', to: 'sessions#create'
   get 'properties/new/:udprn/short', to: 'properties#short_form'
   get 'postcodes/search', to: 'matrix_view#search_postcode'
   get 'addresses/search', to: 'matrix_view#search_address'

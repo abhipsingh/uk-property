@@ -45,8 +45,10 @@ class SessionsController < ApplicationController
   def create_agent
     agent_params = params[:agent].as_json
     agent_params.delete('company_id')
+    status = 200
     if Agents::Branches::AssignedAgent.exists?(email: agent_params["email"])
       response = {"message" => "Error! Agent already registered. Please login", "status" => "FAILURE"}
+      status = 400
     else
       agent = Agents::Branches::AssignedAgent.new(agent_params)
       if agent.save
@@ -59,9 +61,10 @@ class SessionsController < ApplicationController
         response = {"auth_token" => command.result, "details" => agent_details, "status" => "SUCCESS"}
       else
         response = {"message" => "Error in saving agent. Please check username and password.", "status" => "FAILURE"}
+        status = 500
       end
     end    
-    render json: response
+    render json: response, status: status
   end
 
   #### Used for login for an agent

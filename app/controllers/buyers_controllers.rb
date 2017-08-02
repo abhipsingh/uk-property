@@ -25,6 +25,16 @@ class BuyersController < ActionController::Base
 		buyer.mobile = params[:mobile] if params[:mobile]
 		buyer.image_url = params[:image_url] if params[:image_url]
 		buyer.name = params[:name] if params[:name]
+		buyer.first_name = params[:first_name] if params[:first_name]
+		buyer.last_name = params[:last_name] if params[:last_name]
+		buyer.property_types = params[:property_types] if params[:property_types]
+		buyer.locations = params[:locations] if params[:locations]
+		buyer.min_beds = params[:min_beds] if params[:min_beds]
+		buyer.max_beds = params[:max_beds] if params[:max_beds]
+		buyer.min_baths = params[:min_baths] if params[:min_baths]
+		buyer.max_baths = params[:max_baths] if params[:max_baths]
+		buyer.min_receptions = params[:min_receptions] if params[:min_receptions]
+		buyer.max_receptions = params[:max_receptions] if params[:max_receptions]
 		buyer.password = params[:password] if params[:password]
 		buyer.save!
 		render json: { message: 'Saved buyer successfully', details: buyer.as_json }, status: 201

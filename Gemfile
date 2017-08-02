@@ -1,6 +1,6 @@
 source 'https://rubygems.org'
 # Bundle edge Rails instead: gem 'rails', github: 'rails/rails'
-ruby '2.3.1'
+ruby '2.3.0'
 gem 'activemodel', '4.2.0'
 gem 'actionmailer', '4.2.0'
 gem 'railties', '4.2.0'
@@ -41,7 +41,6 @@ gem 'selectize-rails'
 ###### For Login
 gem 'omniauth'
 gem 'omniauth-google-oauth2'
-gem 'omniauth-facebook'
 gem 'omniauth-twitter'
 gem 'rename'
 

@@ -4,7 +4,7 @@ class PropertiesController < ActionController::Base
   #### curl -XPOST -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/properties/10966139/edit/details' -d '{ "details" : { "property_type" : "Terraced House", "beds" : 3, "baths" : 2, "receptions" : 2, "property_status_type" : "Green", "property_style" : "Period", "tenure" : "Freehold", "floors" : 2, "listed_status" : "Grade 1", "year_built" : "2011-01-01", "central_heating" : "Partial", "parking_type" : "Single garage", "outside_space_type" : "Private garden", "additional_features" : ["Attractive views", "Fireplace"], "decorative_condition" : "Newly refurbished", "council_tax_band" : "A", "lighting_cost" : 120, "lighting_cost_unit_type" : "month", "heating_cost": 100, "heating_cost_unit_type" : "month", "hot_water_cost" : 200, "hot_water_cost_unit_type" : "month", "annual_ground_water_cost" : 1100, "annual_service_charge" : 200, "resident_parking_cost" : 1200, "other_costs" : [{ "name" : "Cost 1", "value" : 200, "unit_type" : "month" } ], "improvement_types" : [ { "name" : "Total refurbishment", "value" : 200, "date": "2016-06-01" }  ], "current_valuation" : 32000, "dream_price" : 42000, "rental_price" : 1000, "floorplan_url" : "some random url", "pictures" : [{"category" : "Front", "url" : "random url" }, { "category" : "Garden", "url" : "Some random url" } ], "property_brochure_url" : "some random url", "video_walkthrough_url" : "some random url", "property_sold_status" : "Under offer", "agreed_sale_value" : 37000, "expected_completion_date" : "2017-03-13", "actual_completion_date" : "2017-04-01", "new_owner_email_id" : "a@b.com" , "vendor_address" : "Some address" } }'
   #### TODO: Validations
   def edit_property_details
-    if user_valid_for_viewing?(['Agent'], params[:udprn].to_i)
+    if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
       udprn = params[:udprn].to_i
       details = params[:details]
       updated_details = PropertyService.new(udprn).edit_details(details, @current_user)
@@ -134,11 +134,11 @@ class PropertiesController < ActionController::Base
     search_hash[:sub_building_name] = params[:str] if params[:str] && !params[:str].empty?
     search_hash[:building_name] = params[:str] if params[:str] && !params[:str].empty?
     search_hash[:building_number] = params[:str] if params[:str] && !params[:str].empty?
+    search_hash[:postcode] = params[:str] if params[:str] && !params[:str].empty?
     api = PropertySearchApi.new(filtered_params: search_hash )
     api.apply_filters
     api.add_not_exists_filter('vendor_id')
-    #Rails.logger.info(api.query)
-    api.make_or_filters([:sub_building_name, :building_name, :building_number])
+    api.make_or_filters([:sub_building_name, :building_name, :building_number, :postcode])
     body, status = api.fetch_data_from_es
     render json: body, status: status
   end
@@ -174,8 +174,8 @@ class PropertiesController < ActionController::Base
     render json: { message: 'You have claimed this property Successfully. All the agents in this district will be notified' }, status: 200
   rescue ActiveRecord::RecordNotUnique
     render json: { message: 'Sorry, this udprn has already been claimed' }, status: 400
-  #rescue Exception
-  #  render json: { message: 'Sorry, this udprn has already been claimed' }, status: 400
+  rescue Exception
+    render json: { message: 'Sorry, this udprn has already been claimed' }, status: 400
   end
 
   ### Update basic details of a property by a vendor. Part of vendor verification workflow process

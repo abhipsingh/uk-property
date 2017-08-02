@@ -88,7 +88,7 @@ class PropertyDetails
   end
 
   def self.get_potential_matches_for_tracking(property_details, hash_str, receptions, beds, baths, property_type)
-    locality_hashes = property_details['hashes'].find{ |hashes| hashes.end_with? hash_str}
+    locality_hashes = property_details['hashes'].find{ |hashes| hashes.end_with? hash_str.to_s }
     params = {
       hash_str: locality_hashes,
       hash_type: 'text',

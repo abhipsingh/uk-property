@@ -33,7 +33,6 @@ class PropertyService
     property_details = PropertyDetails.details(udprn)
     details.reverse_merge!(property_details['_source'].symbolize_keys!)
     district = details['district']
-    Vendor.find(vendor_id).update_attributes(property_id: udprn)
     create_lead_and_update_vendor_details(district, udprn, vendor_id, details, property_for)
   end
 

@@ -14,7 +14,8 @@ module Api
               :dependent_thoroughfare_description => 3,
               :district => 2,
               :unit => 1,
-              :sector => 0
+              :sector => 0,
+              :area => -1
             }
             levels = []
             response = {}
@@ -37,11 +38,11 @@ module Api
 
       # curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" -H "Content-Type: application/json"  "http://localhost/api/v0/ads/availability/update" -d  '{ "stripeEmail" : "abhiuec@gmail.com", "stripeToken":"tok_19WlE9AKL3KAwfPBkWwgTpqt", "udprn":10966139, "locations":{"0":{ "value":"10", "hash":"HEREFORD_City Centre_Loder Drive", "type":"Premium"}}, "months" : 2}'
       def update_availability
-        if user_valid_for_viewing?(['Buyer'], params[:udprn].to_i)
+        if user_valid_for_viewing?(['Vendor', 'Buyer'], params[:udprn].to_i)
           charge = nil
           begin
             # params[:stripeAmount]
-            amount = params[:months].to_i * 2 ### 2$ per month
+            #amount = params[:months].to_i * 2 ### 2$ per month
          
             # Create the customer in Stripe
             customer = Stripe::Customer.create(
@@ -49,12 +50,17 @@ module Api
               card: params[:stripeToken]
             )
          
+            locations = params[:locations]
+            amount = 0
+            locations.each do |key, hash|
+              amount += hash["value"].to_i
+            end
             # Create the charge using the customer data returned by Stripe API
             charge = Stripe::Charge.create(
               customer: customer.id,
               amount: amount,
               description: 'Rails Stripe customer',
-              currency: 'usd'
+              currency: 'GBP'
             )
               # place more code upon successfully creating the charge
           rescue Stripe::CardError => e
@@ -66,7 +72,6 @@ module Api
           message = {} 
           message[:ads] = []
           status = nil
-          locations = params[:locations]
           udprn = params[:udprn].to_i
           details = PropertyDetails.details(udprn)['_source']
           match_type_strs = details['match_type_str']

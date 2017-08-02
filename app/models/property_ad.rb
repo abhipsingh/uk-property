@@ -24,7 +24,7 @@ class PropertyAd < ActiveRecord::Base
     udprn = details['udprn'].to_i
     levels_arr = []
     all_locality_levels = [ :county, :post_town, :dependent_locality, :dependent_thoroughfare_description ]
-    all_postcode_units = [ :district, :unit, :sector ]
+    all_postcode_units = [ :district, :unit, :sector, :area ]
     types.each do |each_type|
       all_locality_levels.each do |each_locality_level|
         hash_str = hash_at_level(each_locality_level, details)

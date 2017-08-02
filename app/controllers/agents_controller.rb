@@ -131,7 +131,7 @@ class AgentsController < ApplicationController
     else
       render json: { message: 'Branch details not saved successfully', details: params }, status: 400
     end
-  rescue 
+  rescue Exception => e
     render json: { message: 'Branch details not found', details: params }, status: 400
   end
 
