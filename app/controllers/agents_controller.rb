@@ -294,6 +294,8 @@ class AgentsController < ApplicationController
     }
     vendor_email = params[:vendor_email]
     assigned_agent_email = params[:assigned_agent_email]
+    ### Update udprn in crawled properties
+    Agents::Branches::CrawledProperty.where(id: params[:property_id].to_i).update_attributes({udprn: udprn})
     agent_count = Agents::Branches::AssignedAgent.where(id: agent_id).count > 0
     raise StandardError, 'Branch and agent not found' if agent_count == 0
     response, status = agent_service.verify_crawled_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
@@ -322,7 +324,6 @@ class AgentsController < ApplicationController
       receptions: params[:receptions].to_i,
       beds: params[:beds].to_i,
       baths: params[:baths].to_i,
-      property_id: params[:property_id].to_i,
       details_completed: false
     }
     vendor_email = params[:vendor_email]
@@ -348,7 +349,7 @@ class AgentsController < ApplicationController
     postcodes = ""
     if agent
       branch_id = agent.branch_id
-      properties = Agents::Branches::CrawledProperty.where(branch_id: branch_id).select([:id, :postcode, :image_urls, :stored_response, :additional_details]).where.not(postcode: nil)
+      properties = Agents::Branches::CrawledProperty.where(branch_id: branch_id).select([:id, :postcode, :image_urls, :stored_response, :additional_details, :udprn]).where.not(postcode: nil)
       properties.each do |property|
         new_row = {}
         new_row['property_id'] = property.id
@@ -375,6 +376,7 @@ class AgentsController < ApplicationController
         each_doc['sub_building_name'] ||= nil
         each_doc['property_status'] = "Unknown"
       end
+      Rails.logger.info(body)
       response.each do |each_crawled_property_data|
         matching_udprns = body.select{ |t| t['postcode'] == each_crawled_property_data['post_code'] }
         # Rails.logger.info("HELLO") if !matching_udprns.empty?

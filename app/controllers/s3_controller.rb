@@ -15,7 +15,8 @@ class S3Controller < ApplicationController
   ### curl -XGET 'http://localhost/s3/verify/upload?file_name=vendor/picture.jpg'
   def verify_upload
     file_name = params[:file_name]
-    key_name = Digest::MD5.hexdigest(file_name)
+    #key_name = Digest::MD5.hexdigest(file_name)
+    key_name = file_name
     s3 = Aws::S3::Resource.new(region: 'eu-west-2')
     exists = !(s3.bucket('prophety-image-uploads').objects(prefix: key_name).map(&:key).empty?)
     render json: { exists: exists }, status: 200

@@ -427,8 +427,6 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
         district = response_arr[index]['district']
         sector = response_arr[index]['sector']
         unit = response_arr[index]['unit']
-        sector = district + " " + sector.split(district).last 
-        unit = district + " " + unit.split(district).last 
         # county = response_arr[index]['county']
         extra_attrs = [ response_arr[index]['district'], sector, unit ]
 #        extra_attrs = [ county ]

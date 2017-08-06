@@ -28,7 +28,7 @@ class BuyersController < ActionController::Base
 		buyer.first_name = params[:first_name] if params[:first_name]
 		buyer.last_name = params[:last_name] if params[:last_name]
 		buyer.property_types = params[:property_types] if params[:property_types]
-		buyer.locations = params[:locations] if params[:locations]
+		buyer.locations = params[:locations] if params[:locations] && params[:locations].is_a?(Array)
 		buyer.min_beds = params[:min_beds] if params[:min_beds]
 		buyer.max_beds = params[:max_beds] if params[:max_beds]
 		buyer.min_baths = params[:min_baths] if params[:min_baths]

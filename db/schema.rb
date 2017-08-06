@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170731111829) do
+ActiveRecord::Schema.define(version: 20170805130313) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -323,8 +323,8 @@ ActiveRecord::Schema.define(version: 20170731111829) do
     t.integer  "max_baths"
     t.integer  "min_receptions"
     t.integer  "max_receptions"
-    t.string   "locations",         default: [],              array: true
     t.string   "biggest_problems",  default: [],              array: true
+    t.jsonb    "locations"
   end
 
   add_index "property_buyers", ["email_id"], name: "index_property_buyers_on_email_id", unique: true, using: :btree
