@@ -231,10 +231,12 @@ class PropertyService
 
   def self.form_value_str(detail_hash)
     values = (1..DETAIL_ATTRS.length).map { |e| '' }
+    detail_hash = detail_hash.with_indifferent_access
     detail_hash.each do |key, value|
       index = DETAIL_ATTRS.index(key.to_sym)
-      values[index] = value
+      values[index] = value if index
     end
+    #p values
     values.join('|')
   end
 
