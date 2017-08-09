@@ -14,8 +14,7 @@ class PropertyService
                   :council_tax_band, :lighting_cost, :lighting_cost_unit_type, :heating_cost, :heating_cost_unit_type,
                   :hot_water_cost, :hot_water_cost_unit_type, :annual_ground_water_cost, :annual_service_charge,
                   :resident_parking_cost, :other_costs, :total_cost_per_month, :total_cost_per_year, :improvement_types, :dream_price,
-                  :current_valuation, :floorplan_url, :pictures, :property_sold_status, :agreed_sale_value,
-                  :expected_completion_date, :actual_completion_date, :new_owner_email_id, :vendor_address, :property_status_type,
+                  :current_valuation, :floorplan_url, :pictures, :expected_completion_date, :actual_completion_date, :new_owner_email_id, :vendor_address,
                   :inner_area, :outer_area, :property_brochure_url, :video_walkthrough_url, :dream_price, :asking_price, :offers_price,
                   :fixed_price, :offers_over, :area_type
                 ]
@@ -46,6 +45,8 @@ class PropertyService
     assigned: 2
   }
 
+  ARRAY_HASH_ATTRS = [:outside_space_type, :additional_features, :pictures, :property_style]
+
 
   def initialize(udprn)
     @udprn = udprn
@@ -66,7 +67,7 @@ class PropertyService
     details[:vendor_id] = vendor_id
     details[:claimed_at] = Time.now.to_s
     # p details
-    normalize_all_attrs(details)
+    self.class.normalize_all_attrs(details)
     PropertyDetails.update_details(client, udprn, details)
   end
 
@@ -131,12 +132,12 @@ class PropertyService
     agent_id = details[:agent_id]
     cond = !vendor_id.nil? && !agent_id.nil? && details[:agent_status] == AGENT_STATUS[:lead] && details_completed
     VendorService.new(vendor_id).send_email_following_agent_details_submission(agent_id, details) if cond
-    normalize_all_attrs(update_hash)
+    self.class.normalize_all_attrs(update_hash)
     PropertyDetails.update_details(client, udprn, update_hash) if !update_hash.empty?
     PropertyDetails.details(udprn)['_source']
   end
 
-  def normalize_all_attrs(update_hash)
+  def self.normalize_all_attrs(update_hash)
     update_hash.each do |each_key, value|
       if value.class.method_defined?(:to_i) && value == value.to_i.to_s
         update_hash[each_key] = value.to_i
@@ -183,10 +184,9 @@ class PropertyService
   end
 
   def self.bulk_details(udprns=[])
-    udprns.map do |udprn|
-      detail = Rails.configuration.ardb_client.get(udprn)
-      process_each_detail(detail)
-    end
+    details = []
+    details = Rails.configuration.ardb_client.mget(*udprns) if udprns.length > 0
+    details.map{ |detail| process_each_detail(detail) }
   end
 
   def self.process_each_detail(detail_str)
@@ -195,46 +195,56 @@ class PropertyService
     size = 0
     prev_size = 0
     LOCALITY_ATTRS.each_with_index do |each_attr, index|
-      result_hash[each_attr] = values[index+prev_size] if values[index+prev_size] && !values[index+prev_size].empty?
-      size += 1
-    end
-
-    prev_size = size
-    EDIT_ATTRS.each_with_index do |each_attr, index|
-      result_hash[each_attr] = values[index+prev_size] if values[index+prev_size] && !values[index+prev_size].empty?
+      form_value(result_hash, values, index+prev_size, each_attr)
       size += 1
     end
 
     prev_size = size
     AGENT_ATTRS.each_with_index do |each_attr, index|
-      result_hash[each_attr] = values[index+prev_size] if values[index+prev_size] && !values[index+prev_size].empty?
+      form_value(result_hash, values, index+prev_size, each_attr)
       size += 1
     end
 
     prev_size = size
     VENDOR_ATTRS.each_with_index do |each_attr, index|
-      result_hash[each_attr] = values[index+prev_size] if values[index+prev_size] && !values[index+prev_size].empty?
+      form_value(result_hash, values, index+prev_size, each_attr)
       size += 1
     end
 
     prev_size = size
     EXTRA_ATTRS.each_with_index do |each_attr, index|
-      result_hash[each_attr] = values[index+prev_size] if values[index+prev_size] && !values[index+prev_size].empty?
+      form_value(result_hash, values, index+prev_size, each_attr)
       size += 1
     end
 
     prev_size = size
     POSTCODE_ATTRS.each_with_index do |each_attr, index|
-      result_hash[each_attr] = values[index+prev_size] if values[index+prev_size] && !values[index+prev_size].empty?
+      form_value(result_hash, values, index+prev_size, each_attr)
+      size += 1
+    end
+
+    prev_size = size
+    EDIT_ATTRS.each_with_index do |each_attr, index|
+      form_value(result_hash, values, index+prev_size, each_attr)
       size += 1
     end
 
     prev_size = size
     ADDITIONAL_ATTRS.each_with_index do |each_attr, index|
-      result_hash[each_attr] = values[index+prev_size] if values[index+prev_size] && !values[index+prev_size].empty?
+      form_value(result_hash, values, index+prev_size, each_attr)
       size += 1
     end
     result_hash
+  end
+
+  def self.form_value(result_hash, values, index, attr_value)
+    if values[index] && !values[index].empty?
+      if ARRAY_HASH_ATTRS.include?(attr_value)
+        result_hash[attr_value] = Oj.load(values[index])
+      else
+        result_hash[attr_value] = values[index]
+      end
+    end
   end
 
   def self.update_udprn(udprn, detail_hash)
@@ -244,12 +254,16 @@ class PropertyService
 
   def self.form_value_str(detail_hash)
     values = (1..DETAIL_ATTRS.length).map { |e| '' }
-    detail_hash = detail_hash.with_indifferent_access
     detail_hash.each do |key, value|
       index = DETAIL_ATTRS.index(key.to_sym)
-      values[index] = value if index
+      if index
+        if value && value.is_a?(Array) || value.is_a?(Hash)
+          values[index] = value.to_json
+        else
+          values[index] = value
+        end
+      end
     end
-    #p values
     values.join('|')
   end
 

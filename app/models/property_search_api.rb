@@ -1,7 +1,6 @@
 require 'base64'
 class PropertySearchApi
   include Elasticsearch::Search
-  NEARBY_DEFAULT_RADIUS = 1500
   NEARBY_MAX_RADIUS = 5000
   RESULTS_PER_PAGE = 20
   MAX_RESULTS_PER_PAGE = 150
@@ -22,6 +21,8 @@ class PropertySearchApi
               :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, 
               :beds, :baths, :receptions, :current_valuation, :dream_price
             ]
+
+  ADDRESS_LOCALITY_LEVELS = [:dependent_locality, :dependent_thoroughfare_description, :building_type]
 
   #### The list of statuses are 'Green', 'Amber', 'Red'.
   ### Please see the previous commits to see what existed here
@@ -62,8 +63,6 @@ class PropertySearchApi
   }
 
   def initialize(options={})
-    # index = options[:index] || 'property_details'
-    # client = Elasticsearch::Client.new url: options[:url], log: options[:log]
     @filtered_params = options[:filtered_params].symbolize_keys
     @query = self.class.append_empty_hash
     @query = options[:query] if @is_query_custom == true
@@ -74,7 +73,7 @@ class PropertySearchApi
     inst.adjust_size
     inst.adjust_included_fields
     inst = inst.append_pagination_filter
-    inst = inst.append_hash_filter
+    # inst = inst.append_hash_filter
     inst = inst.append_terms_filters
     inst = inst.append_term_filters
     inst = inst.append_range_filters
@@ -109,21 +108,12 @@ class PropertySearchApi
 
   def filter
     body = []
-    status = 200
-    if @filtered_params.has_key?(:listing_type) && !@filtered_params[:listing_type].nil?
-      ad_type = PropertyAd::TYPE_HASH[@filtered_params[:listing_type]]
-      service = nil
-      @filtered_params[:property_status_type] == 'Rent' ? service = 1 : service = 2
-      udprns = PropertyAd.where(hash_str: @filtered_params[:hash_str], service: service, ad_type: ad_type).pluck(:property_id)
-      body = PropertyService.bulk_details(udprns)  
-    else
-      inst = self
-      modify_filtered_params
-      # append_premium_or_featured_filter
-      inst.apply_filters
-      inst.modify_query
-      body, status = fetch_data_from_es
-    end
+    status = 200  
+    inst = self
+    modify_filtered_params
+    inst.apply_filters
+    inst.modify_query
+    body, status = fetch_data_from_es
     return { results: body }, status
   end
 
@@ -167,6 +157,33 @@ class PropertySearchApi
         modify_similar_value_in_params(key, similar_value)
       end
     end
+
+    ### For hash str
+    ### Change the filtered params in such a way that hashes are not used at all
+    if @filtered_params.has_key?(:hash_str) && @filtered_params.has_key?(:hash_type)
+      type = @filtered_params[:hash_type]
+      if ADDRESS_LOCALITY_LEVELS.include?(type.to_sym)
+        index = ADDRESS_LOCALITY_LEVELS.index(type.to_sym)
+        parts = @filtered_params.has_key?(:hash_str).split('_')
+        index.times do |ind_var|
+          address_str = parts[ind_var]
+          address_type = ADDRESS_LOCALITY_LEVELS[index]
+          @filtered_params[address_type.to_sym] = address_str if address_str != 'NULL'
+        end
+      else
+        @filtered_params[type.to_sym] = @filtered_params[:hash_str]
+      end
+    end
+
+    if @filtered_params.has_key?(:listing_type) && !@filtered_params[:listing_type].nil?
+      ad_type = PropertyAd::TYPE_HASH[@filtered_params[:listing_type]]
+      service = nil
+      @filtered_params[:property_status_type] == 'Rent' ? service = 1 : service = 2
+      udprns = PropertyAd.where(hash_str: @filtered_params[:hash_str], service: service, ad_type: ad_type).pluck(:property_id)
+      @filtered_params[:udprns] = udprns.join(',')
+    end
+    @filtered_params.delete(:hash_str)
+    @filtered_params.delete(:hash_type)
   end
 
   def modify_similar_value_in_params(key, similar_value)
@@ -250,18 +267,6 @@ class PropertySearchApi
     @query[:filter][:and][:filters].push(not_query)
   end
 
-  def append_hash_filter
-    inst = self
-    if filtered_params[:hash_str]
-      if filtered_params[:hash_type] == 'postcode'
-        inst = form_query(filtered_params[:hash_str])
-      else
-        inst = inst.append_terms_filter_query('hashes', filtered_params[:hash_str].split('|'), :and)
-      end
-    end
-    return inst
-  end
-
   def append_term_filters
     inst = self
     term_filters = @filtered_params.keys & FIELDS[:term]
@@ -311,14 +316,8 @@ class PropertySearchApi
     inst
   end
 
-  def append_premium_or_featured_filter
-    inst = self
-    if @filtered_params.has_key?(:hash_type) && @filtered_params.has_key?(:hash_str)
-      @filtered_params[:listing_type] = 'Normal' if @filtered_params[:listing_type].nil?
-      search_str = @filtered_params[:hash_str].to_s + '|' + @filtered_params[:listing_type].to_s
-      inst.append_term_filter_query(:match_type_str, search_str, :and)
-    end
-  end
+  #### Please see the commit logs to check the history of this method
+  ### def append_premium_or_featured_filter
 
   def append_sort_filters
     sort_keys = [:budget, :popularity, :rent, :date_added, :valuation, :dream_price, :status_last_updated, :building_number]
@@ -327,9 +326,6 @@ class PropertySearchApi
     if sort_keys.include? sort_key
       sort_order = @filtered_params[:sort_order] || "asc"
       inst = inst.append_field_sorting(sort_key,sort_order)
-    else
-      # inst = inst.append_score_view_count_sort
-      # inst = inst.user_script_query_sorting("rent")
     end
     inst
   end
@@ -347,16 +343,11 @@ class PropertySearchApi
   def self.index_es_records(scroll_id)
     start_date = 3.months.ago
     ending_date = 4.hours.ago
-    # years = (1955..2015).step(10).to_a
- _years = (2004..2016).step(1).to_a
-    # days = (1..24).to_a
     body = []
     client = Elasticsearch::Client.new host: ES_EC2_HOST
     characters = (1..10).to_a
     alphabets = ('A'..'Z').to_a
-    # addresses = get_bulk_addresses
     names = Agent.last(10).map{ |t| t.name }
-    # google_api_crawler = GoogleApiCrawler.new
     scroll_id = scroll_id
     glob_counter = 0
     loop do
@@ -450,7 +441,7 @@ class PropertySearchApi
   def matching_property_count
     inst = self
     inst.adjust_size
-    inst = inst.append_hash_filter
+    inst = inst.modify_filtered_params
     body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name, '_search?search_type=count')
     count = Oj.load(body)['hits']['total'] rescue 0
     return count, status
