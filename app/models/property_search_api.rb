@@ -341,70 +341,20 @@ class PropertySearchApi
   end
 
   def self.index_es_records(scroll_id)
-    start_date = 3.months.ago
-    ending_date = 4.hours.ago
     body = []
     client = Elasticsearch::Client.new host: ES_EC2_HOST
-    characters = (1..10).to_a
-    alphabets = ('A'..'Z').to_a
-    names = Agent.last(10).map{ |t| t.name }
     scroll_id = scroll_id
     glob_counter = 0
     loop do
-      # get_records_url = ES_EC2_URL + '/_search/scroll'
-      scroll_hash = { scroll: '30m', scroll_id: scroll_id }
+      scroll_hash = { scroll: '240m', scroll_id: scroll_id }
       response , _status = post_url_new(scroll_hash)
-      udprns = JSON.parse(response)["hits"]["hits"].map { |t| t['_source']['udprn']  }
       response_arr = Oj.load(response)['hits']['hits'].map { |e| e['_source'] }
-      break if udprns.length == 0
-      
+      break if response_arr.length == 0
       body = []
-      udprns.each_with_index do |udprn, index|
-        doc = {}
-        # double_dependent_locality = response_arr[index]['double_dependent_locality']
-        # thoroughfare_description = response_arr[index]['thoroughfare_description']
-        # dependent_locality = response_arr[index]['dependent_locality']
-        # dependent_thoroughfare_description = response_arr[index]['dependent_thoroughfare_description']
-        # doc[:dependent_locality] = double_dependent_locality if dependent_locality.nil? && !double_dependent_locality.nil?
-        # doc[:dependent_thoroughfare_description] = thoroughfare_description if dependent_thoroughfare_description.nil? && !thoroughfare_description.nil?
-        # doc[:property_status_type] = 'Unknown'
-        # p response_arr[index]
-       # building_text = "";
-        hashes = response_arr[index]['hashes']
-        district = response_arr[index]['district']
-        sector = response_arr[index]['sector']
-        unit = response_arr[index]['unit']
-        # county = response_arr[index]['county']
-        extra_attrs = [ response_arr[index]['district'], sector, unit ]
-#        extra_attrs = [ county ]
-        new_hashes = hashes + extra_attrs
-        doc['hashes'] = new_hashes
-#
-        # match_type_strs = response_arr[index]['match_type_str']
-        # extra_attrs_match_type = extra_attrs.map { |e| e.to_s+'|Normal' }
-        normal_attrs = doc['hashes'].map { |e| e.to_s+'|Normal'  }
-        doc['match_type_str'] = normal_attrs
-        # building_text = building_text + response_arr[index]['building_number'] + " " if response_arr[index]['building_number']
-        # building_text = building_text + response_arr[index]['building_name'] + " " if response_arr[index]['building_name']
-        # building_text = building_text + response_arr[index]['sub_building_name'] + " " if response_arr[index]['sub_building_name']
-        # building_text = building_text[0..building_text.length-2] if building_text[building_text.length-1] == " "
-        # hashes = response_arr[index]['hashes']
-        # hash_value = hash_value + '_' + building_text
-        # hashes.push(hash_value)
-        # doc['hashes'] = hashes
-        # match_type_strs = response_arr[index]['match_type_str']
-        # match_type_strs.push(hash_value+'|Normal')
-        # doc['match_type_str'] = match_type_strs
-        #  RANDOM_SEED_MAP.each do |key, values|
-        #    doc[key] = values.sample(1).first
-        #  end
-
+      response_arr.each_with_index do |each_response, index|
         ### Please see from the past commits to see the history of this method
         # process_doc_with_conditions(doc)
-
-        body.push({ update:  { _index: Rails.configuration.address_index_name, _type: 'address', _id: udprn, data: { doc: doc } }})
       end
-      response = client.bulk body: body unless body.empty?
       # p response['items'].first
       p "#{glob_counter} pASS completed for #{body.count} ITEMS"
       glob_counter += 1
@@ -426,15 +376,10 @@ class PropertySearchApi
       response_arr = Oj.load(response)['hits']['hits'].map { |e| e['_source'] }
       break if response_arr.length == 0
       body = []
-      response_arr.each_with_index do |response, index|
-        udprn = response['udprn']
-        value_str = PropertyService.form_value_str(response)
-        PropertyService.set_value_to_key(udprn, value_str)
-      end
+      response_arr.each { |res| PropertyService.update_udprn(res['udprn'], res) }
       p "Batch #{batch} completed"
       batch += 1
     end
-    
   end
  
   ### Used for getting matched properties (count only)
