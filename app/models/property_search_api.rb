@@ -614,6 +614,28 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     end
     
   end
+
+  def self.transfer_data_from_es_to_key_value_store(scroll_id)
+    scroll_id = scroll_id
+    glob_counter = 0
+    Rails.configuration.ardb_client.flushall
+    batch = 0
+    loop do
+      scroll_hash = { scroll: '240m', scroll_id: scroll_id }
+      response , _status = post_url_new(scroll_hash)
+      response_arr = Oj.load(response)['hits']['hits'].map { |e| e['_source'] }
+      break if response_arr.length == 0
+      body = []
+      response_arr.each_with_index do |response, index|
+        udprn = response['udprn']
+        value_str = PropertyService.form_value_str(response)
+        PropertyService.set_value_to_key(udprn, value_str)
+      end
+      p "Batch #{batch} completed"
+      batch += 1
+    end
+    
+  end
  
   ### Used for getting matched properties (count only)
   def matching_property_count

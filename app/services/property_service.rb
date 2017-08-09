@@ -32,9 +32,9 @@ class PropertyService
   VENDOR_ATTRS = [:vendor_id]
 
   EXTRA_ATTRS = [:property_status_type, :verification_status, :details_completed, :agent_status, :property_id,
-                 :claimed_at]
+                 :claimed_at, :sale_prices]
 
-  POSTCODE_ATTRS = [:area, :sector, :district, :unit, :address, :county, :vanity_url]
+  POSTCODE_ATTRS = [:area, :sector, :district, :unit, :address, :county, :vanity_url, :building_text]
 
   DETAIL_ATTRS = LOCALITY_ATTRS + AGENT_ATTRS + VENDOR_ATTRS + EXTRA_ATTRS + POSTCODE_ATTRS + EDIT_ATTRS 
 
@@ -180,14 +180,14 @@ class PropertyService
   end
 
   def self.bulk_details(udprns=[])
-    bulk_details = Rails.application.ardb_client.mget(udprns)
+    bulk_details = Rails.configuration.ardb_client.mget(udprns)
     bulk_details.each do |detail|
       process_each_detail(detail)
     end
   end
 
   def self.process_each_detail(detail_str)
-    values = detail_str.split(',')
+    values = detail_str.split('|')
     result_hash = {}
     size = 0
     prev_size = 0
@@ -226,6 +226,21 @@ class PropertyService
       size += 1
     end
     result_hash
+  end
+
+
+  def self.form_value_str(detail_hash)
+    values = (1..DETAIL_ATTRS.length).map { |e| '' }
+    detail_hash.each do |key, value|
+      index = DETAIL_ATTRS.index(key.to_sym)
+      values[index] = value
+    end
+    values.join('|')
+  end
+
+  def self.set_value_to_key(udprn, value_str)
+    ardb_client = Rails.configuration.ardb_client
+    ardb_client.set(udprn.to_s, value_str)
   end
 
 end
