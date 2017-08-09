@@ -341,10 +341,6 @@ class MatrixViewController < ActionController::Base
     aggs
   end
 
-  def insert_term_filters(filters, term, value)
-    filters[:and][:filters].push(append_term_filter(term, value))
-  end
-
   def append_term_filter(term, value)
     { term: { term => value } }
   end

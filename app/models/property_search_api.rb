@@ -187,11 +187,9 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     inst = self
     # Rails.logger.info(inst.query)
     body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name)
-    body = Oj.load(body)['hits']['hits'].map do |t|
-      ## TODO - Confirm this
-      # t['_source']['score'] = t['matched_queries'].count
-      t['_source']
-    end
+    parsed_body = Oj.load(body)['hits']['hits']
+    udprns = parsed_body.map { |e|  e['_id'] }
+    body = PropertyService.bulk_details(udprns)    
     return body, status
   end
 
@@ -626,81 +624,6 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     body = result.body
     status = result.code
     return body, status
-  end
-
-  def self.test_search
-    errors = []
-    FIELDS[:terms].each do |term|
-      value = RANDOM_SEED_MAP[term.to_s.singularize.to_sym].sample(1).first rescue nil
-      url = "#{ES_EC2_URL}/api/v0/properties/search?"
-      if value
-        query_params = {}
-        query_params[term] = value
-        query_params = query_params.to_query
-        url = url + query_params
-        response = Net::HTTP.get_response(URI.parse(url))
-        errors.push(term) if response.code.to_i != 200
-      else
-        errors.push(term)
-      end
-    end
-    p errors
-
-    FIELDS[:term].each do |term|
-      value = RANDOM_SEED_MAP[term].sample(1).first rescue nil
-      url = "http://localhost/api/v0/properties/search?"
-      if value
-        query_params = {}
-        query_params[term] = value
-        query_params = query_params.to_query
-        url = url + query_params
-        p url
-        response = Net::HTTP.get_response(URI.parse(url))
-        #p JSON.parse(response.body)["hits"]["total"]
-        errors.push(term) if response.code.to_i != 200
-      else
-        errors.push(term)
-      end
-    end
-
-    year_fields = [:date_added, :time_frame]
-    range_fields = FIELDS[:range] - year_fields
-
-    range_fields.each do |term|
-      values = RANDOM_SEED_MAP[term].sample(2) rescue nil
-      url = "http://localhost/api/v0/properties/search?"
-      if values
-        query_params = {}
-        query_params["min_"+term.to_s] = values.min
-        query_params["max_"+term.to_s] = values.max
-        query_params = query_params.to_query
-        url = url + query_params
-        p url
-        response = Net::HTTP.get_response(URI.parse(url))
-        # p JSON.parse(response.body)["hits"]["total"]
-        errors.push(term) if response.code.to_i != 200
-      else
-        errors.push(term)
-      end
-    end
-
-    year_fields.each do |field|
-      query_params = {}
-      url = "http://localhost/api/v0/properties/search?"
-      if field == :date_added
-        query_params["min_"+field.to_s] = "2014-01-01 21:00:00"
-        query_params["max_"+field.to_s] = "2015-01-01 21:00:00"
-      else
-        query_params["min_"+field.to_s] = "2014-01-01"
-        query_params["max_"+field.to_s] = "2015-01-01"
-      end
-      query_params = query_params.to_query
-      url = url + query_params
-      p url
-      response = Net::HTTP.get_response(URI.parse(url))
-      #p JSON.parse(response.body)["hits"]["total"]
-    end
-    p errors
   end
 
   def self.get_bulk_addresses
