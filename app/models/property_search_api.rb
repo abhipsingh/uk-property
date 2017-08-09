@@ -8,10 +8,20 @@ class PropertySearchApi
   ES_EC2_URL = Rails.configuration.remote_es_url
   ES_EC2_HOST = Rails.configuration.remote_es_host
   FIELDS = {
-    terms: [ :property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :keyword_types, :udprns, :vendor_ids, :postcodes, :post_codes ],
-    term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :photos, :floorplan, :chain_free, :council_tax_band, :verification, :property_brochure, :new_homes, :retirement_homes, :shared_ownership, :under_off, :verification_status, :agent_id, :district, :udprn, :vendor_id, :postcode, :sector, :unit, :building_name, :building_number, :sub_building_name, :post_code, :ads, :property_status_type, :postcode ],
-    range: [ :cost_per_month, :date_added, :floors, :year_built, :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, :time_frame, :beds, :baths, :receptions, :current_valuation, :dream_price ],
+    terms: [ :property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :udprns, :vendor_ids, :postcodes ],
+    term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :floorplan, :chain_free, :council_tax_band, :verification_status, :agent_id, :district, :udprn, :vendor_id, :postcode, :sector, :unit, :building_name, :building_number, :sub_building_name, :property_status_type, :postcode ],
+    range: [ :cost_per_month, :date_added, :floors, :year_built, :inner_area, :outer_area, :total_area, :improvement_spend, :beds, :baths, :receptions, :current_valuation, :dream_price ],
   }
+
+  ES_ATTRS = [
+              :property_type, :monitoring_type, :property_status_type, :parking_type, :outside_space_type, 
+              :additional_feature_type, :keyword_type, :udprn, :vendor_id, :postcode, :tenure, :epc, 
+              :property_style, :listed_status, :decorative_condition, :central_heating, :floorplan, :chain_free, 
+              :council_tax_band, :verification_status, :agent_id, :district, :sector, :unit, :building_name, 
+              :building_number, :sub_building_name, :cost_per_month, :date_added, :floors, :year_built, 
+              :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, 
+              :beds, :baths, :receptions, :current_valuation, :dream_price
+            ]
 
   #### The list of statuses are 'Green', 'Amber', 'Red'.
 
@@ -400,7 +410,7 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     start_date = 3.months.ago
     ending_date = 4.hours.ago
     # years = (1955..2015).step(10).to_a
-    time_frame_years = (2004..2016).step(1).to_a
+ _years = (2004..2016).step(1).to_a
     # days = (1..24).to_a
     body = []
     client = Elasticsearch::Client.new host: ES_EC2_HOST
@@ -462,7 +472,6 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
         # doc[:address] = google_api_crawler.address(response_arr[index])
         # doc[:year_built] = doc[:year_built].to_s+"-01-01"
         # doc[:date_added] = Time.at((start_date.to_f - ending_date.to_f)*rand + start_date.to_f).utc.strftime('%Y-%m-%d')
-        # doc[:time_frame] = time_frame_years.sample(1).first.to_s + "-01-01"
         # doc[:external_property_size] = doc[:internal_property_size] + 100
         # doc[:total_property_size] = doc[:external_property_size] + 100
         # doc[:additional_features_type] = [doc[:additional_features_type]]
@@ -635,6 +644,10 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
       batch += 1
     end
     
+  end
+
+  def self.es_attrs
+    FIELDS[:terms].map { |e| e.to_s[0..e.to_s.length-2].to_sym }
   end
  
   ### Used for getting matched properties (count only)
