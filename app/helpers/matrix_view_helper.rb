@@ -49,6 +49,7 @@ module MatrixViewHelper
         ['county', 'county']
       ]
   }
+
   def construct_aggs_query_from_fields(area, district, sector, unit, postcode_context, postcode_type, query, filter_index, search_type=:postcode, context_hash={})
     aggs = {}
     fields = ['area', 'county', 'post_town', 'district', 'dependent_locality', 'sector', 'dependent_thoroughfare_description', 'unit'].map(&:pluralize)
@@ -57,7 +58,7 @@ module MatrixViewHelper
       field = field_type[0]
       context = field_type[1]
       context_value = context_hash[context] || binding.local_variable_get(context)
-      context_value = context_value.upcase if context == 'post_town'
+      context_value = context_value if context == 'post_town'
       Rails.logger.info("#{aggs},#{field},#{context}, #{context_value}, #{context_hash}") 
       append_filtered_aggs(aggs, field, context, context_value)
     end

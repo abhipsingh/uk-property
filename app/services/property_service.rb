@@ -240,7 +240,7 @@ class PropertyService
   def self.form_value(result_hash, values, index, attr_value)
     if values[index] && !values[index].empty?
       if ARRAY_HASH_ATTRS.include?(attr_value)
-        result_hash[attr_value] = Oj.load(values[index])
+        result_hash[attr_value] = Oj.load(values[index]) rescue values[index]
       else
         result_hash[attr_value] = values[index]
       end

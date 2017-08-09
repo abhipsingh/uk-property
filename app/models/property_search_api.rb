@@ -22,7 +22,9 @@ class PropertySearchApi
               :beds, :baths, :receptions, :current_valuation, :dream_price
             ]
 
-  ADDRESS_LOCALITY_LEVELS = [:dependent_locality, :dependent_thoroughfare_description, :building_type]
+  ADDRESS_LOCALITY_LEVELS = [:county, :post_town, :dependent_locality, :double_dependent_locality, 
+                             :dependent_thoroughfare_description, :thoroughfare_description, :sub_building_name,
+                             :building_name, :building_number]
 
   #### The list of statuses are 'Green', 'Amber', 'Red'.
   ### Please see the previous commits to see what existed here
@@ -83,16 +85,7 @@ class PropertySearchApi
   end
 
   def apply_filters_except_hash_filter
-    inst = self
-    inst.adjust_size
-    inst.adjust_included_fields
-    inst = inst.append_pagination_filter
-    inst = inst.append_terms_filters
-    inst = inst.append_term_filters
-    inst = inst.append_range_filters
-    inst = inst.append_sort_filters
-    shift_query_keys
-    Rails.logger.info(inst.query)
+    apply_filters
   end
 
   def shift_query_keys
@@ -148,7 +141,7 @@ class PropertySearchApi
     end
   end
 
-  def modify_filtered_params
+  def modify_range_params
     similar_names = {
       budget: [:current_valuation, :dream_price]
     }
@@ -157,18 +150,17 @@ class PropertySearchApi
         modify_similar_value_in_params(key, similar_value)
       end
     end
+  end
 
+  def modify_filtered_params_hash_str
     ### For hash str
     ### Change the filtered params in such a way that hashes are not used at all
     if @filtered_params.has_key?(:hash_str) && @filtered_params.has_key?(:hash_type)
       type = @filtered_params[:hash_type]
-      if ADDRESS_LOCALITY_LEVELS.include?(type.to_sym)
-        index = ADDRESS_LOCALITY_LEVELS.index(type.to_sym)
-        parts = @filtered_params.has_key?(:hash_str).split('_')
-        index.times do |ind_var|
-          address_str = parts[ind_var]
-          address_type = ADDRESS_LOCALITY_LEVELS[index]
-          @filtered_params[address_type.to_sym] = address_str if address_str != 'NULL'
+      if @filtered_params[:hash_str].split('_').length == 6
+        arr = @filtered_params[:hash_str].split('_')
+        ADDRESS_LOCALITY_LEVELS.reverse.each_with_index do |level, index|
+          @filtered_params[level] = arr[index] if arr[index] != '#'
         end
       else
         @filtered_params[type.to_sym] = @filtered_params[:hash_str]
@@ -182,8 +174,14 @@ class PropertySearchApi
       udprns = PropertyAd.where(hash_str: @filtered_params[:hash_str], service: service, ad_type: ad_type).pluck(:property_id)
       @filtered_params[:udprns] = udprns.join(',')
     end
+
     @filtered_params.delete(:hash_str)
-    @filtered_params.delete(:hash_type)
+    @filtered_params.delete(:hash_type)    
+  end
+
+  def modify_filtered_params
+    modify_range_params
+    modify_filtered_params_hash_str
   end
 
   def modify_similar_value_in_params(key, similar_value)

@@ -3,6 +3,10 @@ class MatrixViewController < ActionController::Base
 
   LOCAL_EC2_URL = 'http://127.0.0.1:9200'
   ES_EC2_URL = Rails.configuration.remote_es_url
+  ADDRESS_LEVELS = [:county, :post_town, :dependent_locality, :double_dependent_locality, :dependent_thoroughfare_description,
+                    :thoroughfare_description, :sub_building_name, :building_name, :building_number]
+
+  BUILDING_LEVELS = [:sub_building_name, :building_name, :building_number]
 
   def predictive_search
     regexes = [ /^([A-Z]{1,2})([0-9]{0,3})$/, /^([0-9]{1,2})([A-Z]{0,3})$/]
@@ -19,12 +23,14 @@ class MatrixViewController < ActionController::Base
     predictions.sort_by!{|t| (1.to_f/t['score'].to_f) }
     final_predictions = []
     predictions = predictions.each do |t|
-      hierarchy = t['payload']['hierarchy_str'].split('|')
+      hierarchy_arr = t['payload']['hash'].split('_')
       output = nil
-      if t['payload']['type'] == 'building_type'&& hierarchy[0].to_i > 0
-        output = hierarchy[0] + ' ' + hierarchy[1..-1].join(', ')
+      output = hierarchy_arr.last(3).reject{ |t| t== '#' }.join(' ') if hierarchy_arr.length == 9
+      output = output.to_s
+      if output.length > 0
+        output += ', ' + hierarchy_arr.first(6).reverse.reject{ |t| t== '#' }.join(', ')
       else
-        output = hierarchy.join(', ')
+        output = hierarchy_arr.first(6).reverse.reject{ |t| t== '#' }.join(', ')
       end
       final_predictions.push({ hash: t['payload']['hash'], output: output, type: t['payload']['type']  })
     end
@@ -34,7 +40,7 @@ class MatrixViewController < ActionController::Base
   def matrix_view
     regexes = [ /^([A-Z]{1,2})([0-9]{0,3})$/, /^([0-9]{1,2})([A-Z]{0,3})$/]
     api = ::PropertySearchApi.new(filtered_params: params)
-    api.modify_filtered_params
+    api.modify_range_params
     if check_if_postcode?(params[:str].upcase.strip, regexes)
       api.apply_filters
       api.modify_query
@@ -46,13 +52,8 @@ class MatrixViewController < ActionController::Base
       #parsed_json = {"_shards"=>{"total"=>1, "successful"=>1, "failed"=>0}, "postcode_suggest"=>[{"text"=>"sunningdale", "offset"=>0, "length"=>11, "options"=>[{"text"=>"ascot sunningdale ", "score"=>100.0, "payload"=>{"hash"=>"ASCOT_Sunningdale", "hierarchy_str"=>"Sunningdale|Ascot|Berkshire", "post_code"=>"SL5 0AA", "type"=>"dependent_locality"}}, {"text"=>"leeds alwoodley sunningdale avenue ", "score"=>10.0, "payload"=>{"hash"=>"LEEDS_Alwoodley_Sunningdale Avenue", "hierarchy_str"=>"Sunningdale Avenue|Alwoodley|Leeds|West Yorkshire", "post_code"=>"LS17 7SD", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"york leeman road area sunningdale close ", "score"=>10.0, "payload"=>{"hash"=>"YORK_Leeman Road Area_Sunningdale Close", "hierarchy_str"=>"Sunningdale Close|Leeman Road Area|York|North Yorkshire", "post_code"=>"YO26 5PD", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"london bermondsey (part of) sunningdale close ", "score"=>10.0, "payload"=>{"hash"=>"LONDON_Bermondsey (Part Of)_Sunningdale Close", "hierarchy_str"=>"Sunningdale Close|Bermondsey (Part Of)|London|London", "post_code"=>"SE16 3BU", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"abergele llangernyw sunningdale ", "score"=>10.0, "payload"=>{"hash"=>"ABERGELE_Llangernyw_Sunningdale", "hierarchy_str"=>"Sunningdale|Llangernyw|Abergele|Clwyd", "post_code"=>"LL22 7UB", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"york nether poppleton sunningdale close ", "score"=>10.0, "payload"=>{"hash"=>"YORK_Nether Poppleton_Sunningdale Close", "hierarchy_str"=>"Sunningdale Close|Nether Poppleton|York|North Yorkshire", "post_code"=>"YO26 5PD", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"ascot sunningdale alpine close hancocks mount ", "score"=>10.0, "payload"=>{"hash"=>"ASCOT_Sunningdale_Alpine Close_Hancocks Mount", "hierarchy_str"=>"Hancocks Mount|Alpine Close|Sunningdale|Ascot|Berkshire", "post_code"=>"SL5 9WB", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"ascot sunningdale agincourt ", "score"=>10.0, "payload"=>{"hash"=>"ASCOT_Sunningdale_Agincourt", "hierarchy_str"=>"Agincourt|Sunningdale|Ascot|Berkshire", "post_code"=>"SL5 7SJ", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"manchester beswick sunningdale avenue ", "score"=>10.0, "payload"=>{"hash"=>"MANCHESTER_Beswick_Sunningdale Avenue", "hierarchy_str"=>"Sunningdale Avenue|Beswick|Manchester|Lancashire", "post_code"=>"M11 4HS", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"leigh bedford sunningdale grove ", "score"=>10.0, "payload"=>{"hash"=>"LEIGH_Bedford_Sunningdale Grove", "hierarchy_str"=>"Sunningdale Grove|Bedford|Leigh|Lancashire", "post_code"=>"WN7 2XQ", "type"=>"dependent_thoroughfare_description"}}]}]}
       hash_value = top_suggest_result(parsed_json)
       ## Example of a hash value ASCOT_Sunningdale
-      params[:hash_str] = hash_value
-      params[:hash_type] = 'text'
-      params[:listing_type] = 'Normal'
-    
       ### @filtered_params= {:str=>"Sunningdale", :controller=>"application", :action=>"matrix_view", :hash_str=>"ASCOT_Sunningdale", :hash_type=>"text"}
       ### @query = {size: 10000}
-      api.append_premium_or_featured_filter
       ### {:size=>10000, :filter=>{:and=>{:filters=>[{:term=>{:match_type_str=>"ASCOT_Sunningdale|Normal", :_name=>:match_type_str}}], :or=>{:filters=>[]}}}}
       ### {:str=>"Sunningdale", :controller=>"application", :action=>"matrix_view", :hash_str=>"ASCOT_Sunningdale", :hash_type=>"text", :listing_type=>"Normal"}
       api.apply_filters_except_hash_filter
@@ -178,13 +179,12 @@ class MatrixViewController < ActionController::Base
         filter: filter_hash
       }
     }
-    first_type, hash_value, county_value, post_code, address_unit_val = nil
+    first_type, county_value, post_code, address_unit_val = nil
     if parsed_json['postcode_suggest'][0]['options'].length > 0
       first_type = parsed_json['postcode_suggest'][0]['options'][0]['payload']['type']
-      hash_value = parsed_json['postcode_suggest'][0]['options'][0]['payload']['hash']
       county_value = parsed_json['postcode_suggest'][0]['options'][0]['payload']['county'].capitalize rescue nil
-      post_code = parsed_json['postcode_suggest'][0]['options'][0]['payload']['post_code'] || parsed_json['postcode_suggest'][0]['options'][0]['payload']['postcode']
-      address_unit_val = parsed_json['postcode_suggest'][0]['options'][0]['payload']['hierarchy_str'].split('|')[0]
+      post_code = parsed_json['postcode_suggest'][0]['options'][0]['payload']['postcode']
+      address_unit_val = parsed_json['postcode_suggest'][0]['options'][0]['payload']['hash'].split('_')[0]
     end
     ### query = {:query=>{:filtered=>{:filter=>{:or=>{:filters=>[{:term=>{:match_type_str=>"ASCOT_Sunningdale|Normal", :_name=>:match_type_str}}, {:terms=>{"hashes"=>["ASCOT_Sunningdale"], :_name=>"hashes"}}]}}}}}
     ### dependent_locality__ASCOT_Sunningdale____SL5 0AA
@@ -195,7 +195,7 @@ class MatrixViewController < ActionController::Base
     area, district, sector, unit = compute_postcode_units(post_code) if post_code
 
     ### TODO: Remove ugly hack
-    address_unit_val = address_unit_val.upcase if first_type == 'post_town'
+    address_unit_val = address_unit_val if first_type == 'post_town'
     Rails.logger.info("FIRST_TYPE___#{first_type}___#{address_unit_val}")
     context_map = { first_type => address_unit_val }
     context_map = context_map.with_indifferent_access
@@ -224,7 +224,6 @@ class MatrixViewController < ActionController::Base
     query = {}
     filter_hash[:filter] = [] if filter_hash[:filter].blank?
     response_hash = nil
-    filter_hash = filter_hash[:filter].reject { |e| e.values.first[:_name].to_s == 'match_type_str' || e.values.first[:_name].to_s == 'hashes' }
 
     if filter_hash.is_a?(Hash) && filter_hash[:or] && filter_hash[:or][:filters]
       query[:query] = {
@@ -301,40 +300,11 @@ class MatrixViewController < ActionController::Base
     aggs
   end
 
-  def insert_terms_nested_aggs(aggs, term, nested_term)
-    aggs["#{nested_term}_#{term}_aggs"] = {
-      terms: {
-        field: nested_term,
-        size: 0
-      },
-      aggs: {
-        "#{term}_aggs" => {
-          terms: {
-            field: term,
-            size: 0
-          }
-        }
-      }
-    }
-    aggs
-  end
-
   def append_filtered_aggs(aggs, term, filter_term, filter_value, optional_aggs={})
     aggs["#{term}_aggs"] = { filter: append_term_filter(filter_term, filter_value) }
     aggs["#{term}_aggs"]["aggs"] = {}
     if optional_aggs.empty?
       aggs["#{term}_aggs"]["aggs"]["#{term}_aggs"] = insert_terms_aggs({}, term)["#{term}_aggs"]
-    else
-      aggs["#{term}_aggs"]["aggs"].merge!(optional_aggs)
-    end
-    aggs
-  end
-
-  def append_nested_filtered_aggs(aggs, term, filter_term, filter_value, nested_term, optional_aggs={})
-    aggs["#{term}_aggs"] = { filter: append_term_filter(filter_term, filter_value) }
-    aggs["#{term}_aggs"]["aggs"] = {}
-    if optional_aggs.empty?
-      aggs["#{term}_aggs"]["aggs"]["#{nested_term}_#{term}_aggs"] = insert_terms_nested_aggs({}, term, nested_term)["#{nested_term}_#{term}_aggs"]
     else
       aggs["#{term}_aggs"]["aggs"].merge!(optional_aggs)
     end
