@@ -34,7 +34,7 @@ class PropertyService
   EXTRA_ATTRS = [:property_status_type, :verification_status, :details_completed, :agent_status, :property_id,
                  :claimed_at]
 
-  POSTCODE_ATTRS = [:area, :sector, :district, :unit]
+  POSTCODE_ATTRS = [:area, :sector, :district, :unit, :address, :county, :vanity_url]
 
   DETAIL_ATTRS = LOCALITY_ATTRS + AGENT_ATTRS + VENDOR_ATTRS + EXTRA_ATTRS + POSTCODE_ATTRS + EDIT_ATTRS 
 
