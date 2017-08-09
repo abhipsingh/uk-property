@@ -29,10 +29,10 @@ class PropertyAd < ActiveRecord::Base
       all_locality_levels.each do |each_locality_level|
         hash_str = hash_at_level(each_locality_level, details)
         response["#{each_locality_level.to_s}"] = details[each_locality_level]
-        response["#{each_locality_level.to_s}_hash"] = hash_str
-        response["#{each_locality_level.to_s}_#{each_type.downcase}_count"] = MAX_ADS_HASH[each_type] - PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(service: service).count
-        response["#{each_locality_level.to_s}_#{each_type.downcase}_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(service: service).where(property_id: udprn).select([:id, :created_at]).first
-        response["#{each_locality_level.to_s}_#{each_type.downcase}_oldest_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(service: service).order('created_at ASC').first.created_at rescue nil
+        response["#{each_locality_level.to_s}_hash"] = hash_str if details[each_locality_level] &&   !details[each_locality_level].empty?
+        response["#{each_locality_level.to_s}_#{each_type.downcase}_count"] = MAX_ADS_HASH[each_type] - PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(service: service).count  if details[each_locality_level] &&  !details[each_locality_level.to_s].empty?
+        response["#{each_locality_level.to_s}_#{each_type.downcase}_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(service: service).where(property_id: udprn).select([:id, :expiry_at]).first  if  details[each_locality_level] &&   !details[each_locality_level.to_s].empty?
+        response["#{each_locality_level.to_s}_#{each_type.downcase}_oldest_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(service: service).order('expiry_at ASC').first.expiry_at rescue nil  if details[each_locality_level] &&   !details[each_locality_level.to_s].empty?
       end
       all_postcode_units.each do |each_postcode_unit|
         hash_str = details[each_postcode_unit]

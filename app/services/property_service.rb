@@ -180,8 +180,8 @@ class PropertyService
   end
 
   def self.bulk_details(udprns=[])
-    bulk_details = Rails.configuration.ardb_client.mget(udprns)
-    bulk_details.each do |detail|
+    udprns.map do |udprn|
+      detail = Rails.configuration.ardb_client.get(udprn)
       process_each_detail(detail)
     end
   end

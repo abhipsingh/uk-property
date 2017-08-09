@@ -347,9 +347,11 @@ class AgentsController < ApplicationController
     base_url = "https://s3-us-west-2.amazonaws.com/propertyuk/"
     response = []
     postcodes = ""
+    page_no = params[:page].to_i rescue 0
+    page_size = 20
     if agent
       branch_id = agent.branch_id
-      properties = Agents::Branches::CrawledProperty.where(branch_id: branch_id).select([:id, :postcode, :image_urls, :stored_response, :additional_details, :udprn]).where.not(postcode: nil)
+      properties = Agents::Branches::CrawledProperty.where(branch_id: branch_id).select([:id, :postcode, :image_urls, :stored_response, :additional_details, :udprn]).where.not(postcode: nil).where(udprn: nil).limit(page_size).offset(page_no*page_size)
       properties.each do |property|
         new_row = {}
         new_row['property_id'] = property.id
@@ -368,6 +370,8 @@ class AgentsController < ApplicationController
       params_hash = { postcodes: postcodes, fields: "udprn,building_name,building_number,sub_building_name,post_code,property_status_type,postcode" }
       search_api = PropertySearchApi.new(filtered_params: params_hash)
       search_api.apply_filters
+      search_api.add_not_exists_filter(:property_status_type)
+      search_api.query[:size] = 2000
       body, status = search_api.fetch_data_from_es
       logged_postcodes = []
       body.each do |each_doc|

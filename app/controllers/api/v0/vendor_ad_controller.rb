@@ -6,6 +6,7 @@ module Api
       #### Parameters {"addresses"=>[" 33", " Loder Drive", " City Centre", " HEREFORD", " Herefordshire"], "udprn"=>"10966139", "property_status_type" => 'Rent'}
       def ads_availablity
         if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
+        #if true
           cache_response(params[:udprn].to_i, []) do
             score_map = {
               :county => 6,
@@ -85,10 +86,12 @@ module Api
             hash_value = location[:hash]
             type = location[:type]
             value = location[:value].to_i
+            num_months = params[:months].to_i rescue 1
+            expiry_at = Time.now + num_months.months.from_now
             Rails.logger.info(location)
             if value > 0
               begin
-                ads = PropertyAd.create(hash_str: hash_value, property_id: udprn.to_i, ad_type: PropertyAd::TYPE_HASH[type], service: service)
+                ads = PropertyAd.create(hash_str: hash_value, property_id: udprn.to_i, ad_type: PropertyAd::TYPE_HASH[type], service: service, expiry_at: expiry_at)
                 message[:ads].push(ads)
                 match_type_strs.each do |each_str|
                   if each_str.split('|')[0] == hash_value

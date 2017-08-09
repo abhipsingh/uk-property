@@ -12,7 +12,7 @@ class MatrixViewController < ActionController::Base
     else
       str = params[:str].gsub(',',' ').downcase
     end
-    results, code = get_results_from_es_suggest(str, 50)
+    results, code = get_results_from_es_suggest(str, 20)
     #Rails.logger.info(results)
     predictions = Oj.load(results)['postcode_suggest'][0]['options']
     predictions.each { |t| t['score'] = t['score']*100 if t['payload']['hash'] == params[:str].upcase.strip }
@@ -26,7 +26,7 @@ class MatrixViewController < ActionController::Base
       else
         output = hierarchy.join(', ')
       end
-      final_predictions.push({ hash: t['payload']['hash'], output: output  })
+      final_predictions.push({ hash: t['payload']['hash'], output: output, type: t['payload']['type']  })
     end
     render json: final_predictions, status: code
   end

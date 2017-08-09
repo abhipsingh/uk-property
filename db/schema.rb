@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170805130313) do
+ActiveRecord::Schema.define(version: 20170808145724) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -282,6 +282,7 @@ ActiveRecord::Schema.define(version: 20170805130313) do
     t.datetime "created_at",  null: false
     t.datetime "updated_at",  null: false
     t.integer  "service"
+    t.datetime "expiry_at"
   end
 
   add_index "property_ads", ["property_id", "ad_type", "hash_str"], name: "index_property_ads_on_property_id_and_ad_type_and_hash_str", unique: true, using: :btree
@@ -333,10 +334,11 @@ ActiveRecord::Schema.define(version: 20170805130313) do
     t.string  "uuid"
     t.integer "price"
     t.string  "date"
-    t.string  "udprn"
+    t.integer "udprn"
+    t.string  "property_type"
+    t.string  "age"
+    t.string  "duration"
   end
-
-  add_index "property_historical_details", ["udprn"], name: "index_property_historical_details_on_udprn", using: :btree
 
   create_table "uk_properties", force: :cascade do |t|
     t.string  "post_code"

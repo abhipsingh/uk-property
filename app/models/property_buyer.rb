@@ -49,6 +49,7 @@ class PropertyBuyer < ActiveRecord::Base
       user.email = user.email_id
       user.account_type = "a"
       user.save!
+      #Rails.logger.info(user)
     end
   end
 
