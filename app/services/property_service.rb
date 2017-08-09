@@ -34,9 +34,12 @@ class PropertyService
   EXTRA_ATTRS = [:property_status_type, :verification_status, :details_completed, :agent_status, :property_id,
                  :claimed_at, :sale_prices]
 
-  POSTCODE_ATTRS = [:area, :sector, :district, :unit, :address, :county, :vanity_url, :building_text]
+  POSTCODE_ATTRS = [:area, :sector, :district, :unit, :address, :county, :vanity_url, :building_type]
 
-  DETAIL_ATTRS = LOCALITY_ATTRS + AGENT_ATTRS + VENDOR_ATTRS + EXTRA_ATTRS + POSTCODE_ATTRS + EDIT_ATTRS 
+  ### Additional attrs to be appended
+  ADDITIONAL_ATTRS = [:status_last_updated]
+
+  DETAIL_ATTRS = LOCALITY_ATTRS + AGENT_ATTRS + VENDOR_ATTRS + EXTRA_ATTRS + POSTCODE_ATTRS + EDIT_ATTRS + ADDITIONAL_ATTRS
 
   AGENT_STATUS = {
     lead: 1,
@@ -225,9 +228,19 @@ class PropertyService
       result_hash[each_attr] = values[index+prev_size] if values[index+prev_size] && !values[index+prev_size].empty?
       size += 1
     end
+
+    prev_size = size
+    ADDITIONAL_ATTRS.each_with_index do |each_attr, index|
+      result_hash[each_attr] = values[index+prev_size] if values[index+prev_size] && !values[index+prev_size].empty?
+      size += 1
+    end
     result_hash
   end
 
+  def self.update_udprn(udprn, detail_hash)
+    value_str = form_value_str(detail_hash)
+    set_value_to_key(udprn, value_str)
+  end
 
   def self.form_value_str(detail_hash)
     values = (1..DETAIL_ATTRS.length).map { |e| '' }
