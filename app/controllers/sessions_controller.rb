@@ -6,12 +6,15 @@ class SessionsController < ApplicationController
     # Rails.logger.info(params[:facebook])
     req_params = params[:facebook]
     user_type = params[:user_type]
-    if user_type && ['Vendor', 'Buyer', 'Agent'].include?(user_type)
+    if params[:token].nil? || params[:token].length < 10
+      render json: { message: 'Please pass valid oauth token credentials' } , status: 400
+    elsif user_type && ['Vendor', 'Buyer', 'Agent'].include?(user_type)
       user_type_map = {
         'Agent' => 'Agents::Branches::AssignedAgent',
         'Vendor' => 'Vendor',
         'Buyer' => 'PropertyBuyer'
       }
+      req_params[:token] = params[:token]
       user = user_type_map[user_type].constantize.from_omniauth(req_params)
       
       if user_type == 'Vendor'
@@ -34,7 +37,9 @@ class SessionsController < ApplicationController
       # user_details['uid'] = '1173320732780684'
       user_details.delete('password')
       user_details.delete('password_digest')
-      render json: { message: 'Successfully created a session', user_type: user_details, details: user.as_json }, status: 200
+      #Rails.logger.info(req_params)
+      command = AuthenticateUser.call(req_params['email'], "12345678", user_type_map[user_type].constantize)
+      render json: { message: 'Successfully created a session', auth_token: command.result, details: user.as_json }, status: 200
     else
       render json: { message: 'Not able to find user' }, status: 400
     end
