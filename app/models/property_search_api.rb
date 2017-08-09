@@ -160,12 +160,22 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
   end
 
   def filter
-    inst = self
-    modify_filtered_params
-    append_premium_or_featured_filter
-    inst.apply_filters
-    inst.modify_query
-    body, status = fetch_data_from_es
+    body = []
+    status = 200
+    if @filtered_params.has_key?(:listing_type) && !@filtered_params[:listing_type].nil?
+      ad_type = PropertyAd::TYPE_HASH[@filtered_params[:listing_type]]
+      service = nil
+      @filtered_params[:property_status_type] == 'Rent' ? service = 1 : service = 2
+      udprns = PropertyAd.where(hash_str: @filtered_params[:hash_str], service: service, ad_type: ad_type).pluck(:udprn)
+      body = PropertyService.bulk_details(udprns)  
+    else
+      inst = self
+      modify_filtered_params
+      # append_premium_or_featured_filter
+      inst.apply_filters
+      inst.modify_query
+      body, status = fetch_data_from_es
+    end
     return { results: body }, status
   end
 
