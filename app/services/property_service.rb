@@ -19,6 +19,25 @@ class PropertyService
                   :inner_area, :outer_area, :property_brochure_url, :video_walkthrough_url, :dream_price, :asking_price, :offers_price,
                   :fixed_price, :offers_over, :area_type
                 ]
+  LOCALITY_ATTRS = [:postcode, :post_town, :dependent_locality, :double_dependent_locality, :thoroughfare_descriptor,
+                    :dependent_thoroughfare_description, :building_number, :building_name, :sub_building_name, :po_box_no,
+                    :department_name, :organization_name, :udprn, :postcode_type, :su_organisation_indicator, :delivery_point_suffix]
+
+  AGENT_ATTRS = [:agent_id, :assigned_agent_name, :assigned_agent_email, :assigned_agent_mobile, 
+                 :assigned_agent_office_number, :assigned_agent_image_url, :assigned_agent_branch_name, 
+                 :assigned_agent_branch_number, :assigned_agent_branch_address, :assigned_agent_branch_logo, 
+                 :assigned_agent_branch_email, :agent_status
+               ]
+
+  VENDOR_ATTRS = [:vendor_id]
+
+  EXTRA_ATTRS = [:property_status_type, :verification_status, :details_completed, :agent_status, :property_id,
+                 :claimed_at]
+
+  POSTCODE_ATTRS = [:area, :sector, :district, :unit]
+
+  DETAIL_ATTRS = LOCALITY_ATTRS + AGENT_ATTRS + VENDOR_ATTRS + EXTRA_ATTRS + POSTCODE_ATTRS + EDIT_ATTRS 
+
   AGENT_STATUS = {
     lead: 1,
     assigned: 2
@@ -159,5 +178,55 @@ class PropertyService
     status = result.code
     return body, status
   end
+
+  def self.bulk_details(udprns=[])
+    bulk_details = Rails.application.ardb_client.mget(udprns)
+    bulk_details.each do |detail|
+      process_each_detail(detail)
+    end
+  end
+
+  def self.process_each_detail(detail_str)
+    values = detail_str.split(',')
+    result_hash = {}
+    size = 0
+    prev_size = 0
+    LOCALITY_ATTRS.each_with_index do |each_attr, index|
+      result_hash[each_attr] = values[index+prev_size] if values[index+prev_size] && !values[index+prev_size].empty?
+      size += 1
+    end
+
+    prev_size = size
+    EDIT_ATTRS.each_with_index do |each_attr, index|
+      result_hash[each_attr] = values[index+prev_size] if values[index+prev_size] && !values[index+prev_size].empty?
+      size += 1
+    end
+
+    prev_size = size
+    AGENT_ATTRS.each_with_index do |each_attr, index|
+      result_hash[each_attr] = values[index+prev_size] if values[index+prev_size] && !values[index+prev_size].empty?
+      size += 1
+    end
+
+    prev_size = size
+    VENDOR_ATTRS.each_with_index do |each_attr, index|
+      result_hash[each_attr] = values[index+prev_size] if values[index+prev_size] && !values[index+prev_size].empty?
+      size += 1
+    end
+
+    prev_size = size
+    EXTRA_ATTRS.each_with_index do |each_attr, index|
+      result_hash[each_attr] = values[index+prev_size] if values[index+prev_size] && !values[index+prev_size].empty?
+      size += 1
+    end
+
+    prev_size = size
+    POSTCODE_ATTRS.each_with_index do |each_attr, index|
+      result_hash[each_attr] = values[index+prev_size] if values[index+prev_size] && !values[index+prev_size].empty?
+      size += 1
+    end
+    result_hash
+  end
+
 end
 
