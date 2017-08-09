@@ -24,70 +24,8 @@ class PropertySearchApi
             ]
 
   #### The list of statuses are 'Green', 'Amber', 'Red'.
-
-  STREET_VIEW_URLS = [
-    "https://s3-us-west-2.amazonaws.com/propertyuk/0000196e88581b8e149fcdedfa2f09a63ac73886.jpg",
-    "https://s3-us-west-2.amazonaws.com/propertyuk/00001f4db96b63762cd64500458c6dedb22100a6.jpg",
-    "https://s3-us-west-2.amazonaws.com/propertyuk/00002f32044b5d8e6b6a4acc5a51afb3ecb75268.jpg",
-    "https://s3-us-west-2.amazonaws.com/propertyuk/0000316abcb9f9cac277ab59c63e975b4af40177.jpg"
-  ]
-
-  STREET_VIEW_UDPRNS = [ 21724275, 53478695, 2962965, 25400727, 6711263, 26544243, 470169, 11292578, 4359896, 25867127 ]
-
-  AGENT_LOGOS = [ 4523, 4524, 4525, 4526, 4527, 4528, 4529, 4530, 4531, 4532 ]
-  TIMES = (1..10).to_a
-  UNITS = ['minutes', 'hours', 'seconds']
-  PRICE_TYPES = [:fixed_price, :asking_price, :offers_over]
-
-  AGENT_PROFILE_IMAGE_URLS = [
-    "https://st.zoocdn.com/zoopla_static_agent_logo_(66951).png",
-    "https://st.zoocdn.com/zoopla_static_agent_logo_(44631).data"
-  ]
-
-  DESCRIPTIONS = ['We are delighted to offer this well maintained modern two bedroom purpose built flat situated within easy walking distance of Barking Town Centre. Property benefits from recent redecoration throughout and would idealy suit a professional couple or small working family.
-
-This two bedroom second floor flat has been lovingly redecorated throughout and boasts two double bedrooms, main bedroom is fitted, a luxury bathroom wc with shower over bath, modern fitted kitchen with appliances and a spacious L shaped lounge/ diner. The property benefits from allocated parking and communal gardens. Located just few minutes walk from Barking station. Your earliest inspection in advised.', 'This recently refurbished two double bedroom top floor flat with lift access offers spacious, bright and airy accomodation throughout. Located in this convenient position close to transport links with easy access to Barking town centre.
-
-Call now to view this recently renovated two bedroom flat which benefits from a new fitted kitchen and luxury bathroom wc. This property boasts two double bedrooms a spacious livingroom with direct access balcony, a newly kitchen with appliances, a luxury bathroom wc with shower over bath. Outside is communal gardens and own garage.', 'Call now to view this one bedroom first floor flat located in this popular location, opposite Barking Station, this property has been well maintained throughout and is available now.
-
-Bairstow Eves are pleased to offer this lovely one bedroom apartment located across the road from Barking station. The property benefits from a good size reception room open plan to kitchen area with direct access to the roof terrace. Other features include a fitted bathroom, electric heating, double glazing, security entry phone system and concierge service and the added benefit of secure underground parking.']
-
-  NAMES = ['Boris Stuart', 'John Smith', 'Adam Galloway']
-
+  ### Please see the previous commits to see what existed here
   RANDOM_SEED_MAP = {
-    property_type: ["Barn conversion","Bungalow","Cottage","Country house","Detached house","Detached bungalow","End terrace house","Equestrian property","Farm","Barn conversion/farmhouse","Farmhouse","Flat","Houseboat","Link-detached house","Lodge","Maisonnette","Mews house","Mobile/park home","Semi-detached house","Semi-detached bungalow","Studio","Terraced house","Terraced bungalow","Town house"],
-    property_status_type: ["Green", "Amber", "Red"],
-    verification_status: [ true, false ],
-    monitoring_type: ["Yes", 'No'],
-    beds: (1..10).to_a,
-    baths: (1..10).to_a,
-    receptions: (1..10).to_a,
-    chain_free: ["Yes", "No"],
-    tenure: ["Freehold","Share of freehold","Leasehold"],
-    epc: ["Yes", "No"],
-    cost_per_month: (1000..5000).step(100).to_a,
-    budget: (100000..1000000).step(10000).to_a,
-    price: (100000..1000000).step(10000).to_a,
-    property_style: ["Period","New build","Contemporary","Purpose built","Thatched","Mansion block","Low build","Council","Park home","Don’t know","Barn conversion","Church conversion","Other conversion"],
-    floors: (1..6).to_a,
-    listed_status: ["None","Grade I","Grade II","Grade II*","Locally listed"],
-    decorative_condition: ["Newly refurbished","Excellent","Good","Average","Needs modernisation"],
-    central_heating: ["None","Partial","Throughout"],
-    parking_type: ["Single garage","Double garage","Underground","Off street","On street/residents","None"],
-    outside_space_type: ["Private garden","Communal garden","Roof terrace","Terrace","Balcony","None"],
-    additional_features_type: ["Attractive views","Ensuite bathroom","Loft/attic","Rural/secluded","Basement/cellar","Fireplace","Outbuildings/stables","Swimming pool","Bespoke fixtures","Gated","Penthouse","Tennis court","Conservatory","Gym/sauna","Period features","Waterfront","Double glazing","Laundry/utility room","Porter/security","Wood floors"],
-    internal_property_size: (1000..10000).to_a,
-    improvement_spend: (1000..10000).to_a,
-    year_built: (1955..2015).to_a,
-    photos: ["Yes", "No"],
-    listing_type: ["Basic", "Premium", "Featured"],
-    floorplan: ["Yes", "No"],
-    street_view_image_url: STREET_VIEW_URLS,
-    agent_employee_profile_image: AGENT_PROFILE_IMAGE_URLS,
-    agent_employee_name: ['John Adams', 'John Smith', 'John Clarke'],
-    agent_employee_mobile_number: ['9876543210', '4567890123', '345780921'],
-    agent_employee_email_address: ['a@b.com', 'b@c.com', 'c@d.com'],
-    added_by: ['Us']
   }
 
   BUYER_STATUS_HASH = {
@@ -469,55 +407,8 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
         #  RANDOM_SEED_MAP.each do |key, values|
         #    doc[key] = values.sample(1).first
         #  end
-        # doc[:address] = google_api_crawler.address(response_arr[index])
-        # doc[:year_built] = doc[:year_built].to_s+"-01-01"
-        # doc[:date_added] = Time.at((start_date.to_f - ending_date.to_f)*rand + start_date.to_f).utc.strftime('%Y-%m-%d')
-        # doc[:external_property_size] = doc[:internal_property_size] + 100
-        # doc[:total_property_size] = doc[:external_property_size] + 100
-        # doc[:additional_features_type] = [doc[:additional_features_type]]
-        # doc[:current_valuation] = (doc[:price].to_f/(1.3)).to_i
-        # doc[:valuation_date] = (1..30).to_a.sample(1).first.days.ago.to_date.to_s
-        # dream_price_greater_than_valuation = [true, false].sample
-        # if dream_price_greater_than_valuation
-        #   doc[:dream_price] = (1.1 * doc[:price]).to_i
-        # else
-        #   doc[:dream_price] = (0.9 * doc[:price]).to_i
-        # end
-        # doc[:dream_price] = doc[:price]
-        # doc[:last_sale_price] = ((doc[:price].to_f)/(2.3)).to_f
-        # doc[:last_sale_price_date] = (1..5).to_a.sample(1).first.years.ago.to_date.to_s
-        # doc[:description] = 'Lorem Ipsum'
-        # doc[:agent_branch_name] = names.sample(1).first
-        # doc[:assigned_agent_employee_name] = NAMES.sample(1).first
-        # doc[:assigned_agent_employee_address] = "5 Bina Gardens"
-        # doc[:assigned_agent_employee_image] = nil
-        # doc[:last_updated_date] = "2015-09-21"
-        # # doc[:agent_logo] = "http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/prop.jpg"
-        # doc[:broker_branch_contact] = "020 3641 4259"
-        # doc[:date_updated] = 3.days.ago.to_date.to_s
-        # # doc[:agent_id] = 1234
-        # if doc[:photos] == "Yes"
-        #   doc[:photo_count] = 0
-        #   doc[:photo_urls] = []
-        # else
-        #   doc[:photo_urls] = []
-        # end
 
-        # # doc[:broker_logo] = "http://ec2-52-66-124-42.ap-south-1.compute.amazonaws.com/prop3.jpg"
-        # doc[:agent_contact] = "020 3641 4259"
-        # description = ''
-        # doc[:description] = characters.sample(1).first.times do
-        #   description += alphabets.sample(1).first
-        # end
-        # ### Process last sale price
-        # doc[:last_sale_price] = (doc[:price] * 0.7).to_i
-
-        # ### Status last updated
-        # doc[:status_last_updated] = (150..365).to_a.sample.days.ago.to_time.strftime("%Y-%m-%d %H:%M:%S").to_s
-
-        # ### Last verified on
-        # doc[:verification_time] = (150..365).to_a.sample.days.ago.to_time.strftime("%Y-%m-%d %H:%M:%S").to_s
-
+        ### Please see from the past commits to see the history of this method
         # process_doc_with_conditions(doc)
 
         body.push({ update:  { _index: Rails.configuration.address_index_name, _type: 'address', _id: udprn, data: { doc: doc } }})
@@ -529,99 +420,8 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     end
   end
 
-  def self.random_time
-    number = TIMES.sample(1).first
-    unit = UNITS.sample(1).first
-    str = "#{number} #{unit} ago"
-  end
-
+  ### See past commits to check the method
   def self.process_doc_with_conditions(doc)
-    #### Street view is common to all
-    street_view_updrn = STREET_VIEW_UDPRNS.sample(1).first
-    street_view_url = "https://s3-us-west-2.amazonaws.com/propertyuk/#{street_view_updrn}_street_view.jpg"
-
-    ### Street view url is random for both the images
-    doc[:photos] = [street_view_url]
-    doc[:street_view_image_url] = street_view_url
-
-    ############### Generic for all verified and unverified properties
-    if doc[:verification_status] == true
-
-      ### Agent logo
-      agent_id =  AGENT_LOGOS.sample(1).first
-      doc[:agent_logo] = "https://s3-us-west-2.amazonaws.com/propertyuk/agent_logo_#{agent_id}.jpg"
-      doc[:broker_logo] = "https://s3-us-west-2.amazonaws.com/propertyuk/agent_logo_#{agent_id}.jpg"
-
-      ### listing updated
-      doc[:last_listing_updated] = random_time
-
-      ### Types of property
-      property_types = [ 'Semi-detached house', 'Detached house', 'Flat', 'Terraced house' ]
-      doc[:property_type] = property_types.sample(1).first
-
-      ### Tenure
-      tenure = ['Freehold', 'Leasehold'].sample(1).first
-      doc[:tenure] = tenure
-
-      ### Descriptions
-      description = DESCRIPTIONS.sample(1).first
-      doc[:description] = description
-
-      ### Green property status type specific fields
-      if doc[:property_status_type] == 'Green'
-        price_type = PRICE_TYPES.sample(1).first
-        doc[price_type] = doc[:price]
-      elsif doc[:property_status_type] == 'Amber'
-        doc[:current_valuation] = doc[:price]
-      end
-
-      ### Date of valuation
-      doc[:valuation_date] = (1..365).to_a.sample.days.ago.to_date.to_s
-
-      ### Price last updated
-      doc[:price_last_updated] = (1..365).to_a.sample.days.ago.to_time.strftime("%Y-%m-%d %H:%M:%S").to_s
-
-      ### Handle the case where verification status is still pending
-    else
-      ### Agent logo
-      doc[:agent_logo] = nil
-      doc[:broker_logo] = nil
-
-      ### Valuation
-      historical_detail = PropertyHistoricalDetail.where(udprn: doc[:udprn]).last
-      doc[:valuation] = historical_detail.price
-      doc[:valuation_date] = historical_detail.date.split(' ')[0] rescue nil
-
-      ### Beds, baths and receptions
-      doc[:beds] = nil
-      doc[:baths] = nil
-      doc[:receptions] = nil
-
-      ### Types of property
-      doc[:property_type] = nil
-
-      ### Tenure
-      doc[:tenure] = nil
-
-      ### Property size
-      doc[:internal_property_size] = nil
-      doc[:external_property_size] = nil
-      doc[:total_property_size] = nil
-
-      ### Description
-      doc[:description] = nil
-
-      ### listing updated
-      doc[:last_listing_updated] = random_time
-
-      ### Last sale date
-      doc[:last_sale_date] = (1..365).to_a.sample.days.ago.to_date.to_s
-
-      ### Price last updated
-      doc[:price_last_updated] = nil
-
-    end
-    
   end
 
   def self.transfer_data_from_es_to_key_value_store(scroll_id)
@@ -645,10 +445,6 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     end
     
   end
-
-  def self.es_attrs
-    FIELDS[:terms].map { |e| e.to_s[0..e.to_s.length-2].to_sym }
-  end
  
   ### Used for getting matched properties (count only)
   def matching_property_count
@@ -659,7 +455,6 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     count = Oj.load(body)['hits']['total'] rescue 0
     return count, status
   end
-  
 
   def self.post_url_new(query = {}, index_name='property_details', type_name='property_detail')
     uri = URI.parse(URI.encode("#{ES_EC2_URL}/_search/scroll"))
@@ -669,50 +464,6 @@ Bairstow Eves are pleased to offer this lovely one bedroom apartment located acr
     body = result.body
     status = result.code
     return body, status
-  end
-
-  def self.get_bulk_addresses
-    query = {
-      size: 10000,
-      query: {
-        match_all: {}
-      }
-    }
-    p = PropertySearchApi.new(filtered_params: {a: :b})
-    response, code = p.post_url(query, Rails.configuration.address_index_name, 'address')
-    p code
-    JSON.parse(response)['hits']['hits']
-  end
-
-  def form_query(str)
-    inst = self
-    area, sector, district, unit = search_flats_for_postcodes(str)
-    if area
-      inst.append_term_filter_query('area', area) unless area.nil?
-    end
-    if district
-      inst.append_term_filter_query('district', district) unless area.nil?
-    end
-    if sector
-      inst.append_term_filter_query('sector', sector) unless area.nil?
-    end
-    if unit
-      inst.append_term_filter_query('unit', unit) unless area.nil?
-    end
-    return inst
-  end
-
-  def search_flats_for_postcodes(str)
-    area_unit, sector_unit = str.split(' ')
-    regexes = [ /^([A-Z]{1,2})([0-9]{0,3})$/, /^([0-9]{1,2})([A-Z]{0,3})$/]
-    area = area_unit.match(regexes[0])[1]
-    district = area_unit unless area_unit.match(regexes[0])[2].empty?
-    sector, unit = nil
-    if  sector_unit && sector_unit.match(regexes[1])
-      sector = district + sector_unit.match(regexes[1])[1]
-      unit = area_unit + sector_unit unless sector_unit.match(regexes[1])[2].empty?
-    end
-    return area, sector, district, unit
   end
 
 end
