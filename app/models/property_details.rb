@@ -47,7 +47,13 @@ class PropertyDetails
 
   def self.details(udprn)
     details = PropertyService.bulk_details([udprn]).first
+    details['address'] = address(details)
+    #details['vanity_url'] = vanity_url(details['address'])
     { '_source' => details }
+  end
+
+  def self.vanity_url(address)
+    address.split(',').map{|t| t.strip.split(' ').map{|k| k.downcase}.join('-') }.join('-')
   end
 
   ### Always returns the udprns of the properties which have the same beds, baths, receptions,

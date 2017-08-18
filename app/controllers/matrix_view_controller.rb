@@ -16,14 +16,14 @@ class MatrixViewController < ActionController::Base
     else
       str = params[:str].gsub(',',' ').downcase
     end
-    results, code = get_results_from_es_suggest(str, 50)
+    results, code = get_results_from_es_suggest(str, 30)
     #Rails.logger.info(results)
     predictions = Oj.load(results)['postcode_suggest'][0]['options']
     #predictions.each { |t| t['score'] = t['score']*100 if t['payload']['hash'] == params[:str].upcase.strip }
     #predictions.each { |t| t['building_number'] = t['payload']['hash'].split('_')[*100 if t['payload']['hash'] == params[:str].upcase.strip }
     predictions.sort_by!{|t| (1.to_f/t['score'].to_f) }
     final_predictions = []
-    Rails.logger.info(predictions)
+    #Rails.logger.info(predictions)
     udprns = []
     predictions = predictions.each do |t|
       text = t['text']
@@ -40,38 +40,60 @@ class MatrixViewController < ActionController::Base
     predictions = predictions.each_with_index do |t, index|
       text = t['text']
       if text.end_with?('bt')
-        address = details[counter][:address]
-        final_predictions.push({ hash: address, output: address })
+        address = PropertyDetails.address(details[counter])
+        udprn = text.split('_')[0]
+        hash = "@_@_@_@_@_@_@_@_#{udprn}"
+        final_predictions.push({ hash: hash, output: address, type: 'building_type' })
         counter += 1
       elsif text.end_with?('dl') 
-        output = "#{details[counter]['dependent_locality']}, #{details[counter]['post_town']}, #{details[counter]['district']}"
-        final_predictions.push({ hash: output, output: output })
+        output = "#{details[counter]['dependent_locality']} (#{details[counter]['post_town']}, #{details[counter]['district']})"
+        hash = "@_#{details[counter]['post_town']}_#{details[counter]['dependent_locality']}_@_@_@_@_@_@|@_@_#{details[counter]['district']}"
+        final_predictions.push({ hash: hash, output: output , type: 'dependent_locality'})
         counter += 1
       elsif text.end_with?('td')
-        output = "#{details[counter]['thoroughfare_description']}, #{details[counter]['dependent_locality']}, #{details[counter]['sector']}, #{details[counter]['post_town']}, #{details[counter]['district']}"
-        final_predictions.push({ hash: output, output: output })
+        loc = ''
+        details[counter]['dependent_locality'].nil? ? loc = '' : loc = "#{details[counter]['dependent_locality']}, "
+        output = "#{details[counter]['thoroughfare_description']} (#{loc}#{details[counter]['post_town']}, #{details[counter]['district']})"
+        hash = "@_#{details[counter]['post_town']}_#{details[counter]['dependent_locality']}_#{details[counter]['thoroughfare_description']}_@_@_@_@_@|@_@_#{details[counter]['district']}"
+        final_predictions.push({ hash: hash, output: output, type: 'thoroughfare_description' })
         counter += 1
       elsif  text.end_with?('dtd')
-        output = "#{details[counter]['dependent_thoroughfare_description']}, #{details[counter]['dependent_locality']}, #{details[counter]['sector']}, #{details[counter]['post_town']}, #{details[counter]['district']}"
-        final_predictions.push({ hash: output, output: output })
+        loc = ''
+        details[counter]['dependent_locality'].nil? ? loc = '' : loc = "#{details[counter]['dependent_locality']}, "
+        output = "#{details[counter]['dependent_thoroughfare_description']} (#{loc}#{details[counter]['post_town']}, #{details[counter]['district']})"
+        hash = "@_#{details[counter]['post_town']}_#{details[counter]['dependent_locality']}_@_#{details[counter]['dependent_thoroughfare_description']}_@_@_@_@|@_@_#{details[counter]['district']}"
+        final_predictions.push({ hash: hash, output: output, type: 'dependent_thoroughfare_description' })
         counter += 1
       elsif text.start_with?('district') 
         output = "#{details[counter]['district']}, #{details[counter]['post_town']}"
-        final_predictions.push({ hash: output, output: output })
+        hash = "@_#{details[counter]['post_town']}_@_@_@_@_@_@_@|@_@_#{details[counter]['district']}"
+        final_predictions.push({ hash: hash, output: output, type: 'district' })
         counter += 1
       elsif text.start_with?('sector') 
-        output = "#{details[counter]['sector']}, #{details[counter]['dependent_locality']}"
-        final_predictions.push({ hash: output, output: output })
+        loc = ''
+        dl = nil
+        details[counter]['dependent_locality'].nil? ? loc = '' : loc = ", #{details[counter]['dependent_locality']}"
+        output = "#{details[counter]['sector']}#{loc}"
+        details[counter]['dependent_locality'].nil? ? dl = '@' : dl = details[counter]['dependent_locality']
+        hash = "@_@_#{dl}_@_@_@_@_@_@|@_#{details[counter]['sector']}_@"
+        final_predictions.push({ hash: hash, output: output, type: 'sector' })
         counter += 1
       elsif text.start_with?('unit')
-        output = "#{details[counter]['unit']}, #{details[counter]['dependent_thoroughfare_description']}, #{details[counter]['thoroughfare_description']}, #{details[counter]['dependent_locality']}"
-        final_predictions.push({ hash: output, output: output })
+        street = nil
+        details[counter]['dependent_thoroughfare_description'].nil? ? street = details[counter]['thoroughfare_description'] : street = details[counter]['dependent_thoroughfare_description']
+        output = "#{details[counter]['unit']}, #{street}"
+        hash = "@_@_@_@_@_@_@_@_@|#{details[counter]['unit']}_@_@"
+        final_predictions.push({ hash: hash, output: output, type: 'unit' })
         counter += 1
       elsif text.start_with?('post_town') || text.start_with?('county')
-        final_predictions.push({ hash: text.split('|')[1], output: text.split('|')[1] })
+        output = text.split('|')[1].split('_').join(', ')
+        hash_str = nil
+        text.split('|')[0] == 'county' ? hash_str = "#{output}_@" : hash_str = "@_#{output.split(',')[0]}"
+        hash = "#{hash_str}_@_@_@_@_@_@_@_@"
+        final_predictions.push({ hash: hash, output: output, type: text.split('|')[0] })
       end
     end
-    Rails.logger.info(details)
+    #Rails.logger.info(details)
     final_predictions = final_predictions.uniq{|t| t[:hash] }
     render json: final_predictions, status: code
   end

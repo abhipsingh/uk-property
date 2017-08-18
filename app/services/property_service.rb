@@ -274,5 +274,45 @@ class PropertyService
     ardb_client.set(udprn.to_s, value_str)
   end
 
+
+  def self.update_full_ardb_db
+    udprns = []
+    count = 0
+    county_map = JSON.parse(File.read("county_map.json"))
+    post_towns = ["BELFAST", "HOLYWOOD", "DONAGHADEE", "NEWTOWNARDS", "BALLYNAHINCH", "DROMORE", "HILLSBOROUGH", "LISBURN", "CRUMLIN", "DOWNPATRICK", "CASTLEWELLAN", "BANBRIDGE", "NEWRY", "NEWTOWNABBEY", "CARRICKFERGUS", "BALLYCLARE", "LARNE", "ANTRIM", "BALLYMENA", "MAGHERAFELT", "MAGHERA", "LONDONDERRY", "LIMAVADY", "COLERAINE", "BALLYMONEY", "BALLYCASTLE", "PORTSTEWART", "PORTRUSH", "BUSHMILLS", "ARMAGH", "CRAIGAVON", "CALEDON", "AUGHNACLOY", "DUNGANNON", "ENNISKILLEN", "FIVEMILETOWN", "CLOGHER", "AUGHER", "OMAGH", "COOKSTOWN", "CASTLEDERG", "STRABANE"]
+    File.foreach('/mnt3/corrected_royal.csv') do |line|
+      fields = line.strip.split(',')
+      if post_towns.include?(fields[1])
+        udprn = fields[12].to_i
+        details = PropertyService.bulk_details([udprn]).first
+        if details && !details.empty?
+          county = fields.last
+          post_town = fields[-2]
+          dependent_locality = fields[-3]
+          original_post_town = fields[1]
+          original_dependent_locality = fields[2]
+          original_post_town = fields[1]
+          original_county = county_map[original_post_town]
+          post_town.empty? ? post_town = original_post_town : post_town = ''
+          dependent_locality.empty? ? dependent_locality = original_dependent_locality : dependent_locality = ''
+          county.empty? ? county = original_county : county = ''
+          post_town = post_town.split(' ').map{|t| t.capitalize}.join(' ')
+          details[:county] = county
+          details[:post_town] = post_town
+          details[:dependent_locality] = dependent_locality
+          details[:double_dependent_locality] = nil
+          details[:vanity_url] = nil
+          details[:address] = nil
+          PropertyService.update_udprn(udprn, details)  
+        else
+          udprns.push(udprn)
+        end
+      end
+      p "#{count/10000}" if count % 10000 == 0
+      count += 1
+    end
+    p udprns
+  end
+
 end
 

@@ -30,7 +30,6 @@
       "claimed_at":{"type":"date","format":"yyyy-MM-dd HH:mm:ss Z"},
       "decorative_condition":{"type":"string","index":"not_analyzed"},
       "dependent_locality":{"type":"string","index":"not_analyzed"},
-      "dependent_thoroughfare":{"type":"string","index":"not_analyzed"},
       "dependent_thoroughfare_description":{"type":"string","index":"not_analyzed"},
       "district":{"type":"string","index":"not_analyzed"},
       "double_dependent_locality":{"type":"string","index":"not_analyzed"},
@@ -50,5 +49,6 @@
       "thoroughfare_description":{"type":"string","index":"not_analyzed"},
       "unit":{"type":"string","index":"not_analyzed"},
       "vendor_id":{"type":"integer"},
+      "udprn":{"type":"integer"},
       "verification_status":{"type":"boolean"}
 }}}}
