@@ -190,49 +190,51 @@ class PropertyService
   end
 
   def self.process_each_detail(detail_str)
-    values = detail_str.split('|')
     result_hash = {}
-    size = 0
-    prev_size = 0
-    LOCALITY_ATTRS.each_with_index do |each_attr, index|
-      form_value(result_hash, values, index+prev_size, each_attr)
-      size += 1
-    end
-
-    prev_size = size
-    AGENT_ATTRS.each_with_index do |each_attr, index|
-      form_value(result_hash, values, index+prev_size, each_attr)
-      size += 1
-    end
-
-    prev_size = size
-    VENDOR_ATTRS.each_with_index do |each_attr, index|
-      form_value(result_hash, values, index+prev_size, each_attr)
-      size += 1
-    end
-
-    prev_size = size
-    EXTRA_ATTRS.each_with_index do |each_attr, index|
-      form_value(result_hash, values, index+prev_size, each_attr)
-      size += 1
-    end
-
-    prev_size = size
-    POSTCODE_ATTRS.each_with_index do |each_attr, index|
-      form_value(result_hash, values, index+prev_size, each_attr)
-      size += 1
-    end
-
-    prev_size = size
-    EDIT_ATTRS.each_with_index do |each_attr, index|
-      form_value(result_hash, values, index+prev_size, each_attr)
-      size += 1
-    end
-
-    prev_size = size
-    ADDITIONAL_ATTRS.each_with_index do |each_attr, index|
-      form_value(result_hash, values, index+prev_size, each_attr)
-      size += 1
+    if detail_str
+      values = detail_str.split('|')
+      size = 0
+      prev_size = 0
+      LOCALITY_ATTRS.each_with_index do |each_attr, index|
+        form_value(result_hash, values, index+prev_size, each_attr)
+        size += 1
+      end
+  
+      prev_size = size
+      AGENT_ATTRS.each_with_index do |each_attr, index|
+        form_value(result_hash, values, index+prev_size, each_attr)
+        size += 1
+      end
+  
+      prev_size = size
+      VENDOR_ATTRS.each_with_index do |each_attr, index|
+        form_value(result_hash, values, index+prev_size, each_attr)
+        size += 1
+      end
+  
+      prev_size = size
+      EXTRA_ATTRS.each_with_index do |each_attr, index|
+        form_value(result_hash, values, index+prev_size, each_attr)
+        size += 1
+      end
+  
+      prev_size = size
+      POSTCODE_ATTRS.each_with_index do |each_attr, index|
+        form_value(result_hash, values, index+prev_size, each_attr)
+        size += 1
+      end
+  
+      prev_size = size
+      EDIT_ATTRS.each_with_index do |each_attr, index|
+        form_value(result_hash, values, index+prev_size, each_attr)
+        size += 1
+      end
+  
+      prev_size = size
+      ADDITIONAL_ATTRS.each_with_index do |each_attr, index|
+        form_value(result_hash, values, index+prev_size, each_attr)
+        size += 1
+      end
     end
     result_hash
   end
