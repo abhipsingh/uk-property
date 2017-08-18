@@ -138,28 +138,36 @@ class SessionsController < ApplicationController
   ### Sends an email to the buyer's email address for registration
   #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/buyers/signup/' -d '{ "email"  : "jackie.bing1@gmail.com" }'
   def buyer_signup
-    email = params[:email]
-    salt_str = email
-    verification_hash = BCrypt::Password.create salt_str
-    VerificationHash.create(hash_value: verification_hash, email: email, entity_type: 'PropertyBuyer')
-    email_link = 'http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=' + verification_hash  + '&user_type=Buyer'
-
-    params_hash = { verification_hash: verification_hash, email: email, link: email_link }
-    UserMailer.signup_email(params_hash).deliver_now
-    render json: { message:  'Please check your email id and click on the link sent'}, status: 200
+    email = params[:email].strip
+    if PropertyBuyer.where(email: email).count == 0
+      salt_str = email
+      verification_hash = BCrypt::Password.create salt_str
+      VerificationHash.create(hash_value: verification_hash, email: email, entity_type: 'PropertyBuyer')
+      email_link = 'http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=' + verification_hash  + '&user_type=Buyer'
+  
+      params_hash = { verification_hash: verification_hash, email: email, link: email_link }
+      UserMailer.signup_email(params_hash).deliver_now
+      render json: { message:  'Please check your email id and click on the link sent'}, status: 200
+    else
+      render json: { message:  'Email has already been registered'}, status: 400
+    end
   end
 
   ### Sends an email to the vendor's email address for registration
   #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/vendors/signup/' -d '{ "email"  : "jackie.bing2@gmail.com" }'
   def vendor_signup
-    email = params[:email]
-    salt_str = email
-    verification_hash = BCrypt::Password.create salt_str
-    VerificationHash.create(hash_value: verification_hash, email: email, entity_type: 'Vendor')
-    email_link = 'http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=' + verification_hash + '&user_type=Vendor'
-    params_hash = { verification_hash: verification_hash, email: email, link: email_link }
-    VendorMailer.signup_email(params_hash).deliver_now
-    render json: { message:  'Please check your email id and click on the link sent'}, status: 200
+    email = params[:email].strip
+    if Vendor.where(email: email).count == 0
+      salt_str = email
+      verification_hash = BCrypt::Password.create salt_str
+      VerificationHash.create(hash_value: verification_hash, email: email, entity_type: 'Vendor')
+      email_link = 'http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=' + verification_hash + '&user_type=Vendor'
+      params_hash = { verification_hash: verification_hash, email: email, link: email_link }
+      VendorMailer.signup_email(params_hash).deliver_now
+      render json: { message:  'Please check your email id and click on the link sent'}, status: 200
+    else 
+      render json: { message:  'Email has already been registered'}, status: 400
+    end
   end
 
   ### Given a verification hash, get the email address for vendor and property buyers
@@ -199,7 +207,11 @@ class SessionsController < ApplicationController
   def buyer_details
     authenticate_request('Buyer')
     if @current_user
-      render json: @current_user.as_json, status: 200
+      details = @current_user.as_json
+      details['buying_status'] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[details['buying_status']]
+      details['funding'] = PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[details['funding']]
+      details['status'] = PropertyBuyer::REVERSE_STATUS_HASH[details['status']]
+      render json: details, status: 200
     end
   end
 

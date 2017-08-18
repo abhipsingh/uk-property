@@ -18,8 +18,8 @@ class PropertyService
                   :inner_area, :outer_area, :property_brochure_url, :video_walkthrough_url, :dream_price, :asking_price, :offers_price,
                   :fixed_price, :offers_over, :area_type
                 ]
-  LOCALITY_ATTRS = [:postcode, :post_town, :dependent_locality, :double_dependent_locality, :thoroughfare_descriptor,
-                    :dependent_thoroughfare_description, :building_number, :building_name, :sub_building_name, :po_box_no,
+  LOCALITY_ATTRS = [:postcode, :post_town, :dependent_locality, :double_dependent_locality, :dependent_thoroughfare_description,
+                    :thoroughfare_description, :building_number, :building_name, :sub_building_name, :po_box_no,
                     :department_name, :organization_name, :udprn, :postcode_type, :su_organisation_indicator, :delivery_point_suffix]
 
   AGENT_ATTRS = [:agent_id, :assigned_agent_name, :assigned_agent_email, :assigned_agent_mobile, 

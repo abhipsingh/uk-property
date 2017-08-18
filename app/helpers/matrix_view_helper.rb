@@ -2,11 +2,13 @@ module MatrixViewHelper
   POSTCODE_MATCH_MAP = {
       'unit' => [
         ['unit', 'sector'],
-        ['dependent_thoroughfare_description', 'sector']
+        ['dependent_thoroughfare_description', 'sector'],
+        ['thoroughfare_description', 'sector']
       ],
       'sector' => [
         ['unit', 'sector'],
         ['dependent_thoroughfare_description', 'sector'],
+        ['thoroughfare_description', 'sector'],
         ['dependent_locality', 'district'],
         ['sector', 'district']
       ],
@@ -27,15 +29,23 @@ module MatrixViewHelper
   ADDRESS_UNIT_MATCH_MAP = {
       'unit' => [
         ['dependent_thoroughfare_description', 'sector'],
+        ['thoroughfare_description', 'sector'],
         ['unit', 'sector']
       ],
       'dependent_thoroughfare_description' => [
-        ['dependent_thoroughfare_description', 'sector'],
-        ['unit', 'sector']
+        ['dependent_thoroughfare_description', 'area'],
+        ['thoroughfare_description', 'area'],
+        ['unit', 'area']
+      ],
+      'thoroughfare_description' => [
+        ['dependent_thoroughfare_description', 'area'],
+        ['thoroughfare_description', 'area'],
+        ['unit', 'thoroughfare_description']
       ],
       'dependent_locality' => [
-        ['dependent_thoroughfare_description', 'dependent_locality'],
-        ['dependent_locality', 'district'],
+        ['dependent_thoroughfare_description', 'area'],
+        ['thoroughfare_description', 'area'],
+        ['dependent_locality', 'area'],
         ['sector', 'dependent_locality']
       ],
       'post_town' => [
@@ -52,7 +62,7 @@ module MatrixViewHelper
 
   def construct_aggs_query_from_fields(area, district, sector, unit, postcode_context, postcode_type, query, filter_index, search_type=:postcode, context_hash={})
     aggs = {}
-    fields = ['area', 'county', 'post_town', 'district', 'dependent_locality', 'sector', 'dependent_thoroughfare_description', 'unit'].map(&:pluralize)
+    fields = ['area', 'county', 'post_town', 'district', 'dependent_locality', 'sector', 'thoroughfare_description', 'dependent_thoroughfare_description', 'unit'].map(&:pluralize)
     search_type == :postcode ? match_map = POSTCODE_MATCH_MAP : match_map = ADDRESS_UNIT_MATCH_MAP
     match_map[postcode_type].each do |field_type|
       field = field_type[0]
@@ -74,11 +84,11 @@ module MatrixViewHelper
     end
   end
 
-  def construct_response_body_postcode(area, district, sector, unit, es_response, postcode_type, search_type=:postcode, context_hash={})
+  def construct_response_body_postcode(area, district, sector, unit, es_response, postcode_type, search_type=:postcode, context_hash={}, address_map={})
     es_response = es_response.with_indifferent_access
     response_hash = {}
     response_hash[:type] = postcode_type
-    fields = ['area', 'county', 'post_town', 'district', 'dependent_locality', 'sector', 'dependent_thoroughfare_description', 'unit']
+    fields = ['area', 'county', 'post_town', 'district', 'dependent_locality', 'sector', 'thoroughfare_description', 'dependent_thoroughfare_description', 'unit']
     fields.map { |e| response_hash[e.pluralize] = [] }
     search_type == :postcode ? match_map = POSTCODE_MATCH_MAP : match_map = ADDRESS_UNIT_MATCH_MAP
     agg_fields = match_map[postcode_type]
@@ -93,17 +103,17 @@ module MatrixViewHelper
         end
       end
     end
-    construct_main_fields(response_hash, es_response)
+    construct_main_fields(response_hash, es_response, address_map)
     response_hash
   end
 
-  def construct_main_fields(response_hash, es_response)
-    fields = ['area', 'county', 'post_town', 'district', 'dependent_locality', 'sector', 'dependent_thoroughfare_description', 'unit']
+  def construct_main_fields(response_hash, es_response, address_map)
+    fields = ['area', 'county', 'post_town', 'district', 'dependent_locality', 'sector',  'thoroughfare_description','dependent_thoroughfare_description', 'unit']
     fields.map { |e| response_hash[e] = nil }
-    if es_response[:hits] && es_response[:hits][:hits] && es_response[:hits][:hits].count > 0
+      first_doc = address_map
+      first_doc = first_doc.with_indifferent_access
       fields.each do |field|
-        response_hash[field] = es_response[:hits][:hits].first[:_source][field]
+        response_hash[field] = first_doc[field]
       end
-    end
   end
 end

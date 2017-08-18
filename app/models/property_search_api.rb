@@ -8,7 +8,7 @@ class PropertySearchApi
   ES_EC2_HOST = Rails.configuration.remote_es_host
   FIELDS = {
     terms: [ :property_types, :monitoring_types, :property_status_types, :parking_types, :outside_space_types, :additional_feature_types, :udprns, :vendor_ids, :postcodes ],
-    term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :floorplan, :chain_free, :council_tax_band, :verification_status, :agent_id, :district, :udprn, :vendor_id, :postcode, :sector, :unit, :building_name, :building_number, :sub_building_name, :property_status_type, :postcode ],
+    term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :floorplan, :chain_free, :council_tax_band, :verification_status, :agent_id, :district, :udprn, :vendor_id, :postcode, :sector, :unit, :building_name, :building_number, :sub_building_name, :property_status_type, :postcode, :post_town, :county, :dependent_locality, :double_dependent_locality, :dependent_thoroughfare_description, :thoroughfare_description ],
     range: [ :cost_per_month, :date_added, :floors, :year_built, :inner_area, :outer_area, :total_area, :improvement_spend, :beds, :baths, :receptions, :current_valuation, :dream_price ],
   }
 
@@ -23,7 +23,7 @@ class PropertySearchApi
             ]
 
   ADDRESS_LOCALITY_LEVELS = [:county, :post_town, :dependent_locality, :double_dependent_locality, 
-                             :dependent_thoroughfare_description, :thoroughfare_description, :sub_building_name,
+                             :thoroughfare_description, :dependent_thoroughfare_description, :sub_building_name,
                              :building_name, :building_number]
 
   #### The list of statuses are 'Green', 'Amber', 'Red'.
@@ -81,6 +81,7 @@ class PropertySearchApi
     inst = inst.append_range_filters
     inst = inst.append_sort_filters
     shift_query_keys
+    #Rails.logger.info(inst.filtered_params)
     Rails.logger.info(inst.query)
   end
 
@@ -157,10 +158,10 @@ class PropertySearchApi
     ### Change the filtered params in such a way that hashes are not used at all
     if @filtered_params.has_key?(:hash_str) && @filtered_params.has_key?(:hash_type)
       type = @filtered_params[:hash_type]
-      if @filtered_params[:hash_str].split('_').length == 6
+      if @filtered_params[:hash_str].split('_').length > 1
         arr = @filtered_params[:hash_str].split('_')
-        ADDRESS_LOCALITY_LEVELS.reverse.each_with_index do |level, index|
-          @filtered_params[level] = arr[index] if arr[index] != '#'
+        ADDRESS_LOCALITY_LEVELS.each_with_index do |level, index|
+          @filtered_params[level] = arr[index] if !arr[index].nil? && arr[index] != '@'
         end
       else
         @filtered_params[type.to_sym] = @filtered_params[:hash_str]
@@ -177,6 +178,7 @@ class PropertySearchApi
 
     @filtered_params.delete(:hash_str)
     @filtered_params.delete(:hash_type)    
+    @filtered_params.delete(:county) if !@filtered_params[:post_town].nil?
   end
 
   def modify_filtered_params

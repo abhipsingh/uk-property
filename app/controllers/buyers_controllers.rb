@@ -11,8 +11,8 @@ class BuyersController < ActionController::Base
 		budget_from = params[:budget_from].to_i if params[:budget_from]
 		budget_to = params[:budget_to].to_i if params[:budget_to]
 		status = PropertyBuyer::STATUS_HASH[params[:status].downcase.to_sym] if params[:status]
-		funding_status = PropertyBuyer::FUNDING_STATUS_HASH[params[:funding_status]] if params[:funding_status]
-		biggest_problem = PropertyBuyer::BIGGEST_PROBLEM_HASH[params[:biggest_problem]] if params[:biggest_problem]
+		funding_status = PropertyBuyer::FUNDING_STATUS_HASH[params[:funding]] if params[:funding]
+		biggest_problem = params[:biggest_problems] if params[:biggest_problems]
 		chain_free = params[:chain_free] if !params[:chain_free].nil?
 		Rails.logger.info("CHAIN_FREE_#{chain_free}")
 		buyer.buying_status = buying_status if buying_status
@@ -20,7 +20,7 @@ class BuyersController < ActionController::Base
 		buyer.budget_to = budget_to if budget_to
 		buyer.status = status if status
 		buyer.funding = funding_status if funding_status
-		buyer.biggest_problem = biggest_problem if biggest_problem
+		buyer.biggest_problems = biggest_problem if biggest_problem
 		buyer.chain_free = chain_free unless chain_free.nil?
 		buyer.mobile = params[:mobile] if params[:mobile]
 		buyer.image_url = params[:image_url] if params[:image_url]
@@ -35,9 +35,14 @@ class BuyersController < ActionController::Base
 		buyer.max_baths = params[:max_baths] if params[:max_baths]
 		buyer.min_receptions = params[:min_receptions] if params[:min_receptions]
 		buyer.max_receptions = params[:max_receptions] if params[:max_receptions]
+		buyer.mortgage_approval = params[:mortgage_approval] if params[:mortgage_approval]
 		buyer.password = params[:password] if params[:password]
 		buyer.save!
-		render json: { message: 'Saved buyer successfully', details: buyer.as_json }, status: 201
+    details = buyer.as_json
+      details['buying_status'] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[details['buying_status']]
+      details['funding'] = PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[details['funding']]
+      details['status'] = PropertyBuyer::REVERSE_STATUS_HASH[details['status']]
+		render json: { message: 'Saved buyer successfully', details: details }, status: 201
 	end
 
 end

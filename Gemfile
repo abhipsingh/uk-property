@@ -2,6 +2,7 @@ source 'https://rubygems.org'
 # Bundle edge Rails instead: gem 'rails', github: 'rails/rails'
 ruby '2.3.0'
 
+gem 'redisearch-rb'
 gem 'activemodel', '4.2.0'
 gem 'actionmailer', '4.2.0'
 gem 'railties', '4.2.0'

@@ -74,7 +74,9 @@ class VendorsController < ApplicationController
     vendor_params = params[:vendor]
     vendor = Vendor.where(id: params[:id].to_i).first
     if vendor
-      vendor.name = vendor_params[:name] if vendor_params[:name]
+      vendor.first_name = vendor_params[:first_name] if vendor_params[:first_name]
+      vendor.last_name = vendor_params[:last_name] if vendor_params[:last_name]
+      vendor.name = vendor_params[:first_name] + vendor_params[:last_name] if vendor_params[:first_name] && params[:last_name]
       vendor.mobile = vendor_params[:mobile] if vendor_params[:mobile]
       vendor.password = vendor_params[:password] if vendor_params[:password]
       vendor.image_url = vendor_params[:image_url] if vendor_params[:image_url]

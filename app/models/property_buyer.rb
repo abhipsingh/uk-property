@@ -28,8 +28,8 @@ class PropertyBuyer < ActiveRecord::Base
 
   BIGGEST_PROBLEM_HASH = {
     'Money' => 1,
-    "Cannot Sell current property" => 2,
-    "Cannot Sell right property" => 3
+    "Can't sell current property" => 2,
+    "Can't sell right property" => 3
   }
 
   REVERSE_BIGGEST_PROBLEM_HASH = BIGGEST_PROBLEM_HASH.invert
