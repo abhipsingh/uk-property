@@ -33,25 +33,25 @@ module MatrixViewHelper
         ['unit', 'sector']
       ],
       'dependent_thoroughfare_description' => [
-        ['dependent_thoroughfare_description', 'area'],
-        ['thoroughfare_description', 'area'],
-        ['unit', 'area']
+        ['dependent_thoroughfare_description', 'dependent_locality'],
+        ['thoroughfare_description', 'dependent_locality'],
+        ['unit', 'dependent_thoroughfare_description']
       ],
       'thoroughfare_description' => [
-        ['dependent_thoroughfare_description', 'area'],
-        ['thoroughfare_description', 'area'],
+        ['dependent_thoroughfare_description', 'dependent_locality'],
+        ['thoroughfare_description', 'dependent_locality'],
         ['unit', 'thoroughfare_description']
       ],
       'dependent_locality' => [
-        ['dependent_thoroughfare_description', 'area'],
-        ['thoroughfare_description', 'area'],
-        ['dependent_locality', 'area'],
+        ['dependent_thoroughfare_description', 'dependent_locality'],
+        ['thoroughfare_description', 'dependent_locality'],
+        ['dependent_locality', 'post_town'],
         ['sector', 'dependent_locality']
       ],
       'post_town' => [
         ['dependent_locality', 'post_town'],
-        ['post_town', 'area'],
-        ['district', 'area']
+        ['post_town', 'county'],
+        ['district', 'post_town']
       ],
       'county' => [
         ['area', 'county'],
@@ -60,16 +60,17 @@ module MatrixViewHelper
       ]
   }
 
-  def construct_aggs_query_from_fields(area, district, sector, unit, postcode_context, postcode_type, query, filter_index, search_type=:postcode, context_hash={})
+  def construct_aggs_query_from_fields(area, district, sector, unit, postcode_context, postcode_type, query, filter_index, context_hash={}, search_type=:postcode)
     aggs = {}
     fields = ['area', 'county', 'post_town', 'district', 'dependent_locality', 'sector', 'thoroughfare_description', 'dependent_thoroughfare_description', 'unit'].map(&:pluralize)
     search_type == :postcode ? match_map = POSTCODE_MATCH_MAP : match_map = ADDRESS_UNIT_MATCH_MAP
+    context_hash = context_hash.with_indifferent_access
     match_map[postcode_type].each do |field_type|
       field = field_type[0]
       context = field_type[1]
       context_value = context_hash[context] || binding.local_variable_get(context)
       context_value = context_value if context == 'post_town'
-      Rails.logger.info("#{aggs},#{field},#{context}, #{context_value}, #{context_hash}") 
+      # Rails.logger.info("#{aggs},#{field},#{context}, #{context_value}, #{context_hash}") 
       append_filtered_aggs(aggs, field, context, context_value)
     end
     query[:size] = 1
@@ -115,5 +116,50 @@ module MatrixViewHelper
       fields.each do |field|
         response_hash[field] = first_doc[field]
       end
+  end
+
+  def get_address_and_type(text)
+    hash = nil
+    if text.end_with?('dl')
+      udprn = text.split('_')[0].to_i
+      details = PropertyDetails.details(udprn)['_source']
+      hash = details
+      hash[:type] = 'dependent_locality'
+    elsif text.end_with?('dtd')
+      udprn = text.split('_')[0].to_i
+      details = PropertyDetails.details(udprn)['_source']
+      hash = details
+      hash[:type] = 'dependent_thoroughfare_description'
+    elsif text.end_with?('td')
+      udprn = text.split('_')[0].to_i
+      details = PropertyDetails.details(udprn)['_source']
+      hash = details
+      hash[:type] = 'thoroughfare_description'
+    elsif text.start_with?('post_town')
+      post_town = text.split('|')[1].split('_')[0]
+      county = text.split('|')[1].split('_')[1]
+      hash = { post_town: post_town, county: county }
+      hash[:type] = 'post_town'
+    elsif text.start_with?('county')
+      county = text.split('|')[1]
+      hash = { county: county }
+      hash[:type] = 'county'
+    elsif text.start_with?('sector')
+      udprn = text.split('|')[1].to_i
+      details = PropertyDetails.details(udprn)['_source']
+      hash = details
+      hash[:type] = 'sector'
+    elsif text.start_with?('district')
+      udprn = text.split('|')[1].to_i
+      details = PropertyDetails.details(udprn)['_source']
+      hash = details
+      hash[:type] = 'district'
+    elsif text.start_with?('unit')
+      udprn = text.split('|')[1].to_i
+      details = PropertyDetails.details(udprn)['_source']
+      hash = details
+      hash[:type] = 'unit'
+    end
+    return hash
   end
 end
