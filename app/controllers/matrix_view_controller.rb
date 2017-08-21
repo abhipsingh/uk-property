@@ -88,7 +88,7 @@ class MatrixViewController < ActionController::Base
       elsif text.start_with?('post_town') || text.start_with?('county')
         output = text.split('|')[1].split('_').join(', ')
         hash_str = nil
-        text.split('|')[0] == 'county' ? hash_str = "#{output}_@" : hash_str = "@_#{output.split(',')[0]}"
+        text.split('|')[0] == 'county' ? hash_str = "#{output}_@" : hash_str = "#{output.split(',')[1].strip}_#{output.split(',')[0]}"
         hash = "#{hash_str}_@_@_@_@_@_@_@_@"
         final_predictions.push({ hash: hash, output: output, type: text.split('|')[0] })
       end
@@ -102,33 +102,29 @@ class MatrixViewController < ActionController::Base
     regexes = [[/^([A-Z]{1,2})([0-9]{0,3})$/, /^([A-Z]{1,2})([0-9]{1,3})([A-Z]{0,2})$/], /^([0-9]{1,2})([A-Z]{0,3})$/]
     api = ::PropertySearchApi.new(filtered_params: params)
     api.modify_range_params
-    if check_if_postcode?(params[:str].upcase.strip, regexes)
-      str = params[:str].upcase
-      results, code = get_results_from_es_suggest(str, 1)
-      parsed_json = JSON.parse(results)
-      api.apply_filters
-      api.modify_query
-      res, code = aggs_data_for_postcode(params[:str].upcase.strip, api.query, parsed_json)
+    api.apply_filters
+    api.modify_query
+    hash = { hash_str: params[:hash_str] }
+    PropertySearchApi.construct_hash_from_hash_str(hash)
+    hash.delete(:hash_str)
+    type_of_str(hash)
+    area, district, sector, unit = nil
+    if [:district, :sector, :unit].include?(hash[:type])
+      type = hash[:type]
     else
-      str = params[:str].strip.gsub(',',' ').downcase
-      results, code = get_results_from_es_suggest(str, 1)
-      parsed_json = JSON.parse(results)
-      #parsed_json = {"_shards"=>{"total"=>1, "successful"=>1, "failed"=>0}, "postcode_suggest"=>[{"text"=>"sunningdale", "offset"=>0, "length"=>11, "options"=>[{"text"=>"ascot sunningdale ", "score"=>100.0, "payload"=>{"hash"=>"ASCOT_Sunningdale", "hierarchy_str"=>"Sunningdale|Ascot|Berkshire", "post_code"=>"SL5 0AA", "type"=>"dependent_locality"}}, {"text"=>"leeds alwoodley sunningdale avenue ", "score"=>10.0, "payload"=>{"hash"=>"LEEDS_Alwoodley_Sunningdale Avenue", "hierarchy_str"=>"Sunningdale Avenue|Alwoodley|Leeds|West Yorkshire", "post_code"=>"LS17 7SD", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"york leeman road area sunningdale close ", "score"=>10.0, "payload"=>{"hash"=>"YORK_Leeman Road Area_Sunningdale Close", "hierarchy_str"=>"Sunningdale Close|Leeman Road Area|York|North Yorkshire", "post_code"=>"YO26 5PD", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"london bermondsey (part of) sunningdale close ", "score"=>10.0, "payload"=>{"hash"=>"LONDON_Bermondsey (Part Of)_Sunningdale Close", "hierarchy_str"=>"Sunningdale Close|Bermondsey (Part Of)|London|London", "post_code"=>"SE16 3BU", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"abergele llangernyw sunningdale ", "score"=>10.0, "payload"=>{"hash"=>"ABERGELE_Llangernyw_Sunningdale", "hierarchy_str"=>"Sunningdale|Llangernyw|Abergele|Clwyd", "post_code"=>"LL22 7UB", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"york nether poppleton sunningdale close ", "score"=>10.0, "payload"=>{"hash"=>"YORK_Nether Poppleton_Sunningdale Close", "hierarchy_str"=>"Sunningdale Close|Nether Poppleton|York|North Yorkshire", "post_code"=>"YO26 5PD", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"ascot sunningdale alpine close hancocks mount ", "score"=>10.0, "payload"=>{"hash"=>"ASCOT_Sunningdale_Alpine Close_Hancocks Mount", "hierarchy_str"=>"Hancocks Mount|Alpine Close|Sunningdale|Ascot|Berkshire", "post_code"=>"SL5 9WB", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"ascot sunningdale agincourt ", "score"=>10.0, "payload"=>{"hash"=>"ASCOT_Sunningdale_Agincourt", "hierarchy_str"=>"Agincourt|Sunningdale|Ascot|Berkshire", "post_code"=>"SL5 7SJ", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"manchester beswick sunningdale avenue ", "score"=>10.0, "payload"=>{"hash"=>"MANCHESTER_Beswick_Sunningdale Avenue", "hierarchy_str"=>"Sunningdale Avenue|Beswick|Manchester|Lancashire", "post_code"=>"M11 4HS", "type"=>"dependent_thoroughfare_description"}}, {"text"=>"leigh bedford sunningdale grove ", "score"=>10.0, "payload"=>{"hash"=>"LEIGH_Bedford_Sunningdale Grove", "hierarchy_str"=>"Sunningdale Grove|Bedford|Leigh|Lancashire", "post_code"=>"WN7 2XQ", "type"=>"dependent_thoroughfare_description"}}]}]}
-      hash_value = top_suggest_result(parsed_json)
-      ## Example of a hash value ASCOT_Sunningdale
-      ### @filtered_params= {:str=>"Sunningdale", :controller=>"application", :action=>"matrix_view", :hash_str=>"ASCOT_Sunningdale", :hash_type=>"text"}
-      ### @query = {size: 10000}
-      ### {:size=>10000, :filter=>{:and=>{:filters=>[{:term=>{:match_type_str=>"ASCOT_Sunningdale|Normal", :_name=>:match_type_str}}], :or=>{:filters=>[]}}}}
-      ### {:str=>"Sunningdale", :controller=>"application", :action=>"matrix_view", :hash_str=>"ASCOT_Sunningdale", :hash_type=>"text", :listing_type=>"Normal"}
-      api.apply_filters
-      api.modify_query
-      ### Only query changes
-      ### {:size=>20, :filter=>{:and=>{:filters=>[{:term=>{:match_type_str=>"ASCOT_Sunningdale|Normal", :_name=>:match_type_str}}, {:terms=>{"hashes"=>["ASCOT_Sunningdale"], :_name=>"hashes"}}], :or=>{:filters=>[]}}}, :from=>0}
-      #Rails.logger.info(api.query)
-      #Rails.logger.info(api.filtered_params)
-      res, code = find_results(parsed_json, api.query[:filter]) 
-      res = JSON.parse(res) if res.is_a?(String)
-      # add_new_keys(res["hits"]["hits"][0]["_source"]) if res["hits"]["hits"].length > 0
+      type = PropertySearchApi::POSTCODE_LEVELS.reverse.select { |e| hash[e] }.first
+    end
+    area, district, sector, unit = compute_postcode_units(hash[type]) if hash[type]
+    hash[:area] = area
+    hash[:district] = district
+    hash[:sector] = sector
+    hash[:unit] = unit
+    code = 200
+    Rails.logger.info(hash[:type])
+    if [:district, :sector, :unit].include?(hash[:type])
+      res, code = aggs_data_for_postcode(hash, api.query)
+    else
+      res, code = find_results(hash, api.query[:filter]) 
     end
     render json: res, status: code
   end
@@ -240,7 +236,7 @@ class MatrixViewController < ActionController::Base
     parsed_json['postcode_suggest'][0]['options'][0]['payload']['hash'] rescue nil
   end
 
-  def find_results(parsed_json, filter_hash)
+  def find_results(hash, filter_hash)
     aggs = {}
     query = {}
 
@@ -249,50 +245,41 @@ class MatrixViewController < ActionController::Base
         filter: filter_hash
       }
     }
-    first_type, post_code, address_unit_val, hash = nil
-    if parsed_json['postcode_suggest'][0]['options'].length > 0
-      text = parsed_json['postcode_suggest'][0]['options'][0]['text']
-      hash = get_address_and_type(text)
-      first_type = hash[:type]
-      post_code = hash[:postcode]
-    end
+    first_type = hash[:type]
     ### query = {:query=>{:filtered=>{:filter=>{:or=>{:filters=>[{:term=>{:match_type_str=>"ASCOT_Sunningdale|Normal", :_name=>:match_type_str}}, {:terms=>{"hashes"=>["ASCOT_Sunningdale"], :_name=>"hashes"}}]}}}}}
     ### dependent_locality__ASCOT_Sunningdale____SL5 0AA
     # Rails.logger.info("PARSED_JSON__#{parsed_json}")
 
-    area, district, sector, unit = nil
-    if post_code
-      area = hash[:area]
-      district = hash[:district]
-      sector = hash[:sector]
-      unit = hash[:unit]
-    end
+    area = hash[:area]
+    district = hash[:district]
+    sector = hash[:sector]
+    unit = hash[:unit]
 
     context_map = hash
     context_map = context_map.with_indifferent_access
     filter_index = 0
-    # Rails.logger.info("QUERY___#{query}")
-    if first_type == 'county'
+    # Rails.logger.info("QUERY___#{query}__#{context_map}__#{first_type}")
+    if first_type == :county
       construct_aggs_query_from_fields(area, district, sector, unit, 'county', first_type, query, filter_index, context_map, :address)
-    elsif first_type == 'post_town'
+    elsif first_type == :post_town
       construct_aggs_query_from_fields(area, district, sector, unit, 'area', first_type, query, filter_index, context_map, :address)
-    elsif first_type == 'dependent_locality' || first_type == 'double_dependent_locality'
-      first_type = 'dependent_locality'
+    elsif first_type == :dependent_locality
+      first_type = :dependent_locality
       construct_aggs_query_from_fields(area, district, sector, unit, 'district', first_type, query, filter_index, context_map, :address)
-    elsif first_type == 'dependent_thoroughfare_description' || first_type == 'thoroughfare_description'
+    elsif first_type == :dependent_thoroughfare_description || first_type == :thoroughfare_description
       ##first_type = 'dependent_thoroughfare_description'
       construct_aggs_query_from_fields(area, district, sector, unit, 'sector', first_type, query, filter_index, context_map, :address)
-    elsif first_type == 'building_type'
+    elsif first_type == :building_type
       construct_aggs_query_from_fields(area, district, sector, unit, 'unit', first_type, query, filter_index, context_map, :address)
     end
-    # Rails.logger.info(query)
+    Rails.logger.info(query)
     body, status = post_url(Rails.configuration.address_index_name, query, '_search', ES_EC2_URL)
     response = Oj.load(body).with_indifferent_access
     response_hash = construct_response_body_postcode(area, district, sector, unit, response, first_type, :address, context_map, hash)
     return response_hash, status
   end
 
-  def aggs_data_for_postcode(post_code, filter_hash, parsed_json=nil)
+  def aggs_data_for_postcode(hash, filter_hash)
     aggs = {}
     query = {}
     filter_hash[:filter] = [] if filter_hash[:filter].blank?
@@ -333,13 +320,6 @@ class MatrixViewController < ActionController::Base
       query[:query][:filtered][:filter][:or][:filters].push({ and: { filters: [] }})
     end
     filter_index = query[:query][:filtered][:filter][:or][:filters].find_index { |t| t.keys.first.to_s == 'and' }
-    hash = nil
-    if parsed_json['postcode_suggest'][0]['options'].length > 0
-      text = parsed_json['postcode_suggest'][0]['options'][0]['text']
-      address_type = text.split('|')[0]
-      hash[address_type] = post_code
-      hash = get_address_and_type(text)
-    end
 
     # Rails.logger.info("HASH_#{hash}__text#{text}")
     area = hash[:area]
@@ -348,29 +328,29 @@ class MatrixViewController < ActionController::Base
     sector = hash[:sector]
     #Rails.logger.info("QUERY__#{query}")
 
-    if hash[:type] == 'unit'
+    if hash[:type] == :unit
       construct_aggs_query_from_fields(area, district, sector, unit, 'district', 'unit', query, filter_index, hash)
       # Rails.logger.info(query)
       body, status = post_url(Rails.configuration.address_index_name, query, '_search', ES_EC2_URL)
       response = Oj.load(body).with_indifferent_access
       response_hash = construct_response_body_postcode(area, district, sector, unit, response, 'unit', :postcode, hash, hash)
-    elsif hash[:type] == 'district'
+    elsif hash[:type] == :sector
       construct_aggs_query_from_fields(area, district, sector, unit, 'district', 'sector', query, filter_index, hash)
       body, status = post_url(Rails.configuration.address_index_name, query, '_search', ES_EC2_URL)
       response = Oj.load(body).with_indifferent_access
       response_hash = construct_response_body_postcode(area, district, sector, unit, response, 'sector', :postcode, hash, hash)
-    elsif hash[:type] == 'sector'
+    elsif hash[:type] == :district
       construct_aggs_query_from_fields(area, district, sector, unit,'area', 'district', query, filter_index, hash)
       body, status = post_url(Rails.configuration.address_index_name, query, '_search', ES_EC2_URL)
       response = Oj.load(body).with_indifferent_access
       response_hash = construct_response_body_postcode(area, district, sector, unit, response, 'district', :postcode, hash, hash)
-    elsif hash[:type] == 'post_town'
+    elsif hash[:type] == :area
       construct_aggs_query_from_fields(area, district, sector, unit,'area', 'area', query, filter_index, hash)
       body, status = post_url(Rails.configuration.address_index_name, query, '_search', ES_EC2_URL)
       response = Oj.load(body).with_indifferent_access
       response_hash = construct_response_body_postcode(area, district, sector, unit, response, 'area', :postcode, hash, hash)
     end
-    return response_hash, status    
+    return response_hash, status
   end
 
   def compute_postcode_units(postcode)

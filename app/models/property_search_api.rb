@@ -159,29 +159,32 @@ class PropertySearchApi
     end
   end
 
+  def self.construct_hash_from_hash_str(hash)
+    address_levels = hash[:hash_str].split('|')[0]
+    postcode_levels = hash[:hash_str].split('|')[1]
+    if address_levels.split('_').length > 0
+      arr = address_levels.split('_')
+      ADDRESS_LOCALITY_LEVELS.each_with_index do |level, index|
+        hash[level] = arr[index] if !arr[index].nil? && arr[index] != '@'
+      end
+    end
+
+    if postcode_levels && postcode_levels.split('_').length > 0
+      arr = postcode_levels.split('_')
+      POSTCODE_LEVELS.each_with_index do |level, index|
+        if !arr[index].nil? && arr[index] != '@'
+          hash[level] = arr[index] 
+          break
+        end
+      end
+    end
+  end
+
   def modify_filtered_params_hash_str
     ### For hash str
     ### Change the filtered params in such a way that hashes are not used at all
     if @filtered_params.has_key?(:hash_str) && @filtered_params.has_key?(:hash_type)
-      type = @filtered_params[:hash_type]
-      address_levels = @filtered_params[:hash_str].split('|')[0]
-      postcode_levels = @filtered_params[:hash_str].split('|')[1]
-      if address_levels.split('_').length > 0
-        arr = address_levels.split('_')
-        ADDRESS_LOCALITY_LEVELS.each_with_index do |level, index|
-          @filtered_params[level] = arr[index] if !arr[index].nil? && arr[index] != '@'
-        end
-      end
-
-      if postcode_levels && postcode_levels.split('_').length > 0
-        arr = postcode_levels.split('_')
-        POSTCODE_LEVELS.each_with_index do |level, index|
-          if !arr[index].nil? && arr[index] != '@'
-            @filtered_params[level] = arr[index] 
-            break
-          end
-        end
-      end
+      self.class.construct_hash_from_hash_str(@filtered_params)
     end
 
     if @filtered_params.has_key?(:listing_type) && !@filtered_params[:listing_type].nil?
