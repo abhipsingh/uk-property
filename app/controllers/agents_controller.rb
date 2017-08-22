@@ -202,7 +202,7 @@ class AgentsController < ApplicationController
   def invite_vendor
     udprn = params[:udprn].to_i
     original_agent = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i)
-    assigned_agent = Agents::Branches::AssignedAgent.find(params[:assigned_agent].to_i)
+    assigned_agent = Agents::Branches::AssignedAgent.find(params[:assigned_agent_id].to_i)
     if original_agent.branch_id == assigned_agent.branch_id
       agent_id = params[:assigned_agent_id].to_i
       vendor_email = params[:vendor_email]
@@ -217,7 +217,7 @@ class AgentsController < ApplicationController
 
 
   ### Get the agent info who sent the mail to the vendor
-  ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/vendors/invite/udprns/10968961/agents/info?verification_hash=$2a$10$4hIPKrtj8tWQb1oTOcvnnur8Jsr8Wnin30fS7IULXKJWiIl.aTc6q'
+  ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/vendors/invite/udprns/10968961/agents/info?verification_hash=$2a$10$rPk93fpnhYE6lnaUqO/mquXRFT/65F7ab3iclYAqKXingqTKOcwni' -d '{ "password" : "new_password" }'
   def info_for_agent_verification
     verification_hash = params[:verification_hash]
     udprn = params[:udprn]
@@ -489,14 +489,12 @@ class AgentsController < ApplicationController
       mobile: params[:mobile_number],
       password: SecureRandom.hex(8)
     }
-    md5_digest = Digest::MD5.hexdigest(password)
     response = Agents::Branches::AssignedAgent.create!(agent_hash)
     status = 201
-    response[:message] = 'Agent created successfully'
     render json: response, status: status
-  # rescue Exception => e 
-  #   status = 400
-  #   render json: { message: "#{e.message}" } , status: status
+  rescue Exception => e 
+    status = 400
+    render json: { message: "#{e.message}" } , status: status
   end
 
   def test_view
