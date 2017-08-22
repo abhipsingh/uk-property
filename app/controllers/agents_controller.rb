@@ -198,20 +198,26 @@ class AgentsController < ApplicationController
   end
 
   ### Invite vendor to verify the udprn
-  ### curl  -XPOST -H  "Content-Type: application/json"  'http://localhost/agents/23/udprns/10968961/verify' -d '{ "vendor_email" : "test@prophety.co.uk" }'
+  ### curl  -XPOST -H  "Content-Type: application/json"  'http://localhost/agents/23/udprns/10968961/verify' -d '{ "assigned_agent_id": 25, "vendor_email" : "test@prophety.co.uk" }'
   def invite_vendor
     udprn = params[:udprn].to_i
-    agent_id = params[:agent_id].to_i
-    vendor_email = params[:vendor_email]
-    Agents::Branches::AssignedAgent.find(agent_id).send_vendor_email(vendor_email, udprn)
-    render json: {message: 'Message sent successfully'}, status: 200
-  rescue Exception
-   render json: {message: 'Message failed sending'}, status: 400
+    original_agent = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i)
+    assigned_agent = Agents::Branches::AssignedAgent.find(params[:assigned_agent].to_i)
+    if original_agent.branch_id == assigned_agent.branch_id
+      agent_id = params[:assigned_agent_id].to_i
+      vendor_email = params[:vendor_email]
+      Agents::Branches::AssignedAgent.find(agent_id).send_vendor_email(vendor_email, udprn)
+      render json: {message: 'Message sent successfully'}, status: 200
+    else
+      raise 'Branch id doesnt match'
+    end
+  rescue Exception => e
+   render json: {message: "#{e.message} " }, status: 400
   end
 
 
   ### Get the agent info who sent the mail to the vendor
-  ### curl  -XGET -H  "Content-Type: application/json" 'http://localhost/vendors/invite/udprns/10968961/agents/info?verification_hash=$2a$10$4hIPKrtj8tWQb1oTOcvnnur8Jsr8Wnin30fS7IULXKJWiIl.aTc6q'
+  ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/vendors/invite/udprns/10968961/agents/info?verification_hash=$2a$10$4hIPKrtj8tWQb1oTOcvnnur8Jsr8Wnin30fS7IULXKJWiIl.aTc6q'
   def info_for_agent_verification
     verification_hash = params[:verification_hash]
     udprn = params[:udprn]
@@ -219,6 +225,9 @@ class AgentsController < ApplicationController
     if hash_obj
       agent = Agents::Branches::AssignedAgent.where(id: hash_obj.entity_id).last
       if agent
+        password = params[:password]
+        agent.password = password
+        agent.save!
         render json: { details: {agent_name: agent.name, agent_id: agent.id, agent_email: agent.email, udprn: udprn } }, status: 200
       else
         render json: { message: 'Agent not found' }, status: 400
@@ -258,13 +267,14 @@ class AgentsController < ApplicationController
     property_for ||= 'Sale'
     property_status_type = nil
     property_for == 'Sale' ? property_status_type = 'Green' : property_status_type = 'Rent'
-    if params[:verified].to_s == 'true'
-      response, status = PropertyDetails.update_details(client, udprn, { property_status_type: property_status_type, verification_status: true })
-      response['message'] = "Property verification successful." unless status.nil? || status!=200
-    else
-      response['message'] = "Property verification unsuccessful. This incident will be reported" unless status.nil? || status != 200
-      ### TODO: Take further action when the vendor rejects verification
-    end
+    details = { property_status_type: property_status_type }
+    details[:beds] = params[:beds].to_i if params[:beds]
+    details[:baths] = params[:baths].to_i if params[:baths]
+    details[:receptions] = params[:receptions].to_i if params[:receptions]
+    details[:property_type] = params[:property_type] if params[:property_type]
+    details[:dream_price] = params[:dream_price].to_i if params[:dream_price]
+    response, status = PropertyDetails.update_details(client, udprn, details)
+    response['message'] = "Property verification successful." unless status.nil? || status!=200
     render json: response, status: status
   rescue Exception => e
     Rails.logger.info("VENDOR_PROPERTY_VERIFICATION_FAILURE_#{e}")
@@ -462,6 +472,31 @@ class AgentsController < ApplicationController
     else
       render json: { message: 'Group details not found' }, status: 404
     end
+  end
+
+  ### Creates a new agent with a randomized password
+  ### The agent having the email will have to reset the password
+  ### curl -XPOST -H "Content-Type: application/json"  'http://localhost/agents/add/:agent_id' -d '{ "first_name" : "Jack", "last_name" : "Daniels", "title" : "Mr.", "email" : "jack_daniels@prophety.co.uk", "mobile_number" : "876628921", "branch_id" : 1422 }'
+  def create_agent_without_password
+    response = {}
+    agent_hash = {
+      name: params[:first_name] + ' ' + params[:last_name],
+      first_name: params[:first_name],
+      last_name: params[:last_name],
+      title: params[:title],
+      branch_id: params[:branch_id],
+      email: params[:email],
+      mobile: params[:mobile_number],
+      password: SecureRandom.hex(8)
+    }
+    md5_digest = Digest::MD5.hexdigest(password)
+    response = Agents::Branches::AssignedAgent.create!(agent_hash)
+    status = 201
+    response[:message] = 'Agent created successfully'
+    render json: response, status: status
+  # rescue Exception => e 
+  #   status = 400
+  #   render json: { message: "#{e.message}" } , status: status
   end
 
   def test_view

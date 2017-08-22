@@ -186,7 +186,19 @@ class PropertyService
   def self.bulk_details(udprns=[])
     details = []
     details = Rails.configuration.ardb_client.mget(*udprns) if udprns.length > 0
-    details.map{ |detail| process_each_detail(detail) }
+    results = details.map{ |detail| process_each_detail(detail) }
+    results.each_with_index{ |detail, index| detail[:udprn] = udprns[index].to_i }
+    results
+  end
+
+  def self.bulk_set(details_arr)
+    mset_arr = []
+    details_arr.each do |each_elem|
+      mset_arr.push(each_elem[:udprn])
+      value_str = form_value_str(each_elem)
+      mset_arr.push(value_str)
+    end
+    Rails.configuration.ardb_client.mset(*mset_arr) if mset_arr.length > 0
   end
 
   def self.process_each_detail(detail_str)
@@ -280,33 +292,40 @@ class PropertyService
     count = 0
     county_map = JSON.parse(File.read("county_map.json"))
     post_towns = ["BELFAST", "HOLYWOOD", "DONAGHADEE", "NEWTOWNARDS", "BALLYNAHINCH", "DROMORE", "HILLSBOROUGH", "LISBURN", "CRUMLIN", "DOWNPATRICK", "CASTLEWELLAN", "BANBRIDGE", "NEWRY", "NEWTOWNABBEY", "CARRICKFERGUS", "BALLYCLARE", "LARNE", "ANTRIM", "BALLYMENA", "MAGHERAFELT", "MAGHERA", "LONDONDERRY", "LIMAVADY", "COLERAINE", "BALLYMONEY", "BALLYCASTLE", "PORTSTEWART", "PORTRUSH", "BUSHMILLS", "ARMAGH", "CRAIGAVON", "CALEDON", "AUGHNACLOY", "DUNGANNON", "ENNISKILLEN", "FIVEMILETOWN", "CLOGHER", "AUGHER", "OMAGH", "COOKSTOWN", "CASTLEDERG", "STRABANE"]
+    counter = 0
     File.foreach('/mnt3/corrected_royal.csv') do |line|
       fields = line.strip.split(',')
-      if post_towns.include?(fields[1])
-        udprn = fields[12].to_i
-        details = PropertyService.bulk_details([udprn]).first
-        if details && !details.empty?
-          county = fields.last
-          post_town = fields[-2]
-          dependent_locality = fields[-3]
-          original_post_town = fields[1]
-          original_dependent_locality = fields[2]
-          original_post_town = fields[1]
-          original_county = county_map[original_post_town]
-          post_town.empty? ? post_town = original_post_town : post_town = ''
-          dependent_locality.empty? ? dependent_locality = original_dependent_locality : dependent_locality = ''
-          county.empty? ? county = original_county : county = ''
-          post_town = post_town.split(' ').map{|t| t.capitalize}.join(' ')
-          details[:county] = county
-          details[:post_town] = post_town
-          details[:dependent_locality] = dependent_locality
-          details[:double_dependent_locality] = nil
-          details[:vanity_url] = nil
-          details[:address] = nil
-          PropertyService.update_udprn(udprn, details)  
-        else
-          udprns.push(udprn)
+      udprn = fields[12].to_i
+      udprns.push(udprn)
+      details_arr = []
+      if udprns.length == 300
+        arr_details = PropertyService.bulk_details(udprns)
+        arr_details.each_with_index do |details, index|
+          if details && !details.empty?
+            county = fields.last
+            post_town = fields[-2]
+            dependent_locality = fields[-3]
+            original_post_town = fields[1]
+            original_dependent_locality = fields[2]
+            original_post_town = fields[1]
+            original_county = county_map[original_post_town]
+            post_town.empty? ? post_town = original_post_town : post_town = post_town
+            dependent_locality.empty? ? dependent_locality = original_dependent_locality : dependent_locality = dependent_locality
+            county.empty? ? county = original_county : county = county
+            post_town = post_town.split(' ').map{|t| t.capitalize}.join(' ')
+            details[:county] = county
+            details[:post_town] = post_town
+            details[:dependent_locality] = dependent_locality
+            details[:double_dependent_locality] = nil
+            details[:vanity_url] = nil
+            details[:address] = nil
+            details[:udprn] = udprns[index]
+            details_arr.push(details)
+          end
         end
+        PropertyService.bulk_set(details_arr)
+        details_arr = []
+        udprns = []
       end
       p "#{count/10000}" if count % 10000 == 0
       count += 1

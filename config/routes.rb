@@ -218,8 +218,8 @@ Rails.application.routes.draw do
   ### Invite vendors by sending them an email
   post 'agents/:agent_id/udprns/:udprn/verify',                 to: 'agents#invite_vendor'
 
-  ### get info about the agents which invited the vendor who is registering to verify
-  get 'vendors/invite/udprns/:udprn/agents/info',               to: 'agents#info_for_agent_verification'
+  ### get info about the agents which invited the vendor who is registering to verify and change password as well
+  post 'vendors/invite/udprns/:udprn/agents/info',               to: 'agents#info_for_agent_verification'
 
   ### verify info about the agents which invited the vendor who is registering to verify
   post 'vendors/udprns/:udprn/agents/:agent_id/verify',         to: 'agents#verify_property_from_vendor'
@@ -273,6 +273,9 @@ Rails.application.routes.draw do
 
   #### Update basic details of a property by a vendor
   post 'properties/vendor/basic/:udprn/update',                 to: 'properties#update_basic_details_by_vendor'
+
+  ####  Creates a new agent with a randomized password
+  post 'agents/add/:agent_id',                                  to: 'agents#create_agent_without_password'
 
   ### Verify property as green and verified and the agent as assigned agent
   # post 'vendors/udprns/:udprn/agents/:agent_id/verify',         to: 'agents#verify_property_from_agent'

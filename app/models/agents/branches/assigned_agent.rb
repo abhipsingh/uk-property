@@ -275,7 +275,6 @@ module Agents
       def self.from_omniauth(auth)
         new_params = auth.as_json.with_indifferent_access
         user_details = nil
-        #Rails.logger.info(new_params)
         where(new_params.slice(:provider, :uid)).first_or_initialize.tap do |user|
           user.provider = new_params['provider']
           user.uid = new_params['uid']
@@ -286,7 +285,7 @@ module Agents
           user.image_url = "http://graph.facebook.com/#{new_params['uid']}/picture?type=large"
           user.password = "12345678"
           user.oauth_token = new_params['token']
-          user.oauth_expires_at = Time.at(new_params['expires_at'])
+          user.oauth_expires_at = Time.at(new_params['expires_at']) rescue 24.hours.from_now
           user_details = user
         end
         user_details

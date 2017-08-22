@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170814161245) do
+ActiveRecord::Schema.define(version: 20170822110052) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -45,6 +45,8 @@ ActiveRecord::Schema.define(version: 20170814161245) do
     t.string  "website"
     t.text    "verification_hash"
     t.jsonb   "invited_agents"
+    t.string  "rent_email_suffix"
+    t.string  "buy_email_suffix"
   end
 
   add_index "agents_branches", ["district"], name: "index_agents_branches_on_district", using: :btree

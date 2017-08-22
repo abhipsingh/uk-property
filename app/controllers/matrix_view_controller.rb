@@ -46,21 +46,21 @@ class MatrixViewController < ActionController::Base
         final_predictions.push({ hash: hash, output: address, type: 'building_type' })
         counter += 1
       elsif text.end_with?('dl') 
-        output = "#{details[counter]['dependent_locality']} (#{details[counter]['post_town']}, #{details[counter]['district']})"
+        output = "#{details[counter]['dependent_locality']} (#{details[counter]['post_town']}, #{details[counter]['county']}, #{details[counter]['district']})"
         hash = "@_#{details[counter]['post_town']}_#{details[counter]['dependent_locality']}_@_@_@_@_@_@|@_@_#{details[counter]['district']}"
         final_predictions.push({ hash: hash, output: output , type: 'dependent_locality'})
         counter += 1
       elsif  text.end_with?('dtd')
         loc = ''
         details[counter]['dependent_locality'].nil? ? loc = '' : loc = "#{details[counter]['dependent_locality']}, "
-        output = "#{details[counter]['dependent_thoroughfare_description']} (#{loc}#{details[counter]['post_town']}, #{details[counter]['district']})"
+        output = "#{details[counter]['dependent_thoroughfare_description']} (#{loc}#{details[counter]['post_town']}, #{details[counter]['county']}, #{details[counter]['district']})"
         hash = "@_#{details[counter]['post_town']}_#{details[counter]['dependent_locality']}_@_#{details[counter]['dependent_thoroughfare_description']}_@_@_@_@|@_@_#{details[counter]['district']}"
         final_predictions.push({ hash: hash, output: output, type: 'dependent_thoroughfare_description' })
         counter += 1
       elsif text.end_with?('td')
         loc = ''
         details[counter]['dependent_locality'].nil? ? loc = '' : loc = "#{details[counter]['dependent_locality']}, "
-        output = "#{details[counter]['thoroughfare_description']} (#{loc}#{details[counter]['post_town']}, #{details[counter]['district']})"
+        output = "#{details[counter]['thoroughfare_description']} (#{loc}#{details[counter]['post_town']}, #{details[counter]['county']}, #{details[counter]['district']})"
         hash = "@_#{details[counter]['post_town']}_#{details[counter]['dependent_locality']}_#{details[counter]['thoroughfare_description']}_@_@_@_@_@|@_@_#{details[counter]['district']}"
         final_predictions.push({ hash: hash, output: output, type: 'thoroughfare_description' })
         counter += 1
@@ -92,9 +92,11 @@ class MatrixViewController < ActionController::Base
         hash = "#{hash_str}_@_@_@_@_@_@_@_@"
         final_predictions.push({ hash: hash, output: output, type: text.split('|')[0] })
       end
+      final_predictions.last[:building_number] = details[counter-1]['building_number']
     end
     #Rails.logger.info(details)
     final_predictions = final_predictions.uniq{|t| t[:hash] }
+    final_predictions = final_predictions.sort_by{|t| t[:building_number].to_i rescue 0 }
     render json: final_predictions, status: code
   end
 
@@ -104,7 +106,7 @@ class MatrixViewController < ActionController::Base
     api.modify_range_params
     api.apply_filters
     api.modify_query
-    hash = { hash_str: params[:hash_str] }
+    hash = { hash_str: params[:str] }
     PropertySearchApi.construct_hash_from_hash_str(hash)
     hash.delete(:hash_str)
     type_of_str(hash)

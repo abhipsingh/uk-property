@@ -48,6 +48,7 @@ class PropertyDetails
   def self.details(udprn)
     details = PropertyService.bulk_details([udprn]).first
     details['address'] = address(details)
+    details['udprn'] = udprn
     #details['vanity_url'] = vanity_url(details['address'])
     { '_source' => details }
   end
