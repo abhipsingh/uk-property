@@ -277,6 +277,12 @@ Rails.application.routes.draw do
   ####  Creates a new agent with a randomized password
   post 'agents/add/:agent_id',                                  to: 'agents#create_agent_without_password'
 
+  ####  Adds credits to agents
+  post 'agents/credits/add',                                    to: 'agents#add_credits'
+
+  ####  Adds credits to agents
+  get 'agents/credits/history',                                 to: 'agents#credit_history'
+
   ### Verify property as green and verified and the agent as assigned agent
   # post 'vendors/udprns/:udprn/agents/:agent_id/verify',         to: 'agents#verify_property_from_agent'
 

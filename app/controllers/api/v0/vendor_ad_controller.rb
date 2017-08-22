@@ -131,10 +131,6 @@ module Api
         render json: res['version'], status: 200
       end
 
-      def new_payment
-        
-      end 
-
       private
 
       def post_url(index, type = '_suggest', query = {}, url="http://localhost:9200")

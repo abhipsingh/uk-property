@@ -497,8 +497,63 @@ class AgentsController < ApplicationController
     render json: { message: "#{e.message}" } , status: status
   end
 
+  ### Creates a new agent with a randomized password
+  ### The agent having the email will have to reset the password
+  ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" -H "Content-Type: application/json" 'http://localhost/agents/credits/add' -d '{ "stripeEmail" : "abhiuec@gmail.com", "stripeToken":"tok_19WlE9AKL3KAwfPBkWwgTpqt", "credits" : 100 }'
+  def add_credits
+    agent = user_valid_for_viewing?('Agent')
+    if !agent.nil?
+      begin
+        customer = Stripe::Customer.create(
+          email: params[:stripeEmail],
+          card: params[:stripeToken]
+        )
+        amount = Agents::Branches::AssignedAgent::PER_CREDIT_COST*params[:credits].to_i*100 ### In pences
+        charge = Stripe::Charge.create(
+          customer: customer.id,
+          amount: amount,
+          description: 'Add credit to agents Stripe customer',
+          currency: 'GBP'
+        )
+        agent.credit = agent.credit + params[:credits].to_i
+        agent.save!
+        Stripe::Payment.create!(entity_type: 'Agents::Branches::AssignedAgent', entity_id: agent.id, amount: amount)
+        render json: { message: 'Successfully added credits', credits: agent.credit, credits_bought: params[:credits].to_i }, status: 200
+      rescue Exception => e
+        re = Stripe::Refund.create(
+          charge: charge.id,
+          amount: value
+        )
+        Rails.logger.info("REFUND_INITIATED_#{e.message}_#{agent}_#{params[:credits]}")
+        render json: { message: 'Unsuccessful in adding credits' }, status: 401
+      end
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  ### Credits history
+  ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" -H "Content-Type: application/json" 'http://localhost/agents/credits/history'
+  def credit_history
+    agent = user_valid_for_viewing?('Agent')
+    if !agent.nil?
+      page_size = 20
+      offset = params[:page].to_i*page_size
+      payments = Stripe::Payment.where(entity_type: 'Agents::Branches::AssignedAgent', entity_id: agent.id).order('created_at DESC').limit(page_size).offset(offset)
+      render json: { payments: payments }, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
   def test_view
     render "test_view"
+  end
+
+  private
+
+  def user_valid_for_viewing?(klass)
+    AuthorizeApiRequest.call(request.headers, klass).result
   end
 
 end

@@ -12,6 +12,8 @@ module Agents
       ### TODO: Refactoring required. Figure out a better way of dumping details of a user through a consensus
       DETAIL_ATTRS = [:id, :name, :email, :mobile, :branch_id, :title, :office_phone_number, :mobile_phone_number, :image_url, :invited_agents, :provider, :uid]
 
+      PER_CREDIT_COST = 5
+
       ##### All recent quotes for the agent being displayed
       ##### Data being fetched from this function
       ##### Example run the following in irb
@@ -317,6 +319,7 @@ module Agents
       def self.fetch_details(attrs=[], ids=[])
         where(id: ids).select(attrs)
       end
+
 
     end
   end

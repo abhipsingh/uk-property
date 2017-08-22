@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170822110052) do
+ActiveRecord::Schema.define(version: 20170822164456) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -72,6 +72,7 @@ ActiveRecord::Schema.define(version: 20170822110052) do
     t.datetime "oauth_expires_at"
     t.string   "first_name"
     t.string   "last_name"
+    t.integer  "credit",              default: 0
   end
 
   add_index "agents_branches_assigned_agents", ["branch_id"], name: "index_agents_branches_assigned_agents_on_branch_id", using: :btree
@@ -340,6 +341,13 @@ ActiveRecord::Schema.define(version: 20170822110052) do
     t.string  "property_type"
     t.string  "age"
     t.string  "duration"
+  end
+
+  create_table "stripe_payments", force: :cascade do |t|
+    t.integer  "entity_id"
+    t.string   "entity_type"
+    t.integer  "amount"
+    t.datetime "created_at",  null: false
   end
 
   create_table "uk_properties", force: :cascade do |t|

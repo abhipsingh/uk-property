@@ -296,18 +296,18 @@ class PropertyService
     File.foreach('/mnt3/corrected_royal.csv') do |line|
       fields = line.strip.split(',')
       udprn = fields[12].to_i
-      udprns.push(udprn)
+      udprns.push([udprn, fields[1], fields[2], fields[-3], fields[-2], fields[-1]])
       details_arr = []
-      if udprns.length == 300
-        arr_details = PropertyService.bulk_details(udprns)
+      if udprns.length == 400
+        list_udprns = udprns.map{|t| t[0] }
+        arr_details = PropertyService.bulk_details(list_udprns)
         arr_details.each_with_index do |details, index|
           if details && !details.empty?
-            county = fields.last
-            post_town = fields[-2]
-            dependent_locality = fields[-3]
-            original_post_town = fields[1]
-            original_dependent_locality = fields[2]
-            original_post_town = fields[1]
+            county = udprns[index][-1]
+            post_town = udprns[index][-2]
+            dependent_locality = udprns[index][-3]
+            original_dependent_locality = udprns[index][-4]
+            original_post_town = udprns[index][-5]
             original_county = county_map[original_post_town]
             post_town.empty? ? post_town = original_post_town : post_town = post_town
             dependent_locality.empty? ? dependent_locality = original_dependent_locality : dependent_locality = dependent_locality
@@ -319,7 +319,7 @@ class PropertyService
             details[:double_dependent_locality] = nil
             details[:vanity_url] = nil
             details[:address] = nil
-            details[:udprn] = udprns[index]
+            details[:udprn] = udprns[index][0]
             details_arr.push(details)
           end
         end
