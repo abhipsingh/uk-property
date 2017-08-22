@@ -25,10 +25,19 @@ class QuotesController < ApplicationController
   #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/quotes/new' -d '{"agent_id" : 1234, "udprn" : "10966139",  "services_required" : "Ala Carte", "payment_terms" : "Pay upfront", "quote_details" : "\{ \"setup\" : \{ \"price\" : 4500, \"list_of_services\" : \[ \{ \"type\" : \"Photographs\", \"price\" : 4500 \} \]  \}, \"advertising\" : \{ \"price\": 0, \"list_of_services\" : \[ \]\}, \"buyer_qualification\" :  \{ \"price\": 0, \"list_of_services\" : \[ \]  \},  \"schedule_viewings\" : \{ \"price\" : 0, \"list_of_services\" : \[\]  \},  \"sales_progression\" : \{ \"price\" : 0, \"list_of_services\" : \[  \]  \}     \}" }'
   #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/quotes/new' -d '{"agent_id" : 1234, "udprn" : "10966139",  "services_required" : "Fixed Price", "payment_terms" : "Pay upfront", "quote_details" : "\{ \"fixed_price_services_requested\" : \{ \"price\" : 4500, \"list_of_services\" : \[\"Full\"\]  \}  \}" }'
   def new
-    service = QuoteService.new(params[:udprn].to_i)
-    response = service.submit_price_for_quote(params[:agent_id].to_i, params[:payment_terms], 
-                                              params[:quote_details], params[:services_required])
-    render json: response, status: 200
+    agent = user_valid_for_viewing?('Agent')
+    if agent
+      if agent.credit > Agents::Branches::AssignedAgents::QUOTE_CREDIT_LIMIT
+        service = QuoteService.new(params[:udprn].to_i)
+        response = service.submit_price_for_quote(params[:agent_id].to_i, params[:payment_terms], 
+                                                  params[:quote_details], params[:services_required])
+        render json: response, status: 200
+      else
+        render json: { message: "Credits possessed for quotes #{agent.credit},  not more than #{Agents::Branches::AssignedAgents::QUOTE_CREDIT_LIMIT} " }, status: 401
+      end
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
   # rescue Exception => e
     # render json: { message: 'QuotesController#new error occurred' }, status: 200
   end
@@ -66,4 +75,8 @@ class QuotesController < ApplicationController
   end
   
   #### Shows all the properties available for quoting
+  private
+  def user_valid_for_viewing?(klass)
+    AuthorizeApiRequest.call(request.headers, klass).result
+  end
 end

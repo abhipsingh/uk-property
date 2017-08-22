@@ -13,6 +13,8 @@ module Agents
       DETAIL_ATTRS = [:id, :name, :email, :mobile, :branch_id, :title, :office_phone_number, :mobile_phone_number, :image_url, :invited_agents, :provider, :uid]
 
       PER_CREDIT_COST = 5
+      QUOTE_CREDIT_LIMIT = -10
+      LEAD_CREDIT_LIMIT = 0
 
       ##### All recent quotes for the agent being displayed
       ##### Data being fetched from this function

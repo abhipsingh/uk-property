@@ -264,11 +264,20 @@ class EventsController < ApplicationController
   #### When an agent click the claim to a property, the agent gets a chance to visit
   #### the picture. The claim needs to be frozen and the property is no longer available
   #### for claiming.
-  #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/events/property/claim/4745413' -d { "agent_id" : 1235 }
+  #### curl -XPOST -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" -H "Content-Type: application/json" 'http://localhost/events/property/claim/4745413' 
   def claim_property
-    property_service = PropertyService.new(params[:udprn].to_i)
-    message, status = property_service.claim_new_property(params[:agent_id].to_i)
-    render json: { message: message }, status: status
+    agent = user_valid_for_viewing?('Agent')
+    if !agent.nil?
+      if agent.credit > Agents::Branches::AssignedAgents::LEAD_CREDIT_LIMIT
+        property_service = PropertyService.new(params[:udprn].to_i)
+        message, status = property_service.claim_new_property(params[:agent_id].to_i)
+        render json: { message: message }, status: status
+      else
+        render json: { message: "Credits possessed for leads #{agent.credit},  not more than #{Agents::Branches::AssignedAgents::LEAD_CREDIT_LIMIT} " }, status: 401
+      end
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
   end
 
   #### TODO - Make it token based (Apply some authentication)
@@ -290,4 +299,9 @@ class EventsController < ApplicationController
     end
   end
 
+  private
+
+  def user_valid_for_viewing?(klass)
+    AuthorizeApiRequest.call(request.headers, klass).result
+  end
 end
