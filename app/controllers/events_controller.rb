@@ -1,6 +1,7 @@
 class EventsController < ApplicationController
   include EventsHelper
   include CacheHelper
+  before_filter :set_headers
 
   ### List of params
   ### :udprn, :event, :message, :type_of_match, :buyer_id, :agent_id
@@ -303,5 +304,13 @@ class EventsController < ApplicationController
 
   def user_valid_for_viewing?(klass)
     AuthorizeApiRequest.call(request.headers, klass).result
+  end
+
+  def set_headers
+    headers['Access-Control-Allow-Origin'] = '*'
+    headers['Access-Control-Expose-Headers'] = 'ETag'
+    headers['Access-Control-Allow-Methods'] = 'GET, POST, PATCH, PUT, DELETE, OPTIONS, HEAD'
+    headers['Access-Control-Allow-Headers'] = '*,x-requested-with,Content-Type,If-Modified-Since,If-None-Match'
+    headers['Access-Control-Max-Age'] = '86400'
   end
 end

@@ -57,8 +57,9 @@ class QuoteService
     klass = Agents::Branches::AssignedAgents::Quote
     quote = klass.where(property_id: @udprn.to_i, agent_id: nil).order('created_at DESC').last
     agent_quote = klass.where(property_id: @udprn.to_i, agent_id: agent_id).order('created_at DESC').last
+    agent = Agents::Branches::AssignedAgent.where(id: agent_id).last
     response = nil
-    if quote && quote.status != won_status && agent_quote
+    if quote && quote.status != won_status && agent_quote && agent
       agent_quote.status = won_status
       agent_quote.save!
       quote.destroy!
@@ -68,6 +69,10 @@ class QuoteService
       doc = { agent_id: agent_id, agent_status: 2 } #### agent_status = 2(agent is actively attached, agent_status = 1, agent submitting pictures and quote)
       PropertyDetails.update_details(client, @udprn.to_i, doc)
       details = PropertyDetails.details(@udprn.to_i)
+
+      ### Deduct agents credits
+      agent.credit = agent.credit - 5
+      agent.save!
       response = { details: details, message: 'The quote is accepted' }
     else
       response = { message: 'Another quote for this property has already been accepted' }

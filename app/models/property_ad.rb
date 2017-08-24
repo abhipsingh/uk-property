@@ -23,7 +23,7 @@ class PropertyAd < ActiveRecord::Base
     types = ['Featured', 'Premium']
     udprn = details['udprn'].to_i
     levels_arr = []
-    all_locality_levels = [ :county, :post_town, :dependent_locality, :dependent_thoroughfare_description ]
+    all_locality_levels = [ :county, :post_town, :dependent_locality, :dependent_thoroughfare_description, :thoroughfare_description ]
     all_postcode_units = [ :district, :unit, :sector, :area ]
     types.each do |each_type|
       all_locality_levels.each do |each_locality_level|
@@ -47,7 +47,7 @@ class PropertyAd < ActiveRecord::Base
 
   def self.hash_at_level(level, details)
     details = details.with_indifferent_access
-    all_locality_levels = [ :county, :post_town, :dependent_locality, :dependent_thoroughfare_description ]
+    all_locality_levels = [ :county, :post_town, :dependent_locality, :dependent_thoroughfare_description, :thoroughfare_description ]
     return details[level] if level == :county || level == :post_town
     hash_levels = []
     all_locality_levels.each do |each_locality_level|

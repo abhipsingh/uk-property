@@ -36,7 +36,7 @@ class PropertyService
   POSTCODE_ATTRS = [:area, :sector, :district, :unit, :address, :county, :vanity_url, :building_type]
 
   ### Additional attrs to be appended
-  ADDITIONAL_ATTRS = [:status_last_updated]
+  ADDITIONAL_ATTRS = [:status_last_updated, :sale_prices]
 
   DETAIL_ATTRS = LOCALITY_ATTRS + AGENT_ATTRS + VENDOR_ATTRS + EXTRA_ATTRS + POSTCODE_ATTRS + EDIT_ATTRS + ADDITIONAL_ATTRS
 
@@ -45,7 +45,7 @@ class PropertyService
     assigned: 2
   }
 
-  ARRAY_HASH_ATTRS = [:outside_space_type, :additional_features, :pictures, :property_style]
+  ARRAY_HASH_ATTRS = [:outside_space_type, :additional_features, :pictures, :property_style, :sale_prices]
 
 
   def initialize(udprn)
@@ -74,7 +74,8 @@ class PropertyService
   def claim_new_property(agent_id)
     message, status = nil
     lead = Agents::Branches::AssignedAgents::Lead.where(property_id: udprn.to_i, agent_id: nil).last
-    if lead
+    agent = Agents::Branches::AssignedAgent.find(agent_id)
+    if lead && agent
       lead.agent_id = agent_id
       lead.save!
       client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
@@ -85,6 +86,9 @@ class PropertyService
       address = nil
       VendorService.new(vendor_id).send_email_following_agent_lead(agent_id, address)
       status = 200
+      ### Update the agents credits
+      agent.credit = agent.credit - 1
+      agent.save!
     else
       message = 'Sorry, this property has already been claimed'
       status = 400
@@ -331,6 +335,23 @@ class PropertyService
       count += 1
     end
     p udprns
+  end
+
+  def self.update_last_sale_prices
+    ardb_client = Rails.configuration.ardb_client
+    count = 0
+    File.foreach('/mnt3/udprn_last_transactions.csv') do |line|
+      fields = line.split(',')
+      date = fields[2].split(' ')[0]
+      price = fields[1]
+      udprn = fields[3]
+      details = PropertyService.bulk_details([udprn]).first
+      details[:sale_prices] ||= []
+      details[:sale_prices].push({udprn: udprn, date: date})
+      PropertyService.update_udprn(udprn, details)
+      count += 1
+      p "#{count/10000}" if count % 10000 == 0
+    end
   end
 
 end

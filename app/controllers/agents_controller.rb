@@ -476,22 +476,27 @@ class AgentsController < ApplicationController
 
   ### Creates a new agent with a randomized password
   ### The agent having the email will have to reset the password
-  ### curl -XPOST -H "Content-Type: application/json"  'http://localhost/agents/add/:agent_id' -d '{ "first_name" : "Jack", "last_name" : "Daniels", "title" : "Mr.", "email" : "jack_daniels@prophety.co.uk", "mobile_number" : "876628921", "branch_id" : 1422 }'
+  ### curl -XPOST -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/add/:agent_id' -d '{ "first_name" : "Jack", "last_name" : "Daniels", "title" : "Mr.", "email" : "jack_daniels@prophety.co.uk", "mobile_number" : "876628921", "branch_id" : 1422 }'
   def create_agent_without_password
-    response = {}
-    agent_hash = {
-      name: params[:first_name] + ' ' + params[:last_name],
-      first_name: params[:first_name],
-      last_name: params[:last_name],
-      title: params[:title],
-      branch_id: params[:branch_id],
-      email: params[:email],
-      mobile: params[:mobile_number],
-      password: SecureRandom.hex(8)
-    }
-    response = Agents::Branches::AssignedAgent.create!(agent_hash)
-    status = 201
-    render json: response, status: status
+    agent = user_valid_for_viewing?('Agent')
+    if !agent.nil?
+      response = {}
+      agent_hash = {
+        name: params[:first_name] + ' ' + params[:last_name],
+        first_name: params[:first_name],
+        last_name: params[:last_name],
+        title: params[:title],
+        branch_id: params[:branch_id],
+        email: params[:email],
+        mobile: params[:mobile_number],
+        password: SecureRandom.hex(8)
+      }
+      response = Agents::Branches::AssignedAgent.create!(agent_hash)
+      status = 201
+      render json: response, status: status
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
   rescue Exception => e 
     status = 400
     render json: { message: "#{e.message}" } , status: status

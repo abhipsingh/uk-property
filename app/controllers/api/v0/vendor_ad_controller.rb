@@ -2,6 +2,7 @@ module Api
   module V0
     class VendorAdController < ActionController::Base
       include CacheHelper
+      before_filter :set_headers
       #### Example curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" -H "Content-Type: application/json" "http://localhost/api/v0/ads/availability?addresses%5B%5D=+33&addresses%5B%5D=+Loder+Drive&addresses%5B%5D=+City+Centre&addresses%5B%5D=+HEREFORD&addresses%5B%5D=+Herefordshire&udprn=10966139&property_status_type=Sale" 
       #### Parameters {"addresses"=>[" 33", " Loder Drive", " City Centre", " HEREFORD", " Herefordshire"], "udprn"=>"10966139", "property_status_type" => 'Rent'}
       def ads_availablity
@@ -9,10 +10,11 @@ module Api
         #if true
           cache_response(params[:udprn].to_i, []) do
             score_map = {
-              :county => 6,
-              :post_town => 5,
-              :dependent_locality => 4,
-              :dependent_thoroughfare_description => 3,
+              :county => 7,
+              :post_town => 6,
+              :dependent_locality => 5,
+              :dependent_thoroughfare_description => 4,
+              :thoroughfare_description => 3,
               :district => 2,
               :unit => 1,
               :sector => 0,
@@ -159,6 +161,14 @@ module Api
       def authenticate_request(klass='Agent')
         result = AuthorizeApiRequest.call(request.headers, klass).result
         !result.nil?
+      end
+
+      def set_headers
+        headers['Access-Control-Allow-Origin'] = '*'
+        headers['Access-Control-Expose-Headers'] = 'ETag'
+        headers['Access-Control-Allow-Methods'] = 'GET, POST, PATCH, PUT, DELETE, OPTIONS, HEAD'
+        headers['Access-Control-Allow-Headers'] = '*,x-requested-with,Content-Type,If-Modified-Since,If-None-Match'
+        headers['Access-Control-Max-Age'] = '86400'
       end
     end
   end

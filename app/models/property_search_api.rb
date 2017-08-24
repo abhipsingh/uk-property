@@ -80,10 +80,10 @@ class PropertySearchApi
     inst.adjust_included_fields
     inst = inst.append_pagination_filter
     # inst = inst.append_hash_filter
+    inst = inst.append_sort_filters
     inst = inst.append_terms_filters
     inst = inst.append_term_filters
     inst = inst.append_range_filters
-    inst = inst.append_sort_filters
     shift_query_keys
     #Rails.logger.info(inst.filtered_params)
     # Rails.logger.info(inst.query)
@@ -111,6 +111,7 @@ class PropertySearchApi
     modify_filtered_params
     inst.apply_filters
     inst.modify_query
+    Rails.logger.info(inst.query)
     body, status = fetch_data_from_es
     return { results: body }, status
   end
@@ -194,6 +195,13 @@ class PropertySearchApi
       udprns = PropertyAd.where(hash_str: @filtered_params[:hash_str], service: service, ad_type: ad_type).pluck(:property_id)
       @filtered_params[:udprns] = udprns.join(',')
     end
+
+    if @filtered_params[:post_town]
+      @filtered_params[:post_town] = @filtered_params[:post_town].split(' ').map{|t| if t.downcase != 'and' then t.capitalize else t.downcase end }.join(' ')
+    end
+
+    @filtered_params[:sort_key] = :building_number if @filtered_params[:sort_key].nil?
+    @filtered_params[:sort_order] = 'desc' if @filtered_params[:sort_order].nil?
 
     @filtered_params.delete(:hash_str)
     @filtered_params.delete(:hash_type)
