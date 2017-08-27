@@ -18,6 +18,9 @@ gem 'sprockets', '2.11.0'
 gem 'minitest'
 gem 'httparty'
 
+# Background processing
+gem 'sidekiq'
+
 # Use jquery as the JavaScript library
 gem 'jquery-rails', '4.0.4'
 

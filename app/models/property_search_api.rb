@@ -191,7 +191,7 @@ class PropertySearchApi
     if @filtered_params.has_key?(:listing_type) && !@filtered_params[:listing_type].nil?
       ad_type = PropertyAd::TYPE_HASH[@filtered_params[:listing_type]]
       service = nil
-      @filtered_params[:property_status_type] == 'Rent' ? service = 1 : service = 2
+      @filtered_params[:property_status_type] == 'Rent' ? service = 2 : service = 1
       udprns = PropertyAd.where(hash_str: @filtered_params[:hash_str], service: service, ad_type: ad_type).pluck(:property_id)
       @filtered_params[:udprns] = udprns.join(',')
     end

@@ -502,7 +502,7 @@ class AgentsController < ApplicationController
     render json: { message: "#{e.message}" } , status: status
   end
 
-  ### Creates a new agent with a randomized password
+  ### Adds credits  to the agents account
   ### The agent having the email will have to reset the password
   ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" -H "Content-Type: application/json" 'http://localhost/agents/credits/add' -d '{ "stripeEmail" : "abhiuec@gmail.com", "stripeToken":"tok_19WlE9AKL3KAwfPBkWwgTpqt", "credits" : 100 }'
   def add_credits
@@ -513,23 +513,23 @@ class AgentsController < ApplicationController
           email: params[:stripeEmail],
           card: params[:stripeToken]
         )
-        amount = Agents::Branches::AssignedAgent::PER_CREDIT_COST*params[:credits].to_i*100 ### In pences
+        amount = Agents::Branches::AssignedAgent::PER_CREDIT_COST*params[:credit].to_i*100 ### In pences
         charge = Stripe::Charge.create(
           customer: customer.id,
           amount: amount,
           description: 'Add credit to agents Stripe customer',
           currency: 'GBP'
         )
-        agent.credit = agent.credit + params[:credits].to_i
+        agent.credit = agent.credit + params[:credit].to_i
         agent.save!
         Stripe::Payment.create!(entity_type: 'Agents::Branches::AssignedAgent', entity_id: agent.id, amount: amount)
-        render json: { message: 'Successfully added credits', credits: agent.credit, credits_bought: params[:credits].to_i }, status: 200
+        render json: { message: 'Successfully added credits', credits: agent.credit, credits_bought: params[:credit].to_i }, status: 200
       rescue Exception => e
         re = Stripe::Refund.create(
           charge: charge.id,
           amount: value
         )
-        Rails.logger.info("REFUND_INITIATED_#{e.message}_#{agent}_#{params[:credits]}")
+        Rails.logger.info("REFUND_INITIATED_#{e.message}_#{agent}_#{params[:credit]}")
         render json: { message: 'Unsuccessful in adding credits' }, status: 401
       end
     else

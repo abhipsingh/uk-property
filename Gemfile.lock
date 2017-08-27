@@ -61,6 +61,8 @@ GEM
     coderay (1.1.1)
     coercible (1.0.0)
       descendants_tracker (~> 0.0.1)
+    concurrent-ruby (1.0.5)
+    connection_pool (2.2.1)
     crack (0.4.3)
       safe_yaml (~> 1.0.0)
     dalli (2.7.6)
@@ -190,6 +192,8 @@ GEM
       pry (>= 0.9.10)
     rack (1.6.4)
     rack-cors (0.4.0)
+    rack-protection (2.0.0)
+      rack
     rack-test (0.6.3)
       rack (>= 1.0)
     rails (4.2.0)
@@ -243,6 +247,11 @@ GEM
       rdoc (~> 4.0)
     selectize-rails (0.12.2)
     sexp_processor (4.7.0)
+    sidekiq (4.2.10)
+      concurrent-ruby (~> 1.0)
+      connection_pool (~> 2.2, >= 2.2.0)
+      rack-protection (>= 1.5.0)
+      redis (~> 3.2, >= 3.2.1)
     simple_command (0.0.9)
     slop (3.6.0)
     sprockets (2.11.0)
@@ -317,6 +326,7 @@ DEPENDENCIES
   sass-rails (~> 4.0.0)
   sdoc (~> 0.4.0)
   selectize-rails
+  sidekiq
   simple_command
   sprockets (= 2.11.0)
   stripe

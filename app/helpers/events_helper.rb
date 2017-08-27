@@ -65,7 +65,7 @@ module EventsHelper
       buyer_id ||= 1
       buyer = PropertyBuyer.where(id: buyer_id).select([:name, :email, :mobile]).last
       buyer ||= PropertyBuyer.find(1)
-      details = PropertyDetails.details(property_id)
+      details = PropertyDetails.details(property_id).with_indifferent_access
       address = PropertyDetails.address(details['_source']) rescue ""
       agent_id = details['_source']['agent_id'] || 1234
       agent = Agents::Branches::AssignedAgent.where(id: agent_id).select([:name, :email, :mobile]).last

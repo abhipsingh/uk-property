@@ -13,6 +13,8 @@ class PropertyAd < ActiveRecord::Base
     'Sale' => 1,
     'Rent' => 2
   }
+  ALL_LOCALITY_LEVELS = [ :county, :post_town, :dependent_locality, :thoroughfare_description, :dependent_thoroughfare_description ]
+  ALL_POSTCODE_LEVELS = [ :unit, :sector, :district ]
 
   REVERSE_TYPE_HASH = TYPE_HASH.invert
 
@@ -23,20 +25,20 @@ class PropertyAd < ActiveRecord::Base
     types = ['Featured', 'Premium']
     udprn = details['udprn'].to_i
     levels_arr = []
-    all_locality_levels = [ :county, :post_town, :dependent_locality, :dependent_thoroughfare_description, :thoroughfare_description ]
-    all_postcode_units = [ :district, :unit, :sector, :area ]
     types.each do |each_type|
-      all_locality_levels.each do |each_locality_level|
-        hash_str = hash_at_level(each_locality_level, details)
-        response["#{each_locality_level.to_s}"] = details[each_locality_level]
-        response["#{each_locality_level.to_s}_hash"] = hash_str if details[each_locality_level] &&   !details[each_locality_level].empty?
-        response["#{each_locality_level.to_s}_#{each_type.downcase}_count"] = MAX_ADS_HASH[each_type] - PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(service: service).count  if details[each_locality_level] &&  !details[each_locality_level.to_s].empty?
-        response["#{each_locality_level.to_s}_#{each_type.downcase}_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(service: service).where(property_id: udprn).select([:id, :expiry_at]).first  if  details[each_locality_level] &&   !details[each_locality_level.to_s].empty?
-        response["#{each_locality_level.to_s}_#{each_type.downcase}_oldest_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(service: service).order('expiry_at ASC').first.expiry_at rescue nil  if details[each_locality_level] &&   !details[each_locality_level.to_s].empty?
+    new_details = details.deep_dup.with_indifferent_access
+    ALL_LOCALITY_LEVELS.each{|t| assign_null(new_details, t) }
+    ALL_LOCALITY_LEVELS.each do |each_locality_level|
+      hash_str = hash_at_level(each_locality_level, new_details)
+      response["#{each_locality_level.to_s}"] = details[each_locality_level]
+      response["#{each_locality_level.to_s}_hash"] = hash_str if details[each_locality_level] &&   !details[each_locality_level].empty?
+      response["#{each_locality_level.to_s}_#{each_type.downcase}_count"] = MAX_ADS_HASH[each_type] - PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(service: service).count  if details[each_locality_level] &&  !details[each_locality_level.to_s].empty?
+      response["#{each_locality_level.to_s}_#{each_type.downcase}_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(service: service).where(property_id: udprn).select([:id, :expiry_at]).first  if  details[each_locality_level] &&   !details[each_locality_level.to_s].empty?
+      response["#{each_locality_level.to_s}_#{each_type.downcase}_oldest_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(service: service).order('expiry_at ASC').first.expiry_at rescue nil  if details[each_locality_level] &&   !details[each_locality_level.to_s].empty?
       end
-      all_postcode_units.each do |each_postcode_unit|
-        hash_str = details[each_postcode_unit]
-        response["#{each_postcode_unit.to_s}"] = hash_str
+      ALL_POSTCODE_LEVELS.each do |each_postcode_unit|
+        hash_str = hash_at_level(each_postcode_unit, new_details)
+        response["#{each_postcode_unit.to_s}"] = details[each_postcode_unit]
         response["#{each_postcode_unit.to_s}_hash"] = hash_str
         response["#{each_postcode_unit.to_s}_#{each_type.downcase}_count"] = MAX_ADS_HASH[each_type] - PropertyAd.where(hash_str: hash_str).where(service: service).where(ad_type: TYPE_HASH[each_type]).count
         response["#{each_postcode_unit.to_s}_#{each_type.downcase}_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(property_id: udprn).where(service: service).select([:id, :created_at]).first
@@ -46,20 +48,31 @@ class PropertyAd < ActiveRecord::Base
   end
 
   def self.hash_at_level(level, details)
-    details = details.with_indifferent_access
-    all_locality_levels = [ :county, :post_town, :dependent_locality, :dependent_thoroughfare_description, :thoroughfare_description ]
-    return details[level] if level == :county || level == :post_town
-    hash_levels = []
-    all_locality_levels.each do |each_locality_level|
-      if each_locality_level == :county || each_locality_level == :post_town
-        hash_levels = [ details[each_locality_level] ]
-      else
-        hash_levels.push(details[each_locality_level]) if details[each_locality_level]
-      end
-
-      break if level == each_locality_level
+    hash = nil
+    if level == :dependent_locality
+      hash = "@_#{details['post_town']}_#{details['dependent_locality']}_@_@_@_@_@_@|@_@_#{details['district']}"
+    elsif level == :dependent_thoroughfare_description
+      hash = "@_#{details['post_town']}_#{details['dependent_locality']}_@_#{details['dependent_thoroughfare_description']}_@_@_@_@|@_@_#{details['district']}"
+    elsif level == :thoroughfare_description
+      hash = "@_#{details['post_town']}_#{details['dependent_locality']}_#{details['thoroughfare_description']}_@_@_@_@_@|@_@_#{details['district']}"
+    elsif level == :post_town
+      hash = "#{details['county']}_#{details['post_town']}_@_@_@_@_@_@_@_@"
+    elsif level == :county
+      hash = "#{details['county']}_@_@_@_@_@_@_@_@_@"
+    elsif level == :sector
+      hash = "@_@_#{details['dependent_locality']}_@_@_@_@_@_@|@_#{details['sector']}_@"
+    elsif level == :district
+      hash = "@_#{details['post_town']}_@_@_@_@_@_@_@|@_@_#{details['district']}"
+    elsif level == :unit
+      hash = "@_@_@_@_@_@_@_@_@|#{details['unit']}_@_@"
     end
-
-    hash_levels.join('_')
+    hash
   end
+
+  def self.assign_null(hash, key)
+    val = hash[key]
+    val = '@' if val.nil? || val.empty?
+    hash[key] = val
+  end
+
 end

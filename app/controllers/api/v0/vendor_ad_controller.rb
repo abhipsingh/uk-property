@@ -89,20 +89,12 @@ module Api
             type = location[:type]
             value = location[:value].to_i
             num_months = params[:months].to_i rescue 1
-            expiry_at = Time.now + num_months.months.from_now
+            expiry_at = num_months.months.from_now.to_time
             Rails.logger.info(location)
             if value > 0
               begin
                 ads = PropertyAd.create(hash_str: hash_value, property_id: udprn.to_i, ad_type: PropertyAd::TYPE_HASH[type], service: service, expiry_at: expiry_at)
                 message[:ads].push(ads)
-                match_type_strs.each do |each_str|
-                  if each_str.split('|')[0] == hash_value
-                    new_match_type_strs.push(hash_value+'|'+type)
-                  else
-                    new_match_type_strs.push(each_str)
-                  end
-                end
-                client.update index: Rails.configuration.address_index_name, type: 'address', id: udprn, body: { doc: { match_type_str: new_match_type_strs } }
                 ads_count += 1 if ads.id > 0
                 message[:ads_count] = ads_count
               rescue Exception => e
