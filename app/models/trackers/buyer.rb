@@ -49,6 +49,11 @@ class Trackers::Buyer
     'Rent'  => 4
   }
 
+  PROPERTY_TYPES = {
+    'Sale' => 1,
+    'Rent' => 2
+  }
+
   LISTING_TYPES = {
     'Normal' => 1,
     'Premium' => 2,
@@ -149,9 +154,8 @@ class Trackers::Buyer
       buyer_ids.push(each_row.buyer_id)
 
       #### Tracking property id event
-      tracking_property_event = EVENTS[:property_tracking]
-      event_count = query.where(event: tracking_property_event).where(buyer_id: each_row.buyer_id).where(udprn: udprn.to_i).count
-      new_row[:property_tracking] = event_count
+      event = Events::Track::TRACKING_TYPE_MAP[:property_tracking]
+      new_row[:property_tracking] = Events::Track.where(type_of_tracking: event).where(udprn: udprn.to_i).where(buyer_id: each_row.buyer_id).count
       
       #### Views
       total_views = generic_event_count(EVENTS[:viewed], nil, udprn, :single, property_for)
@@ -321,7 +325,7 @@ class Trackers::Buyer
     ### Extra keys to be added
     new_row['total_visits'] = generic_event_count(EVENTS[:viewed], table, property_id, :single, property_for)
     new_row['total_enquiries'] = generic_event_count(ENQUIRY_EVENTS, table, property_id, :multiple, property_for)
-    new_row['trackings'] = generic_event_count(TRACKING_EVENTS, table, property_id, :multiple, property_for)
+    new_row['trackings'] = Events::Track.where(type_of_tracking: TRACKING_TYPE_MAP.values).where(udprn: property_id).count 
     new_row['requested_viewing'] = generic_event_count(EVENTS[:requested_viewing], table, property_id, :single, property_for)
     new_row['offer_made_stage'] = generic_event_count(EVENTS[:offer_made_stage], table, property_id, :single, property_for)
     new_row['requested_message'] = generic_event_count(EVENTS[:requested_message], table, property_id, :single, property_for)
@@ -524,17 +528,20 @@ class Trackers::Buyer
   def add_details_to_enquiry_row_buyer(new_row, property_id, event_details, agent_id, property_for='Sale')
     new_row['type_of_match'] = REVERSE_TYPE_OF_MATCH[event_details['type_of_match']].to_s.capitalize
     #### Tracking property or not
-    tracking_property_event = EVENTS[:property_tracking]
+    tracking_property_event = Events::Track::TRACKING_TYPE_MAP[:property_tracking]
     buyer_id = event_details['buyer_id']
     query = nil
+    tracking_query = nil
     if property_for == 'Sale'
       query = Event.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+      tracking_query = Events::Track.where.not(property_status_type: PROPERTY_TYPES['Rent'])
     else
       query = Event.where(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
+      tracking_query = Events::Track.where(property_status_type: PROPERTY_TYPES['Rent'])
     end
-    result = query.where(buyer_id: buyer_id).where(event: tracking_property_event).where(udprn: property_id).count.as_json
+    tracking_result = tracking_query.where(buyer_id: buyer_id).where(type_of_tracking: tracking_property_event).where(udprn: property_id).select(:id).first
 
-    new_row[:property_tracking] = (result.to_i == 0 ? false : true)
+    new_row[:property_tracking] = (tracking_result.nil? == 0 ? false : true)
     #### Property is hot or cold or warm
     if agent_id #### This featured is only when agent_id is not nil(i.e. to agents)
       hotness_events = [ EVENTS[:hot_property], EVENTS[:cold_property], EVENTS[:warm_property] ]
@@ -652,8 +659,8 @@ class Trackers::Buyer
     monthly_enquiries = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event IN (#{events.join(',')})  AND udprn=#{property_id} ").as_json
     aggregated_result[:enquiries] =  monthly_enquiries
     
-    event = EVENTS[:property_tracking]
-    monthly_property_tracking = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}  AND udprn=#{property_id} ").as_json
+    event = Events::Track::TRACKING_TYPE_MAP[:property_tracking]
+    monthly_property_tracking = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events_tracks WHERE type_of_tracking=#{event}  AND udprn=#{property_id} ").as_json
     aggregated_result[:property_tracking] =  monthly_property_tracking
 
     event = EVENTS[:interested_in_viewing]
@@ -1168,8 +1175,8 @@ class Trackers::Buyer
 
         total_enquiry_hash[udprn] = generic_event_count(ENQUIRY_EVENTS, table, property_id, :multiple).to_i
 
-        event = EVENTS[:property_tracking]
-        tracking_hash[udprn] = generic_event_count(event, table, property_id).to_i
+        event = Events::Track::TRACKING_TYPE_MAP[:property_tracking]
+        tracking_hash[udprn] = Events::Track.where(type_of_tracking: event).where(udprn: property_id).count
 
         event = EVENTS[:interested_in_viewing]
         would_view_hash[udprn] = generic_event_count(event, table, property_id).to_i
