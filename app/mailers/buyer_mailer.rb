@@ -3,7 +3,7 @@ class BuyerMailer < ApplicationMailer
   def tracking_emails(tracking_buyer, details)
     @udprn_address = details['address']
     @last_property_status_type = details['last_property_status_type']
-    @new_property_status_type = details['new_property_status_type']
+    @new_property_status_type = details['property_status_type']
     @tracking_buyer_name = tracking_buyer['name']
     @beds = details['beds']
     @baths = details['baths']
@@ -17,7 +17,8 @@ class BuyerMailer < ApplicationMailer
     @assigned_agent_title = details['assigned_agent_title']
     @assigned_agent_email = details['assigned_agent_email']
     @assigned_agent_branch = details['assigned_agent_branch_name']
-    @tracking_date = Events::Track.where(buyer_id: tracking_buyer['buyer_id']).order('type_of_tracking ASC').select(:created_at).first.created_at.to_time
+
+    @tracking_date = Events::Track.where(id: tracking_buyer['id']).order('type_of_tracking ASC').select(:created_at).first.created_at.to_time
       ## TODO - pick this from config
     # @unsubscribe_link = "http://52.66.124.42/events/tracking/unsubscribe?buyer_id=#{tracking_buyer["id"]}&udprn=#{@details["udprn"]}&event_id=#{Trackers::Buyer::REVERSE_EVENTS[@tracking_buyer["event"]]}"
     mail(to: tracking_buyer["email"], subject: "Start Tracking")
@@ -51,10 +52,10 @@ class BuyerMailer < ApplicationMailer
     @assigned_agent_title = details['assigned_agent_title']
     @assigned_agent_email = details['assigned_agent_email']
     @assigned_agent_branch = details['assigned_agent_branch_name']
-    @tracking_date = Events::Track.where(buyer_id: property_buyer['buyer_id']).order('type_of_tracking ASC').select(:created_at).first.created_at.to_time
+    @tracking_date = Events::Track.where(id: property_buyer['id']).order('type_of_tracking ASC').select(:created_at).first.created_at.to_time
     @offer_date = Date.today.to_s
       ## TODO - pick this from config
-    @unsubscribe_link = "http://52.66.124.42/events/unsubscribe?buyer_id=#{property_buyer["buyer_id"]}&udprn=#{@details["udprn"]}&event=#{event}"
+    @unsubscribe_link = "http://52.66.124.42/events/unsubscribe?buyer_id=#{property_buyer["id"]}&udprn=#{details["udprn"]}&event=#{event}"
     mail(to: property_buyer["buyer_email"], subject: "Offer Made")
   end
 

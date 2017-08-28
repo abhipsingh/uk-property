@@ -136,9 +136,9 @@ class PropertyDetails
     update_hash['status_last_updated'] = Time.now.to_s[0..Time.now.to_s.rindex(" ")-1]
     update_hash.symbolize_keys!
     details = PropertyService.bulk_details([udprn]).first
-    last_property_status_type = details['property_status_type']
+    last_property_status_type = details[:property_status_type]
     begin
-      details.reverse_merge!(update_hash)
+      update_hash.each{|key, value| details[key] = value }
       PropertyService.normalize_all_attrs(details)
       PropertySearchApi::ES_ATTRS.each { |key| es_hash[key] = details[key] if details[key] }
       PropertySearchApi::ADDRESS_LOCALITY_LEVELS.each { |key| es_hash[key] = details[key] if details[key] }
@@ -158,7 +158,7 @@ class PropertyDetails
     return response, status
   end
 
-  def perform_async_actions(old_hash, new_hash, last_property_status_type)
+  def self.perform_async_actions(old_hash, new_hash, last_property_status_type)
     if new_hash[:property_status_type] != last_property_status_type
       old_hash[:last_property_status_type] = last_property_status_type
       TrackingEmailStatusChangeWorker.perform_async(old_hash)
