@@ -36,7 +36,8 @@ class PropertyService
   POSTCODE_ATTRS = [:area, :sector, :district, :unit, :address, :county, :vanity_url, :building_type]
 
   ### Additional attrs to be appended
-  ADDITIONAL_ATTRS = [:status_last_updated, :sale_prices, :sale_price]
+  ADDITIONAL_ATTRS = [:status_last_updated, :sale_prices, :sale_price, :assigned_agent_first_name, :assigned_agent_last_name,
+                      :assigned_agent_title]
 
   DETAIL_ATTRS = LOCALITY_ATTRS + AGENT_ATTRS + VENDOR_ATTRS + EXTRA_ATTRS + POSTCODE_ATTRS + EDIT_ATTRS + ADDITIONAL_ATTRS
 

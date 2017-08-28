@@ -4,9 +4,71 @@
     <meta content='text/html; charset=UTF-8' http-equiv='Content-Type' />
   </head>
   <body>
-    <h5>Hi <%= @property_buyer["buyer_name"] %></h5>
+    <h5>Hi <%= @property_buyer_name %></h5>
     <h5>Offer Made</h5>
-    <h6>Offer has been made against property with address <%= @udprn_address =%> .<h6>
+    <h6>Offer has been made against property with the following attributes .<h6>
+      <ul>
+        <li>
+          <p>
+           Address <%= @udprn_address%>
+          </p>  
+        </li>
+        <li>
+          <p>
+            Beds: <%= @beds %>
+          </p>
+        </li> 
+        <li>
+          <p>
+            Baths: <%= @baths %>
+          </p>
+        </li> 
+        <li>
+          <p>
+            Receptions: <%= @receptions %>
+          </p>
+        </li> 
+        <li>
+          <p>
+            Price: <%= @price %>
+          </p>
+        </li> 
+        <li>
+          <p>
+            Assigned agent name: <%= @assigned_agent_name %>
+          </p>
+        </li>
+        <li>
+          <p>
+            Assigned agent email: <%= @assigned_agent_email %>
+          </p>
+        </li>
+        <li>
+          <p>
+            Assigned agent mobile: <%= @assigned_agent_mobile %>
+          </p>
+        </li> 
+        <li>
+          <p>
+            Assigned agent title: <%= @assigned_agent_title %>
+          </p>
+        </li>
+        <li>
+          <p>
+            Assigned agent branch name: <%= @assigned_agent_branch_name %>
+          </p>
+        </li>
+        <li>
+          <p>
+            Tracking date: <%= @tracking_date %>
+          </p>
+        </li>
+        <li>
+          <p>
+            Offer date: <%= @offer_date %>
+          </p>
+        </li>
+      </ul>
     <a href= <%= @unsubscribe_link =%>>Unsubscribe</a>
   </body>
 </html>
