@@ -33,7 +33,7 @@ class Events::Track < ActiveRecord::Base
     elsif details[:dependent_thoroughfare_description]
       dtd_hash(details)
     else
-      "@_#{details[:post_town]}_#{details[:dependent_locality]}_@_@_@_@_@_@|@_@_#{details[:district]}"
+      nil
     end
   end
 

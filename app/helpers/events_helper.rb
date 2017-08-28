@@ -98,8 +98,8 @@ module EventsHelper
         if event == Trackers::Buyer::EVENTS[:sold]
           host = Rails.configuration.remote_es_host
           client = Elasticsearch::Client.new host: host
-          response = client.update index: Rails.configuration.address_index_name, type: 'address', id: property_id.to_s,
-                            body: { doc: { property_status_type: 'Red', vendor_id: buyer_id } }
+          update_hash = { property_status_type: 'Red', vendor_id: buyer_id , sold: true }
+          response = PropertyDetails.update_details(client, property_id, update_hash)
         end
       else
         type_of_tracking = Trackers::Buyer::REVERSE_EVENTS[event.to_i]

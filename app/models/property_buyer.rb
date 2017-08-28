@@ -53,6 +53,36 @@ class PropertyBuyer < ActiveRecord::Base
     end
   end
 
+  def self.filter_buyers(udprn)
+    buyer_ids = []
+    details = PropertyDetails.details(udprn)['_source']
+    (Events::Track::ADDRESS_ATTRS-[:property]).each do |level|
+      hash_str = Events::Track.send("#{level}_hash", details)
+      if hash_str
+        buyer_ids = buyer_ids + Events::Track.where(hash_str: hash_str).pluck(:id)
+      end
+    end
+
+    hash_str = Events::Track.property_hash(details)
+    property_tracking_buyer_ids = Events::Track.where(hash_str: hash_str).pluck(:id)
+
+    price = details[:sale_price]
+    price ||= details[:current_valuation]
+    price ||= details[:last_sale_price]
+
+    query = where(id: buyer_ids)
+    query = query.where("budget_to > ? AND budget_from < ?", price, price) if price
+    query = query.where("'#{details[:property_type]}' = ANY(property_types)", ) if details[:property_type]
+    query = query.where("max_beds >= ? AND min_beds <= ? ", details[:beds].to_i, details[:beds].to_i) if details[:beds]
+    query = query.where("max_baths >= ? AND min_baths <= ? ", details[:baths].to_i, details[:baths].to_i) if details[:baths]
+    query = query.where("max_receptions >= ? AND min_receptions <= ? ", details[:receptions].to_i, details[:receptions].to_i) if details[:receptions]
+    buyer_ids = query.pluck(:id)
+
+    buyer_ids = buyer_ids + property_tracking_buyer_ids
+
+    where(id: buyer_ids)
+  end
+
   def as_json option = {}
     super(:except => [:password, :password_digest])
   end
