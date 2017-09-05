@@ -31,13 +31,13 @@ class PropertyService
   VENDOR_ATTRS = [:vendor_id]
 
   EXTRA_ATTRS = [:property_status_type, :verification_status, :details_completed, :agent_status, :property_id,
-                 :claimed_at, :sale_prices]
+                 :claimed_at]
 
   POSTCODE_ATTRS = [:area, :sector, :district, :unit, :address, :county, :vanity_url, :building_type]
 
   ### Additional attrs to be appended
   ADDITIONAL_ATTRS = [:status_last_updated, :sale_prices, :sale_price, :assigned_agent_first_name, :assigned_agent_last_name,
-                      :assigned_agent_title]
+                      :assigned_agent_title, :total_area, :epc, :chain_free, :date_added, :not_yet_built, :is_new_home, :is_retirement_home, :is_shared_ownership, :description_set]
 
   DETAIL_ATTRS = LOCALITY_ATTRS + AGENT_ATTRS + VENDOR_ATTRS + EXTRA_ATTRS + POSTCODE_ATTRS + EDIT_ATTRS + ADDITIONAL_ATTRS
 
@@ -47,7 +47,6 @@ class PropertyService
   }
 
   ARRAY_HASH_ATTRS = [:outside_space_type, :additional_features, :pictures, :property_style, :sale_prices]
-
 
   def initialize(udprn)
     @udprn = udprn
@@ -290,7 +289,18 @@ class PropertyService
     ardb_client = Rails.configuration.ardb_client
     ardb_client.set(udprn.to_s, value_str)
   end
+  
+  def self.update_description(udprn, description)
+    ardb_client = Rails.configuration.ardb_client
+    key_name = 'description_' + udprn.to_s 
+    ardb_client.set(key_name, description)
+  end
 
+  def self.get_description(udprn)
+    ardb_client = Rails.configuration.ardb_client
+    key_name = 'description_' + udprn.to_s 
+    ardb_client.get(key_name)
+  end
 
   def self.update_full_ardb_db
     udprns = []
@@ -298,12 +308,12 @@ class PropertyService
     county_map = JSON.parse(File.read("county_map.json"))
     post_towns = ["BELFAST", "HOLYWOOD", "DONAGHADEE", "NEWTOWNARDS", "BALLYNAHINCH", "DROMORE", "HILLSBOROUGH", "LISBURN", "CRUMLIN", "DOWNPATRICK", "CASTLEWELLAN", "BANBRIDGE", "NEWRY", "NEWTOWNABBEY", "CARRICKFERGUS", "BALLYCLARE", "LARNE", "ANTRIM", "BALLYMENA", "MAGHERAFELT", "MAGHERA", "LONDONDERRY", "LIMAVADY", "COLERAINE", "BALLYMONEY", "BALLYCASTLE", "PORTSTEWART", "PORTRUSH", "BUSHMILLS", "ARMAGH", "CRAIGAVON", "CALEDON", "AUGHNACLOY", "DUNGANNON", "ENNISKILLEN", "FIVEMILETOWN", "CLOGHER", "AUGHER", "OMAGH", "COOKSTOWN", "CASTLEDERG", "STRABANE"]
     counter = 0
-    File.foreach('/mnt3/corrected_royal.csv') do |line|
+    File.foreach('/mnt3/copy_not_yet_built.csv') do |line|
       fields = line.strip.split(',')
       udprn = fields[12].to_i
-      udprns.push([udprn, fields[1], fields[2], fields[-3], fields[-2], fields[-1]])
+      udprns.push([udprn, fields[10], fields[11], fields[6], fields[7], fields[8], fields[4], fields[5], fields[0], fields[1], fields[2], fields[-3], fields[-2], fields[-1]])
       details_arr = []
-      if udprns.length == 400
+      if udprns.length == 1
         list_udprns = udprns.map{|t| t[0] }
         arr_details = PropertyService.bulk_details(list_udprns)
         arr_details.each_with_index do |details, index|
@@ -313,7 +323,7 @@ class PropertyService
             dependent_locality = udprns[index][-3]
             original_dependent_locality = udprns[index][-4]
             original_post_town = udprns[index][-5]
-            original_county = county_map[original_post_town]
+            original_county = county_map[original_post_town.upcase]
             post_town.empty? ? post_town = original_post_town : post_town = post_town
             dependent_locality.empty? ? dependent_locality = original_dependent_locality : dependent_locality = dependent_locality
             county.empty? ? county = original_county : county = county
@@ -322,9 +332,22 @@ class PropertyService
             details[:post_town] = post_town
             details[:dependent_locality] = dependent_locality
             details[:double_dependent_locality] = nil
+            details[:postcode] = udprns[index][-6]
+            details[:dependent_thoroughfare_description] = udprns[index][-7]
+            details[:thoroughfare_description] = udprns[index][-8]
+            details[:organization_name] = udprns[index][-12]
+            details[:department_name] = udprns[index][-13]
+            details[:sub_building_name] = udprns[index][-9]
+            details[:building_name] = udprns[index][-10]
+            details[:building_number] = udprns[index][-11]
+            details[:district] = details[:postcode].split(' ')[0]
+            details[:sector] = details[:district]+ ' ' + details[:postcode].split(' ')[1].match(/([0-9]+)[A-Z]+/)[1]
+            details[:unit] = details[:postcode]
+            details[:area] = details[:district].match(/([A-Z]+)[0-9]+/)[1]
             details[:vanity_url] = nil
             details[:address] = nil
             details[:udprn] = udprns[index][0]
+            details[:not_yet_built] = true
             details_arr.push(details)
           end
         end
@@ -332,27 +355,86 @@ class PropertyService
         details_arr = []
         udprns = []
       end
+        details_arr = []
+        list_udprns = udprns.map{|t| t[0] }
+        arr_details = PropertyService.bulk_details(list_udprns)
+        arr_details.each_with_index do |details, index|
+          if details && !details.empty?
+            county = udprns[index][-1]
+            post_town = udprns[index][-2]
+            dependent_locality = udprns[index][-3]
+            original_dependent_locality = udprns[index][-4]
+            original_post_town = udprns[index][-5]
+            original_county = county_map[original_post_town.upcase]
+            post_town.empty? ? post_town = original_post_town : post_town = post_town
+            dependent_locality.empty? ? dependent_locality = original_dependent_locality : dependent_locality = dependent_locality
+            county.empty? ? county = original_county : county = county
+            post_town = post_town.split(' ').map{|t| t.capitalize}.join(' ')
+            details[:county] = county
+            details[:post_town] = post_town
+            details[:dependent_locality] = dependent_locality
+            details[:double_dependent_locality] = nil
+            details[:postcode] = udprns[index][-6]
+            details[:dependent_thoroughfare_description] = udprns[index][-7]
+            details[:thoroughfare_description] = udprns[index][-8]
+            details[:organization_name] = udprns[index][-12]
+            details[:department_name] = udprns[index][-13]
+            details[:sub_building_name] = udprns[index][-9]
+            details[:building_name] = udprns[index][-10]
+            details[:building_number] = udprns[index][-11]
+            details[:district] = details[:postcode].split(' ')[0]
+            details[:sector] = details[:district]+ ' ' + details[:postcode].split(' ')[1].match(/([0-9]+)[A-Z]+/)[1]
+            details[:unit] = details[:postcode]
+            details[:area] = details[:district].match(/([A-Z]+)[0-9]+/)[1]
+            details[:vanity_url] = nil
+            details[:address] = nil
+            details[:udprn] = udprns[index][0]
+            details[:not_yet_built] = true
+            details_arr.push(details)
+          end
+        end
+      PropertyService.bulk_set(details_arr)
       p "#{count/10000}" if count % 10000 == 0
       count += 1
     end
-    p udprns
+    nil
   end
 
   def self.update_last_sale_prices
     ardb_client = Rails.configuration.ardb_client
     count = 0
+    udprns = []
+    arr_details = nil
     File.foreach('/mnt3/udprn_last_transactions.csv') do |line|
       fields = line.split(',')
       date = fields[2].split(' ')[0]
       price = fields[1]
       udprn = fields[3]
-      details = PropertyService.bulk_details([udprn]).first
-      details[:sale_prices] ||= []
-      details[:sale_prices].push({udprn: udprn, date: date})
-      PropertyService.update_udprn(udprn, details)
+      udprns.push([udprn, date, price] )
+      if udprns.length == 400
+        list_udprns = udprns.map{|t| t[0] }
+        arr_details = PropertyService.bulk_details(list_udprns)
+        details_arr = []
+        arr_details.each_with_index do |details, index|
+          details[:sale_prices] ||= []
+          details[:sale_prices].push({price: udprns[index][2], date: udprns[index][1]})
+          details_arr.push(details)
+        end
+        PropertyService.bulk_set(details_arr)
+        udprns = []
+      end
       count += 1
       p "#{count/10000}" if count % 10000 == 0
     end
+    list_udprns = udprns.map{|t| t[0] }
+    arr_details = PropertyService.bulk_details(list_udprns)
+    details_arr = []
+    arr_details.each_with_index do |details, index|
+      details[:sale_prices] ||= []
+      details[:sale_prices].push({price: udprns[index][2], date: udprns[index][1]})
+      details_arr.push(details)
+    end
+    PropertyService.bulk_set(details_arr)
   end
 
 end

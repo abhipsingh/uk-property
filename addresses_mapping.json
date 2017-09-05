@@ -51,4 +51,7 @@
       "vendor_id":{"type":"integer"},
       "udprn":{"type":"integer"},
       "verification_status":{"type":"boolean"}
+      "is_new_home":{"type":"boolean"},
+      "is_shared_ownershup":{"type":"boolean"},
+      "is_retirement_home":{"type":"boolean"}
 }}}}

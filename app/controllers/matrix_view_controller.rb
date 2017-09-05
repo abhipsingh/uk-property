@@ -52,16 +52,20 @@ class MatrixViewController < ActionController::Base
         counter += 1
       elsif  text.end_with?('dtd')
         loc = ''
+        hash_loc = '@'
+        hash_loc = details[counter]['dependent_locality'] if details[counter]['dependent_locality']
         details[counter]['dependent_locality'].nil? ? loc = '' : loc = "#{details[counter]['dependent_locality']}, "
         output = "#{details[counter]['dependent_thoroughfare_description']} (#{loc}#{details[counter]['post_town']}, #{details[counter]['county']}, #{details[counter]['district']})"
-        hash = "@_#{details[counter]['post_town']}_#{details[counter]['dependent_locality']}_@_#{details[counter]['dependent_thoroughfare_description']}_@_@_@_@|@_@_#{details[counter]['district']}"
+        hash = "@_#{details[counter]['post_town']}_#{hash_loc}_@_#{details[counter]['dependent_thoroughfare_description']}_@_@_@_@|@_@_#{details[counter]['district']}"
         final_predictions.push({ hash: hash, output: output, type: 'dependent_thoroughfare_description' })
         counter += 1
       elsif text.end_with?('td')
         loc = ''
+        hash_loc = '@'
+        hash_loc = details[counter]['dependent_locality'] if details[counter]['dependent_locality']
         details[counter]['dependent_locality'].nil? ? loc = '' : loc = "#{details[counter]['dependent_locality']}, "
         output = "#{details[counter]['thoroughfare_description']} (#{loc}#{details[counter]['post_town']}, #{details[counter]['county']}, #{details[counter]['district']})"
-        hash = "@_#{details[counter]['post_town']}_#{details[counter]['dependent_locality']}_#{details[counter]['thoroughfare_description']}_@_@_@_@_@|@_@_#{details[counter]['district']}"
+        hash = "@_#{details[counter]['post_town']}_#{hash_loc}_#{details[counter]['thoroughfare_description']}_@_@_@_@_@|@_@_#{details[counter]['district']}"
         final_predictions.push({ hash: hash, output: output, type: 'thoroughfare_description' })
         counter += 1
       elsif text.start_with?('district') 

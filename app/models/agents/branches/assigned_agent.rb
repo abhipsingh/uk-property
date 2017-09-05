@@ -48,13 +48,14 @@ module Agents
         won_and_lost_quote_ids = won_and_lost_udprns.map(&:id).uniq
         new_udprns = new_udprns.select{ |t| !won_and_lost_quote_ids.include?(t.id) }
 
-        total_udprns = (new_udprns + won_and_lost_udprns).sort_by{ |t| t.created_at }.reverse
+        total_udprns = (new_udprns + won_and_lost_udprns).sort_by{ |t| t.created_at }.reverse.uniq{|t| t.property_id }
         total_udprns.each do |each_quote|
-          property_details = PropertyDetails.details(each_quote.property_id)['_source']
+          property_details = PropertyDetails.details(each_quote.property_id)['_source'].with_indifferent_access
           next if each_quote.is_assigned_agent && property_details['agent_id'] && property_details['agent_id'] != self.id
 
           ### Quotes status filter
           property_id = property_details['udprn'].to_i
+          p property_id
 
           quote_status = nil
           if each_quote.status == won_status
@@ -129,7 +130,7 @@ module Agents
           else
             new_row[:winning_quote] = nil
             new_row[:quote_price] = nil
-            new_row[:deadline] = Time.at(Time.parse(property_details['status_last_updated']) + 48.hours - Time.now).utc.strftime "%H:%M:%S"
+            new_row[:deadline] = Agents::Branches::AssignedAgents::Quote.where(property_id: property_id).where(agent_id: nil).first.created_at.to_time + 168.hours
             new_row[:quote_accepted] = false
           end
 

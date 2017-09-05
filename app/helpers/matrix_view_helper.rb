@@ -33,13 +33,13 @@ module MatrixViewHelper
         ['unit', 'sector']
       ],
       'dependent_thoroughfare_description' => [
-        ['dependent_thoroughfare_description', 'dependent_locality'],
-        ['thoroughfare_description', 'dependent_locality'],
+        ['dependent_thoroughfare_description', 'district'],
+        ['thoroughfare_description', 'district'],
         ['unit', 'dependent_thoroughfare_description']
       ],
       'thoroughfare_description' => [
-        ['dependent_thoroughfare_description', 'dependent_locality'],
-        ['thoroughfare_description', 'dependent_locality'],
+        ['dependent_thoroughfare_description', 'district'],
+        ['thoroughfare_description', 'district'],
         ['unit', 'thoroughfare_description']
       ],
       'dependent_locality' => [

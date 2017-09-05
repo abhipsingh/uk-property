@@ -48,8 +48,8 @@ class PropertyDetails
   def self.details(udprn)
     details = PropertyService.bulk_details([udprn]).first
     details['address'] = address(details)
-    details['udprn'] = udprn
-    #details['vanity_url'] = vanity_url(details['address'])
+    details['vanity_url'] = vanity_url(details['address'])
+    details[:udprn] = udprn
     { '_source' => details }
   end
 
@@ -134,6 +134,7 @@ class PropertyDetails
     es_hash = {}
     update_hash['pictures'] = update_hash['pictures'].sort_by{|x| x['priority']} if update_hash.key?('pictures')
     update_hash['status_last_updated'] = Time.now.to_s[0..Time.now.to_s.rindex(" ")-1]
+    update_hash['description_set'] = true if update_hash[:description]
     update_hash.symbolize_keys!
     details = PropertyService.bulk_details([udprn]).first
     last_property_status_type = details[:property_status_type]
@@ -145,6 +146,7 @@ class PropertyDetails
       PropertyService.update_udprn(udprn, details)
       client.delete index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn rescue nil
       client.index index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn , body: es_hash
+      PropertyService.update_description(udprn, update_hash[:description]) if update_hash[:description]
       response = { message: 'Successfully updated' }
     rescue => e
       Rails.logger.info "Error updating details for udprn #{udprn} => #{e}"
@@ -164,9 +166,8 @@ class PropertyDetails
       TrackingEmailStatusChangeWorker.perform_async(old_hash)
     end
 
-    if new_hash[:sold]
-      TrackingEmailPropertySoldWorker.perform_async(old_hash)
-    end
+    TrackingEmailPropertySoldWorker.perform_async(old_hash) if new_hash[:sold]
+    PropertyEvent.create(udprn: old_hash[:udprn], attr_hash: new_hash.except!(:status_last_updated)) if !new_hash[:description]
   end
 
   def self.check_if_property_status_changed(old_status, new_status)

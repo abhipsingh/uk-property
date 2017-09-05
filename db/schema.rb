@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170827194745) do
+ActiveRecord::Schema.define(version: 20170828102253) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -345,6 +345,12 @@ ActiveRecord::Schema.define(version: 20170827194745) do
   end
 
   add_index "property_buyers", ["email_id"], name: "index_property_buyers_on_email_id", unique: true, using: :btree
+
+  create_table "property_events", force: :cascade do |t|
+    t.jsonb    "attr_hash",  default: {}, null: false
+    t.integer  "udprn",                   null: false
+    t.datetime "created_at",              null: false
+  end
 
   create_table "property_historical_details", force: :cascade do |t|
     t.string  "uuid"
