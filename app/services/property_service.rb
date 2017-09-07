@@ -46,7 +46,7 @@ class PropertyService
     assigned: 2
   }
 
-  ARRAY_HASH_ATTRS = [:outside_space_type, :additional_features, :pictures, :property_style, :sale_prices]
+  ARRAY_HASH_ATTRS = [:outside_space_type, :additional_features, :pictures, :property_style, :sale_prices, :other_costs, :improvement_types]
 
   def initialize(udprn)
     @udprn = udprn
