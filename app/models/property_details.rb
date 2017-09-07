@@ -138,6 +138,11 @@ class PropertyDetails
     update_hash.symbolize_keys!
     details = PropertyService.bulk_details([udprn]).first
     last_property_status_type = details[:property_status_type]
+
+    ### Track previous agent id
+    previous_agent_id = nil
+    previous_agent_id = details[:agent_id] if details[:agent_id] && update_hash[:agent_id] && update_hash[:agent_id] != details[:agent_id]
+    
     begin
       update_hash.each{|key, value| details[key] = value }
       PropertyService.normalize_all_attrs(details)
@@ -153,20 +158,31 @@ class PropertyDetails
       response = {"message" => "Error in updating udprn #{udprn}", "details" => e.message}
       status = 500
     end
+    
     ### TODO: Email Offline or Daily
-    perform_async_actions(details, update_hash, last_property_status_type)
+    perform_async_actions(details, update_hash, last_property_status_type, previous_agent_id)
     # send_email_to_trackers(udprn, update_hash, last_property_status_type, details) if update_hash.key?('property_status_type')
     Rails.logger.info("update details response = #{response}, status = #{status}")
     return response, status
   end
 
-  def self.perform_async_actions(old_hash, new_hash, last_property_status_type)
+  def self.perform_async_actions(old_hash, new_hash, last_property_status_type, previous_agent_id=nil)
+    ### Property status change email. Amber -> Green/ Red -> Amber
     if new_hash[:property_status_type] != last_property_status_type
       old_hash[:last_property_status_type] = last_property_status_type
       TrackingEmailStatusChangeWorker.perform_async(old_hash)
     end
 
+    ### If the property has been sold
     TrackingEmailPropertySoldWorker.perform_async(old_hash) if new_hash[:sold]
+
+    ### If assigned agent has been changed
+    if previous_agent_id
+      old_hash[:reason] = new_hash[:reason]
+      old_hash[:time] = Time.now.to_s
+      AssignedAgentChangeWorker.perform_async(old_hash, previous_agent_id)
+    end
+
     PropertyEvent.create(udprn: old_hash[:udprn], attr_hash: new_hash.except!(:status_last_updated)) if !new_hash[:description]
   end
 

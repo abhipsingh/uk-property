@@ -20,3 +20,7 @@
 /config/database.yml
 /config/stripe.yml
 /public/assets/
+*.go
+*.csv
+*.txt
+bin/*
