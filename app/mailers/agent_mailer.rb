@@ -38,16 +38,15 @@ class AgentMailer < ApplicationMailer
     previous_group = previous_company.group
 
     branch = new_agent.branch
-    company = new_agent.agent
-    group = new_agent.group
-
+    company = branch.agent
+    group = company.group
     @new_branch_name = branch.name
     @new_company_name = company.name
     @new_group_name = group.name
 
-    @prev_branch_name = previous_branch.name
-    @prev_company_name = previous_company.name
-    @prev_group_name = previous_group.name
+    @previous_branch_name = previous_branch.name
+    @previous_company_name = previous_company.name
+    @previous_group_name = previous_group.name
 
     @previous_agent_image_url = previous_agent.image_url
     @previous_agent_first_name = previous_agent.first_name
