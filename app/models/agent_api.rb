@@ -1,3 +1,4 @@
+
 class AgentApi
   attr_accessor :branch_id, :udprn, :details
 
@@ -32,7 +33,7 @@ class AgentApi
     all_valuations =  all_valuations_of_agent
     all_agents_in_branch = Agents::Branches::AssignedAgent.where(branch_id: @branch_id).pluck(:id).uniq
     all_agents_result = all_agents_in_branch.map { |e|  all_sales_of_agent(e) }.flatten!
-    aggregate_stats[:aggregate_sales] = all_agents_result.map{|t| t.message['final_price'] }.reduce(&:+)
+    aggregate_stats[:aggregate_sales] = all_agents_result.map{|t| t.sale_price }.reduce(&:+)
 
     all_agents_result = all_agents_in_branch.map { |e| average_no_of_days_to_sell(e) }
     all_agents_result = all_agents_result.select{|t| t>0}
@@ -102,29 +103,32 @@ class AgentApi
 
   #### To test this function run in the console
   #### AgentApi.new(10966139, 1234).number_of_properties_sold
+  #### TODO: Fix me, after changing the event storage layer to propertyevent, this is obsolete
   def number_of_properties_sold(agent_id=nil)
     agent_id ||= @agent_id
-    event = Trackers::Buyer::EVENTS[:sold]
-    Event.where(event: event).where(agent_id: @agent_id).count
+    SoldProperty.where(agent_id: agent_id).count
   end
 
   #### To test this function run in the console
   #### AgentApi.new(10966139, 1234).all_valuations_of_agent
+  #### TODO: Fix me, after changing the event storage layer to propertyevent, this is obsolete
   def all_valuations_of_agent(agent_id=nil)
     valuations = []
     event = Trackers::Buyer::EVENTS[:valuation_change]
     agent_id ||= @agent_id
-    udprns = Event.where(agent_id: agent_id).where(event: event).pluck(:udprn).uniq
-    udprns.map { |e| valuations.push(Event.where(agent_id: agent_id).where(event: event).where(udprn: e).order('created_at DESC')) }
+    api = PropertySearchApi.new(filtered_params: { agent_id: agent_id })
+    api.apply_filters
+    udprns, status = api.fetch_udprns
+    udprns.map { |e| valuations.push(PropertyEvent.where(udprn: e).where("attr_hash ? 'current_valuation'").order('created_at DESC'))) }
     valuations
   end
 
   #### To test this function run in the console
   #### AgentApi.new(10966139, 1234).all_sales_of_agent
+  #### TODO: Fix me, after changing the event storage layer to propertyevent, this is obsolete
   def all_sales_of_agent(agent_id=nil)
-    event = Trackers::Buyer::EVENTS[:sold]
     agent_id ||= @agent_id
-    Event.where(agent_id: agent_id).where(event: event).order('created_at DESC')
+    SoldProperty.where(agent_id: agent_id).order('created_at DESC').count
   end
 
   #### To test this function run in the console
@@ -162,7 +166,7 @@ class AgentApi
     all_valuations = all_valuations_of_agent(agent_id)
     valuation_property_hash = {}
     all_valuations.each do |each_property_valuation|
-      message = each_property_valuation.first.message
+      message = each_property_valuation.first.attr_hash
       valuation = message['current_valuation'].to_i
       valuation_property_hash[each_property_valuation.first.udprn] = valuation       
     end
@@ -171,8 +175,7 @@ class AgentApi
     greater_count = 0
     all_sales.each do |each_sale|
       count += 1 
-      message = each_sale.message
-      final_price = message['final_price'].to_i
+      final_price = each_sale.sale_price
       valuation_price = valuation_property_hash[each_sale.udprn]
        if valuation_price && final_price >= valuation_price
          greater_count += 1
@@ -211,7 +214,7 @@ class AgentApi
     valuation_property_hash = {}
 
     all_valuations.each do |each_property_valuation|
-      message = each_property_valuation.first.message
+      message = each_property_valuation.first.attr_hash
       valuation = message['current_valuation']
       valuation_property_hash[each_property_valuation.first.udprn] = valuation
     end
@@ -222,7 +225,7 @@ class AgentApi
     all_sales = all_sales_of_agent(agent_id)
     all_sales.each do |each_sale|
       count += 1
-      final_price = each_sale.message['final_price']
+      final_price = each_sale.sale_price
       valuation = valuation_property_hash[each_sale.udprn]
       sum_of_percentage_changes += (((final_price - valuation).to_f/(valuation.to_f)) * 100).round(2)
     end
@@ -243,7 +246,7 @@ class AgentApi
     valuation_property_hash = {}
 
     all_valuations.each do |each_property_valuation|
-      message = each_property_valuation.last.message
+      message = each_property_valuation.last.attr_hash
       valuation = message['current_valuation']
       valuation_property_hash[each_property_valuation.first.udprn] = valuation
     end
@@ -254,7 +257,7 @@ class AgentApi
     all_sales = all_sales_of_agent(agent_id)
     all_sales.each do |each_sale|
       count += 1
-      final_price = each_sale.message['final_price']
+      final_price = each_sale.sale_price
       valuation = valuation_property_hash[each_sale.udprn]
       sum_of_percentage_changes += (((final_price).to_f/(valuation.to_f)) * 100).round(2)
     end
@@ -275,7 +278,7 @@ class AgentApi
     valuation_property_hash = {}
 
     all_valuations.each do |each_property_valuation|
-      message = each_property_valuation.first.message
+      message = each_property_valuation.first.attr_hash
       valuation = message['current_valuation']
       valuation_property_hash[each_property_valuation.first.udprn] = valuation
     end
@@ -286,7 +289,7 @@ class AgentApi
     all_sales = all_sales_of_agent(agent_id)
     all_sales.each do |each_sale|
       count += 1
-      final_price = each_sale.message['final_price']
+      final_price = each_sale.sale_price
       valuation = valuation_property_hash[each_sale.udprn]
       sum_of_percentage_changes += (((final_price).to_f/(valuation.to_f)) * 100).round(2)
     end
@@ -321,13 +324,13 @@ class AgentApi
   #### This function gathers all the price movements of a single property
   #### which was handled by this agent
   #### AgentApi.new(10966139, 1234).calculate_per_property_stats_for_agent({})
+  #### TODO: Fix me, after changing the event storage layer to propertyevent, this is obsolete
   def calculate_per_property_stats_for_agent(result, agent_id=nil)
     agent_id ||= @agent_id
     all_valuations = all_valuations_of_agent(agent_id)
     all_valuations.each do |each_property_valuation|
       each_property_hash = {}
-      event = Trackers::Buyer::EVENTS[:sold]
-      event_result = Event.where(agent_id: agent_id).where(event: event).where(udprn: each_property_valuation.first.udprn)
+      event_result = SoldProperty.where(agent_id: agent_id)
       if event_result.count > 0
         ### Property Ids
         property_id = each_property_valuation.first.udprn
@@ -335,20 +338,20 @@ class AgentApi
         sorted_valuations = each_property_valuation.reverse
 
         ### First valuation if exists
-        each_property_hash['first_valuation'] = sorted_valuations.first['message']['current_valuation'] if each_property_valuation.length > 0
+        each_property_hash['first_valuation'] = sorted_valuations.first.attr_hash['current_valuation'] if each_property_valuation.length > 0
         
         ### Second valuation if exists
-        each_property_hash['second_valuation'] = sorted_valuations.second['message']['current_valuation'] if each_property_valuation.length > 1
+        each_property_hash['second_valuation'] = sorted_valuations.second.attr_hash['current_valuation'] if each_property_valuation.length > 1
         
         ### Third valuation if exists
-        each_property_hash['third_valuation'] = sorted_valuations.third['message']['current_valuation'] if each_property_valuation.length > 2
+        each_property_hash['third_valuation'] = sorted_valuations.third.attr_hash['current_valuation'] if each_property_valuation.length > 2
     
         ### Final sale price of the property      
-        each_property_hash['final_sale_price'] = event_result.first.message['final_price']
+        each_property_hash['final_sale_price'] = event_result.first.sale_price
 
 
         ### Achieved more than valuation
-        final_valuation = each_property_valuation.first['message']['current_valuation']
+        final_valuation = each_property_valuation.first.attr_hash['current_valuation']
         cond = nil
         each_property_hash['final_sale_price'] > final_valuation ? cond = 1 : cond = 0
         each_property_hash['achieved_more_than_valuation'] = cond  
@@ -357,7 +360,7 @@ class AgentApi
         each_property_hash['average_changes_to_valuations'] = each_property_valuation.length
 
         ### Average increase in valuation
-        first_valuation = each_property_valuation.last['message']['current_valuation']
+        first_valuation = each_property_valuation.last.attr_hash['current_valuation']
         percent_increase = ((((each_property_hash['final_sale_price'] - first_valuation).to_f)/(first_valuation.to_f)) * 100 ).round(2)
         each_property_hash['percent_increase'] = percent_increase
 

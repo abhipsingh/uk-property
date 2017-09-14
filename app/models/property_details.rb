@@ -1,6 +1,7 @@
 require 'base64'
 class PropertyDetails
   attr_reader :attributes
+  TRACKING_ATTRS = [ :agent_id, :vendor_id, :property_status_type, :current_valuation, :price, :dream_price ]
 
   def initialize(attributes={})
     @attributes = attributes
@@ -50,10 +51,11 @@ class PropertyDetails
     details['address'] = address(details)
     details['vanity_url'] = vanity_url(details['address'])
     details[:udprn] = udprn
-    { '_source' => details }
+    { '_source' => details }.with_indifferent_access
   end
 
   def self.vanity_url(address)
+    
     address.split(',').map{|t| t.strip.split(' ').map{|k| k.downcase}.join('-') }.join('-')
   end
 
@@ -182,8 +184,10 @@ class PropertyDetails
       old_hash[:time] = Time.now.to_s
       AssignedAgentChangeWorker.perform_async(old_hash, previous_agent_id)
     end
-
-    PropertyEvent.create(udprn: old_hash[:udprn], attr_hash: new_hash.except!(:status_last_updated)) if !new_hash[:description]
+    
+    filtered_new_hash = {}
+    TRACKING_ATTRS.each{ |t| filtered_new_hash[t] = new_hash[t] if new_hash[t] }
+    PropertyEvent.create(udprn: old_hash[:udprn], attr_hash: new_hash) if !filtered_new_hash.empty?
   end
 
   def self.check_if_property_status_changed(old_status, new_status)

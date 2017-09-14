@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170828102253) do
+ActiveRecord::Schema.define(version: 20170914150836) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -252,13 +252,22 @@ ActiveRecord::Schema.define(version: 20170828102253) do
     t.datetime "created_at",                                     null: false
     t.boolean  "is_deleted",                     default: false
     t.integer  "property_status_type",           default: 0
+    t.boolean  "is_archived",                    default: false
+  end
+
+  create_table "events_stages", force: :cascade do |t|
+    t.integer  "event"
+    t.integer  "buyer_id"
+    t.integer  "agent_id"
+    t.integer  "property_status_type"
+    t.jsonb    "message"
+    t.datetime "created_at",           null: false
   end
 
   create_table "events_tracks", force: :cascade do |t|
     t.integer  "type_of_tracking"
     t.integer  "buyer_id"
     t.integer  "agent_id"
-    t.integer  "vendor_id"
     t.integer  "udprn"
     t.integer  "property_status_type", default: 1
     t.string   "hash_str"
@@ -360,6 +369,16 @@ ActiveRecord::Schema.define(version: 20170828102253) do
     t.string  "property_type"
     t.string  "age"
     t.string  "duration"
+  end
+
+  create_table "sold_properties", force: :cascade do |t|
+    t.integer  "udprn",           null: false
+    t.integer  "sale_price",      null: false
+    t.date     "completion_date"
+    t.integer  "vendor_id",       null: false
+    t.integer  "buyer_id",        null: false
+    t.integer  "agent_id",        null: false
+    t.datetime "created_at",      null: false
   end
 
   create_table "stripe_payments", force: :cascade do |t|

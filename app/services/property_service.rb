@@ -55,12 +55,13 @@ class PropertyService
   def attach_vendor_to_property(vendor_id, details={}, property_for='Sale')
     property_details = PropertyDetails.details(udprn)
     details.reverse_merge!(property_details['_source'].symbolize_keys!)
-    district = details['district']
+    district = details[:district]
     create_lead_and_update_vendor_details(district, udprn, vendor_id, details, property_for)
   end
 
   def create_lead_and_update_vendor_details(district, udprn, vendor_id, details, property_for='Sale')
-    details['property_status_type'] = 'Rent' if property_for != 'Sale'
+    details['property_status_type'] = 'Sale' if property_for == 'Sale'
+    details['property_status_type'] ||= 'Sale'
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[details['property_status_type']]
     Agents::Branches::AssignedAgents::Lead.create(district: district, property_id: udprn, vendor_id: vendor_id, property_status_type: property_status_type)
@@ -96,6 +97,23 @@ class PropertyService
     return message, status
   end
 
+  def claim_new_property_manual(agent_id, property_for='Sale')
+    message, status = nil
+    details = PropertyDetails.details(udprn)
+    details['property_status_type'] = 'Sale' if property_for == 'Sale'
+    details['property_status_type'] ||= 'Sale'
+    property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[details['property_status_type']]
+    Agents::Branches::AssignedAgents::Lead.create!(
+      district: details['district'], 
+      property_id: udprn,
+      agent_id: agent_id,
+      vendor_id: nil, 
+      property_status_type: property_status_type
+    )
+    message = 'You have claimed this property successfully'
+    return message, 200
+  end
+
   def filter_helper(attr_hash)
     filter_hash = {
       filter: {
@@ -115,7 +133,7 @@ class PropertyService
     client = Elasticsearch::Client.new(host: Rails.configuration.remote_es_host)
     details = details.with_indifferent_access
     update_hash = {}
-    attributes = EDIT_ATTRS
+    attributes = EDIT_ATTRS + [:property_status_type]
     earlier_details = details.deep_dup
     property_details = PropertyDetails.details(@udprn)['_source'].with_indifferent_access
     details.merge!(property_details)

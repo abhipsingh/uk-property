@@ -132,15 +132,25 @@ class PropertySearchApi
   end
 
   def fetch_data_from_es
-    inst = self
     # Rails.logger.info(inst.query)
+    udprns, status = fetch_udprns
+    body = fetch_details_from_udprns(udprns)
+    return body, status
+  end
+
+  def fetch_udprns
+    inst = self
     body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name)
     parsed_body = Oj.load(body)['hits']['hits']
     udprns = parsed_body.map { |e|  e['_id'] }
+    return udprns, status
+  end
+
+  def fetch_details_from_udprns(udprns)
     body = PropertyService.bulk_details(udprns)    
     body.each{|t| t['address'] = PropertyDetails.address(t)}
     body.each{|t| t['vanity_url'] = PropertyDetails.vanity_url(t['address'])}
-    return body, status
+    return body
   end
 
   def modify_query

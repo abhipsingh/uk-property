@@ -161,7 +161,7 @@ module Agents
           query = query.where(property_status_type: property_status_type)
         end
 
-        query = query.where(district: district).where('created_at > ?', 1.week.ago)
+        query = query.where(district: district).where('created_at > ?', 5.week.ago)
 
         if status == 'New'
           query = query.where(agent_id: nil)
@@ -185,12 +185,12 @@ module Agents
             new_row[:submitted_on] = nil
           end
 
-          details = PropertyDetails.details(lead.property_id)
+          details = PropertyDetails.details(lead.property_id).with_indifferent_access
           details = details['_source'] ? details['_source'] : {}
 
           new_row = new_row.merge(['property_type', 'street_view_url', 'udprn', 'beds', 'baths', 'receptions', 'dream_price', 'pictures'].reduce({}) {|h, k| h[k] = details[k]; h })
           new_row[:address] = PropertyDetails.address(details)
-          new_row[:photo_url] = details['photos'] ? details['photos'][0] : "Image not available"
+          new_row[:photo_url] = details['pictures'] ? details['pictures'][0] : "Image not available"
           new_row[:last_sale_prices] = PropertyHistoricalDetail.where(udprn: details['udprn']).order('date DESC').pluck(:price)
 
           #### Vendor details
@@ -209,10 +209,10 @@ module Agents
 
           ### Deadline
           if lead.agent_id.nil?
-            new_row[:deadline] = Time.at(lead.created_at + 24.hours - Time.now).utc.strftime "%H:%M:%S"
+            new_row[:deadline] = 168.hours.from_now.to_time.to_s
             new_row[:claimed] = false
           else
-            new_row[:deadline] = lead.updated_at.to_s
+            new_row[:deadline] = lead.updated_at.to_time.to_s
             new_row[:claimed] = true
           end
 
@@ -298,9 +298,7 @@ module Agents
 
       ### Agents::Branches::AssignedAgent.find(23).send_vendor_email("test@prophety.co.uk", 10968961)
       def send_vendor_email(vendor_email, udprn, assigned_agent_present=true, alternate_agent_email=nil)
-        salt_str = "#{vendor_email}_#{self.id}_#{self.class}"
-        hash_value = BCrypt::Password.create salt_str
-        hash_obj = VerificationHash.create!(email: vendor_email, hash_value: hash_value, entity_id: self.id, entity_type: self.class, udprn: udprn.to_i)
+        hash_obj = create_hash(vendor_email, udprn)
         self.verification_hash = hash_obj.hash_value
         self.vendor_email = vendor_email
         self.email_udprn = udprn
@@ -309,6 +307,13 @@ module Agents
         self.assigned_agent_present = assigned_agent_present
         self.alternate_agent_email = alternate_agent_email
         VendorMailer.welcome_email(self).deliver_now
+      end
+
+      def create_hash(vendor_email, udprn)
+        salt_str = "#{vendor_email}_#{self.id}_#{self.class}"
+        hash_value = BCrypt::Password.create salt_str
+        hash_obj = VerificationHash.create!(email: vendor_email, hash_value: hash_value, entity_id: self.id, entity_type: self.class, udprn: udprn.to_i)
+        hash_obj
       end
 
       def as_json option = {}

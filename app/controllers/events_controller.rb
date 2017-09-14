@@ -24,10 +24,10 @@ class EventsController < ApplicationController
     type_of_match = Trackers::Buyer::TYPE_OF_MATCH[type_of_match.downcase.to_sym]
     # type_of_match = Trackers::Buyer::TYPE_OF_MATCH.with_indifferent_access[params[:type_of_match]]
     property_id = params[:udprn]
-    details = PropertyDetails.details(property_id)
     property_status_type = details['_source']['property_status_type']
-    agent_id = params[:agent_id] || details['_source']['agent_id']
-    message = 'NULL' if message.nil?
+    agent_id = params[:agent_id]
+    agent_id ||= 0
+    message ||= nil
     response = insert_events(agent_id, property_id, buyer_id, message, type_of_match, property_status_type, event)
     
     ### TODO: Offload to Sidekiq
@@ -204,14 +204,17 @@ class EventsController < ApplicationController
           search_params[:ads] = params[:ads]
         elsif property_for == 'Sale' && params[:property_status_type].nil?
           quote_property_ids = quote_model.where(agent_id: params[:agent_id].to_i)
+                                          .where.not(agent_id: 0)
                                           .where.not(property_status_type: rent_property_status_type)
                                           .pluck(:property_id)
           lead_property_ids = lead_model.where(agent_id: params[:agent_id].to_i)
+                                        .where.not(agent_id: 0)
                                         .where.not(property_status_type: rent_property_status_type)
                                         .pluck(:property_id)
           property_ids = lead_property_ids + quote_property_ids
         elsif property_for == 'Rent'  && params[:property_status_type].nil?
           quote_property_ids = quote_model.where(agent_id: params[:agent_id].to_i)
+                                          .where.not(agent_id: 0)
                                           .where(property_status_type: rent_property_status_type)
                                           .pluck(:property_id)
           lead_property_ids = lead_model.where(agent_id: params[:agent_id].to_i)
@@ -220,9 +223,11 @@ class EventsController < ApplicationController
           property_ids = lead_property_ids + quote_property_ids
         elsif !property_status_type.nil?
           quote_property_ids = quote_model.where(agent_id: params[:agent_id].to_i)
+                                          .where.not(agent_id: 0)
                                           .where(property_status_type: property_status_type)
                                           .pluck(:property_id)
           lead_property_ids = lead_model.where(agent_id: params[:agent_id].to_i)
+                                        .where.not(agent_id: 0)
                                         .where(property_status_type: property_status_type)
                                         .pluck(:property_id)
         end
@@ -289,8 +294,10 @@ class EventsController < ApplicationController
     udprn = params[:udprn]
     event = Trackers::Buyer::EVENTS[params[:event].to_sym]
     if buyer_id && udprn && event
-      subscribed_event = Event.where(buyer_id: buyer_id).where(udprn: udprn).where(event: event).first
-      subscribed_event.is_deleted = true
+      type_of_tracking = Trackers::Buyer::REVERSE_EVENTS[event.to_i]
+      enum_type_of_tracking = Events::Track::TRACKING_TYPE_MAP[type_of_tracking]
+      subscribed_event = Events::Track.where(buyer_id: buyer_id).where(udprn: udprn).where(type_of_tracking: subscribed_event).first
+      subscribed_event.active = false
       if subscribed_event.save!
         render json: {message: "Unsubscribed"}, status: 200
       else

@@ -58,9 +58,8 @@ class VendorApi
 
     ### Current valuation compute
     current_valuation = nil
-    event = Trackers::Buyer::EVENTS[:valuation_change]
-    valuation = Event.where(event: event).where(udprn: @udprn).order('created_at DESC').limit(1).first
-    current_valuation = valuation['current_valuation'] if valuation
+    valuation = PropertyEvent.where(udprn: @udprn).where("attr_hash ? 'current_valuation'").order('created_at DESC').limit(1).first
+    current_valuation = valuation.attr_hash['current_valuation'] if valuation
 
     dream_price_info = calculate_price_info(dream_price, sale_info.last, sale_info.first)
     valuation_info = calculate_price_info(current_valuation, sale_info.last, sale_info.first)
@@ -69,10 +68,12 @@ class VendorApi
 
   def calculate_quotes
     quotes = []
-    agent_quotes = Agents::Branches::AssignedAgents::SubmiitedQuote.where(property_id: udprn.to_i)
-                                                                   .where.not(agent_id: nil)
-                                                                   .where.not(agent_id: 1)
-                                                                   .where('created_at > ?', 1.week.ago).order('created_at DESC').limit(2)
+    agent_quotes = Agents::Branches::AssignedAgents::Quote.where(property_id: udprn.to_i)
+                                                          .where.not(agent_id: nil)
+                                                          .where.not(agent_id: 1)
+                                                          .where('created_at > ?', 4.week.ago)
+                                                          .order('created_at DESC')
+                                                          .limit(2)
     agent_quotes.each do |agent_quote|
       agent_id = agent_quote.agent_id
       ### TODO: Remove this
@@ -116,81 +117,65 @@ class VendorApi
 
   #### To test this function run in the console
   #### VendorApi.all_valuations_of_agent(1234)
+  #### TODO: Fix me, after changing the event storage layer to propertyevent, this is obsolete
   def self.all_valuations_of_agent(agent_id)
     valuations = []
-    event = Trackers::Buyer::EVENTS[:valuation_change]
-    udprns = Event.where(agent_id: agent_id).where(event: event).pluck(:udprn).uniq
-    udprns.map { |e| valuations.push(Event.where(agent_id: @agent_id).where(event: event).where(udprn: e).order('created_at DESC')) }
+    api = PropertySearchApi.new(filtered_params: { agent_id: agent_id })
+    api.apply_filters
+    udprns, status = api.fetch_udprns
+    udprns.map { |e| valuations.push(PropertyEvent.where(udprn: e).where("attr_hash ? 'current_valuation'").order('created_at DESC')) }
     valuations
   end
 
   #### To test this function run in the console
   #### VendorApi.all_sales_of_agent(1234)
+  #### TODO: Fix me, after changing the event storage layer to propertyevent, this is obsolete
   def self.all_sales_of_agent(agent_id)
-    event = Trackers::Buyer::EVENTS[:sold]
-    Event.where(agent_id: agent_id).where(event: event).order('created_at DESC')
+    SoldProperty.where(agent_id: agent_id).order('created_at DESC')
   end
 
   #### Collects all the details of the property owned by the vendor
   #### VendorApi.new(10966139, nil, 1).property_details
   def property_details
     details = PropertyDetails.details(@udprn)['_source']
-    details['address'] = PropertyDetails.address(details)
 
-    ### Historical detail
-    historical_detail = PropertyHistoricalDetail.where(udprn: udprn.to_s).order('date DESC').limit(1).first
-    details['last_sale_price'] = nil
-    details['last_sale_price'] = historical_detail.price if historical_detail
     details['last_sale_price_date'] = nil
     details['last_sale_price_date'] = historical_detail.date if historical_detail
 
     #### Agent details
-    agent_id = details['agent_id']
-    agent = Agents::Branches::AssignedAgent.where(id: agent_id).first
-    agent_keys = ['assigned_agent_name', 'assigned_agent_branch_name', 'assigned_agent_company_name', 'assigned_agent_group_name',
-                  'assigned_agent_image_url', 'assigned_agent_mobile', 'assigned_agent_email', 'assigned_agent_office_number',
-                  'assigned_agent_branch_address', 'assigned_agent_branch_number', 'assigned_agent_branch_logo', 'assigned_agent_branch_email',
-                  'branch_properties_sold', 'branch_properties_on_sale']
-    agent_keys.each{ |t| details[t] = nil }
-    if agent
-      details['assigned_agent_name'] = agent.name
-      details['assigned_agent_branch_name'] = agent.branch.name
-      details['assigned_agent_company_name'] = agent.branch.agent.name
-      details['assigned_agent_group_name'] = agent.branch.agent.group.name
-      details['assigned_agent_image_url'] = agent.image_url
-      details['assigned_agent_mobile'] = agent.mobile
-      details['assigned_agent_email'] = agent.email
-      details['assigned_agent_office_number'] = agent.office_phone_number
-      details['assigned_agent_branch_address'] = agent.branch.address
-      details['assigned_agent_branch_number'] = agent.branch.phone_number
-      details['assigned_agent_branch_logo'] = agent.branch.image_url
-      details['assigned_agent_branch_email'] = agent.branch.email
+    if details['agent_id']
 
       ### No of properties sold for this branch
       event = Trackers::Buyer::EVENTS[:sold]
-      agent_ids = Agents::Branches::AssignedAgent.find(agent_id).branch.assigned_agents.pluck(:id)
-      sold_udprns = Event.where(event: event).where(agent_id: agent_ids).pluck(:udprn)
+      branch = Agents::Branches::AssignedAgent.where(id: details['agent_id'].to_i).select(:branch_id).first
+      agent_ids = Agents::Branches::AssignedAgent.where(branch_id: branch.id).pluck(:id) if branch
+      agent_ids ||= []
+      sold_udprns = SoldProperty.where(agent_id: agent_ids).count
       details['branch_properties_sold'] = sold_udprns.count
 
       #### No of properties on sale
-      total_udprns = Event.where.not(event: event).where(agent_id: agent_ids).pluck(:udprn)
+      #### TODO: Fix me, after changing the event storage layer to propertyevent, this is obsolete
+      api = PropertySearchApi.new(filtered_params: { agent_ids: agent_ids.join(',') })
+      api.apply_filters
+      udprns, status = api.fetch_udprns
+      total_udprns = udprns.count
       details['branch_properties_on_sale'] = (total_udprns.uniq - sold_udprns).count
     end
    
 
     ### Advertised or not
-    details['advertised'] = details['match_type_str'].any? { |e| ['Featured', 'Premium'].include?(e.split('|').last) }
+    details['advertised'] = PropertyAd.where(udprn: @udprn).count > 0
     
     ### Extra keys to be added
     table = nil
     property_id = @udprn
     details['total_visits'] = Trackers::Buyer.new.generic_event_count(Trackers::Buyer::EVENTS[:visits], table, property_id, :single)
-    details['total_enquiries'] =Trackers::Buyer.new. generic_event_count(Trackers::Buyer::ENQUIRY_EVENTS, table, property_id, :multiple)
-    details['total_interested_in_viewing'] =Trackers::Buyer.new. generic_event_count(Trackers::Buyer::EVENTS[:interested_in_viewing], table, property_id, :single)
-    details['total_interested_in_making_an_offer'] =Trackers::Buyer.new. generic_event_count(Trackers::Buyer::EVENTS[:interested_in_making_an_offer], table, property_id, :single)
-    details['trackings'] = Trackers::Buyer.new.generic_event_count(Trackers::Buyer::TRACKING_EVENTS, table, property_id, :multiple)
+    details['total_enquiries'] =Trackers::Buyer.new.generic_event_count(Trackers::Buyer::ENQUIRY_EVENTS, table, property_id, :multiple)
+    details['total_interested_in_viewing'] =Trackers::Buyer.new.generic_event_count(Trackers::Buyer::EVENTS[:interested_in_viewing], table, property_id, :single)
+    details['total_interested_in_making_an_offer'] =Trackers::Buyer.new.generic_event_count(Trackers::Buyer::EVENTS[:interested_in_making_an_offer], table, property_id, :single)
+    details['trackings'] = Events::Track.where(udprn: @udprn).count
     details['requested_viewing'] = Trackers::Buyer.new.generic_event_count(Trackers::Buyer::EVENTS[:requested_viewing], table, property_id, :single)
-    details['offer_made_stage'] = Trackers::Buyer.new.generic_event_count(Trackers::Buyer::EVENTS[:offer_made_stage], table, property_id, :single)
+    details['offer_made_stage'] = Events::Stage.where(event: Trackers::Buyer::EVENTS[:offer_made_stage]).where(agent_id: agent_id).count
     details['requested_message'] = Trackers::Buyer.new.generic_event_count(Trackers::Buyer::EVENTS[:requested_message], table, property_id, :single)
     details['requested_callback'] = Trackers::Buyer.new.generic_event_count(Trackers::Buyer::EVENTS[:requested_callback], table, property_id, :single)
     # new_row['impressions'] = generic_event_count(:impressions, table, property_id, :single)

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta content='text/html; charset=UTF-8' http-equiv='Content-Type' />
+  </head>
+  <body>
+    <h1>Hi <%= @vendor_email %></h1>
+    <p>
+      
+    </p>
+    <p>
+     As a friend/family I wanted to invite you to start using Prophety® - the revolutionary property that allows homeowners to find out the actual demand for their property throughout the year. So if you ever decide to sell your property located at <%= @address %>, you will be able to market your property for free to buyers that have already shown an interest in your property or properties just like it.
+    </p>
+
+    <p>
+      Just click on the link below to get started:
+    </p>
+    
+    <a href="<%=@hash_url%>"><%=@hash_url%></a>
+
+    <p>
+      Please get in touch if you have any questions. This is a free tool and whilst I would be your point of contact having invited you to the platform, you can always change me.
+    </p>
+    <p>
+      Best,
+    </p>
+
+    <p>
+      <%= @agent_name %>
+    </p>
+
+    <p>
+      <%= @agent_title %>
+    </p>
+
+    <p>
+      <%= @agent_company %>
+    </p>
+
+    <p>
+      <%= @branch_address %>
+    </p>
+
+    <p>
+      <%= @agent_mobile %>
+    </p>
+
+    <p>
+      <%= @agent_phone %>
+    </p>
+
+    <p>
+      <%= @agent_email %>
+    </p>
+
+  </body>
+</html>

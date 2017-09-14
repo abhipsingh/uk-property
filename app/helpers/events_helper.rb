@@ -49,32 +49,28 @@ module EventsHelper
     File.delete(file_name) if res
   end
 
-  def insert_events(agent_id1, property_id, buyer_id, message, type_of_match, property_status_type, event)
+  def insert_events(agent_id, property_id, buyer_id, message, type_of_match, property_status_type, event)
     property_id = property_id.to_i
     type_of_match = type_of_match.to_i
     property_status_type = property_status_type.to_i
     event = event.to_i
-    agent_id = details['_source']['agent_id'] || 1234
     response = {}
     # Rails.logger.info("prop #{property_id}  type of match #{type_of_match} prop status #{property_status_type} event #{event}")
     #### Defend against null cases
     # Rails.logger.info("(#{agent_id1}, #{property_id}, #{buyer_id}, #{message}, #{type_of_match}, #{property_status_type}, #{event})")
     if property_id && buyer_id && type_of_match && property_status_type && event
-      if !Events::Track::TRACKING_TYPE_MAP.keys.include?(Trackers::Buyer::REVERSE_EVENTS[event.to_i])
+      if Trackers::Buyer::ENQUIRY_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
         date = Date.today.to_s
         month = Date.today.month
         time = Time.now.strftime("%Y-%m-%d %H:%M:%S").to_s
-        buyer_id ||= 1
         buyer = PropertyBuyer.where(id: buyer_id).select([:name, :email, :mobile]).last
-        buyer ||= PropertyBuyer.find(1)
-        details = PropertyDetails.details(property_id).with_indifferent_access
-        address = PropertyDetails.address(details['_source']) rescue ""
+        details = PropertyDetails.details(property_id)
+        address = details[:_source][:address]
         agent = Agents::Branches::AssignedAgent.where(id: agent_id).select([:name, :email, :mobile]).last
-        message = nil if message == 'NULL'
         agent_name = agent.name if agent
         agent_email = agent.email if agent
         agent_mobile = agent.mobile if agent
-        property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[details['_source']['property_status_type']]
+        property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[details[:_source][:property_status_type]]
         attrs_list = {
           agent_id: agent_id,
           buyer_id: buyer_id,
@@ -91,25 +87,43 @@ module EventsHelper
           event: event,
           property_status_type: property_status_type
         }
-        Event.create!(attrs_list)
+        Event.create!(attrs_list) if Trackers::Buyer::ENQUIRY_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
         # Rails.logger.info("prop #{property_id}  type of match #{type_of_match} prop status #{property_status_type} event #{event}")
-        response = {}
-  
-        if event == Trackers::Buyer::EVENTS[:sold]
-          host = Rails.configuration.remote_es_host
-          client = Elasticsearch::Client.new host: host
-          update_hash = { property_status_type: 'Red', vendor_id: buyer_id , sold: true }
-          response = PropertyDetails.update_details(client, property_id, update_hash)
-        end
-      else
+      elsif Trackers::Buyer::TRACKING_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
         type_of_tracking = Trackers::Buyer::REVERSE_EVENTS[event.to_i]
         enum_type_of_tracking = Events::Track::TRACKING_TYPE_MAP[type_of_tracking]
         address_attr = Events::Track::ADDRESS_ATTRS.select{ |t| !type_of_tracking.to_s.index(t.to_s).nil? }.last
         if address_attr
+          details = PropertyDetails.details(property_id)
           hash_str = Events::Track.send("#{address_attr}_hash", details)
           Events::Track.create!(type_of_tracking: enum_type_of_tracking, hash_str: hash_str, agent_id: agent_id, buyer_id: buyer_id, udprn: property_id)
         end
+      elsif Trackers::Buyer::QUALIFYING_STAGE_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
+        ### Qualifying stage event create
+        Events::Stage.create!(event: event, agent_id: agent_id, buyer_id: buyer_id, udprn: property_id, message: message)
+
+      elsif event == Trackers::Buyer::EVENTS[:sold]
+        message = message.with_indifferent_access if message
+        host = Rails.configuration.remote_es_host
+        client = Elasticsearch::Client.new host: host
+        details = PropertyDetails.details(property_id)
+        vendor_id = details[:_source][:vendor_id]
+        new_vendor_id = PropertyBuyer.find(buyer_id).vendor_id
+        update_hash = { property_status_type: nil, vendor_id: new_vendor_id , sold: true }
+        SoldProperty.create!(udprn: property_id, buyer_id: buyer_id, agent_id: agent, vendor_id: vendor_id, sale_price: message[:final_price], completion_date: message[:completion_date])
+        response = PropertyDetails.update_details(client, property_id, update_hash)
+
+        ### Archive the enquiries that were received for this property
+        Event.where(udprn: property_id).where(is_archived: false).update_all(is_archived: true)
+    
+      elsif event = Trackers::Buyer::EVENTS[:valuation_change] ### When valuations is changed
+        client = Elasticsearch::Client.new host: host
+        message = message.with_indifferent_access if message
+        update_hash = { current_valuation: message[:current_valuation] }
+        response = PropertyDetails.update_details(client, property_id, update_hash)
       end
+        
+
     end
     response
   end

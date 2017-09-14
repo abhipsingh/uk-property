@@ -129,25 +129,24 @@ class Trackers::Buyer
   def property_enquiries(udprn)
     details = PropertyDetails.details(udprn)['_source']
     result = []
-    events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
-
     property_for = nil
     details['property_status_type'] != 'Rent' ? property_for = 'Sale' : property_for = 'Rent'
 
     total_rows = []
     query = Event
+    qualifying_stage_query = Events::Stage
+    query = query.where(udprn: udprn.to_i)
     if property_for != 'Rent'
       query = query.where.not(property_status_type: Trackers::Buyer::PROPERTY_STATUS_TYPES['Rent'])
     else
       query = query.where(property_status_type: Trackers::Buyer::PROPERTY_STATUS_TYPES['Rent'])
     end
     buyer_ids = []
-    total_rows = query.where(event: events)
-                      .where(udprn: udprn.to_i)
-                      .order('created_at DESC')
+    total_rows = query.order('created_at DESC')
 
     total_rows.each do |each_row|
       new_row = {}
+      new_row[:id] = each_row.id
       new_row[:received] = each_row.created_at
       new_row[:type_of_enquiry] = REVERSE_EVENTS[each_row.event]
       new_row['buyer_id'] = each_row.buyer_id
@@ -172,8 +171,11 @@ class Trackers::Buyer
 
       #### Qualifying Stage Only shown to the agents
       #Rails.logger.info(future.rows)
-      qualifying_events = QUALIFYING_STAGE_EVENTS.map { |e| EVENTS[e] }.join(',')
-      qualifying_result = query.where(udprn: udprn).where(event: qualifying_events).where(buyer_id: each_row.buyer_id).order('created_at DESC').limit(1).first
+      qualifying_result = qualifying_stage_query.where(udprn: udprn)
+                                                .where(buyer_id: each_row.buyer_id)
+                                                .order('created_at DESC')
+                                                .limit(1)
+                                                .first
       new_row[:qualifying] = :qualifying
       new_row[:qualifying] = REVERSE_EVENTS[qualifying_result.event] if qualifying_result
 
@@ -372,13 +374,12 @@ class Trackers::Buyer
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
     filtered_buyer_ids = []
     ### Process filtered buyer_id only
-    filtered_buyer_ids = fetch_filtered_buyer_ids(buyer_buying_status, buyer_funding, buyer_biggest_problem, buyer_chain_free, search_str, budget_from, budget_to)
+    buyer_filter_flag = buyer_buying_status || buyer_funding || buyer_biggest_problem || buyer_chain_free || budget_from || budget_to
+    filtered_buyer_ids = fetch_filtered_buyer_ids(buyer_buying_status, buyer_funding, buyer_biggest_problem, buyer_chain_free, search_str, budget_from, budget_to) if buyer_filter_flag
     filtered_buying_flag = (!buyer_buying_status.nil?) || (!buyer_funding.nil?) || (!buyer_biggest_problem.nil?) || (!buyer_chain_free.nil?)
-
     ### FIlter only the enquiries which are asked by the caller
     events = events.select{ |t| t == EVENTS[enquiry_type.to_sym] } if enquiry_type
 
-    buyer_filter_flag = buyer_buying_status || buyer_funding || buyer_biggest_problem || buyer_chain_free || budget_from || budget_to
     ### Filter only the type_of_match which are asked by the caller
     query = Event.where(event: events)
     property_for ||= 'Sale'
@@ -387,13 +388,18 @@ class Trackers::Buyer
     else
       query = query.where(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
     end
+
+    api = PropertySearchApi.new(filtered_params: { agent_id: agent_id })
+    api.apply_filters
+    udprns, status = api.fetch_udprns
+    udprns = [] if status.to_i != 200
+    udprns = [property_udprn] if property_udprn
     
     query = query.where(buyer_id: filtered_buyer_ids) if buyer_filter_flag
     query = query.where(type_of_match:  TYPE_OF_MATCH[type_of_match.to_s.downcase.to_sym]) if type_of_match
-    query = query.where(udprn: property_udprn) if property_udprn
+    query = query.where(udprn: udprns)
     query = query.search_address_and_buyer_details(search_str) if search_str
     total_rows = query.order('created_at DESC').as_json
-
     qualifying_matches = []
     rating_matches = []
     qualifying_matches_buyer_ids = []
@@ -531,6 +537,7 @@ class Trackers::Buyer
     tracking_property_event = Events::Track::TRACKING_TYPE_MAP[:property_tracking]
     buyer_id = event_details['buyer_id']
     query = nil
+    qualifying_stage_query = Events::Stage
     tracking_query = nil
     if property_for == 'Sale'
       query = Event.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
@@ -570,11 +577,9 @@ class Trackers::Buyer
 
     #### Qualifying Stage Only shown to the agents
       #Rails.logger.info(future.rows)
-    if agent_id
-      qualifying_events = QUALIFYING_STAGE_EVENTS.map { |e| EVENTS[e] }
-      result = query.where(agent_id: agent_id).where(event: qualifying_events).where(buyer_id: buyer_id).order('created_at DESC').first
-      new_row[:qualifying] = REVERSE_EVENTS[result.event] rescue :qualifying_stage
-    end
+    result = qualifying_stage_query.where(udprn: property_id).where(buyer_id: buyer_id).order('created_at DESC').limit(1).first
+    new_row[:qualifying] = REVERSE_EVENTS[result.event] if result
+    new_row[:qualifying] ||= :qualifying_stage
     new_row
   end
 

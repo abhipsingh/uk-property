@@ -334,7 +334,8 @@ class AgentsController < ApplicationController
       receptions: params[:receptions].to_i,
       beds: params[:beds].to_i,
       baths: params[:baths].to_i,
-      details_completed: false
+      details_completed: false,
+      property_id: udprn
     }
     vendor_email = params[:vendor_email]
     assigned_agent_email = params[:assigned_agent_email]
@@ -343,9 +344,9 @@ class AgentsController < ApplicationController
     response, status = agent_service.verify_manual_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
     response['message'] = "Property details updated." unless status.nil? || status!=200
     render json: response, status: status
-  rescue Exception => e
-    Rails.logger.info("AGENT_MANUAL_PROPERTY_VERIFICATION_FAILURE_#{e}")
-    render json: { message: 'Verification failed due to some error' }, status: 400
+  #rescue Exception => e
+  #  Rails.logger.info("AGENT_MANUAL_PROPERTY_VERIFICATION_FAILURE_#{e}")
+  #  render json: { message: 'Verification failed due to some error' }, status: 400
   end
 
   ### Verifies which address/udprn to the crawled properties for the agent
