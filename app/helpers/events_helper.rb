@@ -115,12 +115,6 @@ module EventsHelper
 
         ### Archive the enquiries that were received for this property
         Event.where(udprn: property_id).where(is_archived: false).update_all(is_archived: true)
-    
-      elsif event = Trackers::Buyer::EVENTS[:valuation_change] ### When valuations is changed
-        client = Elasticsearch::Client.new host: host
-        message = message.with_indifferent_access if message
-        update_hash = { current_valuation: message[:current_valuation] }
-        response = PropertyDetails.update_details(client, property_id, update_hash)
       end
         
 
