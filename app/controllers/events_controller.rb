@@ -52,8 +52,9 @@ class EventsController < ApplicationController
     verification_status = params[:verification_status]
     ads = params[:ads]
     search_str = params[:search_str]
+    last_time = params[:last_time]
     response = []
-    response = Trackers::Buyer.new.search_latest_enquiries(params[:agent_id].to_i, property_status_type, verification_status, ads, search_str) if params[:agent_id]
+    response = Trackers::Buyer.new.search_latest_enquiries(params[:agent_id].to_i, property_status_type, verification_status, ads, search_str, last_time) if params[:agent_id]
 
     render json: response, status: 200
   end
@@ -87,10 +88,11 @@ class EventsController < ApplicationController
                    :property_for ]
     cache_parameters = param_list.map{ |t| params[t].to_s }
     cache_response(params[:agent_id].to_i, cache_parameters) do
+      last_time = params[:last_time]
       results = Trackers::Buyer.new.property_enquiry_details_buyer(params[:agent_id].to_i, params[:enquiry_type], params[:type_of_match], 
         params[:qualifying_stage], params[:rating], params[:buyer_status], params[:buyer_funding], 
         params[:buyer_biggest_problem], params[:buyer_chain_free], 
-        params[:search_str], params[:budget_from], params[:budget_to], params[:udprn], params[:property_for]) if params[:agent_id]
+        params[:search_str], params[:budget_from], params[:budget_to], params[:udprn], params[:property_for], last_time) if params[:agent_id]
       final_response = results.empty? ? {"enquiries" => results, "message" => "No quotes to show"} : {"enquiries" => results}
       render json: final_response, status: status
     end

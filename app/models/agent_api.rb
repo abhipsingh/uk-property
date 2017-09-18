@@ -119,7 +119,7 @@ class AgentApi
     api = PropertySearchApi.new(filtered_params: { agent_id: agent_id })
     api.apply_filters
     udprns, status = api.fetch_udprns
-    udprns.map { |e| valuations.push(PropertyEvent.where(udprn: e).where("attr_hash ? 'current_valuation'").order('created_at DESC'))) }
+    udprns.map { |e| valuations.push(PropertyEvent.where(udprn: e).where("attr_hash ? 'current_valuation'").order('created_at DESC')) }
     valuations
   end
 

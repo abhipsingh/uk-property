@@ -13,6 +13,10 @@ class PropertyAd < ActiveRecord::Base
     'Sale' => 1,
     'Rent' => 2
   }
+  PRICE = {
+    'Featured' => 2,
+    'Premium' => 1
+  }
   ALL_LOCALITY_LEVELS = [ :county, :post_town, :dependent_locality, :thoroughfare_description, :dependent_thoroughfare_description ]
   ALL_POSTCODE_LEVELS = [ :unit, :sector, :district ]
 

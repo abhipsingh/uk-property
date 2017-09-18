@@ -54,9 +54,10 @@ class PropertyService
 
   def attach_vendor_to_property(vendor_id, details={}, property_for='Sale')
     property_details = PropertyDetails.details(udprn)
-    details.reverse_merge!(property_details['_source'].symbolize_keys!)
-    district = details[:district]
-    create_lead_and_update_vendor_details(district, udprn, vendor_id, details, property_for)
+    details.symbolize_keys!
+    details.each {|key, value|  property_details[key] = value }
+    district = property_details[:district]
+    create_lead_and_update_vendor_details(district, udprn, vendor_id, property_details, property_for)
   end
 
   def create_lead_and_update_vendor_details(district, udprn, vendor_id, details, property_for='Sale')

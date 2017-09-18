@@ -227,9 +227,11 @@ class Trackers::Buyer
 
   #### Agent enquiries latest implementation
   #### Trackers::Buyer.new.search_latest_enquiries(1234)
-  def search_latest_enquiries(agent_id, property_status_type=nil, verification_status=nil, ads=nil, search_str=nil, property_for='Sale')
+  def search_latest_enquiries(agent_id, property_status_type=nil, verification_status=nil, ads=nil, search_str=nil, property_for='Sale', last_time=nil)
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
     query = Event.where(agent_id: agent_id).where(event: events)
+    parsed_last_time = Time.parse(last_time) if last_time
+    query = query.where("created_at > ? ", parsed_last_time) if last_time
     query = query.where(property_status_type: PROPERTY_STATUS_TYPES[property_status_type]) if property_status_type
     query = query.search_address_and_buyer_details(search_str) if search_str
     property_ids = query.order('created_at DESC').pluck(:udprn).uniq
@@ -369,7 +371,7 @@ class Trackers::Buyer
 
   ##### Agent level mock in console for new enquries coming
   ##### Trackers::Buyer.new.property_enquiry_details_buyer(1234, 'requested_message', nil, nil, nil,nil, nil, nil, nil, nil, nil, nil)
-  def property_enquiry_details_buyer(agent_id, enquiry_type=nil, type_of_match=nil, qualifying_stage=nil, rating=nil, buyer_buying_status=nil, buyer_funding=nil, buyer_biggest_problem=nil, buyer_chain_free=nil, search_str=nil, budget_from=nil, budget_to=nil, property_udprn=nil, property_for='Sale')
+  def property_enquiry_details_buyer(agent_id, enquiry_type=nil, type_of_match=nil, qualifying_stage=nil, rating=nil, buyer_buying_status=nil, buyer_funding=nil, buyer_biggest_problem=nil, buyer_chain_free=nil, search_str=nil, budget_from=nil, budget_to=nil, property_udprn=nil, property_for='Sale', last_time=nil)
     result = []
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
     filtered_buyer_ids = []
@@ -394,7 +396,9 @@ class Trackers::Buyer
     udprns, status = api.fetch_udprns
     udprns = [] if status.to_i != 200
     udprns = [property_udprn] if property_udprn
-    
+    parsed_last_time = Time.parse(last_time) if last_time
+    query = query.where("created_at > ?", parsed_last_time) if last_time
+      
     query = query.where(buyer_id: filtered_buyer_ids) if buyer_filter_flag
     query = query.where(type_of_match:  TYPE_OF_MATCH[type_of_match.to_s.downcase.to_sym]) if type_of_match
     query = query.where(udprn: udprns)

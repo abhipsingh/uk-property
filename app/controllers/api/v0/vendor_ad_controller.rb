@@ -3,12 +3,11 @@ module Api
     class VendorAdController < ActionController::Base
       include CacheHelper
       before_filter :set_headers
-      #### Example curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" -H "Content-Type: application/json" "http://localhost/api/v0/ads/availability?addresses%5B%5D=+33&addresses%5B%5D=+Loder+Drive&addresses%5B%5D=+City+Centre&addresses%5B%5D=+HEREFORD&addresses%5B%5D=+Herefordshire&udprn=10966139&property_status_type=Sale" 
+      #### Example curl -XGET  -H "Content-Type: application/json" "http://localhost/api/v0/ads/availability?udprn=10966139&property_status_type=Sale" 
       #### Parameters {"addresses"=>[" 33", " Loder Drive", " City Centre", " HEREFORD", " Herefordshire"], "udprn"=>"10966139", "property_status_type" => 'Rent'}
       def ads_availablity
         if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
         #if true
-          cache_response(params[:udprn].to_i, []) do
             score_map = {
               :county => 7,
               :post_town => 6,
@@ -33,7 +32,6 @@ module Api
             property_for ||= 'Sale'
             PropertyAd.ads_info_all_address_levels(response, udprn, property_for)
             render json: response, status: 200
-          end
         else
           render json: { message: 'Authorization failed' }, status: 401
         end
@@ -57,7 +55,7 @@ module Api
             locations = params[:locations]
             amount = 0
             locations.each do |key, hash|
-              amount += (( hash["value"].to_i )*100)
+              amount += (( PropertyAd::PRICE[hash['type']])*100*hash['months'].to_i)
             end
             # Create the charge using the customer data returned by Stripe API
             charge = Stripe::Charge.create(
@@ -78,8 +76,6 @@ module Api
           status = nil
           udprn = params[:udprn].to_i
           details = PropertyDetails.details(udprn)['_source']
-          match_type_strs = details['match_type_str']
-          new_match_type_strs = []
           ads_count = 0
           service = nil
           details['property_status_type'] != 'Rent' ? service = 1 : service = 2
@@ -87,7 +83,7 @@ module Api
           locations.each do |key, location|
             hash_value = location[:hash]
             type = location[:type]
-            value = location[:value].to_i
+            value = (( PropertyAd::PRICE[location[:type]])*100*location[:months].to_i)
             num_months = params[:months].to_i rescue 1
             expiry_at = num_months.months.from_now.to_time
             Rails.logger.info(location)
