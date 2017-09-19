@@ -25,8 +25,8 @@ class PropertiesController < ActionController::Base
   ### This route provides all the details of the recent enquiries made by the users on this property
   ### curl -XGET -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/enquiries/property/10966139'
   def enquiries
-    #if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
-    if true
+    if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
+    # if true
       cache_response(params[:udprn].to_i, []) do
         enquiries = Trackers::Buyer.new.property_enquiries(params[:udprn].to_i)
         render json: enquiries, status: 200
@@ -177,8 +177,8 @@ class PropertiesController < ActionController::Base
     render json: { message: 'You have claimed this property Successfully. All the agents in this district will be notified' }, status: 200
   rescue ActiveRecord::RecordNotUnique
     render json: { message: 'Sorry, this udprn has already been claimed' }, status: 400
-  rescue Exception
-    render json: { message: 'Sorry, this udprn has already been claimed' }, status: 400
+  #rescue Exception
+  #  render json: { message: 'Sorry, this udprn has already been claimed' }, status: 400
   end
 
   ### Update basic details of a property by a vendor. Part of vendor verification workflow process

@@ -24,7 +24,7 @@ class EventsController < ApplicationController
     type_of_match = Trackers::Buyer::TYPE_OF_MATCH[type_of_match.downcase.to_sym]
     # type_of_match = Trackers::Buyer::TYPE_OF_MATCH.with_indifferent_access[params[:type_of_match]]
     property_id = params[:udprn]
-    property_status_type = details['_source']['property_status_type']
+    property_status_type = params[:property_status_type]
     agent_id = params[:agent_id]
     agent_id ||= 0
     message ||= nil
@@ -111,7 +111,7 @@ class EventsController < ApplicationController
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent/quotes?agent_id=1234&property_for=Rent'
   def recent_properties_for_quotes
     cache_parameters = [ :agent_id, :payment_terms, :services_required, :quote_status, :search_str, :property_for ]
-    cache_response(params[:agent_id].to_i, cache_parameters) do
+    #cache_response(params[:agent_id].to_i, cache_parameters) do
       results = []
       response = {}
       status = 200
@@ -125,7 +125,7 @@ class EventsController < ApplicationController
       end
       
       render json: response, status: status
-    end
+    #end
   end
 
 
@@ -136,7 +136,7 @@ class EventsController < ApplicationController
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent/claims?agent_id=1234&property_for=Rent'
   def recent_properties_for_claim
     cache_parameters = []
-    cache_response(params[:agent_id].to_i, cache_parameters) do
+    #cache_response(params[:agent_id].to_i, cache_parameters) do
       response = {}
       status = 200
       begin
@@ -157,7 +157,7 @@ class EventsController < ApplicationController
       end
       Rails.logger.info "sending response for recent claims property #{response.inspect}"
       render json: response, status: status
-    end
+    #end
   end
 
   #### When an agent wants to see the property specific statistics(trackings,

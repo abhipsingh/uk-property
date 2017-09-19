@@ -52,7 +52,6 @@ module EventsHelper
   def insert_events(agent_id, property_id, buyer_id, message, type_of_match, property_status_type, event)
     property_id = property_id.to_i
     type_of_match = type_of_match.to_i
-    property_status_type = property_status_type.to_i
     event = event.to_i
     response = {}
     # Rails.logger.info("prop #{property_id}  type of match #{type_of_match} prop status #{property_status_type} event #{event}")
@@ -88,6 +87,14 @@ module EventsHelper
           property_status_type: property_status_type
         }
         Event.create!(attrs_list) if Trackers::Buyer::ENQUIRY_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
+
+        ### Clear the cache. List all cached methods which has cache key as agent_id/udprn
+        ardb_client = Rails.configuration.ardb_client
+        ardb_client.del("cache_#{agent_id}_agent_new_enquiries") if agent_id
+        ardb_client.del("cache_#{property_id}_enquiries")
+        ardb_client.del("cache_#{property_id}_interest_info")
+        ardb_client.del("cache_#{property_id}_history_enquiries")
+
         # Rails.logger.info("prop #{property_id}  type of match #{type_of_match} prop status #{property_status_type} event #{event}")
       elsif Trackers::Buyer::TRACKING_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
         type_of_tracking = Trackers::Buyer::REVERSE_EVENTS[event.to_i]

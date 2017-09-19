@@ -66,6 +66,7 @@ class PropertyService
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[details['property_status_type']]
     Agents::Branches::AssignedAgents::Lead.create(district: district, property_id: udprn, vendor_id: vendor_id, property_status_type: property_status_type)
+    details['property_status_type'] = nil if details['property_status_type'] == 'Sale'
     details[:vendor_id] = vendor_id
     details[:claimed_at] = Time.now.to_s
     # p details

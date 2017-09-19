@@ -1,7 +1,7 @@
 require 'base64'
 class PropertyDetails
   attr_reader :attributes
-  TRACKING_ATTRS = [ :agent_id, :vendor_id, :property_status_type, :current_valuation, :price, :dream_price ]
+  TRACKING_ATTRS = [ :agent_id, :vendor_id, :property_status_type, :current_valuation, :price, :dream_price, :beds, :baths, :receptions ]
 
   def initialize(attributes={})
     @attributes = attributes
@@ -134,10 +134,9 @@ class PropertyDetails
     response = {}
     status = 200
     es_hash = {}
-    update_hash['pictures'] = update_hash['pictures'].sort_by{|x| x['priority']} if update_hash.key?('pictures')
-    update_hash['status_last_updated'] = Time.now.to_s[0..Time.now.to_s.rindex(" ")-1]
-    update_hash['description_set'] = true if update_hash[:description]
-    update_hash.symbolize_keys!
+    update_hash[:pictures] = update_hash['pictures'].sort_by{|x| x['priority']} if update_hash.key?('pictures')
+    update_hash[:status_last_updated] = Time.now.to_s[0..Time.now.to_s.rindex(" ")-1]
+    update_hash[:description_set] = true if update_hash[:description]
     details = PropertyService.bulk_details([udprn]).first
     last_property_status_type = details[:property_status_type]
 
@@ -187,7 +186,19 @@ class PropertyDetails
     
     filtered_new_hash = {}
     TRACKING_ATTRS.each{ |t| filtered_new_hash[t] = new_hash[t] if new_hash[t] }
-    PropertyEvent.create(udprn: old_hash[:udprn], attr_hash: new_hash) if !filtered_new_hash.empty?
+    PropertyEvent.create(udprn: old_hash[:udprn], attr_hash: filtered_new_hash) if !filtered_new_hash.empty?
+
+    if update_hash[:agent_id] 
+      ardb_client = Rails.configuration.ardb_client
+      ardb_client.del("cache_#{agent_id}_agent_new_enquiries") if agent_id
+    end
+
+    if update_hash[:vendor_id]
+      ardb_client = Rails.configuration.ardb_client
+      ardb_client.del("cache_#{property_id}_enquiries")
+      ardb_client.del("cache_#{property_id}_interest_info")
+      ardb_client.del("cache_#{property_id}_history_enquiries")
+    end
   end
 
   def self.check_if_property_status_changed(old_status, new_status)
