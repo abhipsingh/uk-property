@@ -2,7 +2,6 @@ class AssignedAgentChangeWorker
   include Sidekiq::Worker
   sidekiq_options :retry => false # job will be discarded immediately if failed
 
-
   def perform(details, previous_agent_id)
     prev_agent = Agents::Branches::AssignedAgent.find(previous_agent_id)
     new_agent = Agents::Branches::AssignedAgent.find(details['agent_id'])

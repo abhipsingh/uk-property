@@ -43,8 +43,6 @@ module Api
         if user_valid_for_viewing?(['Vendor', 'Buyer'], params[:udprn].to_i)
           charge = nil
           begin
-            # params[:stripeAmount]
-            #amount = params[:months].to_i * 2 ### 2$ per month
          
             # Create the customer in Stripe
             customer = Stripe::Customer.create(
@@ -54,18 +52,8 @@ module Api
          
             locations = params[:locations]
             amount = 0
-            locations.each do |key, hash|
-              amount += (( PropertyAd::PRICE[hash['type']])*100*hash['months'].to_i)
-            end
             # Create the charge using the customer data returned by Stripe API
-            charge = Stripe::Charge.create(
-              customer: customer.id,
-              amount: amount,
-              description: 'Rails Stripe customer',
-              currency: 'GBP'
-            )
               # place more code upon successfully creating the charge
-          rescue Stripe::CardError => e
             # flash[:error] = e.message
             # redirect_to charges_path
             # flash[:notice] = "Please try again"
@@ -80,33 +68,44 @@ module Api
           service = nil
           details['property_status_type'] != 'Rent' ? service = 1 : service = 2
           Rails.logger.info(locations)
+          chargeable_amount = 0
           locations.each do |key, location|
             hash_value = location[:hash]
             type = location[:type]
             value = (( PropertyAd::PRICE[location[:type]])*100*location[:months].to_i)
             num_months = params[:months].to_i rescue 1
-            expiry_at = num_months.months.from_now.to_time
+            expiry_at = num_months.months.from_now.to_time - 1.day
             Rails.logger.info(location)
-            if value > 0
-              begin
-                ads = PropertyAd.create(hash_str: hash_value, property_id: udprn.to_i, ad_type: PropertyAd::TYPE_HASH[type], service: service, expiry_at: expiry_at)
-                message[:ads].push(ads)
-                ads_count += 1 if ads.id > 0
-                message[:ads_count] = ads_count
-              rescue Exception => e
-                re = Stripe::Refund.create(
-                  charge: charge.id,
-                  amount: value
-                )
-                Rails.logger.info(e)
-                message = { message: 'Some error occured', rows: [] }
-                status = 400
-              end
+            if PropertyAd.where(hash_str: hash_value, ad_type: PropertyAd::TYPE_HASH[type], service: service).count < PropertyAd::MAX_ADS_HASH[type]
+              ads = PropertyAd.create(hash_str: hash_value, property_id: udprn.to_i, ad_type: PropertyAd::TYPE_HASH[type], service: service, expiry_at: expiry_at)
+
+              ### Create a log for future reference
+              AdPaymentHistory.create!(hash_str: hash_value, property_id: udprn.to_i, type_of_ad: PropertyAd::TYPE_HASH[type], service: service, months: location[:months].to_i)
+
+              message[:ads].push({hash: hash_value, type: type, booked: true, expiry_at: expiry_at.to_s, amount: value, message: "Booked slot successfully"})
+              chargeable_amount += value
+              ads_count += 1 if ads.id > 0
+              message[:ads_count] = ads_count
             else
-              message = { status: 'All slots full' }
-              status = 400
-              break
+              message[:ads].push({hash: hash_value, type: type, booked: false, expiry_at: nil, amount: nil, message: 'Slot is full'})
             end
+          end
+
+          begin
+            charge = Stripe::Charge.create(
+              customer: customer.id,
+              amount: chargeable_amount,
+              description: "Ads amount charged for #{udprn}, #{service}, #{Time.now.to_s}"
+              currency: 'GBP'
+            )
+          rescue Stripe::CardError => e
+            message[:ads].select{|t| t[:booked] == true }.each do |t|
+              t[:booked] = false
+              t[:expiry_at] = nil
+              t[:amount] = nil
+              t[:message] = "StripeCardError: #{e.message}. Please fix this issue with your stripe card"
+            end
+            PropertyAd.where(property_id: udprn.to_i, service: service).where("created_at > ?", 1.hour.ago).destroy_all
           end
           # p message
           render json: message, status: status

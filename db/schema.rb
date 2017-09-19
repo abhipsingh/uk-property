@@ -11,11 +11,20 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170918093403) do
+ActiveRecord::Schema.define(version: 20170919011435) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
   enable_extension "pg_trgm"
+
+  create_table "ad_payment_histories", force: :cascade do |t|
+    t.string   "hash_str",   null: false
+    t.integer  "udprn",      null: false
+    t.integer  "service",    null: false
+    t.integer  "months",     null: false
+    t.integer  "type_of_ad", null: false
+    t.datetime "created_at", null: false
+  end
 
   create_table "agents", force: :cascade do |t|
     t.string  "name",         limit: 255
