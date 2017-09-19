@@ -103,7 +103,7 @@ module Api
               t[:booked] = false
               t[:expiry_at] = nil
               t[:amount] = nil
-              t[:message] = "StripeCardError: #{e.message}. Please fix this issue with your stripe card"
+              t[:message] = "StripeCardError: #{e.message}. Unknown Stripe error"
             end
             PropertyAd.where(property_id: udprn.to_i, service: service).where("created_at > ?", 1.hour.ago).destroy_all
           end
