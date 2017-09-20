@@ -13,7 +13,7 @@ class AssignedAgentChangeWorker
 
     ### Flush agent's cached tables
     ardb_client = Rails.configuration.ardb_client
-    ardb_client.hdel("cache_key_#{previous_agent_id}")
+    ardb_client.del("cache_#{previous_agent_id}_agent_new_enquiries")
 
   end
 end

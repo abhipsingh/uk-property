@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170919011435) do
+ActiveRecord::Schema.define(version: 20170920033843) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -262,6 +262,16 @@ ActiveRecord::Schema.define(version: 20170919011435) do
     t.boolean  "is_deleted",                     default: false
     t.integer  "property_status_type",           default: 0
     t.boolean  "is_archived",                    default: false
+  end
+
+  create_table "events_hotnesses", force: :cascade do |t|
+    t.integer  "event"
+    t.integer  "udprn"
+    t.integer  "buyer_id"
+    t.integer  "agent_id"
+    t.integer  "service"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
   end
 
   create_table "events_stages", force: :cascade do |t|

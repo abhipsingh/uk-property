@@ -52,6 +52,14 @@ class PropertyService
     @udprn = udprn
   end
 
+  def self.fetch_service(details)
+   if details[:property_status_type] == 'Rent'
+     details[:property_status_type]
+   else
+     'Sale'
+   end
+  end
+
   def attach_vendor_to_property(vendor_id, details={}, property_for='Sale')
     property_details = PropertyDetails.details(udprn)
     details.symbolize_keys!
