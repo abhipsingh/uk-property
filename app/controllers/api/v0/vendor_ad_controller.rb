@@ -42,22 +42,14 @@ module Api
       def update_availability
         if user_valid_for_viewing?(['Vendor', 'Buyer'], params[:udprn].to_i)
           charge = nil
-          begin
          
-            # Create the customer in Stripe
-            customer = Stripe::Customer.create(
-              email: params[:stripeEmail],
-              card: params[:stripeToken]
-            )
-         
-            locations = params[:locations]
-            amount = 0
-            # Create the charge using the customer data returned by Stripe API
-              # place more code upon successfully creating the charge
-            # flash[:error] = e.message
-            # redirect_to charges_path
-            # flash[:notice] = "Please try again"
-          end
+          # Create the customer in Stripe
+          customer = Stripe::Customer.create(
+            email: params[:stripeEmail],
+            card: params[:stripeToken]
+          )
+       
+          locations = params[:locations]
           client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
           message = {} 
           message[:ads] = []
@@ -95,11 +87,12 @@ module Api
             charge = Stripe::Charge.create(
               customer: customer.id,
               amount: chargeable_amount,
-              description: "Ads amount charged for #{udprn}, #{service}, #{Time.now.to_s}"
+              description: "Ads amount charged for #{udprn}, #{service}, #{Time.now.to_s}",
               currency: 'GBP'
             )
           rescue Stripe::CardError => e
-            message[:ads].select{|t| t[:booked] == true }.each do |t|
+            booked_ads = message[:ads].select{|t| t[:booked] == true }
+            booked_ads.each do |t|
               t[:booked] = false
               t[:expiry_at] = nil
               t[:amount] = nil
