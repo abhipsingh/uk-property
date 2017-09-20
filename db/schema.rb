@@ -296,6 +296,15 @@ ActiveRecord::Schema.define(version: 20170920033843) do
     t.datetime "updated_at",                          null: false
   end
 
+  create_table "events_views", force: :cascade do |t|
+    t.integer  "udprn",      null: false
+    t.integer  "buyer_id",   null: false
+    t.integer  "agent_id"
+    t.integer  "vendor_id"
+    t.integer  "service"
+    t.datetime "created_at", null: false
+  end
+
   create_table "invited_agents", force: :cascade do |t|
     t.string   "email"
     t.integer  "udprn"

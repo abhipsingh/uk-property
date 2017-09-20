@@ -27,8 +27,11 @@ class PropertiesController < ActionController::Base
   def enquiries
     if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
     # if true
-      cache_response(params[:udprn].to_i, []) do
-        enquiries = Trackers::Buyer.new.property_enquiries(params[:udprn].to_i)
+      cache_response(params[:udprn].to_i, [params[:page]]) do
+        page = params[:page]
+        page ||= 0
+        page = page.to_i
+        enquiries = EnquiryService.new(udprn: udprn.to_i).property_specific_enquiry_details(page)
         render json: enquiries, status: 200
       end
     else

@@ -52,11 +52,11 @@ class PropertyService
     @udprn = udprn
   end
 
-  def self.fetch_service(details)
-   if details[:property_status_type] == 'Rent'
-     details[:property_status_type]
-   else
+  def self.service(details)
+   if details[:property_status_type] != 'Rent'
      'Sale'
+   else
+     details[:property_status_type]
    end
   end
 

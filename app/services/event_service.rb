@@ -1,0 +1,327 @@
+class EventService
+  include EventsHelper
+
+  attr_accessor :udprn, :agent_id, :vendor_id, :service, :buyer_id, :details
+
+   EVENTS = {
+    viewed: 2,
+    property_tracking: 3,
+    street_tracking: 4,
+    locality_tracking: 5,
+    interested_in_viewing: 6,
+    interested_in_making_an_offer: 7,
+    requested_message: 8,
+    requested_callback: 9,
+    requested_viewing: 10,
+    deleted: 11,
+    responded_to_email_request: 12,
+    responded_to_callback_request: 13,
+    responded_to_viewing_request: 14,
+    qualifying_stage: 15,
+    viewing_stage: 16,
+    negotiating_stage: 17,
+    offer_made_stage: 18,
+    offer_accepted_stage: 19,
+    closed_lost_stage: 20,
+    closed_won_stage: 21,
+    confidence_level: 22,
+    visits: 23,
+    conveyance_stage: 24,
+    contract_exchange_stage: 25,
+    completion_stage: 26,
+    hot_property: 27,
+    warm_property: 28,
+    cold_property: 29,
+    save_search_hash: 30,
+    sold: 31,
+    valuation_change: 32,
+    dream_price_change: 33
+  }
+
+  TYPE_OF_MATCH = {
+    perfect: 1,
+    potential: 2,
+    unlikely: 3
+  }
+
+  PROPERTY_STATUS_TYPES = {
+    'Green' => 1,
+    'Amber' => 2,
+    'Red'   => 3,
+    'Rent'  => 4
+  }
+
+  SERVICES = {
+    'Sale' => 1,
+    'Rent' => 2
+  }
+
+  PROPERTY_TYPES = {
+    'Sale' => 1,
+    'Rent' => 2
+  }
+
+  LISTING_TYPES = {
+    'Normal' => 1,
+    'Premium' => 2,
+    'Featured' => 3
+  }
+
+  REVERSE_LISTING_TYPES = LISTING_TYPES.invert
+
+  REVERSE_STATUS_TYPES = PROPERTY_STATUS_TYPES.invert
+
+  REVERSE_TYPE_OF_MATCH = TYPE_OF_MATCH.invert
+
+  REVERSE_EVENTS = EVENTS.invert
+
+  REVERSE_SERVICES = SERVICES.invert
+
+  CONFIDENCE_ROWS = (1..5).to_a
+
+  ENQUIRY_EVENTS = [
+    :interested_in_viewing,
+    :interested_in_making_an_offer,
+    :requested_message,
+    :requested_callback,
+    :requested_viewing,
+    :viewing_stage
+  ]
+
+  TRACKING_EVENTS = [
+    :property_tracking,
+    :locality_tracking,
+    :street_tracking
+  ]
+
+  QUALIFYING_STAGE_EVENTS = [
+    :qualifying_stage,
+    :viewing_stage,
+    :offer_made_stage,
+    :negotiating_stage,
+    :offer_accepted_stage,
+    :conveyance_stage,
+    :contract_exchange_stage,
+    :completion_stage,
+    :closed_won_stage,
+    :closed_lost_stage
+  ]
+
+  SUCCESSFUL_SEQUENCE_STAGES = [
+    :qualifying_stage,
+    :interested_in_viewing,
+    :negotiating_stage,
+    :conveyance_stage,
+    :offer_made_stage,
+    :offer_accepted_stage,
+    :closed_won_stage,
+    :contract_exchange_stage,
+    :completion_stage,
+    :sold
+  ]
+
+  UNSUCCESSFUL_SEQUENCE_STAGES = [
+    :qualifying_stage,
+    :interested_in_viewing,
+    :negotiating_stage,
+    :conveyance_stage,
+    :offer_made_stage,
+    :closed_lost_stage
+  ]
+
+  ENQUIRY_PAGE_SIZE = 20
+
+
+  def initialize(udprn: udprn=nil, agent_id: agent_id=nil, vendor_id: vendor_id=nil, buyer_id: buyer_id=nil)
+    @udprn = udprn.to_i
+    @agent_id = agent_id
+    @vendor_id = vendor_id
+    @buyer_id = buyer_id
+    @details = PropertyDetails.details(@udprn.to_i)['_source'] if @udprn
+    @service = SERVICES[PropertyService.service(@details)] if @details
+  end
+
+  def property_specific_enquiries(page)
+    raise StandardError, 'Udprn is not present ' if @udprn.nil?
+    Event.where(udprn: @udprn).where(property_status_type: @service).order('created_at DESC')
+         .limit(ENQUIRY_PAGE_SIZE)
+         .offset(ENQUIRY_PAGE_SIZE*page)
+  end
+
+  def property_specific_enquiry_details(page)
+    raise StandardError, 'Udprn is not present ' if @udprn.nil?
+    enquiries = property_specific_enquiries(page)
+    enquiry_details = enquiries.map { |enquiry| construct_enquiry_detail(enquiry) }
+    buyer_ids = enquiry_details.map { |enquiry| enquiry[:buyer_id] }
+    buyers = PropertyBuyer.where(id: buyer_ids.flatten).select([:id, :email, :full_name, :mobile, :status, :chain_free, :funding, :biggest_problem, :buying_status, :budget_to, :budget_from, :image_url]).order("position(id::text in '#{buyer_ids.join(',')}')")
+    buyer_hash = {}
+    buyers.each { |buyer| buyer_hash[buyer.id] = buyer }
+    enquiry_details.each { |row| add_buyer_details(row, buyer_hash) }
+    enquiry_details
+  end
+
+  def construct_enquiry_detail(enquiry)
+    each_row = enquiry
+    new_row = {}
+    new_row[:id] = each_row.id
+    new_row[:received] = each_row.created_at
+    new_row[:type_of_enquiry] = REVERSE_EVENTS[each_row.event]
+    new_row[:buyer_id] = each_row.buyer_id
+    new_row[:property_tracking] = total_trackings
+    new_row[:views] = view_ratio(each_row.buyer_id)
+    new_row[:enquiries] = enquiry_ratio(each_row.buyer_id)
+    new_row[:type_of_match] = REVERSE_TYPE_OF_MATCH[each_row.type_of_match]
+    qualifying_stage_detail_for_enquiry(each_row.buyer_id, new_row)
+    add_hotness_details_for_buyer(new_row, each_row.buyer_id)
+    new_row
+  end
+
+  def total_views
+    Events::View.where(udprn: @udprn).where(service: @service).count if @udprn
+  end
+
+  def buyer_specific_views_for_property(buyer_id)
+    raise StandardError, 'Udprn is not present ' if @udprn.nil?
+    Events::View.where(udprn: @udprn).where(service: @service).where(buyer_id: buyer_id).count
+  end
+
+  def property_specific_view_for_buyer(udprn)
+    raise StandardError, 'Udprn is not present ' if @buyer_id.nil?
+    Events::View.where(udprn: udprn).where(service: @service).where(buyer_id: @buyer_id).count
+  end
+
+  def total_trackings
+    raise StandardError, 'Udprn is not present ' if @udprn.nil?
+    event = Events::Track::TRACKING_TYPE_MAP[:property_tracking]
+    Events::Track.where(type_of_tracking: event).where(udprn: @udprn).count
+  end
+
+  def property_being_tracked_by_buyer?(buyer_id)
+    event = Events::Track::TRACKING_TYPE_MAP[:property_tracking]
+    Events::Track.where(type_of_tracking: event).where(buyer_id: buyer_id).where(udprn: @udprn).count > 0
+  end
+
+  def total_enquiries
+    raise StandardError, 'Udprn is not present ' if @udprn.nil?
+    Event.where(property_status_type: service).where(udprn: @udprn).count
+  end
+
+  def enquiries_specific_for_buyer(buyer_id)
+    raise StandardError, 'Udprn is not present ' if @udprn.nil?
+    Event.where(property_status_type: service).where(buyer_id: buyer_id).where(udprn: @udprn).count
+  end
+
+
+  def qualifying_stage_for_enquiry(buyer_id)
+    raise StandardError, 'Udprn is not present ' if @udprn.nil?
+    event = Events::Stage.where(udprn: @udprn, buyer_id: buyer_id).order('created_at DESC').last
+    stage = REVERSE_EVENTS[event.event] if event
+    stage ||= :qualifying
+    event ||= nil
+    { stage: stage, qualifying_event: event }
+  end
+
+  def enquiry_ratio(buyer_id)
+    raise StandardError, 'Udprn is not present ' if @udprn.nil?
+    buyer_enquiries = enquiries_specific_for_buyer(buyer_id)
+    buyer_enquiries.to_i.to_s + '/' + total_enquiries.to_i.to_s
+  end
+
+  def view_ratio(buyer_id)
+    raise StandardError, 'Udprn is not present ' if @udprn.nil?
+    buyer_views = buyer_specific_views_for_property(buyer_id)
+    buyer_views.to_i.to_s + '/' + total_views.to_i.to_s
+  end
+
+  def qualifying_stage_detail_for_enquiry(buyer_id, new_row)
+    raise StandardError, 'Udprn is not present ' if @udprn.nil?
+    qualifying_stage = qualifying_stage_for_enquiry(buyer_id)
+    qualifying_event = qualifying_stage[:qualifying_event]
+
+    new_row[:qualifying] = qualifying_stage[:stage]
+
+    new_row[:scheduled_viewing_time] = nil
+    new_row[:scheduled_viewing_time] = qualifying_event.message[:scheduled_viewing_time] if new_row[:qualifying] == :viewing_stage
+    
+    new_row[:offer_price] = nil
+    new_row[:offer_price] = qualifying_event.message[:offer_price] if new_row[:qualifying] == :offer_made_stage
+    
+    new_row[:offer_date] = nil
+    new_row[:offer_date] = qualifying_event.message[:offer_date] if new_row[:qualifying] == :offer_made_stage
+
+    new_row[:expected_completion_date] = nil
+    new_row[:expected_completion_date] = qualifying_event.message[:expected_completion_date] if new_row[:qualifying] == :completion_stage
+  end
+
+  def add_buyer_details(details, buyer_hash)
+    buyer_hash = buyer_hash.with_indifferent_access
+    details[:buyer_status] = REVERSE_STATUS_TYPES[buyer_hash[details[:buyer_id]][:status]]
+    details[:buyer_full_name] = buyer_hash[details[:buyer_id]][:full_name]
+    details[:buyer_image] = buyer_hash[details[:buyer_id]][:image_url]
+    details[:buyer_email] = buyer_hash[details[:buyer_id]][:email]
+    details[:buyer_mobile] = buyer_hash[details[:buyer_id]][:mobile]
+    details[:chain_free] = buyer_hash[details[:buyer_id]][:chain_free]
+    details[:buyer_funding] = PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[buyer_hash[details[:buyer_id]][:funding]]
+    details[:buyer_biggest_problem] = PropertyBuyer::REVERSE_BIGGEST_PROBLEM_HASH[buyer_hash[details[:buyer_id]][:biggest_problem]]
+    details[:buyer_buying_status] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[buyer_hash[details[:buyer_id]][:buying_status]]
+    details[:buyer_budget_from] = buyer_hash[details[:buyer_id]][:budget_from]
+    details[:buyer_budget_to] = buyer_hash[details[:buyer_id]][:budget_to]
+  end
+
+  def add_hotness_details_for_buyer(details, buyer_id)
+    raise StandardError, 'Udprn is not present ' if @udprn.nil?
+    if @details[:agent_id]
+      event_result = Events::Hotness.where(buyer_id: buyer_id).where(udprn: @udprn).order('created_at DESC').limit(1).first
+      details[:hotness] = REVERSE_EVENTS[event_result.event] if event_result
+    end
+    details[:hotness] ||= :cold_property
+  end
+
+  def agent_specific_enquiries(enquiry_type=nil, type_of_match=nil, qualifying_stage=nil, rating=nil, search_str=nil, last_time=nil, page=0, property_ids=[], service='Sale', buyer_ids=[])
+    raise StandardError, 'Agent id is not present ' if @agent_id.nil?
+    service = SERVICES[service]
+    parsed_last_time = Time.parse(last_time) if last_time
+    query = query.where("created_at > ?", parsed_last_time) if last_time
+    query = query.where(buyer_id: filtered_buyer_ids) if buyer_filter_flag
+    query = query.where(type_of_match:  TYPE_OF_MATCH[type_of_match.to_s.downcase.to_sym]) if type_of_match
+    query = query.where(udprn: udprns)
+    enquiries = Event.where(property_id: property_ids)
+    enquiries = enquiries.where(property_status_type: service)
+    query = query.where(buyer_id: buyer_ids) if !buyer_ids.empty?
+  end
+
+  def agent_specific_enquiry_details(page)
+    property_ids = fetch_property_ids_for_agent
+    buyer_filter_flag = buyer_buying_status || buyer_funding || buyer_biggest_problem || buyer_chain_free || budget_from || budget_to
+    filtered_buyer_ids = fetch_filtered_buyer_ids(buyer_buying_status, buyer_funding, buyer_biggest_problem, buyer_chain_free, search_str, budget_from, budget_to) if buyer_filter_flag
+    # filtered_buying_flag = (!buyer_buying_status.nil?) || (!buyer_funding.nil?) || (!buyer_biggest_problem.nil?) || (!buyer_chain_free.nil?)
+  end
+
+  def fetch_property_ids_for_agent
+    raise StandardError, 'Agent id is not present ' if @agent_id.nil?
+    api = PropertySearchApi.new(filtered_params: { agent_id: agent_id })
+    api.apply_filters
+    udprns, status = api.fetch_udprns
+    udprns = [] if status.to_i != 200
+    udprns.map { |e| e.to_i }
+  end
+
+  ##### Trackers::Buyer.new.fetch_filtered_buyer_ids('First time buyer', 'Mortgage approved', 'Funding', true)
+  ##### Returns an array of buyer_ids
+  def fetch_filtered_buyer_ids(buyer_buying_status=nil, buyer_funding=nil, buyer_biggest_problem=nil, buyer_chain_free=nil, buyer_search_value=nil, budget_from=nil, budget_to=nil)
+    pb = PropertyBuyer
+    results = pb.where("id > 0")
+    results = results.where(buying_status: pb::BUYING_STATUS_HASH[buyer_buying_status]) if buyer_buying_status
+
+    results = results.where(funding: pb::FUNDING_STATUS_HASH[buyer_funding]) if buyer_funding
+
+    results = results.where(biggest_problem: pb::BIGGEST_PROBLEM_HASH[buyer_biggest_problem]) if buyer_biggest_problem
+
+    results = results.where(chain_free: buyer_chain_free) if buyer_chain_free
+
+    results = results.where('budget_from < ?', budget_from.to_i) if budget_from
+    results = results.where('budget_to > ?', budget_to.to_i) if budget_to
+    results.pluck(:id)
+  end
+
+end
