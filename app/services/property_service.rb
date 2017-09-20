@@ -61,7 +61,7 @@ class PropertyService
   end
 
   def attach_vendor_to_property(vendor_id, details={}, property_for='Sale')
-    property_details = PropertyDetails.details(udprn)
+    property_details = PropertyDetails.details(udprn)[:_source]
     details.symbolize_keys!
     details.each {|key, value|  property_details[key] = value }
     district = property_details[:district]
@@ -74,7 +74,7 @@ class PropertyService
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[details['property_status_type']]
     Agents::Branches::AssignedAgents::Lead.create(district: district, property_id: udprn, vendor_id: vendor_id, property_status_type: property_status_type)
-    details['property_status_type'] = nil if details['property_status_type'] == 'Sale'
+    details[:property_status_type] = nil if details['property_status_type'] == 'Sale'
     details[:vendor_id] = vendor_id
     details[:claimed_at] = Time.now.to_s
     # p details

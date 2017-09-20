@@ -30,15 +30,16 @@ class PropertyAd < ActiveRecord::Base
     udprn = details['udprn'].to_i
     levels_arr = []
     types.each do |each_type|
-    new_details = details.deep_dup.with_indifferent_access
-    ALL_LOCALITY_LEVELS.each{|t| assign_null(new_details, t) }
-    ALL_LOCALITY_LEVELS.each do |each_locality_level|
-      hash_str = hash_at_level(each_locality_level, new_details)
-      response["#{each_locality_level.to_s}"] = details[each_locality_level]
-      response["#{each_locality_level.to_s}_hash"] = hash_str if details[each_locality_level] &&   !details[each_locality_level].empty?
-      response["#{each_locality_level.to_s}_#{each_type.downcase}_count"] = MAX_ADS_HASH[each_type] - PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(service: service).count  if details[each_locality_level] &&  !details[each_locality_level.to_s].empty?
-      response["#{each_locality_level.to_s}_#{each_type.downcase}_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(service: service).where(property_id: udprn).select([:id, :expiry_at]).first  if  details[each_locality_level] &&   !details[each_locality_level.to_s].empty?
-      response["#{each_locality_level.to_s}_#{each_type.downcase}_oldest_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(service: service).order('expiry_at ASC').first.expiry_at rescue nil  if details[each_locality_level] &&   !details[each_locality_level.to_s].empty?
+      new_details = details.deep_dup.with_indifferent_access
+      ALL_LOCALITY_LEVELS.each{|t| assign_null(new_details, t) }
+      ALL_LOCALITY_LEVELS.each do |each_locality_level|
+        hash_str = hash_at_level(each_locality_level, new_details)
+        response["#{each_locality_level.to_s}"] = details[each_locality_level]
+        response["#{each_locality_level.to_s}_hash"] = hash_str if details[each_locality_level] &&   !details[each_locality_level].empty?
+        response["#{each_locality_level.to_s}_#{each_type.downcase}_count"] = MAX_ADS_HASH[each_type] - PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(service: service).count  if details[each_locality_level] &&  !details[each_locality_level.to_s].empty?
+        response["#{each_locality_level.to_s}_#{each_type.downcase}_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(service: service).where(property_id: udprn).select([:id, :expiry_at]).first  if  details[each_locality_level] &&   !details[each_locality_level.to_s].empty?
+        response["#{each_locality_level.to_s}_#{each_type.downcase}_oldest_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(service: service).order('expiry_at ASC').first.expiry_at rescue nil  if details[each_locality_level] &&   !details[each_locality_level.to_s].empty?
+       response[:price_per_slot] = PRICE[each_type]
       end
       ALL_POSTCODE_LEVELS.each do |each_postcode_unit|
         hash_str = hash_at_level(each_postcode_unit, new_details)
@@ -47,6 +48,7 @@ class PropertyAd < ActiveRecord::Base
         response["#{each_postcode_unit.to_s}_#{each_type.downcase}_count"] = MAX_ADS_HASH[each_type] - PropertyAd.where(hash_str: hash_str).where(service: service).where(ad_type: TYPE_HASH[each_type]).count
         response["#{each_postcode_unit.to_s}_#{each_type.downcase}_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(property_id: udprn).where(service: service).select([:id, :created_at]).first
         response["#{each_postcode_unit.to_s}_#{each_type.downcase}_oldest_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(service: service).order('created_at ASC').first.created_at rescue nil
+        response[:price_per_slot] = PRICE[each_type]
       end
     end
   end

@@ -145,7 +145,7 @@ class PropertyDetails
     previous_agent_id = details[:agent_id] if details[:agent_id] && update_hash[:agent_id] && update_hash[:agent_id] != details[:agent_id]
     
     begin
-      update_hash.each{|key, value| details[key] = value }
+      update_hash.each{|key, value| details[key.to_sym] = value }
       PropertyService.normalize_all_attrs(details)
       PropertySearchApi::ES_ATTRS.each { |key| es_hash[key] = details[key] if details[key] }
       PropertySearchApi::ADDRESS_LOCALITY_LEVELS.each { |key| es_hash[key] = details[key] if details[key] }
@@ -188,16 +188,16 @@ class PropertyDetails
     TRACKING_ATTRS.each{ |t| filtered_new_hash[t] = new_hash[t] if new_hash[t] }
     PropertyEvent.create(udprn: old_hash[:udprn], attr_hash: filtered_new_hash) if !filtered_new_hash.empty?
 
-    if update_hash[:agent_id] 
+    if new_hash[:agent_id] 
       ardb_client = Rails.configuration.ardb_client
       ardb_client.del("cache_#{agent_id}_agent_new_enquiries") if agent_id
     end
 
-    if update_hash[:vendor_id]
+    if new_hash[:vendor_id]
       ardb_client = Rails.configuration.ardb_client
-      ardb_client.del("cache_#{property_id}_enquiries")
-      ardb_client.del("cache_#{property_id}_interest_info")
-      ardb_client.del("cache_#{property_id}_history_enquiries")
+      ardb_client.del("cache_#{old_hash[:udprn]}_enquiries")
+      ardb_client.del("cache_#{old_hash[:udprn]}_interest_info")
+      ardb_client.del("cache_#{old_hash[:udprn]}_history_enquiries")
     end
   end
 

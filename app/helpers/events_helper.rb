@@ -116,7 +116,7 @@ module EventsHelper
         details = PropertyDetails.details(property_id)
         vendor_id = details[:_source][:vendor_id]
         new_vendor_id = PropertyBuyer.find(buyer_id).vendor_id
-        update_hash = { property_status_type: nil, vendor_id: new_vendor_id , sold: true }
+        update_hash = { property_status_type: nil, vendor_id: new_vendor_id , sold: true, claimed_at: Time.now.to_s }
         SoldProperty.create!(udprn: property_id, buyer_id: buyer_id, agent_id: agent, vendor_id: vendor_id, sale_price: message[:final_price], completion_date: message[:completion_date])
         response = PropertyDetails.update_details(client, property_id, update_hash)
 
