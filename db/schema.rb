@@ -271,15 +271,15 @@ ActiveRecord::Schema.define(version: 20170921184839) do
   end
 
   create_table "events_enquiry_stat_buyers", force: :cascade do |t|
-    t.integer "buyer_id",             null: false
-    t.integer "event",                null: false
-    t.integer "count",    default: 0, null: false
+    t.integer "buyer_id",                  null: false
+    t.integer "event",                     null: false
+    t.integer "enquiry_count", default: 0, null: false
   end
 
   create_table "events_enquiry_stat_properties", force: :cascade do |t|
-    t.integer "udprn",             null: false
-    t.integer "event",             null: false
-    t.integer "count", default: 0, null: false
+    t.integer "udprn",                     null: false
+    t.integer "event",                     null: false
+    t.integer "enquiry_count", default: 0, null: false
   end
 
   create_table "events_hotnesses", force: :cascade do |t|

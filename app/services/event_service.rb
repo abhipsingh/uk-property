@@ -178,22 +178,8 @@ class EventService
     new_row[:enquiries] = enquiry_ratio(each_row.buyer_id)
     new_row[:type_of_match] = REVERSE_TYPE_OF_MATCH[each_row.type_of_match]
     qualifying_stage_detail_for_enquiry(each_row.buyer_id, new_row)
-    add_hotness_details_for_buyer(new_row, each_row.buyer_id)
+    new_row[:hotness] = REVERSE_EVENTS[enquiry.rating]
     new_row
-  end
-
-  def total_views
-    Events::View.where(udprn: @udprn).where(service: @service).count if @udprn
-  end
-
-  def buyer_specific_views_for_property(buyer_id)
-    raise StandardError, 'Udprn is not present ' if @udprn.nil?
-    Events::View.where(udprn: @udprn).where(service: @service).where(buyer_id: buyer_id).count
-  end
-
-  def property_specific_view_for_buyer(udprn)
-    raise StandardError, 'Udprn is not present ' if @buyer_id.nil?
-    Events::View.where(udprn: udprn).where(service: @service).where(buyer_id: @buyer_id).count
   end
 
   def total_trackings
@@ -207,35 +193,25 @@ class EventService
     Events::Track.where(type_of_tracking: event).where(buyer_id: buyer_id).where(udprn: @udprn).count > 0
   end
 
-  def total_enquiries
-    raise StandardError, 'Udprn is not present ' if @udprn.nil?
-    Event.where(property_status_type: service).where(udprn: @udprn).count
-  end
-
-  def enquiries_specific_for_buyer(buyer_id)
-    raise StandardError, 'Udprn is not present ' if @udprn.nil?
-    Event.where(property_status_type: service).where(buyer_id: buyer_id).where(udprn: @udprn).count
-  end
-
   def enquiry_ratio(buyer_id)
     raise StandardError, 'Udprn is not present ' if @udprn.nil?
-    buyer_enquiries = enquiries_specific_for_buyer(buyer_id)
+    buyer_enquiries = Events::EnquiryStatBuyer.where(buyer_id: buyer_id).last.enquiry_count
+    total_enquiries = Events::EnquiryStatProperty.where(udprn: @udprn).last.enquiry_count
     buyer_enquiries.to_i.to_s + '/' + total_enquiries.to_i.to_s
   end
 
   def view_ratio(buyer_id)
     raise StandardError, 'Udprn is not present ' if @udprn.nil?
-    buyer_views = buyer_specific_views_for_property(buyer_id)
-    buyer_views.to_i.to_s + '/' + total_views.to_i.to_s
+    buyer_views = PropertyBuyer.where(id: buyer_id).last.viewings.to_s rescue 0
+    buyer_views.to_i.to_s + '/' + @details[:viewings].to_i.to_s
   end
 
   def qualifying_stage_detail_for_enquiry(buyer_id, new_row)
     raise StandardError, 'Udprn is not present ' if @udprn.nil?
-    new_row[:qualifying] = REVERSE_EVENTS[each_row.event]
-    new_row[:scheduled_viewing_time] = each_row.message[:scheduled_viewing_time]
-    new_row[:offer_price] = each_row.message[:offer_price]
-    new_row[:offer_date] = each_row.message[:offer_date]
-    new_row[:expected_completion_date] = each_row.message[:expected_completion_date]
+    new_row[:scheduled_viewing_time] = each_row.scheduled_viewing_time
+    new_row[:offer_price] = each_row.offer_price
+    new_row[:offer_date] = each_row.offer_date
+    new_row[:expected_completion_date] = each_row.expected_completion_date
   end
 
   def add_buyer_details(details, buyer_hash)
@@ -253,25 +229,15 @@ class EventService
     details[:buyer_budget_to] = buyer_hash[details[:buyer_id]][:budget_to]
   end
 
-  def add_hotness_details_for_buyer(details, buyer_id)
-    raise StandardError, 'Udprn is not present ' if @udprn.nil?
-    if @details[:agent_id]
-      event_result = Events::Hotness.where(buyer_id: buyer_id).where(udprn: @udprn).order('created_at DESC').limit(1).first
-      details[:hotness] = REVERSE_EVENTS[event_result.event] if event_result
-    end
-    details[:hotness] ||= :cold_property
-  end
-
   def agent_specific_enquiries(enquiry_type=nil, type_of_match=nil, qualifying_stage=nil, rating=nil, search_str=nil, last_time=nil, page=0, property_ids=[], service='Sale', buyer_ids=[])
     raise StandardError, 'Agent id is not present ' if @agent_id.nil?
     service = SERVICES[service]
     parsed_last_time = Time.parse(last_time) if last_time
+    query = Event
     query = query.where("created_at > ?", parsed_last_time) if last_time
     query = query.where(buyer_id: filtered_buyer_ids) if buyer_filter_flag
     query = query.where(type_of_match:  TYPE_OF_MATCH[type_of_match.to_s.downcase.to_sym]) if type_of_match
-    query = query.where(udprn: udprns)
-    enquiries = Event.where(property_id: property_ids)
-    enquiries = enquiries.where(property_status_type: service)
+    query = query.where(udprn: property_ids)
     query = query.where(buyer_id: buyer_ids) if !buyer_ids.empty?
   end
 

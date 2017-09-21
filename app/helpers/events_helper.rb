@@ -63,12 +63,10 @@ module EventsHelper
         month = Date.today.month
         time = Time.now.strftime("%Y-%m-%d %H:%M:%S").to_s
         buyer = PropertyBuyer.where(id: buyer_id).select([:name, :email, :mobile]).last
-        details = PropertyDetails.details(property_id)
         agent = Agents::Branches::AssignedAgent.where(id: agent_id).select([:name, :email, :mobile]).last
         agent_name = agent.name if agent
         agent_email = agent.email if agent
         agent_mobile = agent.mobile if agent
-        property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[details[:_source][:property_status_type]]
         attrs_list = {
           agent_id: agent_id,
           buyer_id: buyer_id,
@@ -82,7 +80,7 @@ module EventsHelper
           buyer_email: buyer.email,
           buyer_mobile: buyer.mobile,
           event: event,
-          property_status_type: property_status_type
+          property_status_type: 1
         }
         Event.create!(attrs_list) if Trackers::Buyer::ENQUIRY_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
 
@@ -91,7 +89,7 @@ module EventsHelper
         if stat.nil?
           Events::EnquiryStatProperty.create(udprn: property_id, event: event)
         else
-          stat.count = stat.count + 1
+          stat.enquiry_count = stat.enquiry_count + 1
           stat.save!
         end
 
@@ -99,7 +97,7 @@ module EventsHelper
         if stat.nil?
           Events::EnquiryStatBuyer.create(buyer_id: buyer_id, event: event)
         else
-          stat.count = stat.count + 1
+          stat.enquiry_count = stat.enquiry_count + 1
           stat.save!
         end
 
@@ -121,15 +119,16 @@ module EventsHelper
           Events::Track.create!(type_of_tracking: enum_type_of_tracking, hash_str: hash_str, agent_id: agent_id, buyer_id: buyer_id, udprn: property_id)
         end
       elsif Trackers::Buyer::QUALIFYING_STAGE_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
-        ### Qualifying stage event create
-        #Events::Stage.create!(event: event, agent_id: agent_id, buyer_id: buyer_id, udprn: property_id, message: message)
+
         ### Update stage of the enquiry
         Event.where(buyer_id: buyer_id).where(udprn: property_id).where("created_at > ?", 3.months.ago).update_all(stage: event, offer_price: message[:offer_price], offer_date: Date.parse(message[:offer_date])) if Trackers::Buyer::EVENTS[:offer_made_stage] == event
         Event.where(buyer_id: buyer_id).where(udprn: property_id).where("created_at > ?", 3.months.ago).update_all(stage: event, scheduled_viewing_time: Time.parse(message[:scheduled_viewing_time])) if Trackers::Buyer::EVENTS[:viewing_stage] == event
         Event.where(buyer_id: buyer_id).where(udprn: property_id).where("created_at > ?", 3.months.ago).update_all(stage: event, expected_completion_date: Date.parse(message[:expected_completion_date])) if Trackers::Buyer::EVENTS[:completion_stage] == event
       elsif Trackers::Buyer::HOTNESS_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
+
         ### Update hotness of a property
         Event.where(buyer_id: buyer_id).where(udprn: property_id).where("created_at > ?", 3.months.ago).update_all(rating: event)
+
       elsif event == Trackers::Buyer::EVENTS[:viewed]
         buyer = PropertyBuyer.where(id: buyer_id).last
         if buyer_id

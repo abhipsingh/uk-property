@@ -148,13 +148,14 @@ class Trackers::Buyer
     details['buyer_buying_status'] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[buyer_hash[details['buyer_id']]['buying_status']]
     details['buyer_budget_from'] = buyer_hash[details['buyer_id']]['budget_from']
     details['buyer_budget_to'] = buyer_hash[details['buyer_id']]['budget_to']
+    details['views'] = buyer_hash[details['buyer_id']]['viewings'].to_i.to_s + '/' + details[:viewings]
+    details[:enquiries] = buyer_enquiry_ratio(details['buyer_id'], details['udprn'])
   end
 
   #### Agent enquiries latest implementation
   #### Trackers::Buyer.new.search_latest_enquiries(1234)
   def search_latest_enquiries(agent_id, property_status_type=nil, verification_status=nil, ads=nil, search_str=nil, property_for='Sale', last_time=nil)
-    events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
-    query = Event.where(agent_id: agent_id).where(event: events)
+    query = Event.where(agent_id: agent_id)
     parsed_last_time = Time.parse(last_time) if last_time
     query = query.where("created_at > ? ", parsed_last_time) if last_time
     query = query.where(property_status_type: PROPERTY_STATUS_TYPES[property_status_type]) if property_status_type
@@ -328,7 +329,10 @@ class Trackers::Buyer
       buyer_ids.push(each_row.buyer_id)
     end
 
-    buyers = PropertyBuyer.where(id: buyer_ids).select([:id, :email, :full_name, :mobile, :status, :chain_free, :funding, :biggest_problem, :buying_status, :budget_to, :budget_from ]).order("position(id::text in '#{buyer_ids.join(',')}')")
+    buyers = PropertyBuyer.where(id: buyer_ids).select([:id, :email, :full_name, :mobile, :status, :chain_free, :funding, 
+                                                        :biggest_problem, :buying_status, :budget_to, :budget_from, :viewings ])
+                          .order("position(id::text in '#{buyer_ids.join(',')}')")
+
     buyer_hash = {}
 
     buyers.each { |buyer| buyer_hash[buyer.id] = buyer }
@@ -345,28 +349,16 @@ class Trackers::Buyer
   ### For every enquiry row, extract the info from details hash and merge it
   ### with new row
   def push_property_enquiry_details_buyer(new_row, details)
-    #Rails.logger.info(new_row)
-    new_row[:address] = details[:address]
-    new_row[:price] = details['price']
-    new_row[:image_url] = details['street_view_image_url'] || details['pictures'].first rescue nil
+    ATTRS = [:address, :price, :dream_price, :current_valuation, :pictures, :street_view_image_url, :sale_prices, :property_status_type, 
+             :verification_status, :viewings]
+    new_row.merge!(details.slice(*ATTRS))
+    new_row[:image_url] = new_row[:street_view_image_url] || details[:pictures].first rescue nil
     if new_row[:image_url].nil?
       image_url = process_image(details) if Rails.env != 'test'
       image_url ||= "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details['udprn']}/fov_120_#{details['udprn']}.jpg"
       new_row[:image_url] = image_url
     end
-    new_row[:pictures] = details['pictures']
-    new_row[:street_view_image_url] = new_row[:image_url]
-    #new_row[:street_view_image_url] = details['street_view_image_url']
-    new_row[:photo_url] = details['pictures'][0] rescue []
-    new_row[:udprn] = details['udprn']
-    new_row[:status] = details['property_status_type']
-    new_row[:offers_over] = details['offers_over']
-    new_row[:fixed_price] = details['fixed_price']
-    new_row[:asking_price] = details['asking_price']
-    new_row[:dream_price] = details['dream_price']
-    new_row[:current_valuation] = details['current_valuation']
-    new_row[:last_sale_prices] = details[:last_sale_price]
-    new_row[:verification_status] = details['verification_status']
+    new_row[:status] = new_row[:property_status_type]
   end
 
   def add_details_to_enquiry_row_buyer(new_row, property_id, event_details, agent_id, property_for='Sale')
@@ -424,6 +416,8 @@ class Trackers::Buyer
     end
 
     result.each_with_index do |each_row, index|
+      each_row[:views] = buyer_hash[each_row['buyer_id']['viewings'].to_i.to_s + '/' + each_row[:viewings]
+      each_row[:enquiries] = buyer_enquiry_ratio(each_row['buyer_id'], each_row['udprn'])
       each_row['buyer_status'] = REVERSE_STATUS_TYPES[buyer_hash[each_row['buyer_id']]['status']]
       #### The following attributes are to be shown as blurred or nil value for vendors
       each_row['buyer_full_name'] = nil  ### Blurred out buyer's name
@@ -434,6 +428,13 @@ class Trackers::Buyer
     end
 
     result
+  end
+
+
+  def buyer_enquiry_ratio(buyer_id, udprn)
+    buyer_enquiries = Events::EnquiryStatBuyer.where(buyer_id: each_row['buyer_id']).enquiry_count.to_s
+    property_enquiries = Events::EnquiryStatProperty.where(udprn: udprn).enquiry_count.to_s
+    buyer_enquiries + '/' + property_enquiries
   end
 
   #### Buyer interest details. To test it, just run the following in the irb
@@ -970,6 +971,8 @@ class Trackers::Buyer
       push_property_details_row(new_row, property_id)
       add_details_to_enquiry_row_buyer(new_row, property_id, each_row, nil, property_for)
 
+      each_row[:views] = PropertyBuyer.where(id: each_row['buyer_id'].to_i).last.viewings.to_i.to_s + '/' + details[:viewings]
+      each_row[:enquiries] = buyer_enquiry_ratio(each_row['buyer_id'], each_row['udprn'])
       #### Parse scheduled viewing date. If a viewing has been requested by the buyer.
       #### TODO: Scope for optimization. Fetching isn't needed, its already present.
       new_row[:scheduled_viewing_time] = each_row['scheduled_viewing_time']
@@ -1014,12 +1017,7 @@ class Trackers::Buyer
 
   def generic_event_count(event, table, property_id, type=:single, property_for='Sale')
     event_sql, count = nil
-    query = nil
-    if property_for == 'Sale'
-      query = Event.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
-    else
-      query = Event.where(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
-    end
+    query = Event
 
     if type == :single
       event_type = event
@@ -1035,12 +1033,7 @@ class Trackers::Buyer
   def generic_event_count_buyer(event, table, property_id, buyer_id, type=:single, property_for='Sale')
     event_sql = nil
 
-    query = nil
-    if property_for == 'Sale'
-      query = Event.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
-    else
-      query = Event.where(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
-    end
+    query = Event
     
     if type == :single
       event_type = EVENTS[:event]
