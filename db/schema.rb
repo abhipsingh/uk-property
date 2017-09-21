@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170920033843) do
+ActiveRecord::Schema.define(version: 20170921175854) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -248,8 +248,8 @@ ActiveRecord::Schema.define(version: 20170920033843) do
     t.integer  "agent_id"
     t.integer  "udprn"
     t.jsonb    "message"
-    t.integer  "type_of_match",        limit: 2
-    t.integer  "event",                limit: 2
+    t.integer  "type_of_match",            limit: 2
+    t.integer  "event",                    limit: 2
     t.integer  "buyer_id"
     t.string   "buyer_name"
     t.string   "buyer_email"
@@ -258,10 +258,16 @@ ActiveRecord::Schema.define(version: 20170920033843) do
     t.string   "agent_email"
     t.string   "agent_mobile"
     t.string   "address"
-    t.datetime "created_at",                                     null: false
-    t.boolean  "is_deleted",                     default: false
-    t.integer  "property_status_type",           default: 0
-    t.boolean  "is_archived",                    default: false
+    t.datetime "created_at",                                         null: false
+    t.boolean  "is_deleted",                         default: false
+    t.integer  "property_status_type",               default: 0
+    t.boolean  "is_archived",                        default: false
+    t.integer  "stage",                    limit: 2, default: 15
+    t.integer  "rating",                   limit: 2, default: 29
+    t.datetime "scheduled_visit_time"
+    t.integer  "offer_price"
+    t.date     "offer_date"
+    t.date     "expected_completion_date"
   end
 
   create_table "events_hotnesses", force: :cascade do |t|
@@ -380,6 +386,8 @@ ActiveRecord::Schema.define(version: 20170920033843) do
     t.integer  "max_receptions"
     t.jsonb    "locations"
     t.jsonb    "biggest_problems"
+    t.integer  "viewings"
+    t.integer  "enquiries"
   end
 
   add_index "property_buyers", ["email_id"], name: "index_property_buyers_on_email_id", unique: true, using: :btree

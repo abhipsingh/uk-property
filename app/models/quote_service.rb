@@ -11,7 +11,7 @@ class QuoteService
     new_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
     services_required = Agents::Branches::AssignedAgents::Quote::SERVICES_REQUIRED_HASH[services_required]
     quote_details = quote_details
-    details = PropertyDetails.details(@udprn)['_source']
+    vendor = Vendor.find(details[:vendor_id])
     property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[details['property_status_type']]
     if quote_id
       quote_details = Agents::Branches::AssignedAgents::Quote.create!(
@@ -21,7 +21,10 @@ class QuoteService
         quote_details: quote_details,
         property_id: @udprn.to_i,
         property_status_type: property_status_type,
-        agent_id: agent_id
+        agent_id: agent_id,
+        vendor_name: vendor.name,
+        vendor_email: vendor.email,
+        vendor_mobile: vendor.mobile
       )
     end
     return { message: 'Quote successfully submitted', quote: quote_details }, 200
@@ -32,8 +35,8 @@ class QuoteService
     services_required = Agents::Branches::AssignedAgents::Quote::REVERSE_SERVICES_REQUIRED_HASH[services_required]
     status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
     # Rails.logger.info("QUOTE_DETAILS_#{quote_details}")
-    details = PropertyDetails.details(@udprn)['_source']
     district = details['district']
+    vendor = Vendor.find(details[:vendor_id])
     property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[details['property_status_type']]
     quote = Agents::Branches::AssignedAgents::Quote.create!(
       deadline: deadline,
@@ -44,7 +47,10 @@ class QuoteService
       quote_details: quote_details,
       is_assigned_agent: assigned_agent,
       service_required: services_required,
-      district: district
+      district: district,
+      vendor_name: vendor.name,
+      vendor_email: vendor.email,
+      vendor_mobile: vendor.mobile
     )
     return { message: 'Quote successfully created', quote: quote }, 200
   end

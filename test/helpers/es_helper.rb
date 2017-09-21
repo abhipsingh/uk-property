@@ -2,22 +2,19 @@ module EsHelper
   CLIENT = Elasticsearch::Client.new
   
   def index_es_address(id, body)
-    CLIENT.index index: Rails.configuration.address_index_name,
-                 type: Rails.configuration.address_type_name,
-                 id: id,
-                 body: body
+    PropertyDetails.update_details(CLIENT, id, body)
   end
 
   def delete_es_address(id)
+    ardb_client = Rails.configuration.arbd_client
+    ardb_client.del(id)
     CLIENT.delete index: Rails.configuration.address_index_name,
                   type: Rails.configuration.address_type_name,
                   id: id
   end
 
   def get_es_address(id)
-    CLIENT.get index: Rails.configuration.address_index_name,
-               type: Rails.configuration.address_type_name,
-               id: id
+    PropertyDetails.details(id)
   end
 
   def update_es_address(id, doc)
@@ -63,6 +60,8 @@ module EsHelper
         destroy_location_doc(id)
       end
     end
+    ardb_client = Rails.configuration.ardb_client
+    ardb_client.flushdb
   end
 
   def attach_agent_to_property_and_update_details(agent_id, udprn, property_status_type, verification_status, beds, baths, receptions)

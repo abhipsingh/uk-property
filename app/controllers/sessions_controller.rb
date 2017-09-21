@@ -17,11 +17,16 @@ class SessionsController < ApplicationController
       req_params[:token] = params[:token]
       user = user_type_map[user_type].constantize.from_omniauth(req_params)
       
-      if user_type == 'Vendor'
+      if user_type == 'Vendor' 
         buyer = PropertyBuyer.from_omniauth(req_params)
         buyer.vendor_id = user.id
         user.buyer_id = buyer.id
         user.save! && buyer.save!
+      elsif user_type == 'Buyer'
+        vendor = Vendor.from_omniauth(req_params)
+        vendor.buyer_id = user.id
+        user.vendor_id = vendor.id
+        user.save! && vendor.save!
       end
 
       if user_type == 'Agent'
@@ -186,8 +191,15 @@ class SessionsController < ApplicationController
     buyer_params[:email_id] = buyer_params['email']
     buyer_params[:account_type] = 'S'
     buyer_params.delete("hash_value")
+    vendor = Vendor.new(email: buyer_params['email'], first_name: buyer_params['first_name'], last_name: buyer_params['last_name'])
+    vendor.full_name = vendor.first_name.to_s + ' ' + vendor.last_name.to_s
+    vendor.password = buyer_params['password']
+    vendor.mobile = buyer_params['mobile']
     buyer = PropertyBuyer.new(buyer_params)
-    if buyer.save!
+    if buyer.save! && vendor.save!
+      buyer.vendor_id = vendor.id
+      vendor.buyer_id = buyer.id
+      vendor.save && buyer.save
       render json: { message: 'New buyer created', details: buyer.as_json }, status: 200
     else
       render json: { message: 'Buyer creation failed', errors: buyer.errors }, status: 400

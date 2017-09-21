@@ -129,6 +129,12 @@ class EventService
     :closed_lost_stage
   ]
 
+  HOTNESS_EVENTS = [
+    :hot_property,
+    :cold_property,
+    :warm_property
+  ]
+
   ENQUIRY_PAGE_SIZE = 20
 
 
@@ -211,16 +217,6 @@ class EventService
     Event.where(property_status_type: service).where(buyer_id: buyer_id).where(udprn: @udprn).count
   end
 
-
-  def qualifying_stage_for_enquiry(buyer_id)
-    raise StandardError, 'Udprn is not present ' if @udprn.nil?
-    event = Events::Stage.where(udprn: @udprn, buyer_id: buyer_id).order('created_at DESC').last
-    stage = REVERSE_EVENTS[event.event] if event
-    stage ||= :qualifying
-    event ||= nil
-    { stage: stage, qualifying_event: event }
-  end
-
   def enquiry_ratio(buyer_id)
     raise StandardError, 'Udprn is not present ' if @udprn.nil?
     buyer_enquiries = enquiries_specific_for_buyer(buyer_id)
@@ -235,22 +231,11 @@ class EventService
 
   def qualifying_stage_detail_for_enquiry(buyer_id, new_row)
     raise StandardError, 'Udprn is not present ' if @udprn.nil?
-    qualifying_stage = qualifying_stage_for_enquiry(buyer_id)
-    qualifying_event = qualifying_stage[:qualifying_event]
-
-    new_row[:qualifying] = qualifying_stage[:stage]
-
-    new_row[:scheduled_viewing_time] = nil
-    new_row[:scheduled_viewing_time] = qualifying_event.message[:scheduled_viewing_time] if new_row[:qualifying] == :viewing_stage
-    
-    new_row[:offer_price] = nil
-    new_row[:offer_price] = qualifying_event.message[:offer_price] if new_row[:qualifying] == :offer_made_stage
-    
-    new_row[:offer_date] = nil
-    new_row[:offer_date] = qualifying_event.message[:offer_date] if new_row[:qualifying] == :offer_made_stage
-
-    new_row[:expected_completion_date] = nil
-    new_row[:expected_completion_date] = qualifying_event.message[:expected_completion_date] if new_row[:qualifying] == :completion_stage
+    new_row[:qualifying] = REVERSE_EVENTS[each_row.event]
+    new_row[:scheduled_viewing_time] = each_row.message[:scheduled_viewing_time]
+    new_row[:offer_price] = each_row.message[:offer_price]
+    new_row[:offer_date] = each_row.message[:offer_date]
+    new_row[:expected_completion_date] = each_row.message[:expected_completion_date]
   end
 
   def add_buyer_details(details, buyer_hash)

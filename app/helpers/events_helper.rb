@@ -64,7 +64,6 @@ module EventsHelper
         time = Time.now.strftime("%Y-%m-%d %H:%M:%S").to_s
         buyer = PropertyBuyer.where(id: buyer_id).select([:name, :email, :mobile]).last
         details = PropertyDetails.details(property_id)
-        address = details[:_source][:address]
         agent = Agents::Branches::AssignedAgent.where(id: agent_id).select([:name, :email, :mobile]).last
         agent_name = agent.name if agent
         agent_email = agent.email if agent
@@ -82,12 +81,18 @@ module EventsHelper
           buyer_name: buyer.name,
           buyer_email: buyer.email,
           buyer_mobile: buyer.mobile,
-          address: address,
           event: event,
           property_status_type: property_status_type
         }
         Event.create!(attrs_list) if Trackers::Buyer::ENQUIRY_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
-
+        buyer = PropertyBuyer.where(id: buyer_id).last
+        if buyer_id
+          buyer.enquiries += 1
+          buyer.save
+        end
+        details = PropertyDetails.details(property_id)[:_source]
+        details[:enquiries] = details[:enquiries].to_i + 1
+        PropertyService.update_udprn(udprn, details)
         ### Clear the cache. List all cached methods which has cache key as agent_id/udprn
         ardb_client = Rails.configuration.ardb_client
         ardb_client.del("cache_#{agent_id}_agent_new_enquiries") if agent_id
@@ -107,7 +112,25 @@ module EventsHelper
         end
       elsif Trackers::Buyer::QUALIFYING_STAGE_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
         ### Qualifying stage event create
-        Events::Stage.create!(event: event, agent_id: agent_id, buyer_id: buyer_id, udprn: property_id, message: message)
+        #Events::Stage.create!(event: event, agent_id: agent_id, buyer_id: buyer_id, udprn: property_id, message: message)
+        ### Update stage of the enquiry
+        Event.where(buyer_id: buyer_id).where(udprn: property_id).where("created_at > ?", 3.months.ago).update_all(stage: event, offer_price: message[:offer_price], offer_date: Date.parse(message[:offer_date])) if Trackers::Buyer::EVENTS[:offer_made_stage] == event
+        Event.where(buyer_id: buyer_id).where(udprn: property_id).where("created_at > ?", 3.months.ago).update_all(stage: event, scheduled_viewing_time: Time.parse(message[:scheduled_viewing_time])) if Trackers::Buyer::EVENTS[:viewing_stage] == event
+        Event.where(buyer_id: buyer_id).where(udprn: property_id).where("created_at > ?", 3.months.ago).update_all(stage: event, expected_completion_date: Date.parse(message[:expected_completion_date])) if Trackers::Buyer::EVENTS[:completion_stage] == event
+      elsif Trackers::Buyer::HOTNESS_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
+        ### Update hotness of a property
+        Event.where(buyer_id: buyer_id).where(udprn: property_id).where("created_at > ?", 3.months.ago).update_all(rating: event)
+      elsif event == Trackers::Buyer::EVENTS[:viewed]
+        buyer = PropertyBuyer.where(id: buyer_id).last
+        if buyer_id
+          buyer.viewings += 1
+          buyer.save
+        end
+        details = PropertyDetails.details(property_id)[:_source]
+        details[:viewings] = details[:viewings].to_i + 1
+        
+        ### TODO: Ugly hack
+        PropertyService.update_udprn(udprn, details)
 
       elsif event == Trackers::Buyer::EVENTS[:sold]
         message = message.with_indifferent_access if message

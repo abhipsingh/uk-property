@@ -14,6 +14,7 @@ class EventsControllerTest < ActionController::TestCase
   def setup
     @address_doc = SAMPLE_ADDRESS_DOC.deep_dup
     @address_doc_rent = SAMPLE_ADDRESS_DOC.deep_dup
+    @address_doc_rent = @address_doc_rent.with_indifferent_acess
     @address_doc_rent['_source']['property_status_type'] = 'Rent'
     @address_doc_rent['_source']['udprn'] = '123456'
     index_es_address(SAMPLE_UDPRN, @address_doc['_source'])

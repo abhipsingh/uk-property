@@ -37,8 +37,9 @@ class PropertyService
 
   ### Additional attrs to be appended
   ADDITIONAL_ATTRS = [:status_last_updated, :sale_prices, :sale_price, :assigned_agent_first_name, :assigned_agent_last_name,
-                      :assigned_agent_title, :total_area, :epc, :chain_free, :date_added, :not_yet_built, :is_new_home, :is_retirement_home, :is_shared_ownership, :description_set]
-
+                      :assigned_agent_title, :total_area, :epc, :chain_free, :date_added, :not_yet_built, :is_new_home, :is_retirement_home, :is_shared_ownership, 
+                      :description_set, :viewings, :enquiries ]
+       
   DETAIL_ATTRS = LOCALITY_ATTRS + AGENT_ATTRS + VENDOR_ATTRS + EXTRA_ATTRS + POSTCODE_ATTRS + EDIT_ATTRS + ADDITIONAL_ATTRS
 
   AGENT_STATUS = {

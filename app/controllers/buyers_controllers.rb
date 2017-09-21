@@ -14,7 +14,6 @@ class BuyersController < ActionController::Base
 		funding_status = PropertyBuyer::FUNDING_STATUS_HASH[params[:funding]] if params[:funding]
 		biggest_problem = params[:biggest_problems] if params[:biggest_problems]
 		chain_free = params[:chain_free] if !params[:chain_free].nil?
-		Rails.logger.info("CHAIN_FREE_#{chain_free}")
 		buyer.buying_status = buying_status if buying_status
 		buyer.budget_from = budget_from if budget_from
 		buyer.budget_to = budget_to if budget_to
@@ -39,9 +38,9 @@ class BuyersController < ActionController::Base
 		buyer.password = params[:password] if params[:password]
 		buyer.save!
     details = buyer.as_json
-      details['buying_status'] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[details['buying_status']]
-      details['funding'] = PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[details['funding']]
-      details['status'] = PropertyBuyer::REVERSE_STATUS_HASH[details['status']]
+    details['buying_status'] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[details['buying_status']]
+    details['funding'] = PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[details['funding']]
+    details['status'] = PropertyBuyer::REVERSE_STATUS_HASH[details['status']]
 		render json: { message: 'Saved buyer successfully', details: details }, status: 201
 	end
 
