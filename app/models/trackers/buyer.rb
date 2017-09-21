@@ -212,37 +212,21 @@ class Trackers::Buyer
   ### For every enquiry row, extract the info from details hash and merge it
   ### with new row
   def push_property_details(new_row, details)
-    new_row[:address] = PropertyDetails.address(details)
-    new_row[:image_url] = details['photo_urls'] ? details['photo_urls'][0] : "Image not available"
+    ATTRS = [ :address, :pictures, :street_view_image_url, :verification_status, :dream_price, :current_valuation, 
+              :price, :status_last_updated, :property_type, :property_status_type, :beds, :baths, :receptions, 
+              :details_completed, :date_added ]
+    new_row.merge!(details.slice(*ATTRS))
+    new_row[:image_url] = details['pictures'] ? details['pictures'][0] : "Image not available"
     if new_row[:image_url].nil?
       image_url = process_image(details) if Rails.env != 'test'
       image_url ||= "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details['udprn']}/fov_120_#{details['udprn']}.jpg"
       new_row[:image_url] = image_url
     end
-    new_row[:pictures] = details['pictures']
-    new_row[:street_view_image_url] = new_row[:image_url]
-    new_row[:verification_status] = details['verification_status']
-    if details['verification_status'] == 'Green'
-      keys = ['asking_price', 'offers_price', 'fixed_price']
-      
-      keys.select{ |t| details.has_key?(t) }.each do |present_key|
-        new_row[present_key] = details[present_key]
-      end
-        
-    else
-      new_row[:current_valuation] = details['current_valuation']
-    end
-    new_row[:last_edited] = details['status_last_updated']
-    new_row[:udprn] = details['udprn']
-    new_row[:property_type] = details['property_type']
-    new_row[:property_status_type] = details['property_status_type']
-    new_row[:beds] = details['beds']
-    new_row[:baths] = details['baths']
-    new_row[:receptions] = details['receptions']
-    new_row[:completed_status] = details['agent_status']
-    new_row[:listed_since] = (Date.today - Date.parse(details['verification_time'])).to_i
-    new_row[:agent_profile_image] = details['agent_employee_profile_image']
-    new_row[:advertised] = details['match_type_str'].any? { |e| ['Featured', 'Premium'].include?(e.split('|').last) }
+    
+    new_row[:completed_status] = new_row[:details_completed]
+    new_row[:listed_since] = new_row[:date_added]
+    new_row[:agent_profile_image] = nil
+    new_row[:advertised] = !PropertyAd.where(property_id: property_id).select(:id).last.nil?
   end
 
   ### FIXME: 
@@ -256,7 +240,7 @@ class Trackers::Buyer
     new_row['total_enquiries'] = details[:enquiries]
     new_row['trackings'] = Events::Track.where(type_of_tracking: TRACKING_TYPE_MAP.values).where(udprn: property_id).count 
     new_row['requested_viewing'] = 
-    new_row['offer_made_stage'] = generic_event_count(EVENTS[:offer_made_stage], table, property_id, :single, property_for)
+    new_row['offer_made_stage'] = 
     new_row['requested_message'] = generic_event_count(EVENTS[:requested_message], table, property_id, :single, property_for)
     new_row['requested_callback'] = generic_event_count(EVENTS[:requested_callback], table, property_id, :single, property_for)
     new_row['interested_in_making_an_offer'] = generic_event_count(EVENTS[:interested_in_making_an_offer], table, property_id, :single, property_for)
@@ -413,11 +397,7 @@ class Trackers::Buyer
     result = []
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
     total_rows = []
-    query = Event.where(event: events).where(udprn: property_id)
-    if property_for == 'Sale'
-      query = query.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
-    else
-    end
+    query = Event.where(udprn: property_id)
     total_rows = query.as_json
 
     buyer_ids = []
@@ -461,9 +441,7 @@ class Trackers::Buyer
   #### TODO: Fixme: When a udprn can be rent and the buy or vice-versa, it needs to be segregated
   #### And over multiple lifetimes
   def interest_info(udprn)
-    details = PropertyDetails.details(udprn)['_source']
     property_for = nil
-    details['property_status_type'] != 'Rent' ? property_for = 'Sale' : property_for = 'Rent'
     aggregated_result = {}
     property_id = udprn.to_i
     current_month = Date.today.month

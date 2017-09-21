@@ -85,14 +85,24 @@ module EventsHelper
           property_status_type: property_status_type
         }
         Event.create!(attrs_list) if Trackers::Buyer::ENQUIRY_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
-        buyer = PropertyBuyer.where(id: buyer_id).last
-        if buyer_id
-          buyer.enquiries += 1
-          buyer.save
+
+        ### Update counts enquiry wise for both property and buyer
+        stat = Events::EnquiryStatProperty.where(udprn: property_id).where(event: event).last
+        if stat.nil?
+          Events::EnquiryStatProperty.create(udprn: property_id, event: event)
+        else
+          stat.count = stat.count + 1
+          stat.save!
         end
-        details = PropertyDetails.details(property_id)[:_source]
-        details[:enquiries] = details[:enquiries].to_i + 1
-        PropertyService.update_udprn(udprn, details)
+
+        stat = Events::EnquiryStatBuyer.where(buyer_id: buyer_id).where(event: event).last
+        if stat.nil?
+          Events::EnquiryStatBuyer.create(buyer_id: buyer_id, event: event)
+        else
+          stat.count = stat.count + 1
+          stat.save!
+        end
+
         ### Clear the cache. List all cached methods which has cache key as agent_id/udprn
         ardb_client = Rails.configuration.ardb_client
         ardb_client.del("cache_#{agent_id}_agent_new_enquiries") if agent_id
