@@ -148,7 +148,7 @@ class Trackers::Buyer
     details['buyer_buying_status'] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[buyer_hash[details['buyer_id']]['buying_status']]
     details['buyer_budget_from'] = buyer_hash[details['buyer_id']]['budget_from']
     details['buyer_budget_to'] = buyer_hash[details['buyer_id']]['budget_to']
-    details['views'] = buyer_hash[details['buyer_id']]['viewings'].to_i.to_s + '/' + details[:viewings]
+    details['views'] = buyer_view_ratio(details['buyer_id'], details['udprn'])
     details[:enquiries] = buyer_enquiry_ratio(details['buyer_id'], details['udprn'])
   end
 
@@ -213,10 +213,10 @@ class Trackers::Buyer
   ### For every enquiry row, extract the info from details hash and merge it
   ### with new row
   def push_property_details(new_row, details)
-    ATTRS = [ :address, :pictures, :street_view_image_url, :verification_status, :dream_price, :current_valuation, 
+    atts = [ :address, :pictures, :street_view_image_url, :verification_status, :dream_price, :current_valuation, 
               :price, :status_last_updated, :property_type, :property_status_type, :beds, :baths, :receptions, 
               :details_completed, :date_added ]
-    new_row.merge!(details.slice(*ATTRS))
+    new_row.merge!(details.slice(*attrs))
     new_row[:image_url] = details['pictures'] ? details['pictures'][0] : "Image not available"
     if new_row[:image_url].nil?
       image_url = process_image(details) if Rails.env != 'test'
@@ -349,9 +349,9 @@ class Trackers::Buyer
   ### For every enquiry row, extract the info from details hash and merge it
   ### with new row
   def push_property_enquiry_details_buyer(new_row, details)
-    ATTRS = [:address, :price, :dream_price, :current_valuation, :pictures, :street_view_image_url, :sale_prices, :property_status_type, 
+    attrs = [:address, :price, :dream_price, :current_valuation, :pictures, :street_view_image_url, :sale_prices, :property_status_type, 
              :verification_status, :viewings]
-    new_row.merge!(details.slice(*ATTRS))
+    new_row.merge!(details.slice(*attrs))
     new_row[:image_url] = new_row[:street_view_image_url] || details[:pictures].first rescue nil
     if new_row[:image_url].nil?
       image_url = process_image(details) if Rails.env != 'test'
@@ -416,7 +416,7 @@ class Trackers::Buyer
     end
 
     result.each_with_index do |each_row, index|
-      each_row[:views] = buyer_hash[each_row['buyer_id']['viewings'].to_i.to_s + '/' + each_row[:viewings]
+      each_row[:views] = buyer_view_ratio(each_row['buyer_id'], each_row['udprn'])
       each_row[:enquiries] = buyer_enquiry_ratio(each_row['buyer_id'], each_row['udprn'])
       each_row['buyer_status'] = REVERSE_STATUS_TYPES[buyer_hash[each_row['buyer_id']]['status']]
       #### The following attributes are to be shown as blurred or nil value for vendors
@@ -430,10 +430,15 @@ class Trackers::Buyer
     result
   end
 
+  def buyer_view_ratio(buyer_id, udprn)
+    buyer_views = Events::EnquiryStatBuyer.new(buyer_id: each_row['buyer_id']).views
+    property_views = Events::EnquiryStatProperty.where(udprn: udprn).views
+    buyer_views + '/' + property_views
+  end
 
   def buyer_enquiry_ratio(buyer_id, udprn)
-    buyer_enquiries = Events::EnquiryStatBuyer.where(buyer_id: each_row['buyer_id']).enquiry_count.to_s
-    property_enquiries = Events::EnquiryStatProperty.where(udprn: udprn).enquiry_count.to_s
+    buyer_enquiries = Events::EnquiryStatBuyer.new(buyer_id: each_row['buyer_id']).enquiries
+    property_enquiries = Events::EnquiryStatProperty.where(udprn: udprn).enquiries
     buyer_enquiries + '/' + property_enquiries
   end
 
@@ -971,7 +976,7 @@ class Trackers::Buyer
       push_property_details_row(new_row, property_id)
       add_details_to_enquiry_row_buyer(new_row, property_id, each_row, nil, property_for)
 
-      each_row[:views] = PropertyBuyer.where(id: each_row['buyer_id'].to_i).last.viewings.to_i.to_s + '/' + details[:viewings]
+      each_row[:views] = buyer_view_ratio(each_row['buyer_id'], each_row['udprn'])
       each_row[:enquiries] = buyer_enquiry_ratio(each_row['buyer_id'], each_row['udprn'])
       #### Parse scheduled viewing date. If a viewing has been requested by the buyer.
       #### TODO: Scope for optimization. Fetching isn't needed, its already present.

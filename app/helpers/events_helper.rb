@@ -85,21 +85,8 @@ module EventsHelper
         Event.create!(attrs_list) if Trackers::Buyer::ENQUIRY_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
 
         ### Update counts enquiry wise for both property and buyer
-        stat = Events::EnquiryStatProperty.where(udprn: property_id).where(event: event).last
-        if stat.nil?
-          Events::EnquiryStatProperty.create(udprn: property_id, event: event)
-        else
-          stat.enquiry_count = stat.enquiry_count + 1
-          stat.save!
-        end
-
-        stat = Events::EnquiryStatBuyer.where(buyer_id: buyer_id).where(event: event).last
-        if stat.nil?
-          Events::EnquiryStatBuyer.create(buyer_id: buyer_id, event: event)
-        else
-          stat.enquiry_count = stat.enquiry_count + 1
-          stat.save!
-        end
+        Events::EnquiryStatProperty.new(udprn: property_id).update_enquiries(event)
+        Events::EnquiryStatBuyer.new(buyer_id: buyer_id).update_enquiries(event) if !buyer_id.nil?
 
         ### Clear the cache. List all cached methods which has cache key as agent_id/udprn
         ardb_client = Rails.configuration.ardb_client
@@ -124,23 +111,15 @@ module EventsHelper
         Event.where(buyer_id: buyer_id).where(udprn: property_id).where("created_at > ?", 3.months.ago).update_all(stage: event, offer_price: message[:offer_price], offer_date: Date.parse(message[:offer_date])) if Trackers::Buyer::EVENTS[:offer_made_stage] == event
         Event.where(buyer_id: buyer_id).where(udprn: property_id).where("created_at > ?", 3.months.ago).update_all(stage: event, scheduled_viewing_time: Time.parse(message[:scheduled_viewing_time])) if Trackers::Buyer::EVENTS[:viewing_stage] == event
         Event.where(buyer_id: buyer_id).where(udprn: property_id).where("created_at > ?", 3.months.ago).update_all(stage: event, expected_completion_date: Date.parse(message[:expected_completion_date])) if Trackers::Buyer::EVENTS[:completion_stage] == event
+
       elsif Trackers::Buyer::HOTNESS_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
 
         ### Update hotness of a property
         Event.where(buyer_id: buyer_id).where(udprn: property_id).where("created_at > ?", 3.months.ago).update_all(rating: event)
 
       elsif event == Trackers::Buyer::EVENTS[:viewed]
-        buyer = PropertyBuyer.where(id: buyer_id).last
-        if buyer_id
-          buyer.viewings += 1
-          buyer.save
-        end
-        details = PropertyDetails.details(property_id)[:_source]
-        details[:viewings] = details[:viewings].to_i + 1
-        
-        ### TODO: Ugly hack
-        PropertyService.update_udprn(udprn, details)
-
+        Events::EnquiryStatProperty.new(udprn: property_id).update_views
+        Events::EnquiryStatBuyer.new(buyer_id: buyer_id).update_views if !buyer_id.nil?
       elsif event == Trackers::Buyer::EVENTS[:sold]
         message = message.with_indifferent_access if message
         host = Rails.configuration.remote_es_host

@@ -195,15 +195,16 @@ class EventService
 
   def enquiry_ratio(buyer_id)
     raise StandardError, 'Udprn is not present ' if @udprn.nil?
-    buyer_enquiries = Events::EnquiryStatBuyer.where(buyer_id: buyer_id).last.enquiry_count
-    total_enquiries = Events::EnquiryStatProperty.where(udprn: @udprn).last.enquiry_count
+    buyer_enquiries = Events::EnquiryStatBuyer.new(buyer_id: buyer_id).enquiries
+    total_enquiries = Events::EnquiryStatProperty.where(udprn: @udprn).enquiries
     buyer_enquiries.to_i.to_s + '/' + total_enquiries.to_i.to_s
   end
 
   def view_ratio(buyer_id)
     raise StandardError, 'Udprn is not present ' if @udprn.nil?
-    buyer_views = PropertyBuyer.where(id: buyer_id).last.viewings.to_s rescue 0
-    buyer_views.to_i.to_s + '/' + @details[:viewings].to_i.to_s
+    buyer_views = Events::EnquiryStatBuyer.new(buyer_id: buyer_id).views
+    total_views = Events::EnquiryStatProperty.where(udprn: @udprn).views
+    buyer_views.to_i.to_s + '/' + total_views.to_i.to_s
   end
 
   def qualifying_stage_detail_for_enquiry(buyer_id, new_row)
