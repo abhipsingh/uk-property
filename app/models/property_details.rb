@@ -181,6 +181,7 @@ class PropertyDetails
     if previous_agent_id
       old_hash[:reason] = new_hash[:reason]
       old_hash[:time] = Time.now.to_s
+      ### It also reassigns previous enquiries to the current agent for performance wins in the enquiries panel
       AssignedAgentChangeWorker.perform_async(old_hash, previous_agent_id)
     end
     

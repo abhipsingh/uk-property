@@ -158,7 +158,6 @@ class Trackers::Buyer
     query = Event.where(agent_id: agent_id)
     parsed_last_time = Time.parse(last_time) if last_time
     query = query.where("created_at > ? ", parsed_last_time) if last_time
-    query = query.where(property_status_type: PROPERTY_STATUS_TYPES[property_status_type]) if property_status_type
     query = query.search_address_and_buyer_details(search_str) if search_str
     property_ids = query.order('created_at DESC').pluck(:udprn).uniq
     response = property_ids.map { |e| Trackers::Buyer.new.property_and_enquiry_details(agent_id.to_i, e, property_status_type, verification_status, ads) }.compact
@@ -294,18 +293,16 @@ class Trackers::Buyer
 
     ### Filter only the type_of_match which are asked by the caller
     query = Event
-    query = query.where(event: events) if !events.empty?
+    query = query.where(agent_id: agent_id)
  
-    api = PropertySearchApi.new(filtered_params: { agent_id: agent_id })
-    api.apply_filters
-    udprns, status = api.fetch_udprns
     udprns = [] if status.to_i != 200
     udprns = [property_udprn] if property_udprn
     parsed_last_time = Time.parse(last_time) if last_time
+    query = query.where(event: , events) if events.length != ENQUIRY_EVENTS.length
     query = query.where("created_at > ?", parsed_last_time) if last_time
     query = query.where(buyer_id: filtered_buyer_ids) if buyer_filter_flag
     query = query.where(type_of_match: TYPE_OF_MATCH[type_of_match.to_s.downcase.to_sym]) if type_of_match
-    query = query.where(udprn: udprns)
+    query = query.where(udprn: udprns) if property_udprn
     query = query.where(stage: EVENTS[qualifying_stage]) if qualifying_stage
     query = query.where(rating: EVENTS[rating]) if rating
     query = query.search_address_and_buyer_details(search_str) if search_str
@@ -546,12 +543,7 @@ class Trackers::Buyer
       type_of_match = TYPE_OF_MATCH[:perfect]
       event = EVENTS[:save_search_hash]
 
-      query = nil
-      if property_for == 'Sale'
-        query = Event.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
-      else
-        query = Event.where(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
-      end
+      query = Event
 
       search_stats[region_type][:perfect_matches] = query.where(udprn: udprns).where(event: event).where(type_of_match: type_of_match).count
 

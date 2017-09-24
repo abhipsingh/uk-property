@@ -11,6 +11,9 @@ class AssignedAgentChangeWorker
       AgentMailer.send_email_on_assigned_agent_change_to_admin(prev_agent, new_agent, details, vendor, details['reason'], details['time']).deliver_now
     end
 
+    ### Assign the enquiries of this property to the new agent
+    Event.where(udprn: details['udprn'].to_i).update_all(agent_id: new_agent.id)
+
     ### Flush agent's cached tables
     ardb_client = Rails.configuration.ardb_client
     ardb_client.del("cache_#{previous_agent_id}_agent_new_enquiries")
