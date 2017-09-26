@@ -130,6 +130,23 @@ class PropertyDetails
     end
   end
 
+  def self.add_agent_details(details, agent_id)
+    agent = Agents::Branches::AssignedAgent.where(id: agent_id).last
+    if agent
+      branch = agent.branch
+      details[:assigned_agent_name] = agent.name
+      details[:assigned_agent_email] = agent.email
+      details[:assigned_agent_mobile] = agent.mobile
+      details[:assigned_agent_title] = agent.title
+      details[:assigned_agent_image_url] = agent.image_url
+      details[:assigned_agent_branch_name] = branch.name
+      details[:assigned_agent_branch_number] = branch.phone_number
+      details[:assigned_agent_branch_address] = branch.address
+      details[:assigned_agent_branch_logo] = branch.image_url
+      details[:assigned_agent_branch_email] = branch.email
+    end
+  end
+
   def self.update_details(client, udprn, update_hash)
     response = {}
     status = 200
@@ -146,6 +163,7 @@ class PropertyDetails
     
     begin
       update_hash.each{|key, value| details[key.to_sym] = value }
+      add_agent_details(details, update_hash[:agent_id]) if previous_agent_id
       PropertyService.normalize_all_attrs(details)
       PropertySearchApi::ES_ATTRS.each { |key| es_hash[key] = details[key] if details[key] }
       PropertySearchApi::ADDRESS_LOCALITY_LEVELS.each { |key| es_hash[key] = details[key] if details[key] }
@@ -191,7 +209,7 @@ class PropertyDetails
 
     if new_hash[:agent_id] 
       ardb_client = Rails.configuration.ardb_client
-      ardb_client.del("cache_#{agent_id}_agent_new_enquiries") if agent_id
+      ardb_client.del("cache_#{agent_id}_agent_new_enquiries") if previous_agent_id
     end
 
     if new_hash[:vendor_id]

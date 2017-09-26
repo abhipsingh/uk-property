@@ -11,11 +11,12 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170921184839) do
+ActiveRecord::Schema.define(version: 20170925162910) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
   enable_extension "pg_trgm"
+  enable_extension "btree_gin"
 
   create_table "ad_payment_histories", force: :cascade do |t|
     t.string   "hash_str",   null: false
@@ -247,20 +248,11 @@ ActiveRecord::Schema.define(version: 20170921184839) do
   create_table "events", force: :cascade do |t|
     t.integer  "agent_id"
     t.integer  "udprn"
-    t.jsonb    "message"
     t.integer  "type_of_match",            limit: 2
     t.integer  "event",                    limit: 2
     t.integer  "buyer_id"
-    t.string   "buyer_name"
-    t.string   "buyer_email"
-    t.string   "buyer_mobile"
     t.string   "agent_name"
-    t.string   "agent_email"
-    t.string   "agent_mobile"
-    t.string   "address"
     t.datetime "created_at",                                         null: false
-    t.boolean  "is_deleted",                         default: false
-    t.integer  "property_status_type",               default: 0
     t.boolean  "is_archived",                        default: false
     t.integer  "stage",                    limit: 2, default: 15
     t.integer  "rating",                   limit: 2, default: 29
@@ -268,6 +260,7 @@ ActiveRecord::Schema.define(version: 20170921184839) do
     t.integer  "offer_price"
     t.date     "offer_date"
     t.date     "expected_completion_date"
+    t.string   "buyer_name"
   end
 
   create_table "events_enquiry_stat_buyers", force: :cascade do |t|
@@ -402,6 +395,7 @@ ActiveRecord::Schema.define(version: 20170921184839) do
     t.integer  "enquiries"
   end
 
+  add_index "property_buyers", ["email"], name: "property_buyers_email_idx", using: :btree
   add_index "property_buyers", ["email_id"], name: "index_property_buyers_on_email_id", unique: true, using: :btree
 
   create_table "property_events", force: :cascade do |t|

@@ -283,6 +283,9 @@ Rails.application.routes.draw do
   ####  Adds credits to agents
   get 'agents/credits/history',                                 to: 'agents#credit_history'
 
+  #### Gives predictions for buyer's name/mobile or email
+  get 'buyers/predict',                                         to: 'buyers#predictions'
+
   ### Verify property as green and verified and the agent as assigned agent
   # post 'vendors/udprns/:udprn/agents/:agent_id/verify',         to: 'agents#verify_property_from_agent'
 

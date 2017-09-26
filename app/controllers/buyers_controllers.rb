@@ -44,4 +44,11 @@ class BuyersController < ActionController::Base
 		render json: { message: 'Saved buyer successfully', details: details }, status: 201
 	end
 
+
+  #### curl -XGET  'http://localhost/buyers/predict?str=test10@pr'
+  def predictions
+    buyer_suggestions = PropertyBuyer.suggest_buyers(params[:str]).select([:id, :name, :image_url]).limit(20)
+    render json: buyer_suggestions, status: 200
+  end
+
 end

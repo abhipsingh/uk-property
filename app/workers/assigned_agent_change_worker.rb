@@ -12,7 +12,7 @@ class AssignedAgentChangeWorker
     end
 
     ### Assign the enquiries of this property to the new agent
-    Event.where(udprn: details['udprn'].to_i).update_all(agent_id: new_agent.id)
+    Event.unscope(where: :is_archived).where(udprn: details['udprn'].to_i).update_all(agent_id: new_agent.id)
 
     ### Flush agent's cached tables
     ardb_client = Rails.configuration.ardb_client

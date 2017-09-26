@@ -83,6 +83,11 @@ class PropertyBuyer < ActiveRecord::Base
     where(id: buyer_ids)
   end
 
+
+  def self.suggest_buyers(search_str)
+    where("to_tsvector('simple', ( name || ' '  || mobile))  @@ to_tsquery('simple', ?) OR email LIKE ? ", "#{search_str}:*", "#{search_str}%")
+  end
+
   def as_json option = {}
     super(:except => [:password, :password_digest])
   end

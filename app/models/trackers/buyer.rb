@@ -298,7 +298,7 @@ class Trackers::Buyer
     udprns = [] if status.to_i != 200
     udprns = [property_udprn] if property_udprn
     parsed_last_time = Time.parse(last_time) if last_time
-    query = query.where(event: , events) if events.length != ENQUIRY_EVENTS.length
+    query = query.where(event: events) if events.length != ENQUIRY_EVENTS.length
     query = query.where("created_at > ?", parsed_last_time) if last_time
     query = query.where(buyer_id: filtered_buyer_ids) if buyer_filter_flag
     query = query.where(type_of_match: TYPE_OF_MATCH[type_of_match.to_s.downcase.to_sym]) if type_of_match
