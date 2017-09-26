@@ -120,6 +120,7 @@ module EventsHelper
       elsif event == Trackers::Buyer::EVENTS[:viewed]
         Events::EnquiryStatProperty.new(udprn: property_id).update_views
         Events::EnquiryStatBuyer.new(buyer_id: buyer_id).update_views if !buyer_id.nil?
+        Events::View.create!(udprn: property_id, month: Time.now.month)
       elsif event == Trackers::Buyer::EVENTS[:sold]
         message = message.with_indifferent_access if message
         host = Rails.configuration.remote_es_host

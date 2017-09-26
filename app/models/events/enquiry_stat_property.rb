@@ -63,7 +63,7 @@ class Events::EnquiryStatProperty
 
   def specific_enquiry_count(event)
     value_str = fetch_value
-    enquiry_index = Trackers::Buyer::ENQUIRY_EVENTS.index(Trackers::Buyer::REVERSE_EVENTS[event])
+    enquiry_index = Trackers::Buyer::ENQUIRY_EVENTS.index(event)
     value_str.split(VIEWS_SEPERATOR)[0].to_s.split(ENQUIRY_SEPERATOR)[enquiry_index].to_i
   end
 

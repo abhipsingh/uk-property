@@ -64,13 +64,14 @@ class Events::EnquiryStatBuyer
     value_str.split(VIEWS_SEPERATOR)[0].to_s.split(ENQUIRY_SEPERATOR).last.to_i
   end
 
-
+  ### Events can be requested_viewing, message etc
   def specific_enquiry_count(event)
     value_str = fetch_value
-    enquiry_index = Trackers::Buyer::ENQUIRY_EVENTS.index(Trackers::Buyer::REVERSE_EVENTS[event])
+    enquiry_index = Trackers::Buyer::ENQUIRY_EVENTS.index(event)
     value_str.split(VIEWS_SEPERATOR)[0].to_s.split(ENQUIRY_SEPERATOR)[enquiry_index].to_i
   end
   
+  ### Events can be requested_viewing, message etc
   def update_view_and_enquiry(event)
     value_str = fetch_value
     views = value_str.split(VIEWS_SEPERATOR)[1].to_i + 1

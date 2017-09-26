@@ -53,8 +53,11 @@ class EventsController < ApplicationController
     ads = params[:ads]
     search_str = params[:search_str]
     last_time = params[:last_time]
+    is_premium = Agents::Branches::AssignedAgent.where(id: params[:agent_id].to_i).select(:is_premium).first.is_premium rescue nil
+    buyer_id = params[:buyer_id]
+    archived = params[:archived]
     response = []
-    response = Trackers::Buyer.new.search_latest_enquiries(params[:agent_id].to_i, property_status_type, verification_status, ads, search_str, last_time) if params[:agent_id]
+    response = Trackers::Buyer.new.search_latest_enquiries(params[:agent_id].to_i, property_status_type, verification_status, ads, search_str, last_time, is_premium, buyer_id, params[:page].to_i, archived) if params[:agent_id]
 
     render json: response, status: 200
   end
@@ -89,10 +92,14 @@ class EventsController < ApplicationController
     cache_parameters = param_list.map{ |t| params[t].to_s }
     cache_response(params[:agent_id].to_i, cache_parameters) do
       last_time = params[:last_time]
+      is_premium = Agents::Branches::AssignedAgent.where(id: params[:agent_id].to_i).select(:is_premium).first.is_premium rescue nil
+      buyer_id = params[:buyer_id]
+      archived = params[:archived]
       results = Trackers::Buyer.new.property_enquiry_details_buyer(params[:agent_id].to_i, params[:enquiry_type], params[:type_of_match], 
         params[:qualifying_stage], params[:rating], params[:buyer_status], params[:buyer_funding], 
         params[:buyer_biggest_problem], params[:buyer_chain_free], 
-        params[:search_str], params[:budget_from], params[:budget_to], params[:udprn], params[:property_for], last_time) if params[:agent_id]
+        params[:search_str], params[:budget_from], params[:budget_to], params[:udprn], params[:property_for], last_time,
+        is_premium, buyer_id, params[:page], archived) if params[:agent_id]
       final_response = results.empty? ? {"enquiries" => results, "message" => "No quotes to show"} : {"enquiries" => results}
       render json: final_response, status: status
     end
@@ -116,7 +123,8 @@ class EventsController < ApplicationController
       response = {}
       status = 200
       begin
-        results = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i).recent_properties_for_quotes(params[:payment_terms], params[:services_required], params[:quote_status], params[:search_str], params[:property_for]) if params[:agent_id]
+        agent = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i)
+        results = agent.recent_properties_for_quotes(params[:payment_terms], params[:services_required], params[:quote_status], params[:search_str], 'Sale', params[:buyer_id], agent.is_premium, params[:page]) if params[:agent_id]
         response = results.empty? ? { quotes: results, message: 'No quotes to show' } : { quotes: results}
       rescue => e
         Rails.logger.error "Error with agent quotes => #{e}"
@@ -145,7 +153,8 @@ class EventsController < ApplicationController
         if params[:agent_id].nil?
           response = { message: 'Agent ID missing' }
         else
-          results = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i).recent_properties_for_claim(agent_status, params[:property_for])
+          agent = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i)
+          results = agent.recent_properties_for_claim(agent_status, 'Sale', params[:buyer_id], params[:search_str], params[:page])
           response = results.empty? ? { leads: results, message: 'No leads to show'} : { leads: results}
         end
       rescue ActiveRecord::RecordNotFound
@@ -214,15 +223,6 @@ class EventsController < ApplicationController
                                         .where.not(property_status_type: rent_property_status_type)
                                         .pluck(:property_id)
           property_ids = lead_property_ids + quote_property_ids
-        elsif property_for == 'Rent'  && params[:property_status_type].nil?
-          quote_property_ids = quote_model.where(agent_id: params[:agent_id].to_i)
-                                          .where.not(agent_id: 0)
-                                          .where(property_status_type: rent_property_status_type)
-                                          .pluck(:property_id)
-          lead_property_ids = lead_model.where(agent_id: params[:agent_id].to_i)
-                                        .where(property_status_type: rent_property_status_type)
-                                        .pluck(:property_id)
-          property_ids = lead_property_ids + quote_property_ids
         elsif !property_status_type.nil?
           quote_property_ids = quote_model.where(agent_id: params[:agent_id].to_i)
                                           .where.not(agent_id: 0)
@@ -236,8 +236,8 @@ class EventsController < ApplicationController
 
         api = PropertySearchApi.new(filtered_params: search_params)
         api.apply_filters
-        body, status = api.fetch_data_from_es
-        active_property_ids = body.map { |e| e['udprn'].to_i }
+        udprns, status = api.fetch_udprns
+        active_property_ids = udprns.map(&:to_i)
         ### Get all properties for whom the agent has won leads
         property_ids = (active_property_ids + property_ids).uniq
         Rails.logger.info("property ids found for detailed properties (agent) = #{property_ids}")

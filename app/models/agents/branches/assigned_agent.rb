@@ -15,60 +15,62 @@ module Agents
       PER_CREDIT_COST = 5
       QUOTE_CREDIT_LIMIT = -10
       LEAD_CREDIT_LIMIT = 0
+      PAGE_SIZE = 30
 
       ##### All recent quotes for the agent being displayed
       ##### Data being fetched from this function
       ##### Example run the following in irb
       ##### Agents::Branches::AssignedAgent.last.recent_properties_for_quotes
-      def recent_properties_for_quotes(payment_terms_params=nil, service_required_param=nil, status_param=nil, search_str=nil, property_for='Sale')
+      def recent_properties_for_quotes(payment_terms_params=nil, service_required_param=nil, status_param=nil, search_str=nil, property_for='Sale', buyer_id=nil, is_premium=false, page_number=0)
         results = []
 
         won_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']
+        vendor = PropertyBuyer.where(id: buyer_id).select(:vendor_id).first if buyer_id
+        vendor_id = vendor.vendor_id if vendor
+        vendor_id ||= nil
         # udprns = quotes.where(district: self.branch.district).order('created_at DESC').pluck(:property_id)
         services_required = Agents::Branches::AssignedAgents::Quote::REVERSE_SERVICES_REQUIRED_HASH[service_required_param]
         new_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
         query = Agents::Branches::AssignedAgents::Quote
         query = query.where(district: self.branch.district)
         query = query.where('created_at > ?', 7.days.ago)
-        query = query.where(status: new_status)
-        query = query.where(agent_id: nil)
+        query = query.where(vendor_id: vendor_id) if buyer_id
         query = query.where(payment_terms: payment_terms_params) if payment_terms_params
         query = query.where(service_required: services_required) if service_required_param
-        query = query.search_address_and_vendor_details(search_str) if search_str
-
-        property_for ||= 'Sale'
-        if property_for != 'Sale'
-          query = query.where(property_status_type: 'Rent')
-        else
-          query = query.where.not(property_status_type: 'Rent')
+        
+        if status_param == 'New'
+          query = query.where(agent_id: nil)
+        elsif status_param == 'Lost'
+          query = query.where.not(agent_id: self.id).where(status: won_status)
+        elsif status_param == 'Pending'
+          query = query.where(agent_id: self.id).where(status: new_status)
+        elsif status_param == 'Won'
+          query = query.where(agent_id: self.id).where(status: won_status)
         end
-        new_udprns = query.order('created_at DESC')
 
-        won_and_lost_udprns = Agents::Branches::AssignedAgents::Quote.where(agent_id: id)
-        won_and_lost_quote_ids = won_and_lost_udprns.map(&:id).uniq
-        new_udprns = new_udprns.select{ |t| !won_and_lost_quote_ids.include?(t.id) }
+        if search_str && is_premium
+          udprns = Trackers::Buyer.new.fetch_udprns(search_str)
+          udprns = udprns.map(&:to_i)
+          query = query.where(property_id: udprns)
+        end
 
-        total_udprns = (new_udprns + won_and_lost_udprns).sort_by{ |t| t.created_at }.reverse.uniq{|t| t.property_id }
-        total_udprns.each do |each_quote|
+        results = query.order('created_at DESC').limit(PAGE_SIZE).offset(page_number*PAGE_SIZE)
+
+        results.each do |each_quote|
           property_details = PropertyDetails.details(each_quote.property_id)['_source'].with_indifferent_access
-          next if each_quote.is_assigned_agent && property_details['agent_id'] && property_details['agent_id'] != self.id
-
           ### Quotes status filter
           property_id = property_details['udprn'].to_i
-          p property_id
 
           quote_status = nil
-          if each_quote.status == won_status
+          if each_quote.status == won_status && each_quote.agent_id == self.id
             quote_status = 'Won'
-          elsif each_quote.status == new_status && each_quote.agent_id.nil?
+          elsif each_quote.status == new_status && each_quote.agent_id != self.id
             quote_status = 'New'
           elsif each_quote.status == new_status && !each_quote.agent_id.nil?
             quote_status = 'Pending'
           else
             quote_status = 'Lost'
           end
-          next if status_param && status_param != quote_status
-
           new_row = {}
           new_row[:udprn] = property_id
           if quote_status != 'Won'
@@ -81,7 +83,7 @@ module Agents
           new_row[:property_status_type] = property_details['property_status_type']
           new_row[:activated_on] = property_details['status_last_updated']
           new_row[:type] = 'SALE'
-          new_row[:photo_url] = property_details['photos'] ? property_details['photos'][0] : "Image not available"
+          new_row[:photo_url] = property_details['pictures'] ? property_details['pictures'][0] : "Image not available"
 
           new_row = new_row.merge(['property_type', 'beds', 'baths', 'receptions', 'floor_plan_url', 'services_required',
             'verification_status','asking_price','fixed_price', 'dream_price', 'pictures', 'payment_terms', 'quotes'].reduce({}) {|h, k| h[k] = property_details[k]; h })
@@ -100,7 +102,7 @@ module Agents
 
           vendor = Vendor.where(property_id: property_id).first
           if vendor.present?
-            new_row[:vendor_name] = vendor.full_name
+            new_row[:vendor_name] = vendor.name
             new_row[:vendor_email] = vendor.email
             new_row[:vendor_mobile] = vendor.mobile
             new_row[:vendor_image_url] = vendor.image_url
@@ -149,19 +151,19 @@ module Agents
       #### To test this function, create the following lead.
       #### Agents::Branches::AssignedAgents::Lead.create(district: "CH45", property_id: 4745413, vendor_id: 1)
       #### Then call the following function for the agent in that district
-      def recent_properties_for_claim(status=nil, property_for='Sale')
+      def recent_properties_for_claim(status=nil, property_for='Sale', buyer_id=nil, search_str=nil, is_premium=false, page_number=0)
         district = self.branch.district
-        property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES['Rent']
-
         query = Agents::Branches::AssignedAgents::Lead
-        property_for ||= 'Sale'
-        if property_for == 'Sale'
-          query = query.where.not(property_status_type: property_status_type)
-        else
-          query = query.where(property_status_type: property_status_type)
-        end
+        vendor = PropertyBuyer.where(id: buyer_id).select(:vendor_id).first if buyer_id
+        vendor_id = vendor.vendor_id if vendor
+        vendor_id ||= nil
+        query = query.where(vendor_id: vendor_id) if buyer_id
 
-        query = query.where(district: district).where('created_at > ?', 5.week.ago)
+        if search_str && is_premium
+          udprns = Trackers::Buyer.new.fetch_udprns(search_str)
+          udprns = udprns.map(&:to_i)
+          query = query.where(property_id: udprns)
+        end
 
         if status == 'New'
           query = query.where(agent_id: nil)
@@ -170,7 +172,7 @@ module Agents
         elsif status == 'Lost'
           query = query.where.not(agent_id: self.id).where.not(agent_id: nil)
         end
-        leads = query.order('created_at DESC').limit(20)
+        leads = query.order('created_at DESC').limit(PAGE_SIZE).offset(page_number*PAGE_SIZE)
 
         results = []
 
@@ -191,12 +193,12 @@ module Agents
           new_row = new_row.merge(['property_type', 'street_view_url', 'udprn', 'beds', 'baths', 'receptions', 'dream_price', 'pictures'].reduce({}) {|h, k| h[k] = details[k]; h })
           new_row[:address] = PropertyDetails.address(details)
           new_row[:photo_url] = details['pictures'] ? details['pictures'][0] : "Image not available"
-          new_row[:last_sale_prices] = PropertyHistoricalDetail.where(udprn: details['udprn']).order('date DESC').pluck(:price)
+          #new_row[:last_sale_prices] = PropertyHistoricalDetail.where(udprn: details['udprn']).order('date DESC').pluck(:price)
 
           #### Vendor details
           if lead.agent_id == self.id
             vendor = Vendor.where(id: lead.vendor_id).first
-            new_row[:vendor_name] = vendor.full_name || vendor.name
+            new_row[:vendor_name] = vendor.name
             new_row[:vendor_email] = vendor.email
             new_row[:vendor_mobile] = vendor.mobile
             new_row[:vendor_image_url] = vendor.image_url

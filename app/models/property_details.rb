@@ -55,7 +55,6 @@ class PropertyDetails
   end
 
   def self.vanity_url(address)
-    
     address.split(',').map{|t| t.strip.split(' ').map{|k| k.downcase}.join('-') }.join('-')
   end
 

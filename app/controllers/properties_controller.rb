@@ -125,7 +125,7 @@ class PropertiesController < ActionController::Base
     property_for = 'Rent' if property_for != 'Sale'
     cache_parameters = [ :enquiry_type, :type_of_match, :property_status_type,:search_str, :property_for].map{ |t| params[t].to_s }
     cache_response(params[:buyer_id].to_i, cache_parameters) do
-      ranking_info = Trackers::Buyer.new.history_enquiries(params[:buyer_id].to_i, enquiry_type, type_of_match, property_status_type, search_str, property_for)
+      ranking_info = Trackers::Buyer.new.history_enquiries(params[:buyer_id].to_i, enquiry_type, type_of_match, property_status_type, search_str, property_for, params[:search_str], params[:verified], params[:last_time], params[:page])
       render json: ranking_info, status: status
     end
   end

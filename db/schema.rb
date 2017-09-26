@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170925162910) do
+ActiveRecord::Schema.define(version: 20170926141513) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -83,6 +83,7 @@ ActiveRecord::Schema.define(version: 20170925162910) do
     t.string   "first_name"
     t.string   "last_name"
     t.integer  "credit",              default: 0
+    t.boolean  "is_premium",          default: false
   end
 
   add_index "agents_branches_assigned_agents", ["branch_id"], name: "index_agents_branches_assigned_agents_on_branch_id", using: :btree
@@ -308,12 +309,8 @@ ActiveRecord::Schema.define(version: 20170925162910) do
   end
 
   create_table "events_views", force: :cascade do |t|
-    t.integer  "udprn",      null: false
-    t.integer  "buyer_id",   null: false
-    t.integer  "agent_id"
-    t.integer  "vendor_id"
-    t.integer  "service"
-    t.datetime "created_at", null: false
+    t.integer "udprn", null: false
+    t.integer "month"
   end
 
   create_table "invited_agents", force: :cascade do |t|
