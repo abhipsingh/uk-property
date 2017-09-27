@@ -31,7 +31,7 @@ class PropertiesController < ActionController::Base
         page = params[:page]
         page ||= 0
         page = page.to_i
-        enquiries = EventService.new(udprn: udprn.to_i).property_specific_enquiry_details(page)
+        enquiries = EventService.new(udprn: udprn.to_i, buyer_id: params[:buyer_id]).property_specific_enquiry_details(page)
         render json: enquiries, status: 200
       end
     else

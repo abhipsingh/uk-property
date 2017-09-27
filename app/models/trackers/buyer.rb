@@ -837,7 +837,7 @@ class Trackers::Buyer
 
   ##### History of enquiries made by the user
   ##### Trackers::Buyer.new.history_enquiries(1)
-  def history_enquiries(buyer_id: id, enquiry_type: enquiry=nil, type_of_match: match=nil, property_status_type: status=nil, search_str: str=nil, verified: is_verified=nil, last_time: time=nil, page_number=0)
+  def history_enquiries(buyer_id: id, enquiry_type: enquiry=nil, type_of_match: match=nil, property_status_type: status=nil, search_str: str=nil, verified: is_verified=nil, last_time: time=nil, page_number: page=0)
     result = []
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
 
@@ -901,4 +901,6 @@ class Trackers::Buyer
   end
 
 end
+
+
 

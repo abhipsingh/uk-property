@@ -552,6 +552,86 @@ class AgentsController < ApplicationController
     end
   end
 
+  ### Agents api for submitting agent card info when subscribing to a premium service
+  ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" -H "Content-Type: application/json" 'http://localhost/agents/subscribe/premium/service' -d '{ "stripeEmail" : "email", "stripeToken" : "token" }'
+  def subscribe_premium_service
+    agent = user_valid_for_viewing?('Agent')
+    if !agent.nil?
+      sig_header = request.env['HTTP_STRIPE_SIGNATURE']
+      payload = request.body.read
+      event = nil
+      begin
+        event = Stripe::Webhook.construct_event(
+          payload, sig_header, Rails.configuration.stripe_signature_secret 
+        )
+      rescue JSON::ParserError => e
+        # Invalid payload
+        status 400
+        render json: { message: 'JSON parser error' }, status: 400
+      rescue Stripe::SignatureVerificationError => e
+        # Invalid signature
+        render json: { message: 'Invalid Signature' }, status: 400
+      end
+      begin
+        # Create the customer in Stripe
+        customer = Stripe::Customer.create(
+          email: params[:stripeEmail],
+          card: params[:stripeToken],
+          plan: 'agent_monthly_premium_package'
+        )
+        Stripe::Charge.create customer: customer.id,
+                              amount: Agents::Branches::AssignedAgents::PREMIUM_COST * 100,
+                              description: 'Agents premium monthly subscription plan',
+                              currency: 'GBP'
+
+        agent.stripe_customer_id = customer.id
+        agent.premium_expires_at = 1.month.from_now.to_date
+        agent.save!
+        render json: { message: 'Created a monthly subscription for premium service' }, status: 200
+      rescue Exception => e
+        Rails.logger.info(e.message)
+        render json: { message: 'Unable to create Stripe customer and charge. Please retry again' }, status: 400
+      end
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  ### Info about the premium charges monthly
+  ### curl -XGET 'http://localhost/agents/premium/cost'
+  def info_premium
+    render json: { value: Agents::Branches::AssignedAgent::PREMIUM_COST }, status: 200
+  end
+
+  ### Stripe agents subscription recurring payment
+  ### curl -XPOST  -H "Content-Type: application/json" 'http://localhost/agents/premium/subscription/process'
+  def process_subscription
+    event = Stripe::Event.retrieve(params['id'])
+    case event.type
+      when "invoice.payment_succeeded" #renew subscription
+        agent = Agents::Branches::AssignedAgent.where(stripe_customer_id: event.data.object.customer).last
+        if agent
+          agent.premium_expires_at = 1.month.from_now.to_date
+          agent.save!
+        end
+    end
+    render status: :ok, json: 'success'
+  end
+
+  ### Stripe agents subscription recurring payment
+  ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/premium/subscription/remove'
+  def remove_subscription
+    agent = user_valid_for_viewing?('Agent')
+    if !agent.nil?
+      customer_id = agent.stripe_customer_id
+      customer = Stripe::Customer.retrieve(customer_id)
+      customer.delete
+      render json: { message: 'Unsubscribed succesfully' }, 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
   def test_view
     render "test_view"
   end

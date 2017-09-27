@@ -289,6 +289,12 @@ Rails.application.routes.draw do
   ### Verify property as green and verified and the agent as assigned agent
   # post 'vendors/udprns/:udprn/agents/:agent_id/verify',         to: 'agents#verify_property_from_agent'
 
+  ### Webhook for stripe monthly agent premium service subscription
+  post 'agents/premium/subscription/process',                   to: 'agents#process_subscription'
+
+  ### Info about the premium cost
+  get 'agents/premium/cost',                                    to: 'agents#info_premium'
+
   #####################################################################
   #####################################################################
   #####################################################################

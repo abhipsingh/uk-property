@@ -4,4 +4,5 @@ Rails.configuration.stripe = {
 }
 
 Stripe.api_key = ENV['SECRET_KEY']
+Rails.configuration.stripe_signature_secret = ENV['STRIPE_SIGNATURE_SECRET']
 

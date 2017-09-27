@@ -144,13 +144,13 @@ class EventService
     @vendor_id = vendor_id
     @buyer_id = buyer_id
     @details = PropertyDetails.details(@udprn.to_i)['_source'] if @udprn
-    @service = SERVICES[PropertyService.service(@details)] if @details
   end
 
   def property_specific_enquiries(page)
     raise StandardError, 'Udprn is not present ' if @udprn.nil?
-    Event.where(udprn: @udprn).where(property_status_type: @service).order('created_at DESC')
-         .limit(ENQUIRY_PAGE_SIZE)
+    query = Event.where(udprn: @udprn)
+    query = query.where(buyer_id: @buyer_id) if @buyer_id
+    query.order('created_at DESC').limit(ENQUIRY_PAGE_SIZE)
          .offset(ENQUIRY_PAGE_SIZE*page)
   end
 
@@ -177,7 +177,7 @@ class EventService
     new_row[:views] = view_ratio(each_row.buyer_id)
     new_row[:enquiries] = enquiry_ratio(each_row.buyer_id)
     new_row[:type_of_match] = REVERSE_TYPE_OF_MATCH[each_row.type_of_match]
-    qualifying_stage_detail_for_enquiry(each_row.buyer_id, new_row)
+    qualifying_stage_detail_for_enquiry(each_row.buyer_id, new_row, each_row)
     new_row[:hotness] = REVERSE_EVENTS[enquiry.rating]
     new_row
   end
@@ -196,38 +196,43 @@ class EventService
   def enquiry_ratio(buyer_id)
     raise StandardError, 'Udprn is not present ' if @udprn.nil?
     buyer_enquiries = Events::EnquiryStatBuyer.new(buyer_id: buyer_id).enquiries
-    total_enquiries = Events::EnquiryStatProperty.where(udprn: @udprn).enquiries
+    total_enquiries = Events::EnquiryStatProperty.new(udprn: @udprn).enquiries
     buyer_enquiries.to_i.to_s + '/' + total_enquiries.to_i.to_s
   end
 
   def view_ratio(buyer_id)
     raise StandardError, 'Udprn is not present ' if @udprn.nil?
     buyer_views = Events::EnquiryStatBuyer.new(buyer_id: buyer_id).views
-    total_views = Events::EnquiryStatProperty.where(udprn: @udprn).views
+    total_views = Events::EnquiryStatProperty.new(udprn: @udprn).views
     buyer_views.to_i.to_s + '/' + total_views.to_i.to_s
   end
 
-  def qualifying_stage_detail_for_enquiry(buyer_id, new_row)
+  def qualifying_stage_detail_for_enquiry(buyer_id, new_row, each_row)
     raise StandardError, 'Udprn is not present ' if @udprn.nil?
-    new_row[:scheduled_viewing_time] = each_row.scheduled_viewing_time
+    new_row[:scheduled_viewing_time] = each_row.scheduled_visit_time
     new_row[:offer_price] = each_row.offer_price
     new_row[:offer_date] = each_row.offer_date
     new_row[:expected_completion_date] = each_row.expected_completion_date
   end
 
   def add_buyer_details(details, buyer_hash)
-    buyer_hash = buyer_hash.with_indifferent_access
-    details[:buyer_status] = REVERSE_STATUS_TYPES[buyer_hash[details[:buyer_id]][:status]]
-    details[:buyer_full_name] = buyer_hash[details[:buyer_id]][:full_name]
-    details[:buyer_image] = buyer_hash[details[:buyer_id]][:image_url]
-    details[:buyer_email] = buyer_hash[details[:buyer_id]][:email]
-    details[:buyer_mobile] = buyer_hash[details[:buyer_id]][:mobile]
-    details[:chain_free] = buyer_hash[details[:buyer_id]][:chain_free]
-    details[:buyer_funding] = PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[buyer_hash[details[:buyer_id]][:funding]]
-    details[:buyer_biggest_problem] = PropertyBuyer::REVERSE_BIGGEST_PROBLEM_HASH[buyer_hash[details[:buyer_id]][:biggest_problem]]
-    details[:buyer_buying_status] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[buyer_hash[details[:buyer_id]][:buying_status]]
-    details[:buyer_budget_from] = buyer_hash[details[:buyer_id]][:budget_from]
-    details[:buyer_budget_to] = buyer_hash[details[:buyer_id]][:budget_to]
+    if details[:buyer_id]
+      buyer_hash = buyer_hash.with_indifferent_access
+      details[:buyer_status] = REVERSE_STATUS_TYPES[buyer_hash[details[:buyer_id]][:status]] rescue nil
+      details[:buyer_full_name] = buyer_hash[details[:buyer_id]][:full_name]
+      details[:buyer_image] = buyer_hash[details[:buyer_id]][:image_url]
+      details[:buyer_email] = buyer_hash[details[:buyer_id]][:email]
+      details[:buyer_mobile] = buyer_hash[details[:buyer_id]][:mobile]
+      details[:chain_free] = buyer_hash[details[:buyer_id]][:chain_free]
+      details[:buyer_funding] = PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[buyer_hash[details[:buyer_id]][:funding]] rescue nil
+      details[:buyer_biggest_problem] = PropertyBuyer::REVERSE_BIGGEST_PROBLEM_HASH[buyer_hash[details[:buyer_id]][:biggest_problem]] rescue nil
+      details[:buyer_buying_status] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[buyer_hash[details[:buyer_id]][:buying_status]] rescue nil
+      details[:buyer_budget_from] = buyer_hash[details[:buyer_id]][:budget_from]
+      details[:buyer_budget_to] = buyer_hash[details[:buyer_id]][:budget_to]
+    else
+      keys = [:buyer_status, :buyer_full_name, :buyer_image, :buyer_email, :buyer_mobile, :chain_free, :buyer_funding, :buyer_biggest_problem, :buyer_buying_status, :buyer_budget_from, :buyer_budget_to]
+      keys.each {|key| details[key] = nil }
+    end
   end
 
   def agent_specific_enquiries(enquiry_type=nil, type_of_match=nil, qualifying_stage=nil, rating=nil, search_str=nil, last_time=nil, page=0, property_ids=[], service='Sale', buyer_ids=[])

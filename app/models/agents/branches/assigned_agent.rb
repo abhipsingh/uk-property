@@ -16,6 +16,7 @@ module Agents
       QUOTE_CREDIT_LIMIT = -10
       LEAD_CREDIT_LIMIT = 0
       PAGE_SIZE = 30
+      PREMIUM_COST = 25
 
       ##### All recent quotes for the agent being displayed
       ##### Data being fetched from this function

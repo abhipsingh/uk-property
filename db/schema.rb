@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170926141513) do
+ActiveRecord::Schema.define(version: 20170927111555) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -84,6 +84,8 @@ ActiveRecord::Schema.define(version: 20170926141513) do
     t.string   "last_name"
     t.integer  "credit",              default: 0
     t.boolean  "is_premium",          default: false
+    t.string   "stripe_customer_id"
+    t.date     "premium_expires_at"
   end
 
   add_index "agents_branches_assigned_agents", ["branch_id"], name: "index_agents_branches_assigned_agents_on_branch_id", using: :btree
@@ -451,6 +453,7 @@ ActiveRecord::Schema.define(version: 20170926141513) do
     t.string  "sector"
     t.string  "unit"
     t.string  "county"
+    t.integer "test_col",                           limit: 2
   end
 
   add_index "uk_properties", ["post_code"], name: "trgm_postcode_indx", using: :gist
