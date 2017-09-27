@@ -273,6 +273,8 @@ class AgentsController < ApplicationController
     details[:receptions] = params[:receptions].to_i if params[:receptions]
     details[:property_type] = params[:property_type] if params[:property_type]
     details[:dream_price] = params[:dream_price].to_i if params[:dream_price]
+    details[:claimed_on] = Time.now.to_s
+    details[:claimed_by] = 'Vendor'
     response, status = PropertyDetails.update_details(client, udprn, details)
     response['message'] = "Property verification successful." unless status.nil? || status!=200
     render json: response, status: status
@@ -300,7 +302,9 @@ class AgentsController < ApplicationController
       baths: params[:baths].to_i,
       receptions: params[:receptions].to_i,
       property_id: params[:property_id].to_i,
-      details_completed: true
+      details_completed: true,
+      claimed_on: Time.now.to_s,
+      claimed_by: 'Agent'
     }
     vendor_email = params[:vendor_email]
     assigned_agent_email = params[:assigned_agent_email]
@@ -335,7 +339,9 @@ class AgentsController < ApplicationController
       beds: params[:beds].to_i,
       baths: params[:baths].to_i,
       details_completed: false,
-      property_id: udprn
+      property_id: udprn,
+      claimed_on: Time.now.to_s,
+      claimed_by: 'Agent'
     }
     vendor_email = params[:vendor_email]
     assigned_agent_email = params[:assigned_agent_email]
@@ -626,7 +632,7 @@ class AgentsController < ApplicationController
       customer_id = agent.stripe_customer_id
       customer = Stripe::Customer.retrieve(customer_id)
       customer.delete
-      render json: { message: 'Unsubscribed succesfully' }, 200
+      render json: { message: 'Unsubscribed succesfully' }, status: 200
     else
       render json: { message: 'Authorization failed' }, status: 401
     end

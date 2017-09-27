@@ -204,7 +204,14 @@ class PropertyDetails
     
     filtered_new_hash = {}
     TRACKING_ATTRS.each{ |t| filtered_new_hash[t] = new_hash[t] if new_hash[t] }
-    PropertyEvent.create(udprn: old_hash[:udprn], attr_hash: filtered_new_hash) if !filtered_new_hash.empty?
+    if !filtered_new_hash.empty?
+      PropertyEvent.create(
+        udprn: old_hash[:udprn],
+        attr_hash: filtered_new_hash,
+        agent_id: old_hash[:agent_id],
+        vendor_id: old_hash[:vendor_id]
+       )
+     end
 
     if new_hash[:agent_id] 
       ardb_client = Rails.configuration.ardb_client

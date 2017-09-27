@@ -31,14 +31,14 @@ class PropertyService
   VENDOR_ATTRS = [:vendor_id]
 
   EXTRA_ATTRS = [:property_status_type, :verification_status, :details_completed, :agent_status, :property_id,
-                 :claimed_at]
+                 :claimed_on]
 
   POSTCODE_ATTRS = [:area, :sector, :district, :unit, :address, :county, :vanity_url, :building_type]
 
   ### Additional attrs to be appended
   ADDITIONAL_ATTRS = [:status_last_updated, :sale_prices, :sale_price, :assigned_agent_first_name, :assigned_agent_last_name,
                       :assigned_agent_title, :total_area, :epc, :chain_free, :date_added, :not_yet_built, :is_new_home, :is_retirement_home, :is_shared_ownership, 
-                      :description_set ] 
+                      :description_set, :claimed_by ] 
        
   DETAIL_ATTRS = LOCALITY_ATTRS + AGENT_ATTRS + VENDOR_ATTRS + EXTRA_ATTRS + POSTCODE_ATTRS + EDIT_ATTRS + ADDITIONAL_ATTRS
 
@@ -77,7 +77,8 @@ class PropertyService
     Agents::Branches::AssignedAgents::Lead.create(district: district, property_id: udprn, vendor_id: vendor_id, property_status_type: property_status_type)
     details[:property_status_type] = nil if details['property_status_type'] == 'Sale'
     details[:vendor_id] = vendor_id
-    details[:claimed_at] = Time.now.to_s
+    details[:claimed_on] = Time.now.to_s
+    details[:claimed_by] = 'Vendor'
     # p details
     self.class.normalize_all_attrs(details)
     PropertyDetails.update_details(client, udprn, details)

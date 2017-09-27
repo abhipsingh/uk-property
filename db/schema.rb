@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170927111555) do
+ActiveRecord::Schema.define(version: 20170927161307) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -401,6 +401,8 @@ ActiveRecord::Schema.define(version: 20170927111555) do
     t.jsonb    "attr_hash",  default: {}, null: false
     t.integer  "udprn",                   null: false
     t.datetime "created_at",              null: false
+    t.integer  "agent_id"
+    t.integer  "vendor_id"
   end
 
   create_table "property_historical_details", force: :cascade do |t|

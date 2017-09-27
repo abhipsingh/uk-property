@@ -174,7 +174,7 @@ class Trackers::Buyer
   ### Per property
   def search_latest_enquiries(agent_id, property_status_type=nil, verification_status=nil, ads=nil, search_str=nil, property_for='Sale', last_time=nil, is_premium=false, buyer_id=nil, page_number=0, is_archived=nil)
     query = filtered_agent_query agent_id: agent_id, search_str: search_str, last_time: last_time, is_premium: is_premium, buyer_id: buyer_id, archived: is_archived
-    property_ids = query.order('created_at DESC').limit(PAGE_SIZE).offset(page_number*PAGE_SIZE).select(:udprn).pluck(:udprn).uniq
+    property_ids = query.order('created_at DESC').limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE).select(:udprn).pluck(:udprn).uniq
     response = property_ids.map { |e| Trackers::Buyer.new.property_and_enquiry_details(agent_id.to_i, e, property_status_type, verification_status, ads) }.compact
   end
 
@@ -320,7 +320,7 @@ class Trackers::Buyer
     query = query.where(stage: EVENTS[qualifying_stage]) if qualifying_stage
     query = query.where(rating: EVENTS[rating]) if rating
     query = query.order('created_at DESC')
-    total_rows = query.limit(PAGE_SIZE).offset(page_number*PAGE_SIZE)
+    total_rows = query.limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE)
     result = process_enquiries_result(total_rows, agent_id)
     result
   end
@@ -439,7 +439,7 @@ class Trackers::Buyer
         value.push({ month: each_month.to_s, count: 0 })
       end
     end
-    aggregated_result
+    aggregated_result.sort_by{ |t| t['month'].to_i }
   end
 
   #### Track the number of searches of similar properties located around that property
@@ -848,7 +848,7 @@ class Trackers::Buyer
     query = query.unscope(where: :is_archived)
     query = query.where(event: EVENTS[enquiry_type.to_sym]) if enquiry_type
     query = query.order('created_at DESC')
-    total_rows = query.limit(PAGE_SIZE).offset(page_number*PAGE_SIZE)
+    total_rows = query.limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE)
     total_rows = process_enquiries_result(total_rows)
     total_rows = total_rows.map do |each_row|
       (next if each_row['property_status_type'] != property_status_type) if property_status_type

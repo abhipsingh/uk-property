@@ -93,7 +93,7 @@ module Agents
 
           new_row[:street_view_url] = property_details['street_view_image_url']
           new_row[:address] = PropertyDetails.address(property_details)
-          new_row[:claimed_on] = property_details['claimed_at']
+          new_row[:claimed_on] = property_details['claimed_on']
 
           new_row[:latest_valuation] = property_details['current_valuation']
 
