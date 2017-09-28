@@ -1,31 +1,30 @@
 module CacheHelper
   def cache_response(cache_key, cache_parameters)
-    Rails.logger.info(params)
-    if params[:latest_time].to_s == "true"
-      @latest_time = params[:latest_time].to_s
+    #Rails.logger.info(params)
+    latest_time = params[:latest_time].to_s
+    if params[:latest_time]
       composite_key = cache_parameters.join('-')
-      expected_value = composite_key + '-' + @latest_time
       ardb_client = Rails.configuration.ardb_client
-      values = ardb_client.hget("cache_#{cache_key}_#{action_name}", "#{composite_key}")
-      values = JSON.parse(values) rescue []
-      values = [] if values.is_a?(String)
-      rails_cache_key = expected_value
+      value = ardb_client.hget("cache_#{cache_key}_#{action_name}", "#{composite_key}")
+      epoch = Time.parse(params[:latest_time]).to_i
   
-      if values.empty?
-        @latest_time = Time.now.to_s.split("+")[0..-2].join.strip
-        rails_cache_key = composite_key + '-' + @latest_time
-        Rails.logger.info("NOT FOUND CACHE COMPOSITE KEY #{composite_key}")
-        values.push(rails_cache_key)
-        values = ardb_client.hset("cache_#{cache_key}_#{action_name}", "#{composite_key}", values.uniq.to_json)
+      if value && epoch < value.to_i
+        latest_time = Time.at(value.to_i).to_s
         yield
-      else
-        Rails.logger.info("EXISTING CACHE COMPOSITE KEY #{composite_key}")
+      elsif value && epoch > value.to_i
+        latest_time = Time.at(epoch).to_s
         render nothing: true, status: 304
+      else
+        value = Time.now.to_i
+        values = ardb_client.hset("cache_#{cache_key}_#{action_name}", "#{composite_key}", value)
+        latest_time = Time.at(value).to_s
+        yield
       end
     else
+      latest_time = Time.now.to_s
       yield
     end
-    response.headers['latest_time'] = @latest_time
+    response.headers['latest_time'] = latest_time
   end
 end
 

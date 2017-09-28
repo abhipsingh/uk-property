@@ -436,10 +436,11 @@ class Trackers::Buyer
       present_months = value.map { |e| e['month'].to_i }
       missing_months = months.select{ |t| !present_months.include?(t) }
       missing_months.each do |each_month|
-        value.push({ month: each_month.to_s, count: 0 })
+        value.push({ 'month': each_month.to_s, count: 0 })
       end
+      aggregated_result[key] = value.sort_by{ |t| t['month'].to_i }
     end
-    aggregated_result.sort_by{ |t| t['month'].to_i }
+    aggregated_result
   end
 
   #### Track the number of searches of similar properties located around that property

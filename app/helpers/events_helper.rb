@@ -70,19 +70,11 @@ module EventsHelper
         attrs_list = {
           agent_id: agent_id,
           buyer_id: buyer_id,
-          message: message,
           udprn: property_id,
           type_of_match: type_of_match,
-          agent_name: agent_name,
-          agent_email: agent_email,
-          agent_mobile: agent_mobile,
-          buyer_name: buyer.name,
-          buyer_email: buyer.email,
-          buyer_mobile: buyer.mobile,
-          event: event,
-          property_status_type: 1
+          event: event
         }
-        Event.create!(attrs_list) if Trackers::Buyer::ENQUIRY_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
+        Event.create!(attrs_list)
 
         ### Update counts enquiry wise for both property and buyer
         Events::EnquiryStatProperty.new(udprn: property_id).update_enquiries(event)

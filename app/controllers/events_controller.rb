@@ -164,7 +164,7 @@ class EventsController < ApplicationController
         response = { leads: results, message: 'Error in showing leads', details: e.message}
         status = 500
       end
-      Rails.logger.info "sending response for recent claims property #{response.inspect}"
+      #Rails.logger.info "sending response for recent claims property #{response.inspect}"
       render json: response, status: status
     #end
   end

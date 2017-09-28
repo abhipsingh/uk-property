@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170927161307) do
+ActiveRecord::Schema.define(version: 20170927175639) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -254,7 +254,6 @@ ActiveRecord::Schema.define(version: 20170927161307) do
     t.integer  "type_of_match",            limit: 2
     t.integer  "event",                    limit: 2
     t.integer  "buyer_id"
-    t.string   "agent_name"
     t.datetime "created_at",                                         null: false
     t.boolean  "is_archived",                        default: false
     t.integer  "stage",                    limit: 2, default: 15
@@ -263,7 +262,6 @@ ActiveRecord::Schema.define(version: 20170927161307) do
     t.integer  "offer_price"
     t.date     "offer_date"
     t.date     "expected_completion_date"
-    t.string   "buyer_name"
   end
 
   create_table "events_enquiry_stat_buyers", force: :cascade do |t|
