@@ -19,6 +19,9 @@ Rails.application.routes.draw do
   #####################################################################
   #####################################################################
   #####################################################################
+  ### Gets property details for the vanity url
+  get 'property/details/:vanity_url',        to: 'properties#details_from_vanity_url'
+
   ### Post events to the server
   post 'events/new',                         to: 'events#process_event'
   ### Post events to the server

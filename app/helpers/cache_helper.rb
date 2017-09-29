@@ -11,7 +11,7 @@ module CacheHelper
       if value && epoch < value.to_i
         latest_time = Time.at(value.to_i).to_s
         yield
-      elsif value && epoch > value.to_i
+      elsif value && epoch >= value.to_i
         latest_time = Time.at(epoch).to_s
         render nothing: true, status: 304
       else

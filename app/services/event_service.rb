@@ -138,17 +138,19 @@ class EventService
   ENQUIRY_PAGE_SIZE = 20
 
 
-  def initialize(udprn: udprn=nil, agent_id: agent_id=nil, vendor_id: vendor_id=nil, buyer_id: buyer_id=nil)
+  def initialize(udprn: udprn=nil, agent_id: agent_id=nil, vendor_id: vendor_id=nil, buyer_id: buyer_id=nil, last_time: time=nil)
     @udprn = udprn.to_i
     @agent_id = agent_id
     @vendor_id = vendor_id
     @buyer_id = buyer_id
+    @last_time = last_time
     @details = PropertyDetails.details(@udprn.to_i)['_source'] if @udprn
   end
 
   def property_specific_enquiries(page)
     raise StandardError, 'Udprn is not present ' if @udprn.nil?
     query = Event.where(udprn: @udprn)
+    query = query.where("created_at > ?", @last_time) if @last_time
     query = query.where(buyer_id: @buyer_id) if @buyer_id
     query.order('created_at DESC').limit(ENQUIRY_PAGE_SIZE)
          .offset(ENQUIRY_PAGE_SIZE*page)

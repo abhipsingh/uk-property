@@ -60,6 +60,8 @@ module MatrixViewHelper
       ]
   }
 
+
+
   def construct_aggs_query_from_fields(area, district, sector, unit, postcode_context, postcode_type, query, filter_index, context_hash={}, search_type=:postcode)
     aggs = {}
     fields = ['area', 'county', 'post_town', 'district', 'dependent_locality', 'sector', 'thoroughfare_description', 'dependent_thoroughfare_description', 'unit'].map(&:pluralize)

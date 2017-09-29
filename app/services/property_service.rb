@@ -61,6 +61,19 @@ class PropertyService
    end
   end
 
+  def self.get_results_from_es_suggest(query_str, size=10)
+    query_str = {
+      postcode_suggest: {
+        text: query_str,
+        completion: {
+          field: 'suggest',
+          size: size
+        }
+      }
+    }
+    res, code = post_url(Rails.configuration.location_index_name, nil, '_suggest' , query_str)
+  end
+
   def attach_vendor_to_property(vendor_id, details={}, property_for='Sale')
     property_details = PropertyDetails.details(udprn)[:_source]
     details.symbolize_keys!
@@ -208,7 +221,7 @@ class PropertyService
 
   def self.post_url(index_name, type_name, endpoint='_search', query={})
     es_url = Rails.configuration.remote_es_url
-    uri = URI.parse(URI.encode("#{es_url}/#{index_name}/#{type_name}/#{endpoint}"))
+    uri = URI.parse(URI.encode("#{es_url}/#{index_name}/#{endpoint}"))
     query = (query == {}) ? "" : query.to_json
     http = Net::HTTP.new(uri.host, uri.port)
     result = http.post(uri,query)
@@ -330,6 +343,13 @@ class PropertyService
     ardb_client = Rails.configuration.ardb_client
     key_name = 'description_' + udprn.to_s 
     ardb_client.get(key_name)
+  end
+
+  def self.fetch_details_from_vanity_url(url)
+    prediction_str = url.split('-')[0..-4].join(' ')
+    results, code = get_results_from_es_suggest(prediction_str, 1)
+    udprn = Oj.load(results)['postcode_suggest'][0]['options'][0]['text'].split('_')[0]
+    PropertyDetails.details(udprn)[:_source]
   end
 
   def self.update_full_ardb_db

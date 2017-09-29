@@ -15,6 +15,13 @@ class PropertiesController < ActionController::Base
     end
   end
 
+  ### Fetches details of a property from its vanity url
+  ### curl -XGET  'http://localhost/property/details/98-mostyn-avenue-old-roan-liverpool-merseyside-l10-2jq'
+  def details_from_vanity_url
+    details = PropertyService.fetch_details_from_vanity_url(params[:vanity_url])
+    render json: details, status: 200
+  end
+
   ### When a request is made to fetch the historic pricing details for a udprn
   ### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/prices/10966139'
   def historic_pricing
@@ -25,14 +32,14 @@ class PropertiesController < ActionController::Base
   ### This route provides all the details of the recent enquiries made by the users on this property
   ### curl -XGET -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/enquiries/property/10966139'
   def enquiries
-    #if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
+   # if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
      if true
-      cache_response(params[:udprn].to_i, [params[:page]]) do
+      cache_response(params[:udprn].to_i, [params[:page], params[:buyer_id]]) do
         page = params[:page]
         page ||= 0
         page = page.to_i
         udprn = params[:udprn].to_i
-        enquiries = EventService.new(udprn: udprn, buyer_id: params[:buyer_id]).property_specific_enquiry_details(page)
+        enquiries = EventService.new(udprn: udprn, buyer_id: params[:buyer_id], last_time: params[:latest_time]).property_specific_enquiry_details(page)
         render json: enquiries, status: 200
       end
     else
@@ -126,7 +133,7 @@ class PropertiesController < ActionController::Base
     property_for = 'Rent' if property_for != 'Sale'
     cache_parameters = [ :enquiry_type, :type_of_match, :property_status_type,:search_str, :property_for].map{ |t| params[t].to_s }
     cache_response(params[:buyer_id].to_i, cache_parameters) do
-      ranking_info = Trackers::Buyer.new.history_enquiries(buyer_id: params[:buyer_id].to_i,enquiry_type: enquiry_type,type_of_match: type_of_match, property_status_type:  property_status_type, search_str: search_str, verified: params[:verified], last_time: params[:last_time], page_number: params[:page])
+      ranking_info = Trackers::Buyer.new.history_enquiries(buyer_id: params[:buyer_id].to_i,enquiry_type: enquiry_type,type_of_match: type_of_match, property_status_type:  property_status_type, search_str: search_str, verified: params[:verified], last_time: params[:latest_time], page_number: params[:page])
       render json: ranking_info, status: status
     end
   end

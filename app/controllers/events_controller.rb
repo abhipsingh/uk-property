@@ -52,7 +52,7 @@ class EventsController < ApplicationController
     verification_status = params[:verification_status]
     ads = params[:ads]
     search_str = params[:search_str]
-    last_time = params[:last_time]
+    last_time = params[:latest_time]
     is_premium = Agents::Branches::AssignedAgent.where(id: params[:agent_id].to_i).select(:is_premium).first.is_premium rescue nil
     buyer_id = params[:buyer_id]
     archived = params[:archived]
@@ -88,17 +88,16 @@ class EventsController < ApplicationController
     #params_key = "#{params[:agent_id].to_i}_#{params[:enquiry_type]}_#{params[:type_of_match]}_#{params[:qualifying_stage]}_#{params[:rating]}_#{params[:buyer_status]}_#{params[:buyer_funding]}_#{params[:buyer_biggest_problem]}_#{params[:buyer_chain_free]}_#{params[:search_str]}_#{params[:budget_from]}_#{params[:budget_to]}"
     param_list = [ :enquiry_type, :type_of_match, :qualifying_stage, :rating, :buyer_status, :buyer_funding, 
                    :buyer_biggest_problem, :buyer_chain_free, :search_str, :budget_from, :budget_to, 
-                   :property_for ]
+                   :property_for, :archived ]
     cache_parameters = param_list.map{ |t| params[t].to_s }
     cache_response(params[:agent_id].to_i, cache_parameters) do
-      last_time = params[:last_time]
+      last_time = params[:latest_time]
       is_premium = Agents::Branches::AssignedAgent.where(id: params[:agent_id].to_i).select(:is_premium).first.is_premium rescue nil
       buyer_id = params[:buyer_id]
       archived = params[:archived]
       results = Trackers::Buyer.new.property_enquiry_details_buyer(params[:agent_id].to_i, params[:enquiry_type], params[:type_of_match], 
-        params[:qualifying_stage], params[:rating], params[:buyer_status], params[:buyer_funding], 
-        params[:buyer_biggest_problem], params[:buyer_chain_free], 
-        params[:search_str], params[:budget_from], params[:budget_to], params[:udprn], params[:property_for], last_time,
+        params[:qualifying_stage], params[:rating],  
+        params[:search_str], 'Sale', last_time,
         is_premium, buyer_id, params[:page], archived) if params[:agent_id]
       final_response = results.empty? ? {"enquiries" => results, "message" => "No quotes to show"} : {"enquiries" => results}
       render json: final_response, status: status

@@ -16,7 +16,7 @@ class MatrixViewController < ActionController::Base
     else
       str = params[:str].gsub(',',' ').downcase
     end
-    results, code = get_results_from_es_suggest(str, 100)
+    results, code = PropertyService.get_results_from_es_suggest(str, 100)
     #Rails.logger.info(results)
     predictions = Oj.load(results)['postcode_suggest'][0]['options']
     #predictions.each { |t| t['score'] = t['score']*100 if t['payload']['hash'] == params[:str].upcase.strip }
@@ -148,19 +148,6 @@ class MatrixViewController < ActionController::Base
     second_match = true
     second_match = !(parts[1].match(regexes[1])).nil? if parts[1]
     return first_match && second_match
-  end
-
-  def get_results_from_es_suggest(query_str, size=10)
-    query_str = {
-      postcode_suggest: {
-        text: query_str,
-        completion: {
-          field: 'suggest',
-          size: size
-        }
-      }
-    }
-    res, code = post_url(Rails.configuration.location_index_name, query_str)
   end
 
   def get_results_from_es(index, query_str, field)
