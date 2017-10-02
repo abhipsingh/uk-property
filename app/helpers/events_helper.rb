@@ -57,7 +57,7 @@ module EventsHelper
     # Rails.logger.info("prop #{property_id}  type of match #{type_of_match} prop status #{property_status_type} event #{event}")
     #### Defend against null cases
     # Rails.logger.info("(#{agent_id1}, #{property_id}, #{buyer_id}, #{message}, #{type_of_match}, #{property_status_type}, #{event})")
-    if property_id && buyer_id && type_of_match && property_status_type && event
+    if property_id && type_of_match && event
       if Trackers::Buyer::ENQUIRY_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
         date = Date.today.to_s
         month = Date.today.month

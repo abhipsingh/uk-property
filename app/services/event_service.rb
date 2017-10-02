@@ -180,6 +180,7 @@ class EventService
     new_row[:enquiries] = enquiry_ratio(each_row.buyer_id)
     new_row[:type_of_match] = REVERSE_TYPE_OF_MATCH[each_row.type_of_match]
     qualifying_stage_detail_for_enquiry(each_row.buyer_id, new_row, each_row)
+    new_row[:stage] = REVERSE_EVENTS[each_row.stage]
     new_row[:hotness] = REVERSE_EVENTS[enquiry.rating]
     new_row
   end
@@ -218,19 +219,20 @@ class EventService
   end
 
   def add_buyer_details(details, buyer_hash)
-    if details[:buyer_id]
-      buyer_hash = buyer_hash.with_indifferent_access
-      details[:buyer_status] = REVERSE_STATUS_TYPES[buyer_hash[details[:buyer_id]][:status]] rescue nil
-      details[:buyer_full_name] = buyer_hash[details[:buyer_id]][:full_name]
-      details[:buyer_image] = buyer_hash[details[:buyer_id]][:image_url]
-      details[:buyer_email] = buyer_hash[details[:buyer_id]][:email]
-      details[:buyer_mobile] = buyer_hash[details[:buyer_id]][:mobile]
-      details[:chain_free] = buyer_hash[details[:buyer_id]][:chain_free]
-      details[:buyer_funding] = PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[buyer_hash[details[:buyer_id]][:funding]] rescue nil
-      details[:buyer_biggest_problem] = PropertyBuyer::REVERSE_BIGGEST_PROBLEM_HASH[buyer_hash[details[:buyer_id]][:biggest_problem]] rescue nil
-      details[:buyer_buying_status] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[buyer_hash[details[:buyer_id]][:buying_status]] rescue nil
-      details[:buyer_budget_from] = buyer_hash[details[:buyer_id]][:budget_from]
-      details[:buyer_budget_to] = buyer_hash[details[:buyer_id]][:budget_to]
+    buyer_hash = buyer_hash.as_json.with_indifferent_access
+    buyer = buyer_hash[details[:buyer_id].to_s]
+    if buyer
+      details[:buyer_status] = PropertyBuyer::REVERSE_STATUS_TYPES[buyer[:status]] rescue nil
+      details[:buyer_full_name] = (buyer[:first_name] + buyer[:last_name]) rescue nil
+      details[:buyer_image] = buyer[:image_url]
+      details[:buyer_email] = buyer[:email]
+      details[:buyer_mobile] = buyer[:mobile]
+      details[:chain_free] = buyer[:chain_free]
+      details[:buyer_funding] = PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[buyer[:funding]] rescue nil
+      details[:buyer_biggest_problem] = PropertyBuyer::REVERSE_BIGGEST_PROBLEM_HASH[buyer[:biggest_problem]] rescue nil
+      details[:buyer_buying_status] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[buyer[:buying_status]] rescue nil
+      details[:buyer_budget_from] = buyer[:budget_from]
+      details[:buyer_budget_to] = buyer[:budget_to]
     else
       keys = [:buyer_status, :buyer_full_name, :buyer_image, :buyer_email, :buyer_mobile, :chain_free, :buyer_funding, :buyer_biggest_problem, :buyer_buying_status, :buyer_budget_from, :buyer_budget_to]
       keys.each {|key| details[key] = nil }

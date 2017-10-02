@@ -221,7 +221,7 @@ class Trackers::Buyer
     new_row = {}
     add_details_to_enquiry_row(new_row, details['_source'], property_for)
     details['_source'].merge!(new_row)
-    details
+    details['_source']
   end
 
   #### Push agent specific details
@@ -260,6 +260,7 @@ class Trackers::Buyer
   ### TODO: Initial version of rent assumes that rent and buy udprns are exclusive
   def add_details_to_enquiry_row(new_row, details, property_for='Sale')
     table = ''
+    Rails.logger.info(details)
     property_id = details['udprn']
     property_stat = Events::EnquiryStatProperty.new(udprn: property_id)
     ### Extra keys to be added

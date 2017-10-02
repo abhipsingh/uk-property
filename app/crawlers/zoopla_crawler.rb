@@ -21,7 +21,10 @@ module ZooplaCrawler
       addresses = html.css("div.agents-results").css("p").css("span").map{ |t| t.text }
       names.each_with_index do |name, index|
         begin
-          Agents::Branch.create(name: name, property_urls: hrefs[index], address: addresses[index], agent_id: agent_id)
+          count =  Agents::Branch.where(name: name, agent_id: agent_id).count
+          if count == 0
+            Agents::Branch.create(name: name, property_urls: hrefs[index], address: addresses[index], agent_id: agent_id)
+          end
         rescue Exception => e
           p "#{name}_#{hrefs[index]}_#{addresses[index]}_#{agent_id}"
         end
@@ -32,10 +35,10 @@ module ZooplaCrawler
   def self.generic_url_processor(url,limit = 10)
     Rails.logger.info("Why did this happen") if url == "https://www.zoopla.co.uk/"
     return nil if url == "https://www.zoopla.co.uk/"
-    uri = URI.parse(url)
+    uri = URI.parse(url) rescue nil
     body = nil
     Rails.logger.info("CRAWLING #{url}|____#{limit}")
-    if uri.class == URI::HTTP || uri.class == URI::HTTPS
+    if uri && uri.class == URI::HTTP || uri.class == URI::HTTPS
       response = Net::HTTP.get_response(uri)
       case response.code.to_i
       when 200 then body = response.body
@@ -63,7 +66,10 @@ module ZooplaCrawler
 
         ids = []
         names.each_with_index do |name, index|
-          agent = Agent.create(name: name, branches_url: links[index])
+          agent =  Agent.where(name: name, branches_url: links[index]).first
+          if agent.nil?
+            agent = Agent.create(name: name, branches_url: links[index])
+          end
           ids.push(agent.id)
         end
 
@@ -84,19 +90,22 @@ module ZooplaCrawler
     threads = []
     batch = 0
     Agents::Branch.where("id > ?", min_value).where("id < ?", max_value).select([:id, :property_urls]).find_each do |branch|
-      branch_suffix = branch.property_urls.split("/").last
-      p "CRAWLED_Strted#{branch.id}"
-      perform_each_branch_crawl(branch_suffix, branch.id)
-      p "CRAWLED_Ended#{branch.id}"
-      # threads << Thread.new { perform_each_branch_crawl(branch_suffix, branch.id) }
-      # thread_count += 1
-      # if thread_count > max_thread_count
-      #   threads.map(&:join)
-      #   threads = []
-      #   thread_count = 0
-      #   batch += 1
-      #   p "CRAWLED_ended #{batch}"
-      GC.start(full_mark: true, immediate_sweep: true)
+      updated_count = Agents::Branches::CrawledProperty.where("updated_at > ?",Time.parse("2017-10-02 10:19:13")).count
+      if updated_count < 500
+        branch_suffix = branch.property_urls.split("/").last
+        p "CRAWLED_Strted#{branch.id}"
+        perform_each_branch_crawl(branch_suffix, branch.id)
+        p "CRAWLED_Ended#{branch.id}"
+        # threads << Thread.new { perform_each_branch_crawl(branch_suffix, branch.id) }
+        # thread_count += 1
+        # if thread_count > max_thread_count
+        #   threads.map(&:join)
+        #   threads = []
+        #   thread_count = 0
+        #   batch += 1
+        #   p "CRAWLED_ended #{batch}"
+        GC.start(full_mark: true, immediate_sweep: true)
+      end
       # end
     end
   end
@@ -116,7 +125,7 @@ module ZooplaCrawler
         # Rails.logger.info("URLS_FOUND for #{property_urls}") if !property_urls.empty?
         break if property_urls.empty?
         property_ids = property_urls.map{ |t| File.basename(t) }
-        property_ids = property_urls.map{ |t| t.to_i }
+        property_ids = property_ids.map{ |t| t.to_i }
         property_ids = property_ids.uniq
         existing_property_ids = KLASS.where(zoopla_id: property_ids).pluck(:zoopla_id)
         relevant_property_ids = property_ids - existing_property_ids
@@ -140,10 +149,9 @@ module ZooplaCrawler
       latitude = html.css('meta[itemprop="latitude"]')[0]['content'].to_f rescue nil
       longitude = html.css('meta[itemprop="longitude"]')[0]['content'].to_f rescue nil
       property = nil
-      if KLASS.where(latitude: latitude).where(longitude: longitude).count > 0
-        property = KLASS.where(latitude: latitude).where(longitude: longitude).last
+      if KLASS.where(zoopla_id: property_id).count > 0
+        property = KLASS.where(zoopla_id: property_id).last
       end
-      html.css('script').remove
       html.css('style').remove
       title = html.css('div#listing-details').css('h2')[0].text rescue nil
       address = html.css('div.listing-details-address').css('h2').text rescue nil
@@ -183,14 +191,37 @@ module ZooplaCrawler
       stored_response[:agent_logo] = agent_logo
       # p stored_response
       postcode = html.css("meta[property='og:postal-code']").first['content'] rescue nil
+      agent_street_address = html.css('span[itemprop="streetAddress"]').text
+      stored_response[:agent_street_address] = agent_street_address
+      agent_postcode = html.css('span[itemprop="postalCode"]').text
+      stored_response[:agent_postcode] = agent_postcode
+      opening_hours = html.css('ul.opening-hours__week li').map{|t| t.text.strip}.map{|t| t.split(":\n")}.inject({}){|hash,t| hash[t[0]]=t[1].reverse.strip.reverse;hash }
+      stored_response[:opening_hours] = opening_hours
+      script_node = html.css("head script").select{|t| t.text.index("googletag.pubads().setTargeting")}.last
+      floorplan_url = html.css('img.floorplan-img')[0]['src'] rescue nil
+      stored_response[:floorplan_url] = floorplan_url if floorplan_url
+      details_map = {}
+      if script_node
+        details_arr = script_node.text.scan(/googletag.pubads\(\).setTargeting\((.+?)\);/)
+        value = nil
+        details_arr.each do |each_arr_tag|
+          values = each_arr_tag[0].split(',')
+          key = values[0].gsub("\"","")
+          key = key.strip
+          value = values[1].gsub("'", "''")
+          value = value.gsub("\"", '')
+          value = value.strip
+          details_map[key] = value
+        end
+      end
 
       res = nil
       if title && address && latitude && longitude && property.nil?
-        res = KLASS.create(stored_response: stored_response, html: nil, branch_id: branch_id, postcode: postcode, zoopla_id: zoopla_id) rescue nil
-        Rails.logger.info("FINISHED Crawling for existing property #{res.id}")
+        res = KLASS.create(stored_response: stored_response, html: nil, branch_id: branch_id, postcode: postcode, zoopla_id: zoopla_id, additional_details: details_map)
+        Rails.logger.info("FINISHED Crawling for property #{res.id}")
       elsif property
-        property.update_attributes(stored_response: stored_response, html: nil, branch_id: branch_id, postcode: postcode, zoopla_id: zoopla_id) rescue nil
-        Rails.logger.info("FINISHED Crawling for property #{property.id}")
+        property.update_attributes(stored_response: stored_response, html: nil, branch_id: branch_id, postcode: postcode,  additional_details: details_map) rescue nil
+        Rails.logger.info("FINISHED Crawling for existing property #{property.id}")
       end
       # if res.nil?
       #   binding.pry

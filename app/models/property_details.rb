@@ -167,6 +167,7 @@ class PropertyDetails
       PropertySearchApi::ES_ATTRS.each { |key| es_hash[key] = details[key] if details[key] }
       PropertySearchApi::ADDRESS_LOCALITY_LEVELS.each { |key| es_hash[key] = details[key] if details[key] }
       PropertyService.update_udprn(udprn, details)
+      p es_hash
       client.delete index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn rescue nil
       client.index index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn , body: es_hash
       PropertyService.update_description(udprn, update_hash[:description]) if update_hash[:description]
@@ -215,7 +216,7 @@ class PropertyDetails
 
     if new_hash[:agent_id] 
       ardb_client = Rails.configuration.ardb_client
-      ardb_client.del("cache_#{agent_id}_agent_new_enquiries") if previous_agent_id
+      ardb_client.del("cache_#{new_hash[:agent_id]}_agent_new_enquiries") if previous_agent_id
     end
 
     if new_hash[:vendor_id]

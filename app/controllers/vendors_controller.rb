@@ -57,6 +57,7 @@ class VendorsController < ApplicationController
     results, status = pd.filter
     results[:results].each { |e| e[:address] = PropertyDetails.address(e) }
     response = results[:results].map { |e| e.slice(:udprn, :address)  }
+    response = response.sort_by{ |t| t[:address] }
     Rails.logger.info "sending response for vendor properties -> #{response.inspect}"
     render json: response, status: status
   end

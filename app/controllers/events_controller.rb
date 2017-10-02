@@ -212,14 +212,12 @@ class EventsController < ApplicationController
         rent_property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES['Rent']
         if !params[:ads].nil?
           search_params[:ads] = params[:ads]
-        elsif property_for == 'Sale' && params[:property_status_type].nil?
+        elsif property_status_type.nil?
           quote_property_ids = quote_model.where(agent_id: params[:agent_id].to_i)
                                           .where.not(agent_id: 0)
-                                          .where.not(property_status_type: rent_property_status_type)
                                           .pluck(:property_id)
           lead_property_ids = lead_model.where(agent_id: params[:agent_id].to_i)
                                         .where.not(agent_id: 0)
-                                        .where.not(property_status_type: rent_property_status_type)
                                         .pluck(:property_id)
           property_ids = lead_property_ids + quote_property_ids
         elsif !property_status_type.nil?
@@ -231,6 +229,7 @@ class EventsController < ApplicationController
                                         .where.not(agent_id: 0)
                                         .where(property_status_type: property_status_type)
                                         .pluck(:property_id)
+          property_ids = lead_property_ids + quote_property_ids
         end
 
         api = PropertySearchApi.new(filtered_params: search_params)
