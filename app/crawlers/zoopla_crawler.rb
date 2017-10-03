@@ -9,6 +9,7 @@ module ZooplaCrawler
 
   URL_PREFIX = 'https://www.zoopla.co.uk/find-agents/estate-agents/directory/'
   BASE_URL = 'http://www.zoopla.co.uk/'
+  HTTPS_BASE_URL = 'https://www.zoopla.co.uk/'
   CONN = ActiveRecord::Base.connection
   KLASS = Agents::Branches::CrawledProperty
   def self.process_agent_url(agent_url, agent_id)
@@ -21,10 +22,7 @@ module ZooplaCrawler
       addresses = html.css("div.agents-results").css("p").css("span").map{ |t| t.text }
       names.each_with_index do |name, index|
         begin
-          count =  Agents::Branch.where(name: name, agent_id: agent_id).count
-          if count == 0
-            Agents::Branch.create(name: name, property_urls: hrefs[index], address: addresses[index], agent_id: agent_id)
-          end
+          Agents::Branch.create(name: name, property_urls: hrefs[index], address: addresses[index], agent_id: agent_id)
         rescue Exception => e
           p "#{name}_#{hrefs[index]}_#{addresses[index]}_#{agent_id}"
         end
@@ -73,7 +71,7 @@ module ZooplaCrawler
           ids.push(agent.id)
         end
 
-        crawlable_urls = links.map { |e|  BASE_URL + e }
+        crawlable_urls = links.map { |e|  HTTPS_BASE_URL + e }
         crawlable_urls.each_with_index do |agent_url, index|
           p "CRAWLED URLS #{agent_url}"
           process_agent_url(agent_url, ids[index])
@@ -89,9 +87,7 @@ module ZooplaCrawler
     thread_count = 0
     threads = []
     batch = 0
-    Agents::Branch.where("id > ?", min_value).where("id < ?", max_value).select([:id, :property_urls]).find_each do |branch|
-      updated_count = Agents::Branches::CrawledProperty.where("updated_at > ?",Time.parse("2017-10-02 10:19:13")).count
-      if updated_count < 500
+    Agents::Branch.where("name LIKE 'A%'").where("id > ?", min_value).where("id < ?", max_value).select([:id, :property_urls]).find_each do |branch|
         branch_suffix = branch.property_urls.split("/").last
         p "CRAWLED_Strted#{branch.id}"
         perform_each_branch_crawl(branch_suffix, branch.id)
@@ -105,7 +101,6 @@ module ZooplaCrawler
         #   batch += 1
         #   p "CRAWLED_ended #{batch}"
         GC.start(full_mark: true, immediate_sweep: true)
-      end
       # end
     end
   end
@@ -116,7 +111,6 @@ module ZooplaCrawler
     page = 1
     loop do
       url = url_prefix + branch_suffix + "/?page_size=#{page_size}&pn=#{page}"
-      p "CRAWING STARTED FOR #{url}"
       response = generic_url_processor(url)
       if response
         property_urls = Nokogiri::HTML(response).css('div.listing-results-right h2.listing-results-attr a').map{|t| t['href']}
@@ -139,7 +133,7 @@ module ZooplaCrawler
   end
 
   def self.crawl_property(property_id, branch_id)
-    url = BASE_URL + 'for-sale/details/' + property_id.to_s
+    url = HTTPS_BASE_URL + 'for-sale/details/' + property_id.to_s
     uri = URI.parse(url)
     zoopla_id = property_id
     response = generic_url_processor(url)

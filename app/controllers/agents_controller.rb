@@ -310,6 +310,7 @@ class AgentsController < ApplicationController
     assigned_agent_email = params[:assigned_agent_email]
     ### Update udprn in crawled properties
     Agents::Branches::CrawledProperty.where(id: params[:property_id].to_i).update_attributes({udprn: udprn})
+    PropertyService.new(udprn: udprn).attach_crawled_property_attrs_to_udprn(params[:property_id].to_i)
     agent_count = Agents::Branches::AssignedAgent.where(id: agent_id).count > 0
     raise StandardError, 'Branch and agent not found' if agent_count == 0
     response, status = agent_service.verify_crawled_property_from_agent(property_attrs, vendor_email, assigned_agent_email)

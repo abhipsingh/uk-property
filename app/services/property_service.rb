@@ -38,7 +38,9 @@ class PropertyService
   ### Additional attrs to be appended
   ADDITIONAL_ATTRS = [:status_last_updated, :sale_prices, :sale_price, :assigned_agent_first_name, :assigned_agent_last_name,
                       :assigned_agent_title, :total_area, :epc, :chain_free, :date_added, :not_yet_built, :is_new_home, :is_retirement_home, :is_shared_ownership, 
-                      :description_set, :claimed_by ] 
+                      :description_set, :claimed_by, :listing_category ] 
+
+  COUNTIES = ["Aberdeenshire", "Kincardineshire", "Lincolnshire", "Banffshire", "Hertfordshire", "West Midlands", "Warwickshire", "Worcestershire", "Staffordshire", "Avon", "Somerset", "Wiltshire", "Lancashire", "West Yorkshire", "North Yorkshire", "ZZZZ", "Dorset", "Hampshire", "East Sussex", "West Sussex", "Kent", "County Antrim", "County Down", "Gwynedd", "County Londonderry", "County Armagh", "County Tyrone", "County Fermanagh", "Cumbria", "Cambridgeshire", "Suffolk", "Essex", "South Glamorgan", "Mid Glamorgan", "Cheshire", "Clwyd", "Merseyside", "Surrey", "Angus", "Fife", "Derbyshire", "Dumfriesshire", "Kirkcudbrightshire", "Wigtownshire", "County Durham", "Tyne and Wear", "South Yorkshire", "North Humberside", "South Humberside", "Nottinghamshire", "Midlothian", "West Lothian", "East Lothian", "Peeblesshire", "Middlesex", "Devon", "Cornwall", "Stirlingshire", "Clackmannanshire", "Perthshire", "Lanarkshire", "Dunbartonshire", "Gloucestershire", "Berkshire", "not", "Buckinghamshire", "Herefordshire", "Isle of Lewis", "Isle of Harris", "Isle of Scalpay", "Isle of North Uist", "Isle of Benbecula", "Inverness-shire", "Isle of Barra", "Norfolk", "Ross-shire", "Nairnshire", "Sutherland", "Morayshire", "Isle of Skye", "Ayrshire", "Isle of Arran", "Isle of Cumbrae", "Caithness", "Orkney", "Kinross-shire", "Powys", "Leicestershire", "Leicestershire / ", "Leicestershire / Rutland", "Dyfed", "Bedfordshire", "Northumberland", "Northamptonshire", "Gwent", "Shropshire", "Oxfordshire", "Renfrewshire", "Isle of Bute", "Argyll", "Isle of Gigha", "Isle of Islay", "Isle of Jura", "Isle of Colonsay", "Isle of Mull", "Isle of Iona", "Isle of Tiree", "Isle of Coll", "Isle of Eigg", "Isle of Rum", "Isle of Canna", "Isle of Wight", "West Glamorgan", "Selkirkshire", "Berwickshire", "Roxburghshire", "Isles of Scilly", "Cleveland", "Shetland Islands", "Central London", "East London", "North West London", "North London", "South East London", "South West London", "Central London", "West London"] 
        
   DETAIL_ATTRS = LOCALITY_ATTRS + AGENT_ATTRS + VENDOR_ATTRS + EXTRA_ATTRS + POSTCODE_ATTRS + EDIT_ATTRS + ADDITIONAL_ATTRS
 
@@ -346,10 +348,51 @@ class PropertyService
   end
 
   def self.fetch_details_from_vanity_url(url)
-    prediction_str = url.split('-')[0..-4].join(' ')
+    str_parts = url.split('-')[0..-3]
+    str = ''
+    last_occurence = str_parts.reverse.find_all{|t| str=t+' '+ str;COUNTIES.include?(str.titleize.strip)}.last
+    county_index = str_parts.index(last_occurence)
+    prediction_str = str_parts[0..county_index-1].join(' ')
     results, code = get_results_from_es_suggest(prediction_str, 1)
     udprn = Oj.load(results)['postcode_suggest'][0]['options'][0]['text'].split('_')[0]
     PropertyDetails.details(udprn)[:_source]
+  end
+
+
+  def attach_crawled_property_attrs_to_udprn
+    Agents::Branches::CrawledProperty.where(udprn: @udprn).each do |crawled_property_detail|
+      details = PropertyDetails.details(@udprn)[:_source]
+      details[:listing_category] = crawled_property_detail.additional_details[:listings_category] 
+      details[:price] = crawled_property_detail.additional_details[:price] 
+      details[:tenure] = crawled_property_detail.additional_details[:tenure] 
+      details[:assigned_agent_branch_name] = crawled_property_detail.additional_details[:branch_name] 
+      details[:assigned_agent_branch_logo] = crawled_property_detail.stored_response[:assigned_agent_branch_logo] 
+      details[:property_type] = crawled_property_detail.additional_details[:property_type] 
+      details[:epc] = crawled_property_detail.additional_details[:has_epc] 
+      details[:floorplan_url] = crawled_property_detail.stored_response[:floorplan_url]
+      details[:total_area] = crawled_property_detail.additional_details[:size_sq_feet]
+      details[:property_style] = crawled_property_detail.additional_details[:listing_condition]
+
+      ### Update branch's opening hours
+      branch = crawled_property_detail.branch
+      branch.opening_hours = crawled_property_detail.additional_details[:opening_hours]
+      branch.image_url = details[:assigned_agent_branch_logo]
+      branch.save!
+
+      ### From stored response
+      details[:beds] = crawled_property_detail.stored_response[:beds]
+      details[:baths] = crawled_property_detail.stored_response[:baths]
+      details[:receptions] = crawled_property_detail.stored_response[:receptions]
+      details[:additional_features] = crawled_property_detail.stored_response[:features]
+      details[:description] = crawled_property_detail.stored_response[:description]
+
+      update_details(details)
+    end
+  end
+
+  def update_details(update_hash)
+    client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
+    PropertyDetails.update_details(client, @udprn, update_hash)
   end
 
   def self.update_full_ardb_db
