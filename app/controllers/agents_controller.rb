@@ -72,6 +72,7 @@ class AgentsController < ApplicationController
                                           :password, :provider, :uid, :oauth_token, :oauth_expires_at])
     agent_details[:company_id] = assigned_agent.branch.agent_id
     agent_details[:group_id] = assigned_agent.branch.agent.group_id
+    agent_details[:domain_name] = assigned_agent.branch.domain_name
     render json: agent_details, status: 200
   end
 
@@ -309,16 +310,16 @@ class AgentsController < ApplicationController
     vendor_email = params[:vendor_email]
     assigned_agent_email = params[:assigned_agent_email]
     ### Update udprn in crawled properties
-    Agents::Branches::CrawledProperty.where(id: params[:property_id].to_i).update_attributes({udprn: udprn})
-    PropertyService.new(udprn: udprn).attach_crawled_property_attrs_to_udprn(params[:property_id].to_i)
+    Agents::Branches::CrawledProperty.where(id: params[:property_id].to_i).last.update_attributes({udprn: udprn})
+    PropertyService.new(udprn).attach_crawled_property_attrs_to_udprn
     agent_count = Agents::Branches::AssignedAgent.where(id: agent_id).count > 0
     raise StandardError, 'Branch and agent not found' if agent_count == 0
     response, status = agent_service.verify_crawled_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
     response['message'] = 'Property details updated.' unless status.nil? || status != 200
     render json: response, status: status
-  rescue Exception => e
-    Rails.logger.info("AGENT_PROPERTY_VERIFICATION_FAILURE_#{e.message}")
-    render json: { message: 'Verification failed due to some error' }, status: 400
+#  rescue Exception => e
+#    Rails.logger.info("AGENT_PROPERTY_VERIFICATION_FAILURE_#{e.message}")
+#    render json: { message: 'Verification failed due to some error' }, status: 400
   end
 
   ### Add manual property's basic attributes and attach the crawled property to a udprn
@@ -370,6 +371,7 @@ class AgentsController < ApplicationController
     if agent
       branch_id = agent.branch_id
       properties = Agents::Branches::CrawledProperty.where(branch_id: branch_id).select([:id, :postcode, :image_urls, :stored_response, :additional_details, :udprn]).where.not(postcode: nil).where(udprn: nil).limit(page_size).offset(page_no*page_size)
+      assigned_agent_emails = Agents::Branches::AssignedAgent.where(branch_id: branch_id).pluck(:email)
       properties.each do |property|
         new_row = {}
         new_row['property_id'] = property.id
@@ -381,26 +383,16 @@ class AgentsController < ApplicationController
         new_row['property_type'] = property.additional_details['property_type'] rescue nil
         new_row['post_code'] = property.postcode
         new_row['property_status_type'] = 'Green'
+        new_row['assigned_agent_emails'] = assigned_agent_emails
         postcode = property.postcode
         response.push(new_row)
         postcodes = postcodes + "," + postcode
       end
-      params_hash = { postcodes: postcodes, fields: "udprn,building_name,building_number,sub_building_name,post_code,property_status_type,postcode" }
-      search_api = PropertySearchApi.new(filtered_params: params_hash)
-      search_api.apply_filters
-      search_api.add_not_exists_filter(:property_status_type)
-      search_api.query[:size] = 2000
-      body, status = search_api.fetch_data_from_es
+      results = Uk::Property.where(postcode: postcodes.split(',')).where(indexed: false).select([:building_name, :building_number, :sub_building_name, :organisation_name, :department_name, :postcode, :udprn, :post_town, :county]).select('dl as dependent_locality').select('td as thoroughfare_descripion').select('dtd as dependent_thoroughfare_description').limit(1000)
       logged_postcodes = []
-      body.each do |each_doc|
-        each_doc['building_name'] ||= nil
-        each_doc['building_number'] ||= nil
-        each_doc['sub_building_name'] ||= nil
-        each_doc['property_status'] = "Unknown"
-      end
-      Rails.logger.info(body)
+      #Rails.logger.info(results.as_json)
       response.each do |each_crawled_property_data|
-        matching_udprns = body.select{ |t| t['postcode'] == each_crawled_property_data['post_code'] }
+        matching_udprns = results.select{ |t| t.postcode == each_crawled_property_data['post_code'] }
         # Rails.logger.info("HELLO") if !matching_udprns.empty?
         each_crawled_property_data['matching_properties'] = matching_udprns
       end
@@ -427,8 +419,9 @@ class AgentsController < ApplicationController
       branch.website = branch_details[:website] if branch_details[:website] && !branch_details[:website].blank?
       branch.image_url = branch_details[:image_url] if branch_details[:image_url] && !branch_details[:image_url].blank?
       branch.email = branch_details[:email] if branch_details[:email] && !branch_details[:email].blank?
+      branch.domain_name = branch_details[:domain_name] if branch_details[:domain_name] && !branch_details[:domain_name].blank?
       if branch.save!
-        render json: { message: 'Branch edited successfully', details: branch.as_json(only: [:name, :address, :phone_number, :website, :image_url, :email]) }, status: 200
+        render json: { message: 'Branch edited successfully', details: branch.as_json(only: [:name, :address, :phone_number, :website, :image_url, :email, :domain_name]) }, status: 200
       else
         render json: { message: 'Branch not able to edit' }, status: 400
       end

@@ -11,12 +11,13 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20170927175639) do
+ActiveRecord::Schema.define(version: 20171012132423) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
   enable_extension "pg_trgm"
   enable_extension "btree_gin"
+  enable_extension "uint"
 
   create_table "ad_payment_histories", force: :cascade do |t|
     t.string   "hash_str",   null: false
@@ -57,6 +58,9 @@ ActiveRecord::Schema.define(version: 20170927175639) do
     t.jsonb   "invited_agents"
     t.string  "rent_email_suffix"
     t.string  "buy_email_suffix"
+    t.jsonb   "opening_hours"
+    t.integer "zoopla_branch_id"
+    t.string  "domain_name"
   end
 
   add_index "agents_branches", ["district"], name: "index_agents_branches_on_district", using: :btree
@@ -96,10 +100,11 @@ ActiveRecord::Schema.define(version: 20170927175639) do
     t.integer  "agent_id"
     t.string   "district"
     t.integer  "vendor_id"
-    t.datetime "created_at",           null: false
-    t.datetime "updated_at",           null: false
+    t.datetime "created_at",                           null: false
+    t.datetime "updated_at",                           null: false
     t.boolean  "submitted"
     t.integer  "property_status_type"
+    t.boolean  "owned_property",       default: false
   end
 
   add_index "agents_branches_assigned_agents_leads", ["agent_id"], name: "index_agents_branches_assigned_agents_leads_on_agent_id", using: :btree
@@ -430,34 +435,31 @@ ActiveRecord::Schema.define(version: 20170927175639) do
     t.datetime "created_at",  null: false
   end
 
-  create_table "uk_properties", force: :cascade do |t|
-    t.string  "post_code"
-    t.string  "post_town"
-    t.string  "dependent_locality"
-    t.string  "double_dependent_locality"
-    t.string  "thoroughfare_descriptor"
-    t.string  "dependent_thoroughfare_description"
-    t.string  "building_number"
+  create_table "uk_properties", primary_key: "udprn", force: :cascade do |t|
+    t.string  "postcode",          limit: 8
+    t.string  "ddl"
+    t.string  "td"
+    t.string  "dtd"
     t.string  "building_name"
+    t.string  "building_number",   limit: 10
     t.string  "sub_building_name"
-    t.string  "po_box_no"
     t.string  "department_name"
-    t.string  "organization_name"
-    t.integer "udprn"
-    t.string  "postcode_type"
-    t.string  "su_organisation_indicator"
-    t.string  "delivery_point_suffix"
-    t.string  "building_text"
-    t.string  "area"
-    t.string  "district"
-    t.string  "sector"
-    t.string  "unit"
-    t.string  "county"
-    t.integer "test_col",                           limit: 2
+    t.string  "organisation_name"
+    t.boolean "indexed",                      default: false
+    t.string  "dl"
+    t.string  "district",          limit: 5
+    t.string  "post_town",                    default: "0"
+    t.string  "county",                       default: "0"
+    t.string  "sui"
+    t.string  "pob"
+    t.string  "pct"
+    t.string  "parsed_dl"
+    t.string  "parsed_pt"
+    t.string  "parsed_county"
   end
 
-  add_index "uk_properties", ["post_code"], name: "trgm_postcode_indx", using: :gist
-  add_index "uk_properties", ["udprn"], name: "index_uk_properties_on_udprn", unique: true, using: :btree
+  add_index "uk_properties", ["district"], name: "index_uk_properties_on_district", using: :btree
+  add_index "uk_properties", ["postcode"], name: "index_uk_properties_on_postcode", using: :btree
 
   create_table "vendors", force: :cascade do |t|
     t.string   "full_name"

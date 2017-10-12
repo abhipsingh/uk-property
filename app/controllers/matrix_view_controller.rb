@@ -104,12 +104,9 @@ class MatrixViewController < ActionController::Base
 
   def matrix_view
     regexes = [[/^([A-Z]{1,2})([0-9]{0,3})$/, /^([A-Z]{1,2})([0-9]{1,3})([A-Z]{0,2})$/], /^([0-9]{1,2})([A-Z]{0,3})$/]
-    api = ::PropertySearchApi.new(filtered_params: params)
-    api.modify_range_params
-    api.apply_filters
-    api.modify_query
     hash = { hash_str: params[:str] }
     PropertySearchApi.construct_hash_from_hash_str(hash)
+    params.delete(:str)
     hash.delete(:hash_str)
     type_of_str(hash)
     area, district, sector, unit = nil
@@ -118,6 +115,12 @@ class MatrixViewController < ActionController::Base
     else
       type = PropertySearchApi::POSTCODE_LEVELS.reverse.select { |e| hash[e] }.first
     end
+    new_params = params.merge!(hash)
+    new_params.delete(hash[:type])
+    api = ::PropertySearchApi.new(filtered_params: new_params)
+    api.modify_range_params
+    api.apply_filters
+    api.modify_query
     area, district, sector, unit = compute_postcode_units(hash[type]) if hash[type]
     hash[:area] = area
     hash[:district] = district

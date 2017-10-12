@@ -50,7 +50,7 @@ class PropertyDetails
     details = PropertyService.bulk_details([udprn]).first
     details['address'] = address(details)
     details['vanity_url'] = vanity_url(details['address'])
-    details[:udprn] = udprn
+    details[:udprn] = udprn.to_i
     { '_source' => details }.with_indifferent_access
   end
 

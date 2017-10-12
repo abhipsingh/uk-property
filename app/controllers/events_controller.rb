@@ -121,15 +121,15 @@ class EventsController < ApplicationController
       results = []
       response = {}
       status = 200
-      begin
+      #begin
         agent = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i)
         results = agent.recent_properties_for_quotes(params[:payment_terms], params[:services_required], params[:quote_status], params[:search_str], 'Sale', params[:buyer_id], agent.is_premium, params[:page]) if params[:agent_id]
         response = results.empty? ? { quotes: results, message: 'No quotes to show' } : { quotes: results}
-      rescue => e
-        Rails.logger.error "Error with agent quotes => #{e}"
-        response = { quotes: results, message: 'Error in showing quotes', details: e.message}
-        status = 500
-      end
+      #rescue => e
+      #  Rails.logger.error "Error with agent quotes => #{e}"
+      #  response = { quotes: results, message: 'Error in showing quotes', details: e.message}
+      #  status = 500
+      #end
       
       render json: response, status: status
     #end
@@ -146,7 +146,7 @@ class EventsController < ApplicationController
     #cache_response(params[:agent_id].to_i, cache_parameters) do
       response = {}
       status = 200
-      begin
+      #begin
         results = []
         agent_status = params[:status]
         if params[:agent_id].nil?
@@ -156,13 +156,13 @@ class EventsController < ApplicationController
           results = agent.recent_properties_for_claim(agent_status, 'Sale', params[:buyer_id], params[:search_str], params[:page])
           response = results.empty? ? { leads: results, message: 'No leads to show'} : { leads: results}
         end
-      rescue ActiveRecord::RecordNotFound
-        response = { message: 'Agent not found in database' }
-        status = 404
-      rescue => e
-        response = { leads: results, message: 'Error in showing leads', details: e.message}
-        status = 500
-      end
+#      rescue ActiveRecord::RecordNotFound
+#        response = { message: 'Agent not found in database' }
+#        status = 404
+#      rescue => e
+#        response = { leads: results, message: 'Error in showing leads', details: e.message}
+#        status = 500
+#      end
       #Rails.logger.info "sending response for recent claims property #{response.inspect}"
       render json: response, status: status
     #end
@@ -190,7 +190,7 @@ class EventsController < ApplicationController
 
       unless params[:agent_id].nil?
         #### TODO: Need to fix agents quotes when verified by the vendor
-        search_params = { limit: 100, fields: 'udprn' }
+        search_params = { limit: 100}
         search_params[:agent_id] = params[:agent_id].to_i
         property_status_type = params[:property_status_type]
 
@@ -238,14 +238,14 @@ class EventsController < ApplicationController
         active_property_ids = udprns.map(&:to_i)
         ### Get all properties for whom the agent has won leads
         property_ids = (active_property_ids + property_ids).uniq
-        Rails.logger.info("property ids found for detailed properties (agent) = #{property_ids}")
+        #Rails.logger.info("property ids found for detailed properties (agent) = #{property_ids}")
         results = property_ids.uniq.map { |e| Trackers::Buyer.new.push_events_details(PropertyDetails.details(e)) }
         response = results.empty? ? {"properties" => results, "message" => "No properties to show"} : {"properties" => results}
-        Rails.logger.info "Sending results for detailed properties (agent) => #{results.inspect}"
+        #Rails.logger.info "Sending results for detailed properties (agent) => #{results.inspect}"
       else
         response = { message: 'Agent ID mandatory for getting properties' }
       end
-      Rails.logger.info "Sending response for detailed properties (agent) => #{response.inspect}"
+      #Rails.logger.info "Sending response for detailed properties (agent) => #{response.inspect}"
       render json: response, status: 200
     end
   end
@@ -274,12 +274,12 @@ class EventsController < ApplicationController
   def claim_property
     agent = user_valid_for_viewing?('Agent')
     if !agent.nil?
-      if agent.credit > Agents::Branches::AssignedAgents::LEAD_CREDIT_LIMIT
+      if agent.credit >= Agents::Branches::AssignedAgent::LEAD_CREDIT_LIMIT
         property_service = PropertyService.new(params[:udprn].to_i)
         message, status = property_service.claim_new_property(params[:agent_id].to_i)
         render json: { message: message }, status: status
       else
-        render json: { message: "Credits possessed for leads #{agent.credit},  not more than #{Agents::Branches::AssignedAgents::LEAD_CREDIT_LIMIT} " }, status: 401
+        render json: { message: "Credits possessed for leads #{agent.credit},  not more than #{Agents::Branches::AssignedAgent::LEAD_CREDIT_LIMIT} " }, status: 401
       end
     else
       render json: { message: 'Authorization failed' }, status: 401
@@ -310,6 +310,7 @@ class EventsController < ApplicationController
   private
 
   def user_valid_for_viewing?(klass)
+    Rails.logger.info(request.headers)
     AuthorizeApiRequest.call(request.headers, klass).result
   end
 
@@ -321,3 +322,4 @@ class EventsController < ApplicationController
     headers['Access-Control-Max-Age'] = '86400'
   end
 end
+

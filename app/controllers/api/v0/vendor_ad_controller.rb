@@ -59,20 +59,20 @@ module Api
           ads_count = 0
           service = nil
           details['property_status_type'] != 'Rent' ? service = 1 : service = 2
-          Rails.logger.info(locations)
+          #Rails.logger.info(locations)
           chargeable_amount = 0
           locations.each do |key, location|
             hash_value = location[:hash]
             type = location[:type]
             value = (( PropertyAd::PRICE[location[:type]])*100*location[:months].to_i)
-            num_months = params[:months].to_i rescue 1
-            expiry_at = num_months.months.from_now.to_time - 1.day
-            Rails.logger.info(location)
+            num_months = location[:months].to_i
+            expiry_at = num_months.months.from_now.to_time - 2.day
+          #  Rails.logger.info(location)
             if PropertyAd.where(hash_str: hash_value, ad_type: PropertyAd::TYPE_HASH[type], service: service).count < PropertyAd::MAX_ADS_HASH[type]
               ads = PropertyAd.create(hash_str: hash_value, property_id: udprn.to_i, ad_type: PropertyAd::TYPE_HASH[type], service: service, expiry_at: expiry_at)
 
               ### Create a log for future reference
-              AdPaymentHistory.create!(hash_str: hash_value, property_id: udprn.to_i, type_of_ad: PropertyAd::TYPE_HASH[type], service: service, months: location[:months].to_i)
+              AdPaymentHistory.create!(hash_str: hash_value, udprn: udprn.to_i, type_of_ad: PropertyAd::TYPE_HASH[type], service: service, months: location[:months].to_i)
 
               message[:ads].push({hash: hash_value, type: type, booked: true, expiry_at: expiry_at.to_s, amount: value, message: "Booked slot successfully"})
               chargeable_amount += value
@@ -101,6 +101,7 @@ module Api
             PropertyAd.where(property_id: udprn.to_i, service: service).where("created_at > ?", 1.hour.ago).destroy_all
           end
           # p message
+          Rails.logger.info(message)
           render json: message, status: status
         else
           render json: { message: 'Authorization failed' }, status: 401

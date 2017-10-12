@@ -46,7 +46,7 @@ class PropertyAd < ActiveRecord::Base
         response["#{each_postcode_unit.to_s}"] = details[each_postcode_unit]
         response["#{each_postcode_unit.to_s}_hash"] = hash_str
         response["#{each_postcode_unit.to_s}_#{each_type.downcase}_count"] = MAX_ADS_HASH[each_type] - PropertyAd.where(hash_str: hash_str).where(service: service).where(ad_type: TYPE_HASH[each_type]).count
-        response["#{each_postcode_unit.to_s}_#{each_type.downcase}_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(property_id: udprn).where(service: service).select([:id, :created_at]).first
+        response["#{each_postcode_unit.to_s}_#{each_type.downcase}_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(property_id: udprn).where(service: service).select([:id, :expiry_at]).first
         response["#{each_postcode_unit.to_s}_#{each_type.downcase}_oldest_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(service: service).order('created_at ASC').first.created_at rescue nil
         response[:price_per_slot] = PRICE[each_type]
       end

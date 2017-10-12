@@ -54,7 +54,7 @@ module MatrixViewHelper
         ['district', 'post_town']
       ],
       'county' => [
-        ['area', 'county'],
+        ['district', 'county'],
         ['post_town', 'county'],
         ['county', 'county']
       ]
@@ -80,9 +80,9 @@ module MatrixViewHelper
     context_value = context_hash[postcode_context] || binding.local_variable_get(postcode_context)
     
     if query[:query][:filtered] && query[:query][:filtered][:filter] &&  query[:query][:filtered][:filter][:or]
-      query[:query][:filtered][:filter][:or][:filters][filter_index][:and][:filters].push({ term: { postcode_context => context_value }})
+      query[:query][:filtered][:filter][:or][:filters][filter_index][:and][:filters].push({ term: { postcode_context => context_value }}) if !context_value.blank?
     elsif query[:query][:filtered] && query[:query][:filtered][:filter] && query[:query][:filtered][:filter][:and]
-      query[:query][:filtered][:filter][:and][:filters].push({ term: { postcode_context => context_value }})
+      query[:query][:filtered][:filter][:and][:filters].push({ term: { postcode_context => context_value }}) if !context_value.blank?
       query[:query][:filtered][:filter][:and].delete(:or)
     end
   end
@@ -101,7 +101,12 @@ module MatrixViewHelper
         key_name = (each_agg_field[0]+"_aggs").to_sym
         if es_response[:aggregations][key_name] && es_response[:aggregations][key_name][key_name] && es_response[:aggregations][key_name][key_name][:buckets]
           es_response[:aggregations][key_name][key_name][:buckets].each do |value|
-            response_hash[each_agg_field[0].pluralize].push({ each_agg_field[0] => value[:key], flat_count: value[:doc_count], scoped_postcode: context })
+            new_context_map = context_hash.clone
+            new_context_map[each_agg_field[0].to_sym] = value[:key]
+            new_context_map[each_agg_field[1].to_sym] = context
+            new_context_map[:scoping_type] = each_agg_field[1].to_sym
+            hash_str = form_hash_str(new_context_map, each_agg_field[0].to_sym)
+            response_hash[each_agg_field[0].pluralize].push({ each_agg_field[0] => value[:key], flat_count: value[:doc_count], scoped_postcode: context, hash_str: hash_str })
           end
         end
       end
@@ -122,8 +127,57 @@ module MatrixViewHelper
 
   def type_of_str(hash)
     type = PropertySearchApi::ADDRESS_LOCALITY_LEVELS.reverse.select{ |t| hash[t] }.first
-    type ||= PropertySearchApi::POSTCODE_LEVELS.reverse.select { |e| hash[e] }.first
+    postcode_locality_type ||= PropertySearchApi::POSTCODE_LEVELS.reverse.select { |e| hash[e] }.first
+    if type == :post_town && postcode_locality_type == :district
+      type = :district
+    else
+      type ||= postcode_locality_type
+    end
     hash[:type] = type
+  end
+
+  def form_hash_str(context_hash, type)
+    if type == :county
+      "#{context_hash[:county]}_@_@_@_@_@_@_@_@"
+    elsif type == :post_town
+      county = context_hash[:county]
+      county = '@' if county.nil?
+      "#{county}_#{context_hash[:post_town]}_@_@_@_@_@_@_@"
+    elsif type == :dependent_locality
+      pt = context_hash[:post_town]
+      pt = '@' if pt.blank?
+      district = context_hash[:district]
+      district = '@' if district.nil?
+      "@_#{pt}_#{context_hash[:dependent_locality]}_@_@_@_@_@_@|@_@_#{district}"
+    elsif type == :dependent_thoroughfare_description
+      pt = context_hash[:post_town]
+      pt = '@' if pt.blank?
+      dl = "#{context_hash[:dependent_locality]}"
+      dl = "@" if dl == ''
+      sector = context_hash[:sector]
+      sector = '@' if sector.blank?
+      "@_#{pt}_#{dl}_@_#{context_hash[:dependent_thoroughfare_description]}_@_@_@_@|@_#{sector}_#{context_hash[:district]}"
+    elsif type == :thoroughfare_description
+      pt = context_hash[:post_town]
+      pt = '@' if pt.blank?
+      dl = "#{context_hash[:dependent_locality]}"
+      dl = "@" if dl == ''
+      sector = context_hash[:sector]
+      sector = '@' if sector.blank?
+      "@_#{pt}_#{dl}_#{context_hash[:thoroughfare_description]}_@_@_@_@_@|@_#{sector}_#{context_hash[:district]}"
+    elsif type == :district
+      area = context_hash[:area]
+      pt = context_hash[:post_town]
+      !area.nil? ? pt = '@' : pt = pt
+      pt = '@' if pt.blank?
+      "@_#{pt}_@_@_@_@_@_@_@|@_@_#{context_hash[:district]}"
+    elsif type == :sector
+      dl = "#{context_hash[:dependent_locality]}"
+      dl = "@" if dl == ''
+      "@_@_#{dl}_@_@_@_@_@_@|@_#{context_hash[:sector]}_@"
+    elsif type == :unit
+      "@_@_@_@_@_@_@_@_@|#{context_hash[:unit]}_@_@"
+    end
   end
 
   def calculate_postcode_units(hash)

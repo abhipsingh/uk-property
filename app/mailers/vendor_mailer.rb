@@ -32,7 +32,7 @@ class VendorMailer < ApplicationMailer
     @hash_link = agent_attrs[:hash_link]
     @vendor_email = vendor_email
     @udprn = agent_attrs[:udprn]
-    @hash_url = "http://prophety.herokuapp.com/auth?verification_hash=#{@hash_link}&udprn=#{@udprn}&email=#{@vendor_email}"
+    @hash_url = "http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=#{@hash_link}&udprn=#{@udprn}&email=#{@vendor_email}"
     subject = 'An agent has claimed the lead of your property located at ' + @address
     mail(to: vendor_email, subject: subject)
   end

@@ -13,19 +13,29 @@ module ZooplaCrawler
   CONN = ActiveRecord::Base.connection
   KLASS = Agents::Branches::CrawledProperty
   def self.process_agent_url(agent_url, agent_id)
-    response = generic_url_processor(agent_url)
-    if response
-      html = Nokogiri::HTML(response)
-      b = html.css("div.agents-results").css("h2").css("a")
-      hrefs = b.map{ |t| t['href'] }
-      names = b.map{ |t| t.text }
-      addresses = html.css("div.agents-results").css("p").css("span").map{ |t| t.text }
-      names.each_with_index do |name, index|
-        begin
-          Agents::Branch.create(name: name, property_urls: hrefs[index], address: addresses[index], agent_id: agent_id)
-        rescue Exception => e
-          p "#{name}_#{hrefs[index]}_#{addresses[index]}_#{agent_id}"
+    page = 1
+    page_size = 100
+    loop do
+      url = agent_url + "?page_size=#{page_size}&pn=#{page}"
+      response = generic_url_processor(url)
+      page += 1
+      if response
+        html = Nokogiri::HTML(response)
+        b = html.css("div.agents-results").css("h2").css("a")
+        hrefs = b.map{ |t| t['href'] }
+        Rails.logger.info("Broken") if hrefs.empty?
+        break if hrefs.empty?
+        names = b.map{ |t| t.text }
+        addresses = html.css("div.agents-results").css("p").css("span").map{ |t| t.text }
+        names.each_with_index do |name, index|
+          begin
+            Agents::Branch.create(name: name, property_urls: hrefs[index], address: addresses[index], agent_id: agent_id)
+          rescue Exception => e
+            p "#{name}_#{hrefs[index]}_#{addresses[index]}_#{agent_id}"
+          end
         end
+      else
+        break
       end
     end
   end

@@ -38,7 +38,7 @@ class PropertyService
   ### Additional attrs to be appended
   ADDITIONAL_ATTRS = [:status_last_updated, :sale_prices, :sale_price, :assigned_agent_first_name, :assigned_agent_last_name,
                       :assigned_agent_title, :total_area, :epc, :chain_free, :date_added, :not_yet_built, :is_new_home, :is_retirement_home, :is_shared_ownership, 
-                      :description_set, :claimed_by, :listing_category ] 
+                      :description_set, :claimed_by, :listing_category, :price_qualifier ]
 
   COUNTIES = ["Aberdeenshire", "Kincardineshire", "Lincolnshire", "Banffshire", "Hertfordshire", "West Midlands", "Warwickshire", "Worcestershire", "Staffordshire", "Avon", "Somerset", "Wiltshire", "Lancashire", "West Yorkshire", "North Yorkshire", "ZZZZ", "Dorset", "Hampshire", "East Sussex", "West Sussex", "Kent", "County Antrim", "County Down", "Gwynedd", "County Londonderry", "County Armagh", "County Tyrone", "County Fermanagh", "Cumbria", "Cambridgeshire", "Suffolk", "Essex", "South Glamorgan", "Mid Glamorgan", "Cheshire", "Clwyd", "Merseyside", "Surrey", "Angus", "Fife", "Derbyshire", "Dumfriesshire", "Kirkcudbrightshire", "Wigtownshire", "County Durham", "Tyne and Wear", "South Yorkshire", "North Humberside", "South Humberside", "Nottinghamshire", "Midlothian", "West Lothian", "East Lothian", "Peeblesshire", "Middlesex", "Devon", "Cornwall", "Stirlingshire", "Clackmannanshire", "Perthshire", "Lanarkshire", "Dunbartonshire", "Gloucestershire", "Berkshire", "not", "Buckinghamshire", "Herefordshire", "Isle of Lewis", "Isle of Harris", "Isle of Scalpay", "Isle of North Uist", "Isle of Benbecula", "Inverness-shire", "Isle of Barra", "Norfolk", "Ross-shire", "Nairnshire", "Sutherland", "Morayshire", "Isle of Skye", "Ayrshire", "Isle of Arran", "Isle of Cumbrae", "Caithness", "Orkney", "Kinross-shire", "Powys", "Leicestershire", "Leicestershire / ", "Leicestershire / Rutland", "Dyfed", "Bedfordshire", "Northumberland", "Northamptonshire", "Gwent", "Shropshire", "Oxfordshire", "Renfrewshire", "Isle of Bute", "Argyll", "Isle of Gigha", "Isle of Islay", "Isle of Jura", "Isle of Colonsay", "Isle of Mull", "Isle of Iona", "Isle of Tiree", "Isle of Coll", "Isle of Eigg", "Isle of Rum", "Isle of Canna", "Isle of Wight", "West Glamorgan", "Selkirkshire", "Berwickshire", "Roxburghshire", "Isles of Scilly", "Cleveland", "Shetland Islands", "Central London", "East London", "North West London", "North London", "South East London", "South West London", "Central London", "West London"] 
        
@@ -89,7 +89,7 @@ class PropertyService
     details['property_status_type'] ||= 'Sale'
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[details['property_status_type']]
-    Agents::Branches::AssignedAgents::Lead.create(district: district, property_id: udprn, vendor_id: vendor_id, property_status_type: property_status_type)
+    Agents::Branches::AssignedAgents::Lead.create(district: district, property_id: udprn, vendor_id: vendor_id)
     details[:property_status_type] = nil if details['property_status_type'] == 'Sale'
     details[:vendor_id] = vendor_id
     details[:claimed_on] = Time.now.to_s
@@ -134,8 +134,8 @@ class PropertyService
       district: details['district'], 
       property_id: udprn,
       agent_id: agent_id,
-      vendor_id: nil, 
-      property_status_type: property_status_type
+      owned_property: true,
+      vendor_id: nil
     )
     message = 'You have claimed this property successfully'
     return message, 200
@@ -360,33 +360,49 @@ class PropertyService
 
 
   def attach_crawled_property_attrs_to_udprn
-    Agents::Branches::CrawledProperty.where(udprn: @udprn).each do |crawled_property_detail|
+    Agents::Branches::CrawledProperty.where("udprn = #{@udprn.to_i}").each do |crawled_property_detail|
       details = PropertyDetails.details(@udprn)[:_source]
-      details[:listing_category] = crawled_property_detail.additional_details[:listings_category] 
-      details[:price] = crawled_property_detail.additional_details[:price] 
-      details[:tenure] = crawled_property_detail.additional_details[:tenure] 
-      details[:assigned_agent_branch_name] = crawled_property_detail.additional_details[:branch_name] 
-      details[:assigned_agent_branch_logo] = crawled_property_detail.stored_response[:assigned_agent_branch_logo] 
-      details[:property_type] = crawled_property_detail.additional_details[:property_type] 
-      details[:epc] = crawled_property_detail.additional_details[:has_epc] 
-      details[:floorplan_url] = crawled_property_detail.stored_response[:floorplan_url]
-      details[:total_area] = crawled_property_detail.additional_details[:size_sq_feet]
-      details[:property_style] = crawled_property_detail.additional_details[:listing_condition]
+      details[:listing_category] = crawled_property_detail.additional_details['listings_category'] 
+      details[:price] = crawled_property_detail.additional_details['price'] 
+      details[:tenure] = crawled_property_detail.additional_details['tenure'] 
+      details[:assigned_agent_branch_name] = crawled_property_detail.additional_details['branch_name'] 
+      details[:assigned_agent_branch_logo] = crawled_property_detail.stored_response['assigned_agent_branch_logo'] 
+      details[:property_type] = crawled_property_detail.additional_details['property_type'] 
+      details[:epc] = crawled_property_detail.additional_details['has_epc'] 
+      details[:floorplan_url] = crawled_property_detail.stored_response['floorplan_url']
+      details[:total_area] = crawled_property_detail.additional_details['size_sq_feet']
+
+      details[:total_area] = crawled_property_detail.additional_details['size_sq_feet']
+      ### If size_sq_metres exists and total_area is unknown
+      if details[:total_area].nil? && crawled_property_detail.additional_details['size_sq_metres']
+        details[:total_area] = (crawled_property_detail.additional_details['size_sq_metres'].to_f*3.280).to_i
+      end
+      details[:price_qualifier] = crawled_property_detail.additional_details['price_qualifier']
+      details[:property_style] = crawled_property_detail.additional_details['listing_condition']
+      details[:is_retirement_home] = crawled_property_detail.additional_details['is_retirement_home']
+      highlights = crawled_property_detail.additional_details['property_highlights'].split('|') rescue []
 
       ### Update branch's opening hours
       branch = crawled_property_detail.branch
-      branch.opening_hours = crawled_property_detail.additional_details[:opening_hours]
-      branch.image_url = details[:assigned_agent_branch_logo]
+      branch.opening_hours = crawled_property_detail.additional_details['opening_hours']
+      branch.image_url = details['assigned_agent_branch_logo']
       branch.save!
 
       ### From stored response
-      details[:beds] = crawled_property_detail.stored_response[:beds]
-      details[:baths] = crawled_property_detail.stored_response[:baths]
-      details[:receptions] = crawled_property_detail.stored_response[:receptions]
-      details[:additional_features] = crawled_property_detail.stored_response[:features]
-      details[:description] = crawled_property_detail.stored_response[:description]
+      details[:beds] = crawled_property_detail.stored_response['beds']
+      details[:baths] = crawled_property_detail.stored_response['baths']
+      details[:receptions] = crawled_property_detail.stored_response['receptions']
+
+      ### Take features from highlghts as well
+      main_features = crawled_property_detail.stored_response['features']
+      main_features ||= []
+      details[:additional_features] = main_features + highlights
+      details[:description] = crawled_property_detail.stored_response['description']
 
       update_details(details)
+
+      ### Tag the property as indexed in the primary db
+      Uk::Property.where(udprn: @udprn).last.update_attributes(indexed: true)
     end
   end
 
