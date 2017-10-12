@@ -632,6 +632,18 @@ class AgentsController < ApplicationController
     end
   end
 
+  ### Shows the leads for the personal properties claimed by the agent
+  ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/manual/properties/leads'
+  def manual_property_leads
+    agent = user_valid_for_viewing?('Agent')
+    if !agent.nil?
+      leads = Agents::Branches::AssignedAgent.find(113).personal_claimed_properties
+      render json: leads, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
   def test_view
     render "test_view"
   end

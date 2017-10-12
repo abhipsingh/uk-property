@@ -298,6 +298,8 @@ Rails.application.routes.draw do
   ### Info about the premium cost
   get 'agents/premium/cost',                                    to: 'agents#info_premium'
 
+  ### Info about the leads generated from manually claimed properties
+  get 'agents/manual/properties/leads',                         to: 'agents#manual_property_leads'
   #####################################################################
   #####################################################################
   #####################################################################
