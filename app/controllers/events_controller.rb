@@ -240,6 +240,8 @@ class EventsController < ApplicationController
         property_ids = (active_property_ids + property_ids).uniq
         #Rails.logger.info("property ids found for detailed properties (agent) = #{property_ids}")
         results = property_ids.uniq.map { |e| Trackers::Buyer.new.push_events_details(PropertyDetails.details(e)) }
+        vendor_ids = results.map{ |t| t[:vendor_id] }
+        Rails.logger.info(vendor_ids)
         response = results.empty? ? {"properties" => results, "message" => "No properties to show"} : {"properties" => results}
         #Rails.logger.info "Sending results for detailed properties (agent) => #{results.inspect}"
       else

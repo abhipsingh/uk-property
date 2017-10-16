@@ -157,6 +157,7 @@ module Agents
         vendor_id ||= nil
         query = query.where(vendor_id: vendor_id) if buyer_id
         query = query.where(district: district)
+        query = query.where(owned_property: false)
 
         if search_str && is_premium
           udprns = Trackers::Buyer.new.fetch_udprns(search_str)
@@ -187,17 +188,17 @@ module Agents
         if lead.agent_id && lead.agent_id != self.id
           new_row[:submitted_on] = lead.created_at + (1..5).to_a.sample.seconds
         elsif lead.agent_id
-          new_row[:submitted_on] = lead.created_at.to_s
+          new_row[:submitted_on] = lead.updated_at.to_s
         else
           new_row[:submitted_on] = nil
         end
-
-        details = PropertyDetails.details(lead.property_id)
-        new_row = new_row.merge(['property_type', 'street_view_url', 'udprn', 'beds', 'baths', 'receptions', 'dream_price', 'pictures', 'street_view_image_url', 'claimed_on', 'address'].reduce({}) {|h, k| h[k] = details[k]; h })
+        details = PropertyDetails.details(lead.property_id)[:_source]
+        new_row = new_row.merge(['property_type', 'street_view_url', 'udprn', 'beds', 'baths', 'receptions', 'dream_price', 'pictures', 'street_view_image_url', 'claimed_on', 'address', 'sale_prices'].reduce({}) {|h, k| h[k] = details[k]; h })
         new_row['street_view_url'] = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details['udprn']}/fov_120_#{details['udprn']}.jpg"
         new_row[:photo_url] = details['pictures'] ? details['pictures'][0] : "Image not available"
         #new_row[:last_sale_prices] = PropertyHistoricalDetail.where(udprn: details['udprn']).order('date DESC').pluck(:price)
 
+        new_row[:last_sale_price] = new_row['sale_prices'].last['price'] rescue nil
         #### Vendor details
         if lead.agent_id == self.id
           vendor = Vendor.where(id: lead.vendor_id).first
@@ -213,11 +214,10 @@ module Agents
         end
 
         ### Deadline
+        new_row[:deadline] = (lead.created_at.to_time + 7.days).to_s
         if lead.agent_id.nil?
-          new_row[:deadline] = (lead.created_at.to_time + 7.days).to_s
           new_row[:claimed] = false
         else
-          new_row[:deadline] = lead.updated_at.to_time.to_s
           new_row[:claimed] = true
         end
 
@@ -245,6 +245,11 @@ module Agents
         else
           new_row[:status] = status
         end
+
+        ### Normalize timestamps
+        new_row[:claimed_on] = Time.parse(new_row['claimed_on']).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row['claimed_on']
+        new_row[:submitted_on] = Time.parse(new_row[:submitted_on]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:submitted_on]
+        new_row[:deadline] = Time.parse(new_row[:deadline]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:deadline]
         new_row
       end
 

@@ -300,6 +300,9 @@ Rails.application.routes.draw do
 
   ### Info about the leads generated from manually claimed properties
   get 'agents/manual/properties/leads',                         to: 'agents#manual_property_leads'
+
+  ### Info about the verification hash(Verified or Not)
+  get 'sessions/hash/verified/:hash',                           to: 'sessions#verification_hash_verified'
   #####################################################################
   #####################################################################
   #####################################################################

@@ -241,7 +241,7 @@ class Trackers::Buyer
   def push_property_details(new_row, details)
     attrs = [ :address, :pictures, :street_view_image_url, :verification_status, :dream_price, :current_valuation, 
               :price, :status_last_updated, :property_type, :property_status_type, :beds, :baths, :receptions, 
-              :details_completed, :date_added ]
+              :details_completed, :date_added, :vendor_id ]
     new_row.merge!(details.slice(*attrs))
     new_row[:image_url] = details['pictures'] ? details['pictures'][0] : "Image not available"
     if new_row[:image_url].nil?

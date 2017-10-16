@@ -90,6 +90,7 @@ module Api
       def details
         udprn = params[:property_id].to_i
         details_json = PropertyDetails.details(udprn)['_source']
+        details_json['description'] = PropertyService.get_description(udprn)
         details_json.delete("hashes")
         details_json.delete("match_type_str")
         details_json.delete("suggest")

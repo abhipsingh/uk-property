@@ -56,25 +56,34 @@ class SessionsController < ApplicationController
     agent_params = params[:agent].as_json
     agent_params.delete('company_id')
     status = 200
-    if Agents::Branches::AssignedAgent.exists?(email: agent_params["email"])
-      response = {"message" => "Error! Agent already registered. Please login", "status" => "FAILURE"}
-      status = 400
-    else
-      agent = Agents::Branches::AssignedAgent.new(agent_params)
-      if agent.save
-        command = AuthenticateUser.call(agent_params['email'], agent_params['password'], Agents::Branches::AssignedAgent)
-        agent.password = nil
-        agent.password_digest = nil
-        agent_details = agent.as_json
-        agent_details['group_id'] = agent.branch && agent.branch.agent ? agent.branch.agent.group_id : nil
-        agent_details['company_id'] = agent.branch && agent.branch.agent ? agent.branch.agent.id : nil
-        response = {"auth_token" => command.result, "details" => agent_details, "status" => "SUCCESS"}
+    verification_hash = VerificationHash.where(email: agent_params['email']).last
+    if verification_hash
+      if Agents::Branches::AssignedAgent.exists?(email: agent_params["email"])
+        response = {"message" => "Error! Agent already registered. Please login", "status" => "FAILURE"}
+        status = 400
       else
-        response = {"message" => "Error in saving agent. Please check username and password.", "status" => "FAILURE"}
-        status = 500
+        agent = Agents::Branches::AssignedAgent.new(agent_params)
+        verification_hash.verified = true
+        if agent.save && verification_hash.save!
+          command = AuthenticateUser.call(agent_params['email'], agent_params['password'], Agents::Branches::AssignedAgent)
+          udprns = InvitedAgent.where(email: agent_params['email']).pluck(:udprn)
+          client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
+          udprns.map { |udprn|  PropertyDetails.update_details(client, udprn, { agent_id: agent.id, agent_status: 2 }) }
+          agent.password = nil
+          agent.password_digest = nil
+          agent_details = agent.as_json
+          agent_details['group_id'] = agent.branch && agent.branch.agent ? agent.branch.agent.group_id : nil
+          agent_details['company_id'] = agent.branch && agent.branch.agent ? agent.branch.agent.id : nil
+          response = {"auth_token" => command.result, "details" => agent_details, "status" => "SUCCESS"}
+        else
+          response = {"message" => "Error in saving agent. Please check username and password.", "status" => "FAILURE"}
+          status = 500
+          render json: response, status: status
+        end
       end
+    else
+      render json: { message: 'No verification hash found' }, status: 400
     end    
-    render json: response, status: status
   end
 
   #### Used for login for an agent
@@ -89,19 +98,26 @@ class SessionsController < ApplicationController
   #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/register/vendors/' -d '{ "vendor" : { "name" : "Jackie Bing", "email" : "jackie.bing1@friends.com", "mobile" : "9873628231", "password" : "1234567890" } }'
   def create_vendor
     vendor_params = params[:vendor].as_json
-    vendor_params['name'] = '' if vendor_params['name']
-    vendor_params.delete("hash_value")
-    vendor = Vendor.new(vendor_params)
-    vendor.save!
-    buyer = PropertyBuyer.new(vendor_params)
-    buyer.vendor_id = vendor.id
-    buyer.email_id = buyer.email
-    buyer.account_type = 'a'
-    buyer.save!
-    vendor.buyer_id = buyer.id
-    vendor.save!
-    command = AuthenticateUser.call(vendor_params['email'], vendor_params['password'], Vendor)
-    render json: { auth_token: command.result, details: vendor.as_json } 
+    verification_hash = VerificationHash.where(email: vendor_params['email']).last
+    if verification_hash
+      vendor_params['name'] = '' if vendor_params['name']
+      vendor_params.delete("hash_value")
+      vendor = Vendor.new(vendor_params)
+      vendor.save!
+      buyer = PropertyBuyer.new(vendor_params)
+      buyer.vendor_id = vendor.id
+      buyer.email_id = buyer.email
+      buyer.account_type = 'a'
+      verification_hash.verified = true
+      verification_hash.save!
+      buyer.save!
+      vendor.buyer_id = buyer.id
+      vendor.save!
+
+      render json: { auth_token: command.result, details: vendor.as_json } 
+    else
+      render json: { message: 'No verification hash exists' }, status: 400
+    end
   end
 
   #### Used for login for a vendor
@@ -196,7 +212,9 @@ class SessionsController < ApplicationController
     vendor.password = buyer_params['password']
     vendor.mobile = buyer_params['mobile']
     buyer = PropertyBuyer.new(buyer_params)
-    if buyer.save! && vendor.save!
+    verification_hash = VerificationHash.where(email: buyer_params['email']).last
+    verification_hash.verified = true if verification_hash
+    if buyer.save! && vendor.save! && verification_hash.save!
       buyer.vendor_id = vendor.id
       vendor.buyer_id = buyer.id
       vendor.save && buyer.save
@@ -225,6 +243,15 @@ class SessionsController < ApplicationController
       details['status'] = PropertyBuyer::REVERSE_STATUS_HASH[details['status']]
       render json: details, status: 200
     end
+  end
+  
+  ### Get verification hash info (verified or not)
+  ### curl -XGET  'http://localhost/sessions/hash/verified/:hash'
+  def verification_hash_verified
+    verified = false
+    hash = VerificationHash.where(hash_value: params[:hash]).last
+    verified = hash.verified if hash
+    render json: { verified: verified }, status: 200
   end
 
   private

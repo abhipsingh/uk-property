@@ -161,8 +161,8 @@ class PropertyDetails
     previous_agent_id = details[:agent_id] if details[:agent_id] && update_hash[:agent_id] && update_hash[:agent_id] != details[:agent_id]
     
     begin
+      add_agent_details(details, update_hash[:agent_id]) if update_hash[:agent_id] && update_hash[:agent_id] != details[:agent_id]
       update_hash.each{|key, value| details[key.to_sym] = value }
-      add_agent_details(details, update_hash[:agent_id]) if previous_agent_id
       PropertyService.normalize_all_attrs(details)
       PropertySearchApi::ES_ATTRS.each { |key| es_hash[key] = details[key] if details[key] }
       PropertySearchApi::ADDRESS_LOCALITY_LEVELS.each { |key| es_hash[key] = details[key] if details[key] }
