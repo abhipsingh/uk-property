@@ -349,7 +349,7 @@ class MatrixViewController < ActionController::Base
 
   def compute_postcode_units(postcode)
     district_part, sector_part = postcode.split(' ')
-    district_match = district_part.match(/([A-Z]{0,3})([0-9]{0,3})/)
+    district_match = district_part.match(/([A-Z]{0,3})([0-9]{0,3}[A-Z]{0,2})/)
     area = ''
     area = district_match[1] if district_part && !district_match[1].empty?
     district = ''

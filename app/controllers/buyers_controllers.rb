@@ -41,7 +41,7 @@ class BuyersController < ActionController::Base
     details['buying_status'] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[details['buying_status']]
     details['funding'] = PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[details['funding']]
     details['status'] = PropertyBuyer::REVERSE_STATUS_HASH[details['status']]
-		render json: { message: 'Saved buyer successfully', details: details }, status: 201
+		render json: { message: 'Saved buyer successfully', details: details }, status: 200
 	end
 
 
@@ -52,3 +52,4 @@ class BuyersController < ActionController::Base
   end
 
 end
+

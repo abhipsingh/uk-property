@@ -113,7 +113,7 @@ class SessionsController < ApplicationController
       buyer.save!
       vendor.buyer_id = buyer.id
       vendor.save!
-
+      command = AuthenticateUser.call(vendor_params['email'], vendor_params['password'], Vendor)
       render json: { auth_token: command.result, details: vendor.as_json } 
     else
       render json: { message: 'No verification hash exists' }, status: 400

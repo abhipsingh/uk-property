@@ -59,7 +59,7 @@ class AgentsController < ApplicationController
   end
 
   def quotes_per_property
-    quotes = AgentApi.new(params[:property_id].to_i, params[:agent_id].to_i).calculate_quotes
+    quotes = AgentApi.new(params[:udprn].to_i, params[:agent_id].to_i).calculate_quotes
     render json: quotes, status: 200
   end
 
@@ -170,6 +170,9 @@ class AgentsController < ApplicationController
     agent.password = agent_params['password'] if agent_params['password']
     agent.office_phone_number = agent_params['office_phone_number'] if agent_params['office_phone_number']
     agent.mobile_phone_number = agent_params['mobile_phone_number'] if agent_params['mobile']
+    agent.save!
+    ### TODO: Update all properties containing this agent
+    update_hash = { agent_id: agent_id }
     render json: {message: 'Updated successfully', details: agent}, status: 200  if agent.save!
   rescue 
     render json: {message: 'Failed to Updated successfully'}, status: 200
@@ -246,8 +249,7 @@ class AgentsController < ApplicationController
     agent_id = params[:agent_id].to_i
     property_for = params[:property_for]
     property_for ||= 'Sale'
-    property_status_type = nil
-    property_for == 'Sale' ? property_status_type = 'Green' : property_status_type = 'Rent'
+    property_status_type = params[:property_status_type]
     response, status = PropertyDetails.update_details(client, udprn, { property_status_type: property_status_type, verification_status: true, agent_id: agent_id, agent_status: 2 })
     response['message'] = "Agent verification successful." unless status.nil? || status!=200
     render json: response, status: status
@@ -259,15 +261,12 @@ class AgentsController < ApplicationController
   ### Verify the property as the intended agent and udprn as the correct udprn.
   ### Done when the invited vendor(through email) verifies the property as his/her
   ### property and the agent as his/her agent.
-  ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/vendors/udprns/10968961/verify' -d '{ verified: true }'
+  ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/vendors/udprns/10968961/verify' -d '{ "verified": true, "vendor_id":319 }'
   def verify_property_from_vendor
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     response, status = nil
     udprn = params[:udprn].to_i
-    property_for = params[:property_for]
-    property_for ||= 'Sale'
-    property_status_type = nil
-    property_for == 'Sale' ? property_status_type = 'Green' : property_status_type = 'Rent'
+    property_status_type = params[:property_status_type]
     details = { property_status_type: property_status_type }
     details[:beds] = params[:beds].to_i if params[:beds]
     details[:baths] = params[:baths].to_i if params[:baths]
@@ -275,7 +274,9 @@ class AgentsController < ApplicationController
     details[:property_type] = params[:property_type] if params[:property_type]
     details[:dream_price] = params[:dream_price].to_i if params[:dream_price]
     details[:claimed_on] = Time.now.to_s
+    details[:vendor_id] = params[:vendor_id].to_i
     details[:claimed_by] = 'Vendor'
+    details[:verification_status] = true
     response, status = PropertyDetails.update_details(client, udprn, details)
     response['message'] = "Property verification successful." unless status.nil? || status!=200
     render json: response, status: status

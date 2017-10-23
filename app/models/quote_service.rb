@@ -6,11 +6,11 @@ class QuoteService
     @udprn = udprn
   end
 
-  def submit_price_for_quote(agent_id, payment_terms, quote_details, services_required)
+  def submit_price_for_quote(agent_id, payment_terms, quote_details, services_required, terms_url)
     quote_id = Agents::Branches::AssignedAgents::Quote.where(property_id: @udprn.to_i).order('created_at DESC').pluck(:id).last
     new_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
     services_required = Agents::Branches::AssignedAgents::Quote::SERVICES_REQUIRED_HASH[services_required]
-    quote_details = quote_details
+    details = PropertyDetails.details(@udprn)[:_source]
     vendor = Vendor.find(details[:vendor_id])
     property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[details['property_status_type']]
     if quote_id
@@ -24,7 +24,8 @@ class QuoteService
         agent_id: agent_id,
         vendor_name: vendor.name,
         vendor_email: vendor.email,
-        vendor_mobile: vendor.mobile
+        vendor_mobile: vendor.mobile,
+        terms_url: terms_url
       )
     end
     return { message: 'Quote successfully submitted', quote: quote_details }, 200
@@ -33,8 +34,11 @@ class QuoteService
   def new_quote_for_property(services_required, payment_terms, quote_details, assigned_agent)
     deadline = 168.hours.from_now.to_s
     services_required = Agents::Branches::AssignedAgents::Quote::REVERSE_SERVICES_REQUIRED_HASH[services_required]
+    services_required = eval(services_required.to_s)
+    Rails.logger.info("SERVICES_REQUIRED_#{services_required}")
     status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
     # Rails.logger.info("QUOTE_DETAILS_#{quote_details}")
+    details = PropertyDetails.details(@udprn)[:_source]
     district = details['district']
     vendor = Vendor.find(details[:vendor_id])
     property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[details['property_status_type']]

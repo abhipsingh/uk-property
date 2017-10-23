@@ -27,10 +27,10 @@ class QuotesController < ApplicationController
   def new
     agent = user_valid_for_viewing?('Agent')
     if agent
-      if agent.credit > Agents::Branches::AssignedAgents::QUOTE_CREDIT_LIMIT
+      if agent.credit > Agents::Branches::AssignedAgent::QUOTE_CREDIT_LIMIT
         service = QuoteService.new(params[:udprn].to_i)
         response = service.submit_price_for_quote(params[:agent_id].to_i, params[:payment_terms], 
-                                                  params[:quote_details], params[:services_required])
+                                                  params[:quote_details], params[:services_required], params[:terms_url])
         render json: response, status: 200
       else
         render json: { message: "Credits possessed for quotes #{agent.credit},  not more than #{Agents::Branches::AssignedAgents::QUOTE_CREDIT_LIMIT} " }, status: 401
@@ -62,7 +62,7 @@ class QuotesController < ApplicationController
     cache_response(params[:udprn].to_i, []) do
       property_id = params[:udprn].to_i
       status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
-      agents_for_quotes = Agents::Branches::AssignedAgents::Quote.where(status: status).where.not(agent_id: nil).where.not(agent_id: 1).where(property_id: property_id)
+      agents_for_quotes = Agents::Branches::AssignedAgents::Quote.where(status: status).where.not(agent_id: nil).where.not(agent_id: 0).where.not(agent_id: 1).where(property_id: property_id)
       final_result = []
       agents_for_quotes.each do |each_agent_id|
         quotes = AgentApi.new(property_id.to_i, each_agent_id.agent_id.to_i).calculate_quotes

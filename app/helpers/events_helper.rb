@@ -126,6 +126,8 @@ module EventsHelper
 
         ### Archive the enquiries that were received for this property
         Event.where(udprn: property_id).where(is_archived: false).update_all(is_archived: true)
+      elsif event == Trackers::Buyer::EVENTS[:deleted]
+        Events::IsDeleted.create!(udprn: property_id, buyer_id: buyer_id, vendor_id: vendor_id, agent_id: agent_id)  
       end
         
 

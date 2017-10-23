@@ -58,7 +58,7 @@ class VendorsController < ApplicationController
     results[:results].each { |e| e[:address] = PropertyDetails.address(e) }
     response = results[:results].map { |e| e.slice(:udprn, :address)  }
     response = response.sort_by{ |t| t[:address] }
-    Rails.logger.info "sending response for vendor properties -> #{response.inspect}"
+    #Rails.logger.info "sending response for vendor properties -> #{response.inspect}"
     render json: response, status: status
   end
 
@@ -81,6 +81,8 @@ class VendorsController < ApplicationController
       vendor.mobile = vendor_params[:mobile] if vendor_params[:mobile]
       vendor.password = vendor_params[:password] if vendor_params[:password]
       vendor.image_url = vendor_params[:image_url] if vendor_params[:image_url]
+      update_hash = { vendor_id: vendor_id }
+      ### TODO: Update attributes in all the properties
       if vendor.save
         render json: { message: 'Vendor successfully updated', details:  vendor.as_json }, status: 200
       else

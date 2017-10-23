@@ -162,13 +162,13 @@ class PropertyDetails
     
     begin
       add_agent_details(details, update_hash[:agent_id]) if update_hash[:agent_id] && update_hash[:agent_id] != details[:agent_id]
+      PropertyService.attach_vendor_details(update_hash[:vendor_id], details) if update_hash[:vendor_id]
       update_hash.each{|key, value| details[key.to_sym] = value }
       PropertyService.normalize_all_attrs(details)
       PropertySearchApi::ES_ATTRS.each { |key| es_hash[key] = details[key] if details[key] }
       PropertySearchApi::ADDRESS_LOCALITY_LEVELS.each { |key| es_hash[key] = details[key] if details[key] }
       PropertyService.update_udprn(udprn, details)
-      p es_hash
-      client.delete index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn rescue nil
+      client.delete index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn
       client.index index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn , body: es_hash
       PropertyService.update_description(udprn, update_hash[:description]) if update_hash[:description]
       response = { message: 'Successfully updated' }

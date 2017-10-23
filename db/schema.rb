@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20171016123454) do
+ActiveRecord::Schema.define(version: 20171023133719) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -130,9 +130,12 @@ ActiveRecord::Schema.define(version: 20171016123454) do
     t.string   "address"
     t.integer  "property_status_type"
     t.boolean  "is_assigned_agent"
+    t.string   "term_url"
   end
 
+  add_index "agents_branches_assigned_agents_quotes", ["agent_id", "property_id"], name: "quotes_unique_property_agents_idx", unique: true, where: "(agent_id IS NOT NULL)", using: :btree
   add_index "agents_branches_assigned_agents_quotes", ["district"], name: "index_agents_branches_assigned_agents_quotes_on_district", using: :btree
+  add_index "agents_branches_assigned_agents_quotes", ["property_id"], name: "quotes_unique_property_idx", unique: true, where: "(agent_id IS NULL)", using: :btree
 
   create_table "agents_branches_crawled_properties", force: :cascade do |t|
     t.text     "html"
@@ -289,6 +292,14 @@ ActiveRecord::Schema.define(version: 20171016123454) do
     t.integer  "service"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+  end
+
+  create_table "events_is_deleteds", force: :cascade do |t|
+    t.integer  "agent_id"
+    t.integer  "udprn"
+    t.integer  "vendor_id"
+    t.integer  "buyer_id"
+    t.datetime "created_at", null: false
   end
 
   create_table "events_stages", force: :cascade do |t|

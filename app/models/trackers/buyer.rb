@@ -241,7 +241,8 @@ class Trackers::Buyer
   def push_property_details(new_row, details)
     attrs = [ :address, :pictures, :street_view_image_url, :verification_status, :dream_price, :current_valuation, 
               :price, :status_last_updated, :property_type, :property_status_type, :beds, :baths, :receptions, 
-              :details_completed, :date_added, :vendor_id ]
+              :details_completed, :date_added, :vendor_id, :vendor_first_name, :vendor_last_name, :vendor_image_url,
+              :vendor_mobile_number ]
     new_row.merge!(details.slice(*attrs))
     new_row[:image_url] = details['pictures'] ? details['pictures'][0] : "Image not available"
     if new_row[:image_url].nil?
@@ -260,7 +261,7 @@ class Trackers::Buyer
   ### TODO: Initial version of rent assumes that rent and buy udprns are exclusive
   def add_details_to_enquiry_row(new_row, details, property_for='Sale')
     table = ''
-    Rails.logger.info(details)
+    #Rails.logger.info(details)
     property_id = details['udprn']
     property_stat = Events::EnquiryStatProperty.new(udprn: property_id)
     ### Extra keys to be added
@@ -274,7 +275,7 @@ class Trackers::Buyer
     new_row['requested_callback'] = property_stat.specific_enquiry_count(:requested_callback)
     new_row['interested_in_making_an_offer'] = property_stat.specific_enquiry_count(:interested_in_making_an_offer)
     new_row['interested_in_viewing'] = Event.where(udprn: property_id).where(stage: EVENTS[:interested_in_viewing]).count
-    # new_row['deleted'] = generic_event_count(EVENTS[:deleted], table, property_id, :single, property_for)
+    new_row['deleted'] = Events::IsDeleted.where(udprn: property_id).count
   end
 
   ##### Trackers::Buyer.new.fetch_filtered_buyer_ids('First time buyer', 'Mortgage approved', 'Funding', true)
@@ -429,7 +430,7 @@ class Trackers::Buyer
     end
 
     event = EVENTS[:deleted]
-    results = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event}  AND udprn=#{property_id} ").as_json
+    results = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events_is_deleteds WHERE udprn=#{property_id} ").as_json
     aggregated_result[:deleted] =  results
 
     months = (1..12).to_a
@@ -819,8 +820,7 @@ class Trackers::Buyer
         requested_message_hash[udprn] = property_stat.specific_enquiry_count(:requested_message)
         requested_viewing_hash[udprn] = property_stat.specific_enquiry_count(:requested_viewing)
         requested_callback_hash[udprn] = property_stat.specific_enquiry_count(:requested_callback)
-        # event = EVENTS[:deleted]
-        # hidden_hash[udprn] = generic_event_count(event, table, property_id).to_i
+        hidden_hash[udprn] = Events::IsDeleted.where(udprn: property_id).count
       end
 
       ranking_stats[region_type][:view_ranking] = rank(view_hash, property_id)
@@ -831,7 +831,7 @@ class Trackers::Buyer
       ranking_stats[region_type][:message_requested_ranking] = rank(requested_message_hash, property_id)
       ranking_stats[region_type][:callback_requested_ranking] = rank(requested_callback_hash, property_id)
       ranking_stats[region_type][:requested_viewing_ranking] = rank(requested_viewing_hash, property_id)
-      # ranking_stats[region_type][:deleted_ranking] = rank(hidden_hash, property_id)
+      ranking_stats[region_type][:deleted_ranking] = rank(hidden_hash, property_id)
     end
     ranking_stats
   end

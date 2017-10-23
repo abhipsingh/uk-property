@@ -201,14 +201,12 @@ class PropertiesController < ActionController::Base
     body = {}
     vendor_id = params[:vendor_id].to_i
     body[:vendor_id] = vendor_id
-    body[:beds] = params[:beds].to_i
-    body[:baths] = params[:baths].to_i
-    body[:receptions] = params[:receptions].to_i
+    body[:beds] = params[:beds].to_i if params[:beds]
+    body[:baths] = params[:baths].to_i if params[:baths]
+    body[:receptions] = params[:receptions].to_i if params[:receptions]
     body[:property_status_type] = params[:property_status_type] if params[:property_status_type]
-    body[:property_type] = params[:property_type]
+    body[:property_type] = params[:property_type] if params[:property_type]
     body[:verification_status] = false
-    property_service = PropertyService.new(udprn)
-    property_service.attach_vendor_to_property(vendor_id, body)
     PropertyDetails.update_details(client, udprn, body)
     render json: { message: 'Successfully updated' }, status: 200
   rescue Exception => e

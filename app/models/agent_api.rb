@@ -32,7 +32,7 @@ class AgentApi
   def calculate_aggregate_stats(aggregate_stats)
     all_valuations =  all_valuations_of_agent
     all_agents_in_branch = Agents::Branches::AssignedAgent.where(branch_id: @branch_id).pluck(:id).uniq
-    all_agents_result = all_agents_in_branch.map { |e|  all_sales_of_agent(e) }.flatten!
+    all_agents_result = all_agents_in_branch.map { |e|  all_sales_of_agent(e) }.flatten
     aggregate_stats[:aggregate_sales] = all_agents_result.map{|t| t.sale_price }.reduce(&:+)
 
     all_agents_result = all_agents_in_branch.map { |e| average_no_of_days_to_sell(e) }
@@ -113,14 +113,8 @@ class AgentApi
   #### AgentApi.new(10966139, 1234).all_valuations_of_agent
   #### TODO: Fix me, after changing the event storage layer to propertyevent, this is obsolete
   def all_valuations_of_agent(agent_id=nil)
-    valuations = []
-    event = Trackers::Buyer::EVENTS[:valuation_change]
     agent_id ||= @agent_id
-    api = PropertySearchApi.new(filtered_params: { agent_id: agent_id })
-    api.apply_filters
-    udprns, status = api.fetch_udprns
-    udprns.map { |e| valuations.push(PropertyEvent.where(udprn: e).where("attr_hash ? 'current_valuation'").order('created_at DESC')) }
-    valuations
+    PropertyEvent.where(agent_id: agent_id).where("attr_hash ? 'current_valuation'").order('created_at DESC')
   end
 
   #### To test this function run in the console
@@ -128,7 +122,7 @@ class AgentApi
   #### TODO: Fix me, after changing the event storage layer to propertyevent, this is obsolete
   def all_sales_of_agent(agent_id=nil)
     agent_id ||= @agent_id
-    SoldProperty.where(agent_id: agent_id).order('created_at DESC').count
+    SoldProperty.where(agent_id: agent_id).order('created_at DESC')
   end
 
   #### To test this function run in the console
@@ -379,3 +373,4 @@ class AgentApi
   end
 
 end
+

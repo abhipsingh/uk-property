@@ -56,40 +56,43 @@ module Agents
         end
 
         page_number = page_number.to_i
+        #Rails.logger.info(query.to_sql)
         results = query.order('created_at DESC').limit(PAGE_SIZE).offset(page_number*PAGE_SIZE)
+        final_results = []
 
         results.each do |each_quote|
           property_details = PropertyDetails.details(each_quote.property_id)['_source'].with_indifferent_access
           ### Quotes status filter
           property_id = property_details['udprn'].to_i
-
+          agent_quote = nil
           quote_status = nil
           if each_quote.status == won_status && each_quote.agent_id == self.id
             quote_status = 'Won'
-          elsif each_quote.status == new_status && each_quote.agent_id != self.id
-            quote_status = 'New'
-          elsif each_quote.status == new_status && !each_quote.agent_id.nil?
-            quote_status = 'Pending'
+          elsif each_quote.status == new_status && each_quote.agent_id.nil?
+            agent_quote = Agents::Branches::AssignedAgents::Quote.where(agent_id: self.id).where(property_id: each_quote.property_id).last
+            agent_quote ? quote_status = 'Pending' : quote_status = 'New'
           else
             quote_status = 'Lost'
           end
           new_row = {}
           new_row[:udprn] = property_id
-          if quote_status != 'Won'
-            new_row[:submitted_on] = each_quote.created_at.to_s
-            new_row[:status] = quote_status
-          else
-            new_row[:submitted_on] = nil
-            new_row[:status] = 'WON'
-          end
+          new_row[:terms_url] = agent_quote.terms_url if agent_quote
+          new_row[:submitted_on] = agent_quote.created_at.to_s if agent_quote
+          new_row[:status] = quote_status
           new_row[:property_status_type] = property_details['property_status_type']
           new_row[:activated_on] = property_details['status_last_updated']
           new_row[:type] = 'SALE'
           new_row[:photo_url] = property_details['pictures'] ? property_details['pictures'][0] : "Image not available"
 
-          new_row = new_row.merge(['property_type', 'beds', 'baths', 'receptions', 'floor_plan_url', 'services_required',
-            'verification_status','asking_price','fixed_price', 'dream_price', 'pictures', 'payment_terms', 'quotes', 'claimed_on', 'address'].reduce({}) {|h, k| h[k] = property_details[k]; h })
-         
+          new_row = new_row.merge(['property_type', 'beds', 'baths', 'receptions', 'floor_plan_url',
+            'verification_status','asking_price','fixed_price', 'dream_price', 'pictures', 'quotes', 'claimed_on', 'address'].reduce({}) {|h, k| h[k] = property_details[k]; h })
+          new_row['payment_terms'] = each_quote.payment_terms 
+          new_row['services_required'] = Agents::Branches::AssignedAgents::Quote::SERVICES_REQUIRED_HASH[each_quote.service_required.to_s.to_sym]
+          if quote_status == 'New'
+            new_row['quote_details'] = each_quote.quote_details 
+          else
+            new_row['quote_details'] = agent_quote.quote_details 
+          end
           
           new_row[:current_agent] = self.name
           new_row['street_view_url'] = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{property_details['udprn']}/fov_120_#{property_details['udprn']}.jpg"
@@ -100,12 +103,14 @@ module Agents
 
           vendor = Vendor.where(property_id: property_id).first
           if vendor.present?
-            new_row[:vendor_name] = vendor.name
+            new_row[:vendor_first_name] = vendor.first_name
+            new_row[:vendor_last_name] = vendor.last_name
             new_row[:vendor_email] = vendor.email
             new_row[:vendor_mobile] = vendor.mobile
             new_row[:vendor_image_url] = vendor.image_url
           else
-            new_row[:vendor_name] = nil
+            new_row[:vendor_first_name] = nil
+            new_row[:vendor_last_name] = nil
             new_row[:vendor_email] = nil
             new_row[:vendor_mobile] = nil
             new_row[:vendor_image_url] = nil
@@ -131,13 +136,17 @@ module Agents
             new_row[:winning_quote] = nil
             new_row[:quote_price] = nil
             new_row[:deadline] = Agents::Branches::AssignedAgents::Quote.where(property_id: property_id).where(agent_id: nil).first.created_at.to_time + 168.hours
+            new_row[:deadline] = new_row[:deadline].to_s
             new_row[:quote_accepted] = false
           end
+          new_row[:claimed_on] = Time.parse(new_row['claimed_on']).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row['claimed_on']
+          new_row[:submitted_on] = Time.parse(new_row[:submitted_on]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:submitted_on]
+          new_row[:deadline] = Time.parse(new_row[:deadline]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:deadline]
 
-          results.push(new_row)
+          final_results.push(new_row)
 
         end
-        results
+        final_results
       end
 
 
@@ -186,7 +195,7 @@ module Agents
         new_row = {}
         #### Submitted on
         if lead.agent_id && lead.agent_id != self.id
-          new_row[:submitted_on] = lead.created_at + (1..5).to_a.sample.seconds
+          new_row[:submitted_on] = (lead.created_at + (1..5).to_a.sample.seconds).to_s
         elsif lead.agent_id
           new_row[:submitted_on] = lead.updated_at.to_s
         else
@@ -202,12 +211,14 @@ module Agents
         #### Vendor details
         if lead.agent_id == self.id
           vendor = Vendor.where(id: lead.vendor_id).first
-          new_row[:vendor_name] = vendor.name
+          new_row[:vendor_first_name] = vendor.first_name
+          new_row[:vendor_last_name] = vendor.last_name
           new_row[:vendor_email] = vendor.email
           new_row[:vendor_mobile] = vendor.mobile
           new_row[:vendor_image_url] = vendor.image_url
         else
-          new_row[:vendor_name] = nil
+          new_row[:vendor_first_name] = nil 
+          new_row[:vendor_last_name] = nil
           new_row[:vendor_email] = nil
           new_row[:vendor_mobile] = nil
           new_row[:vendor_image_url] = nil

@@ -180,7 +180,7 @@ class EventsController < ApplicationController
 
   #### On demand quicklink for all the properties of agents, or group or branch or company
   #### To get list of properties for the concerned agent
-  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties?agent_id=1234'
+  #### curl -XGET 'http://localhost/agents/properties?agent_id=1234'
   #### Filters on property_for, ads
   def detailed_properties
     cache_parameters = [ :agent_id, :property_status_type, :verification_status, :ads ].map{ |t| params[t].to_s }
@@ -197,13 +197,7 @@ class EventsController < ApplicationController
         property_for = params[:property_for]
         property_for ||= 'Sale'
 
-        if property_for == 'Sale'
-          search_params[:property_status_type] = 'Green'
-        else
-          search_params[:property_status_type] = 'Rent'
-          property_status_type = 'Rent'
-        end
-        search_params[:property_status_type] = property_status_type if property_status_type
+        search_params[:property_status_type] = 'Green'
         # search_params[:verification_status] = true
         search_params[:ads] = params[:ads] if params[:ads] == true
         property_ids = lead_property_ids = quote_property_ids = active_property_ids = []
@@ -241,7 +235,6 @@ class EventsController < ApplicationController
         #Rails.logger.info("property ids found for detailed properties (agent) = #{property_ids}")
         results = property_ids.uniq.map { |e| Trackers::Buyer.new.push_events_details(PropertyDetails.details(e)) }
         vendor_ids = results.map{ |t| t[:vendor_id] }
-        Rails.logger.info(vendor_ids)
         response = results.empty? ? {"properties" => results, "message" => "No properties to show"} : {"properties" => results}
         #Rails.logger.info "Sending results for detailed properties (agent) => #{results.inspect}"
       else

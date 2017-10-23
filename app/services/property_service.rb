@@ -38,7 +38,8 @@ class PropertyService
   ### Additional attrs to be appended
   ADDITIONAL_ATTRS = [:status_last_updated, :sale_prices, :sale_price, :assigned_agent_first_name, :assigned_agent_last_name,
                       :assigned_agent_title, :total_area, :epc, :chain_free, :date_added, :not_yet_built, :is_new_home, :is_retirement_home, :is_shared_ownership, 
-                      :description_set, :claimed_by, :listing_category, :price_qualifier, :price ]
+                      :description_set, :claimed_by, :listing_category, :price_qualifier, :price, :vendor_first_name, :vendor_last_name,
+                      :vendor_email, :vendor_image_url, :vendor_mobile_number ]
 
   COUNTIES = ["Aberdeenshire", "Kincardineshire", "Lincolnshire", "Banffshire", "Hertfordshire", "West Midlands", "Warwickshire", "Worcestershire", "Staffordshire", "Avon", "Somerset", "Wiltshire", "Lancashire", "West Yorkshire", "North Yorkshire", "ZZZZ", "Dorset", "Hampshire", "East Sussex", "West Sussex", "Kent", "County Antrim", "County Down", "Gwynedd", "County Londonderry", "County Armagh", "County Tyrone", "County Fermanagh", "Cumbria", "Cambridgeshire", "Suffolk", "Essex", "South Glamorgan", "Mid Glamorgan", "Cheshire", "Clwyd", "Merseyside", "Surrey", "Angus", "Fife", "Derbyshire", "Dumfriesshire", "Kirkcudbrightshire", "Wigtownshire", "County Durham", "Tyne and Wear", "South Yorkshire", "North Humberside", "South Humberside", "Nottinghamshire", "Midlothian", "West Lothian", "East Lothian", "Peeblesshire", "Middlesex", "Devon", "Cornwall", "Stirlingshire", "Clackmannanshire", "Perthshire", "Lanarkshire", "Dunbartonshire", "Gloucestershire", "Berkshire", "not", "Buckinghamshire", "Herefordshire", "Isle of Lewis", "Isle of Harris", "Isle of Scalpay", "Isle of North Uist", "Isle of Benbecula", "Inverness-shire", "Isle of Barra", "Norfolk", "Ross-shire", "Nairnshire", "Sutherland", "Morayshire", "Isle of Skye", "Ayrshire", "Isle of Arran", "Isle of Cumbrae", "Caithness", "Orkney", "Kinross-shire", "Powys", "Leicestershire", "Leicestershire / ", "Leicestershire / Rutland", "Dyfed", "Bedfordshire", "Northumberland", "Northamptonshire", "Gwent", "Shropshire", "Oxfordshire", "Renfrewshire", "Isle of Bute", "Argyll", "Isle of Gigha", "Isle of Islay", "Isle of Jura", "Isle of Colonsay", "Isle of Mull", "Isle of Iona", "Isle of Tiree", "Isle of Coll", "Isle of Eigg", "Isle of Rum", "Isle of Canna", "Isle of Wight", "West Glamorgan", "Selkirkshire", "Berwickshire", "Roxburghshire", "Isles of Scilly", "Cleveland", "Shetland Islands", "Central London", "East London", "North West London", "North London", "South East London", "South West London", "Central London", "West London"] 
        
@@ -76,6 +77,16 @@ class PropertyService
     res, code = post_url(Rails.configuration.location_index_name, nil, '_suggest' , query_str)
   end
 
+  def self.attach_vendor_details(vendor_id, update_hash={})
+    vendor = Vendor.where(id: vendor_id).last
+    if vendor
+      update_hash[:vendor_first_name] = vendor.first_name
+      update_hash[:vendor_last_name] = vendor.last_name
+      update_hash[:vendor_image_url] = vendor.image_url
+      update_hash[:vendor_mobile_number] = vendor.mobile
+    end
+  end
+
   def attach_vendor_to_property(vendor_id, details={}, property_for='Sale')
     property_details = PropertyDetails.details(udprn)[:_source]
     details.symbolize_keys!
@@ -85,12 +96,9 @@ class PropertyService
   end
 
   def create_lead_and_update_vendor_details(district, udprn, vendor_id, details, property_for='Sale')
-    details['property_status_type'] = 'Sale' if property_for == 'Sale'
-    details['property_status_type'] ||= 'Sale'
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[details['property_status_type']]
     Agents::Branches::AssignedAgents::Lead.create(district: district, property_id: udprn, vendor_id: vendor_id)
-    details[:property_status_type] = nil if details['property_status_type'] == 'Sale'
     details[:vendor_id] = vendor_id
     details[:claimed_on] = Time.now.to_s
     details[:claimed_by] = 'Vendor'
@@ -355,7 +363,9 @@ class PropertyService
     prediction_str = str_parts[0..county_index-1].join(' ')
     results, code = get_results_from_es_suggest(prediction_str, 1)
     udprn = Oj.load(results)['postcode_suggest'][0]['options'][0]['text'].split('_')[0]
-    PropertyDetails.details(udprn)[:_source]
+    details = PropertyDetails.details(udprn)[:_source]
+    details[:photo_urls] = [ Api::V0::PropertySearchController.helpers.process_image(details) ] 
+    details
   end
 
 
