@@ -34,7 +34,10 @@ module Agents
         new_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
         query = Agents::Branches::AssignedAgents::Quote
         query = query.where(district: self.branch.district)
-        query = query.where('created_at > ?', 7.days.ago)
+        max_hours_for_expiry = 48
+
+        ### 48 hour expiry deadline
+        query = query.where('created_at > ?', max_hours_for_expiry.hours.ago)
         query = query.where(vendor_id: vendor_id) if buyer_id
         query = query.where(payment_terms: payment_terms_params) if payment_terms_params
         query = query.where(service_required: services_required) if service_required_param
@@ -61,7 +64,7 @@ module Agents
         final_results = []
 
         results.each do |each_quote|
-          property_details = PropertyDetails.details(each_quote.property_id)['_source'].with_indifferent_access
+          property_details = PropertyDetails.details(each_quote.property_id)['_source']
           ### Quotes status filter
           property_id = property_details['udprn'].to_i
           agent_quote = nil
@@ -86,7 +89,8 @@ module Agents
 
           new_row = new_row.merge(['property_type', 'beds', 'baths', 'receptions', 'floor_plan_url',
             'verification_status','asking_price','fixed_price', 'dream_price', 'pictures', 'quotes', 'claimed_on', 'address'].reduce({}) {|h, k| h[k] = property_details[k]; h })
-          new_row['payment_terms'] = each_quote.payment_terms 
+          new_row['payment_terms'] = nil
+          new_row['payment_terms'] = agent_quote.payment_terms  if agent_quote
           new_row['services_required'] = Agents::Branches::AssignedAgents::Quote::SERVICES_REQUIRED_HASH[each_quote.service_required.to_s.to_sym]
           if quote_status == 'New'
             new_row['quote_details'] = each_quote.quote_details 
@@ -130,18 +134,17 @@ module Agents
           if winning_quote
             new_row[:winning_agent] = winning_quote.agent.name
             new_row[:quote_price] = winning_quote.compute_price
-            new_row[:deadline] = winning_quote.created_at.to_s
             new_row[:quote_accepted] = true
           else
             new_row[:winning_quote] = nil
             new_row[:quote_price] = nil
-            new_row[:deadline] = Agents::Branches::AssignedAgents::Quote.where(property_id: property_id).where(agent_id: nil).first.created_at.to_time + 168.hours
-            new_row[:deadline] = new_row[:deadline].to_s
             new_row[:quote_accepted] = false
           end
+          new_row[:deadline] = (each_quote.created_at + max_hours_for_expiry.hours).to_s
           new_row[:claimed_on] = Time.parse(new_row['claimed_on']).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row['claimed_on']
           new_row[:submitted_on] = Time.parse(new_row[:submitted_on]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:submitted_on]
           new_row[:deadline] = Time.parse(new_row[:deadline]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:deadline]
+          new_row[:activated_on] = Time.parse(new_row[:activated_on]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:activated_on]
 
           final_results.push(new_row)
 

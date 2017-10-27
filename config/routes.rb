@@ -161,6 +161,9 @@ Rails.application.routes.draw do
   #### Edit vendor details 
   post 'vendors/:id/edit',                                      to: 'vendors#edit'
   
+  #### Edit agent quotes
+  post 'quotes/edit',                                           to: 'quotes#edit_agent_quote'
+
   #### Shows all the properties owned by a vendor
   get 'vendors/properties/:vendor_id',                          to: 'vendors#properties'
 
@@ -303,6 +306,9 @@ Rails.application.routes.draw do
 
   ### Info about the verification hash(Verified or Not)
   get 'sessions/hash/verified/:hash',                           to: 'sessions#verification_hash_verified'
+
+  ### Quote details api
+  get '/property/quotes/details/:id',                           to: 'quotes#quote_details'
   #####################################################################
   #####################################################################
   #####################################################################

@@ -9,7 +9,8 @@ class QuoteService
   def submit_price_for_quote(agent_id, payment_terms, quote_details, services_required, terms_url)
     quote_id = Agents::Branches::AssignedAgents::Quote.where(property_id: @udprn.to_i).order('created_at DESC').pluck(:id).last
     new_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
-    services_required = Agents::Branches::AssignedAgents::Quote::SERVICES_REQUIRED_HASH[services_required]
+    services_required = Agents::Branches::AssignedAgents::Quote::REVERSE_SERVICES_REQUIRED_HASH[services_required]
+    services_required = eval(services_required.to_s)
     details = PropertyDetails.details(@udprn)[:_source]
     vendor = Vendor.find(details[:vendor_id])
     property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[details['property_status_type']]
@@ -31,11 +32,24 @@ class QuoteService
     return { message: 'Quote successfully submitted', quote: quote_details }, 200
   end
 
+  def edit_quote_details(agent_id, payment_terms, quote_details, services_required, terms_url)
+    quote = Agents::Branches::AssignedAgents::Quote.where(agent_id: agent_id, property_id: @udprn.to_i).order('created_at DESC').pluck(:id).last
+    services_required = Agents::Branches::AssignedAgents::Quote::REVERSE_SERVICES_REQUIRED_HASH[services_required] if services_required
+    services_required = eval(services_required.to_s) if services_required
+    property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[details['property_status_type']]
+    if quote
+      quote.payment_terms = payment_terms
+      quote.service_required = service_required
+      quote.quote_details = quote_details if quote_details
+      quote.terms_url = terms_url if terms_url
+    end
+    return { message: 'Quote successfully submitted', quote: quote_details }, 200
+  end
+
   def new_quote_for_property(services_required, payment_terms, quote_details, assigned_agent)
     deadline = 168.hours.from_now.to_s
     services_required = Agents::Branches::AssignedAgents::Quote::REVERSE_SERVICES_REQUIRED_HASH[services_required]
     services_required = eval(services_required.to_s)
-    Rails.logger.info("SERVICES_REQUIRED_#{services_required}")
     status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
     # Rails.logger.info("QUOTE_DETAILS_#{quote_details}")
     details = PropertyDetails.details(@udprn)[:_source]
@@ -70,11 +84,9 @@ class QuoteService
     agent = Agents::Branches::AssignedAgent.where(id: agent_id).last
     response = nil
     if quote && quote.status != won_status && agent_quote && agent
+      quote.destroy!
       agent_quote.status = won_status
       agent_quote.save!
-      quote.destroy!
-      klass.where(property_id: @udprn.to_i).where.not(agent_id: agent_id)
-           .update_all(status: lost_status)
       client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
       doc = { agent_id: agent_id, agent_status: 2, property_status_type: 'Green' } #### agent_status = 2(agent is actively attached, agent_status = 1, agent submitting pictures and quote)
       PropertyDetails.update_details(client, @udprn.to_i, doc)

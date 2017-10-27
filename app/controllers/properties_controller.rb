@@ -32,8 +32,8 @@ class PropertiesController < ActionController::Base
   ### This route provides all the details of the recent enquiries made by the users on this property
   ### curl -XGET -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/enquiries/property/10966139'
   def enquiries
-   # if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
-     if true
+    if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
+    #if true
       cache_response(params[:udprn].to_i, [params[:page], params[:buyer_id]]) do
         page = params[:page]
         page ||= 0

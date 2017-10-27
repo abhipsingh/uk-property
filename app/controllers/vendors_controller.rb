@@ -53,7 +53,10 @@ class VendorsController < ApplicationController
   # curl -XGET -H "Content-Type: application/json" 'http://localhost/vendors/properties/1'
   def properties
     # vendor = Vendor.find(params[:vendor_id])
-    pd = PropertySearchApi.new(filtered_params: { vendor_id: params[:vendor_id].to_i } )
+    search_params = { vendor_id: params[:vendor_id].to_i }
+    search_params[:p] = params[:p].to_i if params[:p]
+    pd = PropertySearchApi.new(filtered_params: search_params )
+    pd.query[:size] = 1000
     results, status = pd.filter
     results[:results].each { |e| e[:address] = PropertyDetails.address(e) }
     response = results[:results].map { |e| e.slice(:udprn, :address)  }
@@ -81,7 +84,7 @@ class VendorsController < ApplicationController
       vendor.mobile = vendor_params[:mobile] if vendor_params[:mobile]
       vendor.password = vendor_params[:password] if vendor_params[:password]
       vendor.image_url = vendor_params[:image_url] if vendor_params[:image_url]
-      update_hash = { vendor_id: vendor_id }
+      update_hash = { vendor_id: params[:id].to_i }
       ### TODO: Update attributes in all the properties
       if vendor.save
         render json: { message: 'Vendor successfully updated', details:  vendor.as_json }, status: 200

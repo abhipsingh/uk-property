@@ -42,18 +42,40 @@ class QuotesController < ApplicationController
     # render json: { message: 'QuotesController#new error occurred' }, status: 200
   end
 
+
+
+  #### When a new quote is entered by an agent
+  #### Flow is submit a quote --> new quote
+  #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/quotes/edit/'  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" -d '{ "udprn" : "10966139",  "services_required" : "Fixed Price", "payment_terms" : "Pay upfront", "quote_details" : "\{ \"fixed_price_services_requested\" : \{ \"price\" : 4500, \"list_of_services\" : \[\"Full\"\]  \}  \}" }'
+  def edit_agent_quote
+    agent = user_valid_for_viewing?('Agent')
+    if agent
+      service = QuoteService.new(params[:udprn].to_i)
+      response = service.edit_quote_details(params[:agent_id].to_i, params[:payment_terms], 
+                                                  params[:quote_details], params[:services_required], params[:terms_url])
+      render json: response, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
   ##### When submit quote button is clicked, the property data needs to be sent for the
   ##### form to be rendered.
   ##### curl -XPOST  -H "Content-Type: application/json" 'http://localhost/quotes/submit/2'
-  ##### curl -XPOST  -H "Content-Type: application/json" 'http://localhost/quotes/submit/:quote_id'
+  ##### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/quotes/submit/:quote_id'
   def submit
-    quote_id = params[:quote_id]
-    property_id = params[:udprn].to_i
-    #### When the quote is won
-    service = QuoteService.new(params[:udprn].to_i)
-    agent_id = Agents::Branches::AssignedAgents::Quote.find(quote_id).agent_id
-    message = service.accept_quote_from_agent(agent_id)
-    render json: message, status: 200
+    agent = user_valid_for_viewing?('Vendor')
+    if agent
+      quote_id = params[:quote_id]
+      property_id = params[:udprn].to_i
+      #### When the quote is won
+      service = QuoteService.new(params[:udprn].to_i)
+      agent_id = Agents::Branches::AssignedAgents::Quote.find(quote_id).agent_id
+      message = service.accept_quote_from_agent(agent_id)
+      render json: message, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
   end
 
   ##### Shows all the quotes that were submitted by the agents to the vendors
@@ -62,7 +84,9 @@ class QuotesController < ApplicationController
     cache_response(params[:udprn].to_i, []) do
       property_id = params[:udprn].to_i
       status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
-      agents_for_quotes = Agents::Branches::AssignedAgents::Quote.where(status: status).where.not(agent_id: nil).where.not(agent_id: 0).where.not(agent_id: 1).where(property_id: property_id)
+
+      ### 24 hour expiry deadline for vendors
+      agents_for_quotes = Agents::Branches::AssignedAgents::Quote.where(status: status).where.not(agent_id: nil).where.not(agent_id: 0).where.not(agent_id: 1).where(property_id: property_id).where('created_at > ?', 24.hours.ago)
       final_result = []
       agents_for_quotes.each do |each_agent_id|
         quotes = AgentApi.new(property_id.to_i, each_agent_id.agent_id.to_i).calculate_quotes
@@ -72,6 +96,14 @@ class QuotesController < ApplicationController
       final_result = final_result.uniq{ |t| t[:id] }
       render json: final_result, status: 200
     end
+  end
+
+
+  ### Quote details api
+  ### curl -XGET 'http://localhost/property/quotes/details/:id'
+  def quote_details
+    quote = Agents::Branches::AssignedAgents::Quote.where(id: params[:id].to_i).last
+    render json: quote, status: 200
   end
   
   #### Shows all the properties available for quoting

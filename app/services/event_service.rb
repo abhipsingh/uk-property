@@ -161,7 +161,7 @@ class EventService
     enquiries = property_specific_enquiries(page)
     enquiry_details = enquiries.map { |enquiry| construct_enquiry_detail(enquiry) }
     buyer_ids = enquiry_details.map { |enquiry| enquiry[:buyer_id] }
-    buyers = PropertyBuyer.where(id: buyer_ids.flatten).select([:id, :email, :full_name, :mobile, :status, :chain_free, :funding, :biggest_problem, :buying_status, :budget_to, :budget_from, :image_url]).order("position(id::text in '#{buyer_ids.join(',')}')")
+    buyers = PropertyBuyer.where(id: buyer_ids.flatten).select([:id, :email, :full_name, :mobile, :status, :chain_free, :funding, :biggest_problems, :buying_status, :budget_to, :budget_from, :image_url, :property_types]).order("position(id::text in '#{buyer_ids.join(',')}')")
     buyer_hash = {}
     buyers.each { |buyer| buyer_hash[buyer.id] = buyer }
     enquiry_details.each { |row| add_buyer_details(row, buyer_hash) }
@@ -222,19 +222,21 @@ class EventService
     buyer_hash = buyer_hash.as_json.with_indifferent_access
     buyer = buyer_hash[details[:buyer_id].to_s]
     if buyer
-      details[:buyer_status] = PropertyBuyer::REVERSE_STATUS_TYPES[buyer[:status]] rescue nil
+      details[:buyer_status] = PropertyBuyer::REVERSE_STATUS_HASH[buyer[:status]] rescue nil
       details[:buyer_full_name] = (buyer[:first_name] + buyer[:last_name]) rescue nil
       details[:buyer_image] = buyer[:image_url]
       details[:buyer_email] = buyer[:email]
       details[:buyer_mobile] = buyer[:mobile]
       details[:chain_free] = buyer[:chain_free]
       details[:buyer_funding] = PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[buyer[:funding]] rescue nil
-      details[:buyer_biggest_problem] = PropertyBuyer::REVERSE_BIGGEST_PROBLEM_HASH[buyer[:biggest_problem]] rescue nil
+      details[:buyer_biggest_problems] = buyer[:biggest_problems]
       details[:buyer_buying_status] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[buyer[:buying_status]] rescue nil
       details[:buyer_budget_from] = buyer[:budget_from]
       details[:buyer_budget_to] = buyer[:budget_to]
+      details[:buyer_budget_to] = buyer[:budget_to]
+      details[:buyer_property_types] = buyer[:property_types]
     else
-      keys = [:buyer_status, :buyer_full_name, :buyer_image, :buyer_email, :buyer_mobile, :chain_free, :buyer_funding, :buyer_biggest_problem, :buyer_buying_status, :buyer_budget_from, :buyer_budget_to]
+      keys = [:buyer_status, :buyer_full_name, :buyer_image, :buyer_email, :buyer_mobile, :chain_free, :buyer_funding, :buyer_biggest_problems, :buyer_buying_status, :buyer_budget_from, :buyer_budget_to, :buyer_property_types]
       keys.each {|key| details[key] = nil }
     end
   end

@@ -17,14 +17,22 @@ class AgentApi
     aggregate_stats = {}
     property_quotes = {}
     branch = Agents::Branch.find(@branch_id)
+    agent = Agents::Branches::AssignedAgent.find(@agent_id)
     branch_name = branch.name
-    aggregate_stats[:branch_id] = branch.id
-    calculate_aggregate_stats(aggregate_stats)
+    result = { id: @agent_id  }
+    result[:branch_id] = branch.id
+    result[:branch_logo] = branch.image_url
+    calculate_aggregate_stats(result)
 
     all_agents_in_branch = Agents::Branches::AssignedAgent.where(branch_id: @branch_id).pluck(:id).uniq
     all_agents_in_branch.map{ |t| calculate_per_property_stats_for_agent(property_quotes)}
 
-    { name: branch_name, id: branch_id, aggregate_stats: aggregate_stats, property_quotes: property_quotes }
+    result[:assigned_agent_first_name] = agent.first_name
+    result[:assigned_agent_last_name] = agent.last_name
+    result[:assigned_agent_image_url] = agent.image_url
+    result[:assigned_agent_mobile] = agent.mobile
+    result[:assigned_agent_email] = agent.email
+    result
   end
 
   #### This function computes the aggregate quote stats for the agent.
@@ -37,35 +45,45 @@ class AgentApi
 
     all_agents_result = all_agents_in_branch.map { |e| average_no_of_days_to_sell(e) }
     all_agents_result = all_agents_result.select{|t| t>0}
-    aggregate_stats[:avg_no_of_days_to_sell] = (all_agents_result.reduce(:+).to_i/all_agents_result.count.to_f)
+    #aggregate_stats[:avg_no_of_days_to_sell] = (all_agents_result.reduce(:+).to_i/all_agents_result.count.to_f)
+    aggregate_stats[:avg_no_of_days_to_sell] = nil
 
-    all_agents_result = all_agents_in_branch.map { |e| average_no_of_days_to_sell(e) }
-    all_agents_result = all_agents_result.select{|t| t>0}
-    aggregate_stats[:percent_more_than_valuation] = (all_agents_result.reduce(:+).to_f/all_agents_result.count.to_f)
+    #all_agents_result = all_agents_in_branch.map { |e| average_no_of_days_to_sell(e) }
+    #all_agents_result = all_agents_result.select{|t| t>0}
+    #aggregate_stats[:percent_more_than_valuation] = (all_agents_result.reduce(:+).to_f/all_agents_result.count.to_f)
+    aggregate_stats[:percent_more_than_valuation] = nil
     # aggregate_stats[:avg_valuation] = ((all_valuations.map{|t| t[:no_of_valuations] }.reduce(&:+).to_f)/(quotes.count.to_f)).round(2)*100
     # aggregate_stats[:avg_greater_than_valuation] = percent_more_than_valuation
-    all_agents_result = all_agents_in_branch.map { |e| avg_changes_to_valuation(e) }
-    all_agents_result = all_agents_result.select{|t| t>0}
-    aggregate_stats[:avg_changes_to_valuation] = (all_agents_result.reduce(:+).to_f/all_agents_result.count.to_f)
+    #all_agents_result = all_agents_in_branch.map { |e| avg_changes_to_valuation(e) }
+    #all_agents_result = all_agents_result.select{|t| t>0}
+    #aggregate_stats[:avg_changes_to_valuation] = (all_agents_result.reduce(:+).to_f/all_agents_result.count.to_f)
+    aggregate_stats[:avg_changes_to_valuation] = nil
     
-    all_agents_result = all_agents_in_branch.map { |e| avg_increase_in_value(e) }
-    all_agents_result = all_agents_result.select{|t| t>0}
-    aggregate_stats[:avg_increase_in_valuation] = (all_agents_result.reduce(:+).to_f/all_agents_result.count.to_f)
+    #all_agents_result = all_agents_in_branch.map { |e| avg_increase_in_value(e) }
+    #all_agents_result = all_agents_result.select{|t| t>0}
+    #aggregate_stats[:avg_increase_in_valuation] = (all_agents_result.reduce(:+).to_f/all_agents_result.count.to_f)
+    aggregate_stats[:avg_increase_in_valuation] = nil
     
-    all_agents_result = all_agents_in_branch.map { |e| avg_percent_of_first_valuation_achieved(e) }
-    all_agents_result = all_agents_result.select{|t| t>0}
-    aggregate_stats[:avg_percent_of_first_valuation] = (all_agents_result.reduce(:+).to_f/all_agents_result.count.to_f)
+    #all_agents_result = all_agents_in_branch.map { |e| avg_percent_of_first_valuation_achieved(e) }
+    #all_agents_result = all_agents_result.select{|t| t>0}
+    #aggregate_stats[:avg_percent_of_first_valuation] = (all_agents_result.reduce(:+).to_f/all_agents_result.count.to_f)
+    aggregate_stats[:avg_percent_of_first_valuation] = nil
 
-    all_agents_result = all_agents_in_branch.map { |e| avg_percent_of_final_valuation_achieved(e) }
-    all_agents_result = all_agents_result.select{|t| t>0}
-    aggregate_stats[:avg_percent_of_final_valuation] = (all_agents_result.reduce(:+).to_f/all_agents_result.count.to_f)
+    #all_agents_result = all_agents_in_branch.map { |e| avg_percent_of_final_valuation_achieved(e) }
+    #all_agents_result = all_agents_result.select{|t| t>0}
+    #aggregate_stats[:avg_percent_of_final_valuation] = (all_agents_result.reduce(:+).to_f/all_agents_result.count.to_f)
+    aggregate_stats[:avg_percent_of_final_valuation] = nil
     
     aggregate_stats[:pay_link] = 'Random link'
     aggregate_stats[:quote_price] = quote_price
-    quote = Agents::Branches::AssignedAgents::Quote.where(property_id: @udprn).last
+    quote = Agents::Branches::AssignedAgents::Quote.where(property_id: @udprn, agent_id: @agent_id).last
     aggregate_stats[:payment_terms] = nil
     aggregate_stats[:payment_terms] = quote.payment_terms if quote
     aggregate_stats[:quote_details] = quote.quote_details if quote
+    aggregate_stats[:deadline] = Time.parse((quote.created_at + 24.hours).to_s).strftime("%Y-%m-%dT%H:%M:%SZ")
+    aggregate_stats[:terms_url] = quote.terms_url if quote
+    aggregate_stats[:services_required] = Agents::Branches::AssignedAgents::Quote::SERVICES_REQUIRED_HASH[quote.service_required.to_s.to_sym] if quote
+    aggregate_stats
     # aggregate_stats[:avg_final_valuation_percent] = ((quotes.map{|t| t[:final_valuation_percent] }.reduce(&:+).to_f)/(quotes.count.to_f)).round(2)
     # aggregate_stats[:avg_first_valuation_percent] = ((quotes.map{|t| t[:first_valuation_percent] }.reduce(&:+).to_f)/(quotes.count.to_f)).round(2)
   end
@@ -189,12 +207,10 @@ class AgentApi
     agent_id ||= @agent_id
     count = 0
     all_valuations = all_valuations_of_agent(agent_id)
-    all_valuations.each do |each_property_valuation|
-      count += each_property_valuation.count
-    end
-
+    no_of_changes = all_valuations.as_json.group_by{ |t| t['udprn'] }.values.flatten.count
+    no_udprns = all_valuations.as_json.group_by{|t| t['udprn']}.keys.flatten.count
     if count > 0
-      (count/all_valuations.count).round(2)
+      (no_of_changes/no_udprns).round(2)
     else
       -1
     end

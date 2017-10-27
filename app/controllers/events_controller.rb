@@ -204,9 +204,7 @@ class EventsController < ApplicationController
         quote_model = Agents::Branches::AssignedAgents::Quote
         lead_model = Agents::Branches::AssignedAgents::Lead
         rent_property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES['Rent']
-        if !params[:ads].nil?
-          search_params[:ads] = params[:ads]
-        elsif property_status_type.nil?
+        if property_status_type.nil?
           quote_property_ids = quote_model.where(agent_id: params[:agent_id].to_i)
                                           .where.not(agent_id: 0)
                                           .pluck(:property_id)
@@ -232,6 +230,9 @@ class EventsController < ApplicationController
         active_property_ids = udprns.map(&:to_i)
         ### Get all properties for whom the agent has won leads
         property_ids = (active_property_ids + property_ids).uniq
+
+        ### If ads filter is applied
+        property_ids = PropertyAd.where(udprn: property_ids).pluck(:udprn) if params[:ads]
         #Rails.logger.info("property ids found for detailed properties (agent) = #{property_ids}")
         results = property_ids.uniq.map { |e| Trackers::Buyer.new.push_events_details(PropertyDetails.details(e)) }
         vendor_ids = results.map{ |t| t[:vendor_id] }

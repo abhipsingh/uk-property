@@ -61,6 +61,7 @@ class SessionsController < ApplicationController
       if Agents::Branches::AssignedAgent.exists?(email: agent_params["email"])
         response = {"message" => "Error! Agent already registered. Please login", "status" => "FAILURE"}
         status = 400
+        render json: response, status: status
       else
         agent = Agents::Branches::AssignedAgent.new(agent_params)
         verification_hash.verified = true
@@ -75,6 +76,7 @@ class SessionsController < ApplicationController
           agent_details['group_id'] = agent.branch && agent.branch.agent ? agent.branch.agent.group_id : nil
           agent_details['company_id'] = agent.branch && agent.branch.agent ? agent.branch.agent.id : nil
           response = {"auth_token" => command.result, "details" => agent_details, "status" => "SUCCESS"}
+          render json: response, status: 200
         else
           response = {"message" => "Error in saving agent. Please check username and password.", "status" => "FAILURE"}
           status = 500

@@ -161,6 +161,10 @@ class PropertyDetails
     previous_agent_id = details[:agent_id] if details[:agent_id] && update_hash[:agent_id] && update_hash[:agent_id] != details[:agent_id]
     
     begin
+      ### Update snapshot of description as well
+      ### No of characters = 250
+      update_hash[:description_snapshot] = update_hash[:description][0..250] if update_hash[:description]
+
       add_agent_details(details, update_hash[:agent_id]) if update_hash[:agent_id] && update_hash[:agent_id] != details[:agent_id]
       PropertyService.attach_vendor_details(update_hash[:vendor_id], details) if update_hash[:vendor_id]
       update_hash.each{|key, value| details[key.to_sym] = value }
@@ -171,6 +175,7 @@ class PropertyDetails
       client.delete index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn
       client.index index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn , body: es_hash
       PropertyService.update_description(udprn, update_hash[:description]) if update_hash[:description]
+
       response = { message: 'Successfully updated' }
     rescue => e
       Rails.logger.info "Error updating details for udprn #{udprn} => #{e}"

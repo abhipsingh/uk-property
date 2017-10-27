@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20171023133719) do
+ActiveRecord::Schema.define(version: 20171025020731) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -130,7 +130,7 @@ ActiveRecord::Schema.define(version: 20171023133719) do
     t.string   "address"
     t.integer  "property_status_type"
     t.boolean  "is_assigned_agent"
-    t.string   "term_url"
+    t.string   "terms_url"
   end
 
   add_index "agents_branches_assigned_agents_quotes", ["agent_id", "property_id"], name: "quotes_unique_property_agents_idx", unique: true, where: "(agent_id IS NOT NULL)", using: :btree
@@ -448,7 +448,6 @@ ActiveRecord::Schema.define(version: 20171023133719) do
 
   create_table "uk_properties", primary_key: "udprn", force: :cascade do |t|
     t.string  "postcode",          limit: 8
-    t.string  "ddl"
     t.string  "td"
     t.string  "dtd"
     t.string  "building_name"
@@ -461,15 +460,12 @@ ActiveRecord::Schema.define(version: 20171023133719) do
     t.string  "district",          limit: 5
     t.string  "post_town",                    default: "0"
     t.string  "county",                       default: "0"
-    t.string  "sui"
-    t.string  "pob"
-    t.string  "pct"
-    t.string  "parsed_dl"
-    t.string  "parsed_pt"
-    t.string  "parsed_county"
+    t.string  "sector",            limit: 8
+    t.string  "parsed_sector",     limit: 6
   end
 
   add_index "uk_properties", ["district"], name: "index_uk_properties_on_district", using: :btree
+  add_index "uk_properties", ["post_town", "dl", "td", "dtd", "district"], name: "ukp_search_idx", using: :btree
   add_index "uk_properties", ["postcode"], name: "index_uk_properties_on_postcode", using: :btree
 
   create_table "vendors", force: :cascade do |t|

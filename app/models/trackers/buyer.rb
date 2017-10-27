@@ -138,20 +138,21 @@ class Trackers::Buyer
   #### API Responses for tables
 
   def add_buyer_details(details, buyer_hash)
-    if details['buyer_id']
-      details['buyer_status'] = REVERSE_STATUS_TYPES[buyer_hash[details['buyer_id']]['status']] rescue nil
-      details['buyer_full_name'] = buyer_hash[details['buyer_id']]['name']
-      details['buyer_image'] = buyer_hash[details['buyer_id']]['image_url']
-      details['buyer_email'] = buyer_hash[details['buyer_id']]['email']
-      details['buyer_mobile'] = buyer_hash[details['buyer_id']]['mobile']
-      details['chain_free'] = buyer_hash[details['buyer_id']]['chain_free']
-      details['buyer_funding'] = PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[buyer_hash[details['buyer_id']]['funding']] rescue nil
-      details['buyer_biggest_problem'] = PropertyBuyer::REVERSE_BIGGEST_PROBLEM_HASH[buyer_hash[details['buyer_id']]['biggest_problem']] rescue nil
-      details['buyer_buying_status'] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[buyer_hash[details['buyer_id']]['buying_status']] rescue nil
-      details['buyer_budget_from'] = buyer_hash[details['buyer_id']]['budget_from']
-      details['buyer_budget_to'] = buyer_hash[details['buyer_id']]['budget_to']
-      details['views'] = buyer_view_ratio(details['buyer_id'], details['udprn'])
-      details[:enquiries] = buyer_enquiry_ratio(details['buyer_id'], details['udprn'])
+    buyer_id = details[:buyer_id]
+    if buyer_id && buyer_hash[buyer_id]
+      details['buyer_status'] = REVERSE_STATUS_TYPES[buyer_hash[buyer_id].status] rescue nil
+      details['buyer_full_name'] = buyer_hash[buyer_id].first_name + ' ' + buyer_hash[buyer_id].last_name
+      details['buyer_image'] = buyer_hash[buyer_id].image_url
+      details['buyer_email'] = buyer_hash[buyer_id].email
+      details['buyer_mobile'] = buyer_hash[buyer_id].mobile
+      details['chain_free'] = buyer_hash[buyer_id].chain_free
+      details['buyer_funding'] = PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[buyer_hash[buyer_id].funding] rescue nil
+      details['buyer_biggest_problem'] = PropertyBuyer::REVERSE_BIGGEST_PROBLEM_HASH[buyer_hash[buyer_id].biggest_problem] rescue nil
+      details['buyer_buying_status'] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[buyer_hash[buyer_id].buying_status] rescue nil
+      details['buyer_budget_from'] = buyer_hash[buyer_id].budget_from
+      details['buyer_budget_to'] = buyer_hash[buyer_id].budget_to
+      details['views'] = buyer_view_ratio(buyer_id, details[:udprn])
+      details[:enquiries] = buyer_enquiry_ratio(buyer_id, details[:udprn])
     else
       details['buyer_status'] = nil
       details['buyer_full_name'] = nil
@@ -219,6 +220,10 @@ class Trackers::Buyer
   ### Trackers::Buyer.new.push_events_details(PropertyDetails.details(10966139))
   def push_events_details(details, property_for='Sale')
     new_row = {}
+    new_row[:pictures] = details[:_source][:pictures]
+    new_row[:pictures] = [] if details[:_source][:pictures].nil?
+    image_url ||= "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details[:_source][:udprn]}/fov_120_#{details[:_source][:udprn]}.jpg"
+    new_row[:street_view_image_url] = image_url
     add_details_to_enquiry_row(new_row, details['_source'], property_for)
     details['_source'].merge!(new_row)
     details['_source']
@@ -242,14 +247,14 @@ class Trackers::Buyer
     attrs = [ :address, :pictures, :street_view_image_url, :verification_status, :dream_price, :current_valuation, 
               :price, :status_last_updated, :property_type, :property_status_type, :beds, :baths, :receptions, 
               :details_completed, :date_added, :vendor_id, :vendor_first_name, :vendor_last_name, :vendor_image_url,
-              :vendor_mobile_number ]
+              :vendor_mobile_number, :street_view_image_url ]
     new_row.merge!(details.slice(*attrs))
-    new_row[:image_url] = details['pictures'] ? details['pictures'][0] : "Image not available"
-    if new_row[:image_url].nil?
+    if new_row[:street_view_image_url].nil?
       image_url = process_image(details) if Rails.env != 'test'
-      image_url ||= "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details['udprn']}/fov_120_#{details['udprn']}.jpg"
-      new_row[:image_url] = image_url
+      image_url ||= "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details[:udprn]}/fov_120_#{details['udprn']}.jpg"
+      new_row[:street_view_image_url] = image_url
     end
+    new_row[:pictures] = [] if new_row[:pictures].nil?
     
     new_row[:completed_status] = new_row[:details_completed]
     new_row[:listed_since] = new_row[:date_added]
@@ -349,7 +354,8 @@ class Trackers::Buyer
     end
 
     buyers = PropertyBuyer.where(id: buyer_ids).select([:id, :email, :full_name, :mobile, :status, :chain_free, :funding, 
-                                                        :biggest_problem, :buying_status, :budget_to, :budget_from ])
+                                                        :biggest_problem, :buying_status, :budget_to, :budget_from,
+                                                        :first_name, :last_name, :image_url])
                           .order("position(id::text in '#{buyer_ids.join(',')}')")
 
     buyer_hash = {}
@@ -382,11 +388,11 @@ class Trackers::Buyer
   def add_details_to_enquiry_row_buyer(new_row, property_id, event_details, agent_id, property_for='Sale')
     #### Tracking property or not
     tracking_property_event = Events::Track::TRACKING_TYPE_MAP[:property_tracking]
-    buyer_id = event_details['buyer_id']
+    buyer_id = new_row[:buyer_id]
     qualifying_stage_query = Events::Stage
     tracking_query = nil
     tracking_result = Events::Track.where(buyer_id: buyer_id).where(type_of_tracking: tracking_property_event).where(udprn: property_id).select(:id).first
-    new_row[:property_tracking] = (tracking_result.nil? == 0 ? false : true)
+    new_row[:property_tracking] = (tracking_result.nil? ? false : true)
     new_row
   end
 
@@ -413,8 +419,7 @@ class Trackers::Buyer
     current_month = Date.today.month
 
     event = EVENTS[:viewed]
-    monthly_views = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event=#{event} AND udprn=#{property_id} ").as_json
-    aggregated_result[:monthly_views] =  monthly_views
+    monthly_views = Events::View.where(udprn: property_id).group(:month).count
 
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
     monthly_enquiries = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE event IN (#{events.join(',')})  AND udprn=#{property_id} ").as_json
@@ -441,6 +446,10 @@ class Trackers::Buyer
         value.push({ 'month': each_month.to_s, count: 0 })
       end
       aggregated_result[key] = value.sort_by{ |t| t['month'].to_i }
+    end
+
+    aggregated_result[:monthly_views] = months.map do |month|
+      { month:  month.to_s, count: monthly_views[month].to_i }
     end
     aggregated_result
   end
@@ -855,8 +864,6 @@ class Trackers::Buyer
     total_rows = total_rows.map do |each_row|
       (next if each_row['property_status_type'] != property_status_type) if property_status_type
       (next if each_row['verification_status'] != verified) if verified
-      each_row[:views] = buyer_view_ratio(each_row['buyer_id'], each_row['udprn'])
-      each_row[:enquiries] = buyer_enquiry_ratio(each_row['buyer_id'], each_row['udprn'])
       each_row
     end
 
