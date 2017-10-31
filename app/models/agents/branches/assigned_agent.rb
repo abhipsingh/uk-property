@@ -268,12 +268,15 @@ module Agents
       end
 
       def active_properties
-        search_params = { limit: 100, fields: 'udprn' }
+        search_params = { limit: 100 }
         search_params[:agent_id] = self.id
         search_params[:property_status_type] = 'Green'
         search_params[:verification_status] = true
         api = PropertySearchApi.new(filtered_params: search_params)
         api.apply_filters
+        api.query.delete(:from)
+        api.query.delete(:to)
+        api.query[:size] = 1000
         body, status = api.fetch_data_from_es
         # Rails.logger.info(body)
         body.count

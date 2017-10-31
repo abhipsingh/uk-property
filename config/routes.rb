@@ -309,6 +309,9 @@ Rails.application.routes.draw do
 
   ### Quote details api
   get '/property/quotes/details/:id',                           to: 'quotes#quote_details'
+
+  ### Branches list for a district
+  get '/branches/:location/:location_type',                     to: 'agents#branch_info_for_location'
   #####################################################################
   #####################################################################
   #####################################################################

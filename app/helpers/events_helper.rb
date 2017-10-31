@@ -100,9 +100,15 @@ module EventsHelper
       elsif Trackers::Buyer::QUALIFYING_STAGE_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
 
         ### Update stage of the enquiry
-        Event.unscope(where: :is_archived).where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false).update_all(stage: event, offer_price: message[:offer_price], offer_date: Date.parse(message[:offer_date])) if Trackers::Buyer::EVENTS[:offer_made_stage] == event
-        Event.unscope(where: :is_archived).where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false).update_all(stage: event, scheduled_viewing_time: Time.parse(message[:scheduled_viewing_time])) if Trackers::Buyer::EVENTS[:viewing_stage] == event
-        Event.unscope(where: :is_archived).where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false).update_all(stage: event, expected_completion_date: Date.parse(message[:expected_completion_date])) if Trackers::Buyer::EVENTS[:completion_stage] == event
+        if Trackers::Buyer::EVENTS[:offer_made_stage] == event
+          Event.unscope(where: :is_archived).where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false).update_all(stage: event, offer_price: message[:offer_price], offer_date: Date.parse(message[:offer_date])) 
+        elsif Trackers::Buyer::EVENTS[:viewing_stage] == event
+          Event.unscope(where: :is_archived).where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false).update_all(stage: event, scheduled_visit_time: Time.parse(message[:scheduled_viewing_time])) 
+        elsif Trackers::Buyer::EVENTS[:completion_stage] == event
+          Event.unscope(where: :is_archived).where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false).update_all(stage: event, expected_completion_date: Date.parse(message[:expected_completion_date]))
+        else
+          Event.unscope(where: :is_archived).where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false).update_all(stage: event)
+        end
 
       elsif Trackers::Buyer::HOTNESS_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
 
@@ -113,6 +119,11 @@ module EventsHelper
         Events::EnquiryStatProperty.new(udprn: property_id).update_views
         Events::EnquiryStatBuyer.new(buyer_id: buyer_id).update_views if !buyer_id.nil?
         Events::View.create!(udprn: property_id, month: Time.now.month)
+
+        ### Delete the interest info cache
+        ardb_client = Rails.configuration.ardb_client
+        ardb_client.del("cache_#{property_id}_interest_info")
+
       elsif event == Trackers::Buyer::EVENTS[:sold]
         message = message.with_indifferent_access if message
         host = Rails.configuration.remote_es_host

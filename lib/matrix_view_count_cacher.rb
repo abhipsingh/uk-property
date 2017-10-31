@@ -1,0 +1,2 @@
+class MatrixViewCountCacher
+end

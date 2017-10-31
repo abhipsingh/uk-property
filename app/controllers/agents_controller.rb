@@ -645,6 +645,30 @@ class AgentsController < ApplicationController
     end
   end
 
+  ### Shows the leads for the personal properties claimed by the agent
+  ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/branches/:location/:location_type
+  def branch_info_for_location
+    vendor = user_valid_for_viewing?('Vendor')
+    if !vendor.nil?
+    #if true
+      count = Agents::Branch.where(district: params[:location]).count
+      results = Agents::Branch.where(district: params[:location]).limit(20).offset(20*(params[:p].to_i)).map do |branch|
+        {
+          logo: branch.image_url,
+          name: branch.name,
+          address: branch.address,
+          phone_number: branch.phone_number,
+          email: branch.email,
+          website: branch.website,
+          branch_id: branch.id
+        }
+      end
+      render json: { branches: results, count: count }, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
   def test_view
     render "test_view"
   end

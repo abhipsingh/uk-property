@@ -102,38 +102,44 @@ class MatrixViewController < ActionController::Base
     render json: final_predictions, status: code
   end
 
+#  def matrix_view
+#    regexes = [[/^([A-Z]{1,2})([0-9]{0,3})$/, /^([A-Z]{1,2})([0-9]{1,3})([A-Z]{0,2})$/], /^([0-9]{1,2})([A-Z]{0,3})$/]
+#    hash = { hash_str: params[:str] }
+#    PropertySearchApi.construct_hash_from_hash_str(hash)
+#    params.delete(:str)
+#    hash.delete(:hash_str)
+#    type_of_str(hash)
+#    area, district, sector, unit = nil
+#    if [:district, :sector, :unit].include?(hash[:type])
+#      type = hash[:type]
+#    else
+#      type = PropertySearchApi::POSTCODE_LEVELS.reverse.select { |e| hash[e] }.first
+#    end
+#    new_params = params.merge!(hash)
+#    new_params.delete(hash[:type])
+#    api = ::PropertySearchApi.new(filtered_params: new_params)
+#    api.modify_range_params
+#    api.apply_filters
+#    api.modify_query
+#    area, district, sector, unit = compute_postcode_units(hash[type]) if hash[type]
+#    hash[:area] = area
+#    hash[:district] = district
+#    hash[:sector] = sector
+#    hash[:unit] = unit
+#    code = 200
+#    Rails.logger.info(hash[:type])
+#    if [:district, :sector, :unit].include?(hash[:type])
+#      res, code = aggs_data_for_postcode(hash, api.query)
+#    else
+#      res, code = find_results(hash, api.query[:filter]) 
+#    end
+#    render json: res, status: code
+#  end
+  
   def matrix_view
-    regexes = [[/^([A-Z]{1,2})([0-9]{0,3})$/, /^([A-Z]{1,2})([0-9]{1,3})([A-Z]{0,2})$/], /^([0-9]{1,2})([A-Z]{0,3})$/]
-    hash = { hash_str: params[:str] }
-    PropertySearchApi.construct_hash_from_hash_str(hash)
-    params.delete(:str)
-    hash.delete(:hash_str)
-    type_of_str(hash)
-    area, district, sector, unit = nil
-    if [:district, :sector, :unit].include?(hash[:type])
-      type = hash[:type]
-    else
-      type = PropertySearchApi::POSTCODE_LEVELS.reverse.select { |e| hash[e] }.first
-    end
-    new_params = params.merge!(hash)
-    new_params.delete(hash[:type])
-    api = ::PropertySearchApi.new(filtered_params: new_params)
-    api.modify_range_params
-    api.apply_filters
-    api.modify_query
-    area, district, sector, unit = compute_postcode_units(hash[type]) if hash[type]
-    hash[:area] = area
-    hash[:district] = district
-    hash[:sector] = sector
-    hash[:unit] = unit
-    code = 200
-    Rails.logger.info(hash[:type])
-    if [:district, :sector, :unit].include?(hash[:type])
-      res, code = aggs_data_for_postcode(hash, api.query)
-    else
-      res, code = find_results(hash, api.query[:filter]) 
-    end
-    render json: res, status: code
+    matrix_view_service = MatrixViewService.new(hash_str: params[:str])
+    response = matrix_view_service.process_result
+    render json: response, status: 200
   end
 
   def check_if_postcode_without_space?(str)

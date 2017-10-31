@@ -82,8 +82,7 @@ class Trackers::Buyer
     :interested_in_making_an_offer,
     :requested_message,
     :requested_callback,
-    :requested_viewing,
-    :viewing_stage
+    :requested_viewing
   ]
 
   TRACKING_EVENTS = [
@@ -139,6 +138,7 @@ class Trackers::Buyer
 
   def add_buyer_details(details, buyer_hash)
     buyer_id = details[:buyer_id]
+    buyer = buyer_hash[buyer_id]
     if buyer_id && buyer_hash[buyer_id]
       details['buyer_status'] = REVERSE_STATUS_TYPES[buyer_hash[buyer_id].status] rescue nil
       details['buyer_full_name'] = buyer_hash[buyer_id].first_name + ' ' + buyer_hash[buyer_id].last_name
@@ -147,26 +147,16 @@ class Trackers::Buyer
       details['buyer_mobile'] = buyer_hash[buyer_id].mobile
       details['chain_free'] = buyer_hash[buyer_id].chain_free
       details['buyer_funding'] = PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[buyer_hash[buyer_id].funding] rescue nil
-      details['buyer_biggest_problem'] = PropertyBuyer::REVERSE_BIGGEST_PROBLEM_HASH[buyer_hash[buyer_id].biggest_problem] rescue nil
+      details[:buyer_biggest_problems] = buyer[:biggest_problems]
+      details[:buyer_property_types] = buyer[:property_types]
       details['buyer_buying_status'] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[buyer_hash[buyer_id].buying_status] rescue nil
       details['buyer_budget_from'] = buyer_hash[buyer_id].budget_from
       details['buyer_budget_to'] = buyer_hash[buyer_id].budget_to
       details['views'] = buyer_view_ratio(buyer_id, details[:udprn])
       details[:enquiries] = buyer_enquiry_ratio(buyer_id, details[:udprn])
     else
-      details['buyer_status'] = nil
-      details['buyer_full_name'] = nil
-      details['buyer_image'] = nil
-      details['buyer_email'] = nil
-      details['buyer_mobile'] = nil
-      details['chain_free'] = nil
-      details['buyer_funding'] = nil
-      details['buyer_biggest_problem'] = nil
-      details['buyer_buying_status'] = nil
-      details['buyer_budget_from'] = nil
-      details['buyer_budget_to'] = nil
-      details['views'] = nil
-      details[:enquiries] = nil
+      keys = [:buyer_status, :buyer_full_name, :buyer_image, :buyer_email, :buyer_mobile, :chain_free, :buyer_funding, :buyer_biggest_problems, :buyer_buying_status, :buyer_budget_from, :buyer_budget_to, :buyer_property_types, :views, :enquiries]
+      keys.each {|key| details[key] = nil }
     end
   end
 
@@ -347,15 +337,15 @@ class Trackers::Buyer
       property_id = each_row.udprn
       push_property_details_row(new_row, property_id)
       add_details_to_enquiry_row_buyer(new_row, property_id, each_row, agent_id, 'Sale')
-      new_row[:stage] = REVERSE_EVENTS[each_row.event]
-      new_row[:hotness] = REVERSE_EVENTS[each_row.stage]
+      new_row[:stage] = REVERSE_EVENTS[each_row.stage]
+      new_row[:hotness] = REVERSE_EVENTS[each_row.rating]
       buyer_ids.push(each_row.buyer_id)
       result.push(new_row)
     end
 
     buyers = PropertyBuyer.where(id: buyer_ids).select([:id, :email, :full_name, :mobile, :status, :chain_free, :funding, 
-                                                        :biggest_problem, :buying_status, :budget_to, :budget_from,
-                                                        :first_name, :last_name, :image_url])
+                                                        :biggest_problems, :buying_status, :budget_to, :budget_from,
+                                                        :first_name, :last_name, :image_url, :property_types])
                           .order("position(id::text in '#{buyer_ids.join(',')}')")
 
     buyer_hash = {}

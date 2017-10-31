@@ -46,11 +46,6 @@ class PropertySearchApi
       'Green' =>  ['Amber', 'Red'],
       'Amber' => ['Amber', 'Red', 'Green'],
       'Red' => []
-    },
-    'Normal' => {
-      'Green' => ['Amber', 'Red', 'Green'],
-      'Amber' => ['Amber', 'Red', 'Green'],
-      'Red' => ['Amber', 'Red', 'Green']
     }
   }
 
@@ -140,6 +135,7 @@ class PropertySearchApi
 
   def fetch_udprns
     inst = self
+    Rails.logger.info(inst.query)
     body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name)
     parsed_body = Oj.load(body)['hits']['hits']
     udprns = parsed_body.map { |e|  e['_id'] }

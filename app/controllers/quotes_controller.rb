@@ -66,11 +66,12 @@ class QuotesController < ApplicationController
   def submit
     agent = user_valid_for_viewing?('Vendor')
     if agent
+    #if true
       quote_id = params[:quote_id]
-      property_id = params[:udprn].to_i
       #### When the quote is won
-      service = QuoteService.new(params[:udprn].to_i)
-      agent_id = Agents::Branches::AssignedAgents::Quote.find(quote_id).agent_id
+      quote = Agents::Branches::AssignedAgents::Quote.find(quote_id)
+      service = QuoteService.new(quote.property_id)
+      agent_id = quote.agent_id
       message = service.accept_quote_from_agent(agent_id)
       render json: message, status: 200
     else
