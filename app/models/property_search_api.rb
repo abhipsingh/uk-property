@@ -52,16 +52,12 @@ class PropertySearchApi
   ### Type of match, Buyer status, Property status
 
   PROPERTY_MATCH_HASH = {
-    'Perfect_Green_Green' => [],
-    'Perfect_Green_Amber' => [],
-    'Perfect_Green_Red' => [],
-    'Perfect_Amber_Amber' => [],
-    'Perfect_Amber_Red' => [],
-    'Potential_Green_Amber' => [:dream_price],
-    'Potential_Green_Red' => [:dream_price],
-    'Potential_Amber_Green' => [:dream_price],
-    'Potential_Amber_Amber' => [:dream_price],
-    'Potential_Amber_Red' => [:dream_price]
+    'Perfect_Green' => [:dream_price],
+    'Perfect_Amber' => [:sale_price],
+    'Perfect_Red' => [:sale_price],
+    'Potential_Green' => [:sale_price, :dream_price, :property_type],
+    'Potential_Red' => [:dream_price, :sale_price, :property_type],
+    'Potential_Amber' => [:dream_price, :sale_price, :property_type],
   }
 
   def initialize(options={})
@@ -135,10 +131,51 @@ class PropertySearchApi
 
   def fetch_udprns
     inst = self
-    Rails.logger.info(inst.query)
-    body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name)
-    parsed_body = Oj.load(body)['hits']['hits']
-    udprns = parsed_body.map { |e|  e['_id'] }
+    udprns = []
+    if @filtered_params[:udprn]
+      udprns = [ @filtered_params[:udprn] ]
+    elsif @filtered_params[:udprns]
+      udprns = @filtered_params[:udprns].split(',')
+    elsif (((FIELDS[:terms] + FIELDS[:term] + FIELDS[:range]) - ADDRESS_LOCALITY_LEVELS - POSTCODE_LEVELS) & @filtered_params.keys).empty?
+      query = TestUkp
+      ADDRESS_LOCALITY_LEVELS.each do |level|
+        column = MatrixViewCount::COLUMN_MAP[level]
+        value = MatrixViewCount::POST_TOWNS.index(@filtered_params[level].upcase) + 1 if level == :post_town && @filtered_params[level]
+        value = MatrixViewCount::COUNTIES.index(@filtered_params[level]) + 1 if level == :county && @filtered_params[level]
+#        value ||= @filtered_params[level]
+        value ||= @filtered_params[level]
+        query = query.where("#{column} = ?", value) if @filtered_params[level]
+      end
+
+      #### Add an extra layer of filter if we don't have dependent locality
+      if (@filtered_params[:dependent_thoroughfare_description] || @filtered_params[:thoroughfare_description]) && @filtered_params[:dependent_locality].nil?
+        column = MatrixViewCount::COLUMN_MAP[:dependent_locality]
+        query.where("#{column} is NULL")
+      end
+
+      if @filtered_params[:dependent_thoroughfare_description] && @filtered_params[:thoroughfare_description].nil?
+        column = MatrixViewCount::COLUMN_MAP[:thoroughfare_description]
+        query.where("#{column} is NULL")
+      end
+
+
+      POSTCODE_LEVELS.each do |level|
+        query = query.where("to_tsvector('simple'::regconfig, postcode)  @@ to_tsquery('simple', '#{@filtered_params[level]}:*')") if @filtered_params[level]
+      end
+
+      #### Paginate
+      query = query.limit(@query[:size].to_i)
+      query = query.offset(@query[:from].to_i)
+      TestUkp.connection.execute("set enable_seqscan to off;")
+      query = query.select(:udprn)
+      udprns = query.pluck(:udprn)
+      TestUkp.connection.execute("set enable_seqscan to on;")
+    else
+      Rails.logger.info(inst.query)
+      body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name)
+      parsed_body = Oj.load(body)['hits']['hits']
+      udprns = parsed_body.map { |e|  e['_id'] }
+    end
     return udprns, status
   end
 
@@ -200,6 +237,7 @@ class PropertySearchApi
       service = nil
       udprns = PropertyAd.where(hash_str: @filtered_params[:hash_str], service: 1, ad_type: ad_type).pluck(:property_id) ### Currently only buy
       @filtered_params[:udprns] = udprns.join(',')
+      @filtered_params.delete(:udprn)
     end
 
     if @filtered_params[:post_town]
@@ -242,7 +280,7 @@ class PropertySearchApi
 
   def form_partial_query(property_status_type, buyer_status, type_of_match)
     or_skeletion = basic_and_query.clone
-    fields = PROPERTY_MATCH_HASH["#{type_of_match}_#{buyer_status}_#{property_status_type}"]
+    fields = PROPERTY_MATCH_HASH["#{type_of_match}_#{property_status_type}"]
     fields ||= []
     @query[:filter] ||= { and: { filters: [] }}
     original_query = @query[:filter][:and][:filters]

@@ -104,7 +104,7 @@ module EventsHelper
           Event.unscope(where: :is_archived).where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false).update_all(stage: event, offer_price: message[:offer_price], offer_date: Date.parse(message[:offer_date])) 
         elsif Trackers::Buyer::EVENTS[:viewing_stage] == event
           Event.unscope(where: :is_archived).where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false).update_all(stage: event, scheduled_visit_time: Time.parse(message[:scheduled_viewing_time])) 
-        elsif Trackers::Buyer::EVENTS[:completion_stage] == event
+        elsif Trackers::Buyer::EVENTS[:contract_exchange_stage] == event
           Event.unscope(where: :is_archived).where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false).update_all(stage: event, expected_completion_date: Date.parse(message[:expected_completion_date]))
         else
           Event.unscope(where: :is_archived).where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false).update_all(stage: event)
@@ -132,7 +132,7 @@ module EventsHelper
         vendor_id = details[:_source][:vendor_id]
         new_vendor_id = PropertyBuyer.find(buyer_id).vendor_id
         update_hash = { property_status_type: nil, vendor_id: new_vendor_id , sold: true, claimed_on: Time.now.to_s, claimed_by: 'Vendor' }
-        SoldProperty.create!(udprn: property_id, buyer_id: buyer_id, agent_id: agent, vendor_id: vendor_id, sale_price: message[:final_price], completion_date: message[:completion_date])
+        SoldProperty.create!(udprn: property_id, buyer_id: buyer_id, agent_id: agent_id, vendor_id: vendor_id, sale_price: message[:final_price], completion_date: Date.today.to_s)
         response = PropertyDetails.update_details(client, property_id, update_hash)
 
         ### Archive the enquiries that were received for this property

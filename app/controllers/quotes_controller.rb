@@ -107,6 +107,13 @@ class QuotesController < ApplicationController
     render json: quote, status: 200
   end
   
+  ### vendor Quote details api
+  ### curl -XGET 'http://localhost/property/quotes/property/:udprn'
+  def property_quote
+    quote = Agents::Branches::AssignedAgents::Quote.where(property_id: params[:udprn].to_i,agent_id: nil).last
+    render json: quote, status: 200
+  end
+
   #### Shows all the properties available for quoting
   private
   def user_valid_for_viewing?(klass)

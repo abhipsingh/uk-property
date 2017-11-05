@@ -143,7 +143,7 @@ class AgentsController < ApplicationController
     branch = Agents::Branch.where(id: agent_id).last
     if branch
       other_agents = params[:invited_agents]
-      branch.invited_agents = JSON.parse(other_agents)
+      branch.invited_agents = branch.invited_agents + (JSON.parse(other_agents) rescue [])
       if branch.save
         branch.send_emails
         render json: { message: 'Branch with given emails invited' }, status: 200
@@ -367,11 +367,12 @@ class AgentsController < ApplicationController
     base_url = "https://s3-us-west-2.amazonaws.com/propertyuk/"
     response = []
     postcodes = ""
-    page_no = params[:page].to_i rescue 0
+    page_no = params[:p].to_i rescue 0
     page_size = 20
     if agent
       branch_id = agent.branch_id
       properties = Agents::Branches::CrawledProperty.where(branch_id: branch_id).select([:id, :postcode, :image_urls, :stored_response, :additional_details, :udprn]).where.not(postcode: nil).where(udprn: nil).limit(page_size).offset(page_no*page_size)
+      property_count = Agents::Branches::CrawledProperty.where(branch_id: branch_id).where.not(postcode: nil).where(udprn: nil).count
       assigned_agent_emails = Agents::Branches::AssignedAgent.where(branch_id: branch_id).pluck(:email)
       properties.each do |property|
         new_row = {}
@@ -397,7 +398,7 @@ class AgentsController < ApplicationController
         # Rails.logger.info("HELLO") if !matching_udprns.empty?
         each_crawled_property_data['matching_properties'] = matching_udprns
       end
-      render json: { response: response }, status: 200
+      render json: { response: response, property_count: property_count }, status: 200
     else
       render json: { message: 'Agent not found' }, status: 404
     end
