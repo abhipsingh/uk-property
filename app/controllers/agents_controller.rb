@@ -327,32 +327,31 @@ class AgentsController < ApplicationController
   ### Done when the agent attaches the udprn to the property
   ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/agents/properties/10968961/manual/verify' -d '{ "property_type" : "Barn conversion", "beds" : 1, "baths" : 1, "receptions" : 1, "agent_id": 1234, "vendor_email": "residentevil293@prophety.co.uk", "assigned_agent_email" :  "residentevil293@prophety.co.uk" }'
   def verify_manual_property_from_agent
-    udprn = params[:udprn].to_i
-    agent_id = params[:agent_id].to_i
-    agent_service = AgentService.new(agent_id, udprn)
-    property_for = params[:property_for]
-    property_for ||= 'Sale'
-    property_status_type = nil
-    property_for == 'Sale' ? property_status_type = 'Green' : property_status_type = 'Rent'
-    property_attrs = {
-      property_status_type: property_status_type,
-      verification_status: false,
-      property_type: params[:property_type],
-      receptions: params[:receptions].to_i,
-      beds: params[:beds].to_i,
-      baths: params[:baths].to_i,
-      details_completed: false,
-      property_id: udprn,
-      claimed_on: Time.now.to_s,
-      claimed_by: 'Agent'
-    }
-    vendor_email = params[:vendor_email]
-    assigned_agent_email = params[:assigned_agent_email]
-    agent_count = Agents::Branches::AssignedAgent.where(id: agent_id).count > 0
-    raise StandardError, "Branch and agent not found" if agent_count == 0
-    response, status = agent_service.verify_manual_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
-    response['message'] = "Property details updated." unless status.nil? || status!=200
-    render json: response, status: status
+    agent = user_valid_for_viewing?('Agent')
+    if !agent.nil?
+      udprn = params[:udprn].to_i
+      agent_id = agent.id
+      agent_service = AgentService.new(agent_id, udprn)
+      property_attrs = {
+        property_status_type: 'Green',
+        verification_status: false,
+        property_type: params[:property_type],
+        receptions: params[:receptions].to_i,
+        beds: params[:beds].to_i,
+        baths: params[:baths].to_i,
+        details_completed: false,
+        property_id: udprn,
+        claimed_on: Time.now.to_s,
+        claimed_by: 'Agent'
+      }
+      vendor_email = params[:vendor_email]
+      assigned_agent_email = params[:assigned_agent_email]
+      response, status = agent_service.verify_manual_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
+      response['message'] = "Property details updated." unless status.nil? || status!=200
+      render json: response, status: status
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
   #rescue Exception => e
   #  Rails.logger.info("AGENT_MANUAL_PROPERTY_VERIFICATION_FAILURE_#{e}")
   #  render json: { message: 'Verification failed due to some error' }, status: 400
@@ -367,11 +366,11 @@ class AgentsController < ApplicationController
     base_url = "https://s3-us-west-2.amazonaws.com/propertyuk/"
     response = []
     postcodes = ""
-    page_no = params[:p].to_i rescue 0
+    page_no = params[:page].to_i rescue 0
     page_size = 20
     if agent
       branch_id = agent.branch_id
-      properties = Agents::Branches::CrawledProperty.where(branch_id: branch_id).select([:id, :postcode, :image_urls, :stored_response, :additional_details, :udprn]).where.not(postcode: nil).where(udprn: nil).limit(page_size).offset(page_no*page_size)
+      properties = Agents::Branches::CrawledProperty.where(branch_id: branch_id).select([:id, :postcode, :image_urls, :stored_response, :additional_details, :udprn]).where.not(postcode: nil).where(udprn: nil).limit(page_size).offset(page_no*page_size).order('created_at asc')
       property_count = Agents::Branches::CrawledProperty.where(branch_id: branch_id).where.not(postcode: nil).where(udprn: nil).count
       assigned_agent_emails = Agents::Branches::AssignedAgent.where(branch_id: branch_id).pluck(:email)
       properties.each do |property|
@@ -639,7 +638,8 @@ class AgentsController < ApplicationController
   def manual_property_leads
     agent = user_valid_for_viewing?('Agent')
     if !agent.nil?
-      leads = Agents::Branches::AssignedAgent.find(113).personal_claimed_properties
+    #if true
+      leads = Agents::Branches::AssignedAgent.find(agent.id).personal_claimed_properties
       render json: leads, status: 200
     else
       render json: { message: 'Authorization failed' }, status: 401

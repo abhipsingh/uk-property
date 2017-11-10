@@ -14,11 +14,10 @@ class EventsControllerTest < ActionController::TestCase
   def setup
     @address_doc = SAMPLE_ADDRESS_DOC.deep_dup
     @address_doc_rent = SAMPLE_ADDRESS_DOC.deep_dup
-    @address_doc_rent = @address_doc_rent.with_indifferent_acess
-    @address_doc_rent['_source']['property_status_type'] = 'Rent'
-    @address_doc_rent['_source']['udprn'] = '123456'
+    create_address_mapping
     index_es_address(SAMPLE_UDPRN, @address_doc['_source'])
-    index_es_address('123456', @address_doc_rent['_source'])
+    resp = index_es_address('123456', @address_doc_rent['_source'])
+    @agent_authorization_token  = AuthenticateUser.call(Agents::Branches::AssignedAgent.last.email,"123456789",Agents::Branches::AssignedAgent).result
     sleep(1)
   end
 

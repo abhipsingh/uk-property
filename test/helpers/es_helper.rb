@@ -1,8 +1,21 @@
 module EsHelper
   CLIENT = Elasticsearch::Client.new
   
+  def create_address_mapping_load_testing
+    mapping = Oj.load(File.read("#{Rails.root}/addresses_mapping.json"))
+    mapping['mappings'][Rails.configuration.address_type_name_load_testing] = mapping['mappings'].delete('address')
+    mapping['mappings'][Rails.configuration.address_type_name_load_testing].delete('_source')
+    mapping['mappings'][Rails.configuration.address_type_name_load_testing].delete('_all')
+    CLIENT.indices.create index: Rails.configuration.address_index_name_load_testing,
+                          body: mapping
+  end
+  
   def index_es_address(id, body)
     PropertyDetails.update_details(CLIENT, id, body)
+  end
+
+  def bulk_update_adresses(body)
+    CLIENT.bulk body: body
   end
 
   def delete_es_address(id)

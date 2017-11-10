@@ -143,6 +143,16 @@ class PropertyDetails
       details[:assigned_agent_branch_address] = branch.address
       details[:assigned_agent_branch_logo] = branch.image_url
       details[:assigned_agent_branch_email] = branch.email
+    else
+      details[:assigned_agent_name] = nil
+      details[:assigned_agent_email] = nil
+      details[:assigned_agent_mobile] = nil
+      details[:assigned_agent_title] = nil
+      details[:assigned_agent_image_url] = nil
+      details[:assigned_agent_branch_name] = nil
+      details[:assigned_agent_branch_number] = nil
+      details[:assigned_agent_branch_address] = nil
+      details[:assigned_agent_branch_logo] = nil
     end
   end
 
@@ -162,10 +172,10 @@ class PropertyDetails
     
     begin
       ### Update snapshot of description as well
-      ### No of characters = 250
-      update_hash[:description_snapshot] = update_hash[:description][0..250] if update_hash[:description]
+      ### No of characters = 500
+      update_hash[:description_snapshot] = update_hash[:description][0..500] if update_hash[:description]
 
-      add_agent_details(details, update_hash[:agent_id]) if update_hash[:agent_id] && update_hash[:agent_id] != details[:agent_id]
+      add_agent_details(details, update_hash[:agent_id]) if update_hash.has_key?(:agent_id) && update_hash[:agent_id] != details[:agent_id]
       PropertyService.attach_vendor_details(update_hash[:vendor_id], details) if update_hash[:vendor_id]
       update_hash.each{|key, value| details[key.to_sym] = value }
       PropertyService.normalize_all_attrs(details)

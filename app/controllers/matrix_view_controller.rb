@@ -103,7 +103,6 @@ class MatrixViewController < ActionController::Base
   end
 
 #  def matrix_view
-#    regexes = [[/^([A-Z]{1,2})([0-9]{0,3})$/, /^([A-Z]{1,2})([0-9]{1,3})([A-Z]{0,2})$/], /^([0-9]{1,2})([A-Z]{0,3})$/]
 #    hash = { hash_str: params[:str] }
 #    PropertySearchApi.construct_hash_from_hash_str(hash)
 #    params.delete(:str)
@@ -137,8 +136,74 @@ class MatrixViewController < ActionController::Base
 #  end
   
   def matrix_view
-    matrix_view_service = MatrixViewService.new(hash_str: params[:str])
-    response = matrix_view_service.process_result
+    response = nil
+    range_params = PropertySearchApi::FIELDS[:range].map{|t| ["min_#{t.to_s}", "max_#{t.to_s}"]}.flatten.map{|t| t.to_sym}
+    if (((PropertySearchApi::FIELDS[:terms] + PropertySearchApi::FIELDS[:term] + range_params) - PropertySearchApi::ADDRESS_LOCALITY_LEVELS - PropertySearchApi::POSTCODE_LEVELS) & params.keys.map(&:to_sym)).empty?
+      matrix_view_service = MatrixViewService.new(hash_str: params[:str])
+      response = matrix_view_service.process_result
+    else
+      hash = { hash_str: params[:str] }
+      PropertySearchApi.construct_hash_from_hash_str(hash)
+      params.delete(:str)
+      hash.delete(:hash_str)
+      type_of_str(hash)
+      area, district, sector, unit = nil
+      if [:district, :sector, :unit].include?(hash[:type])
+        type = hash[:type]
+      else
+        type = PropertySearchApi::POSTCODE_LEVELS.reverse.select { |e| hash[e] }.first
+      end
+      new_params = params.merge!(hash)
+      new_params.delete(hash[:type])
+      api = ::PropertySearchApi.new(filtered_params: new_params)
+      api.modify_range_params
+      api.apply_filters
+      api.modify_query
+      area, district, sector, unit = compute_postcode_units(hash[type]) if hash[type]
+      hash[:area] = area
+      hash[:district] = district
+      hash[:sector] = sector
+      hash[:unit] = unit
+      code = 200
+      Rails.logger.info(hash[:type])
+      response, code = find_results(hash, api.query[:filter]) 
+    end
+    render json: response, status: 200
+  end
+
+  def matrix_view_load_testing
+    response = nil
+    range_params = PropertySearchApi::FIELDS[:range].map{|t| ["min_#{t.to_s}", "max_#{t.to_s}"]}.flatten.map{|t| t.to_sym}
+    if (((PropertySearchApi::FIELDS[:terms] + PropertySearchApi::FIELDS[:term] + range_params) - PropertySearchApi::ADDRESS_LOCALITY_LEVELS - PropertySearchApi::POSTCODE_LEVELS) & params.keys.map(&:to_sym)).empty?
+      matrix_view_service = MatrixViewService.new(hash_str: params[:str])
+      response = matrix_view_service.process_result
+    else
+      hash = { hash_str: params[:str] }
+      PropertySearchApi.construct_hash_from_hash_str(hash)
+      params.delete(:str)
+      hash.delete(:hash_str)
+      type_of_str(hash)
+      area, district, sector, unit = nil
+      if [:district, :sector, :unit].include?(hash[:type])
+        type = hash[:type]
+      else
+        type = PropertySearchApi::POSTCODE_LEVELS.reverse.select { |e| hash[e] }.first
+      end
+      new_params = params.merge!(hash)
+      new_params.delete(hash[:type])
+      api = ::PropertySearchApi.new(filtered_params: new_params)
+      api.modify_range_params
+      api.apply_filters
+      api.modify_query
+      area, district, sector, unit = compute_postcode_units(hash[type]) if hash[type]
+      hash[:area] = area
+      hash[:district] = district
+      hash[:sector] = sector
+      hash[:unit] = unit
+      code = 200
+      Rails.logger.info(hash[:type])
+      response, code = find_results(hash, api.query[:filter], 'addresses_load_testing') 
+    end
     render json: response, status: 200
   end
 
@@ -236,7 +301,7 @@ class MatrixViewController < ActionController::Base
     parsed_json['postcode_suggest'][0]['options'][0]['payload']['hash'] rescue nil
   end
 
-  def find_results(hash, filter_hash)
+  def find_results(hash, filter_hash, index_name=Rails.configuration.address_index_name)
     aggs = {}
     query = {}
 
@@ -273,7 +338,7 @@ class MatrixViewController < ActionController::Base
       construct_aggs_query_from_fields(area, district, sector, unit, 'unit', first_type, query, filter_index, context_map, :address)
     end
     Rails.logger.info(query)
-    body, status = post_url(Rails.configuration.address_index_name, query, '_search', ES_EC2_URL)
+    body, status = post_url(index_name, query, '_search', ES_EC2_URL)
     response = Oj.load(body).with_indifferent_access
     response_hash = construct_response_body_postcode(area, district, sector, unit, response, first_type, :address, context_map, hash)
     return response_hash, status

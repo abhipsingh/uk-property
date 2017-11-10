@@ -84,6 +84,11 @@ class PropertyService
       update_hash[:vendor_last_name] = vendor.last_name
       update_hash[:vendor_image_url] = vendor.image_url
       update_hash[:vendor_mobile_number] = vendor.mobile
+    else
+      update_hash[:vendor_first_name] = nil  
+      update_hash[:vendor_last_name] = nil  
+      update_hash[:vendor_image_url] = nil
+      update_hash[:vendor_mobile_number] = nil
     end
   end
 

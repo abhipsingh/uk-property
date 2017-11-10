@@ -238,6 +238,7 @@ class SessionsController < ApplicationController
   ### curl -XGET -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/details/buyers'
   def buyer_details
     authenticate_request('Buyer')
+    authenticate_request('Agent') if @current_user.nil?
     if @current_user
       details = @current_user.as_json
       details['buying_status'] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[details['buying_status']]

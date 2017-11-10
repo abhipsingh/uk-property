@@ -3,5 +3,7 @@ Rails.configuration.remote_es_host = ENV['ELASTICSEARCH_HOST']
 Rails.configuration.local_es_url = 'http://127.0.0.1:9200'
 Rails.configuration.address_index_name = ENV['ADDRESS_INDEX_NAME']
 Rails.configuration.address_type_name = ENV['ADDRESS_TYPE_NAME']
+Rails.configuration.address_index_name_load_testing = ENV['ADDRESS_INDEX_NAME_LOAD_TESTING']
+Rails.configuration.address_type_name_load_testing = ENV['ADDRESS_TYPE_NAME_LOAD_TESTING']
 Rails.configuration.location_index_name = ENV['LOCATIONS_INDEX_NAME']
 Rails.configuration.location_type_name = ENV['LOCATIONS_TYPE_NAME']

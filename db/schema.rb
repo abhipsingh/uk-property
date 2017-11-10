@@ -11,13 +11,15 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20171025020731) do
+ActiveRecord::Schema.define(version: 20171110122300) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
   enable_extension "pg_trgm"
   enable_extension "btree_gin"
   enable_extension "uint"
+  enable_extension "pageinspect"
+  enable_extension "pg_buffercache"
 
   create_table "ad_payment_histories", force: :cascade do |t|
     t.string   "hash_str",   null: false
@@ -105,6 +107,7 @@ ActiveRecord::Schema.define(version: 20171025020731) do
     t.boolean  "submitted"
     t.integer  "property_status_type"
     t.boolean  "owned_property",       default: false
+    t.datetime "visit_time"
   end
 
   add_index "agents_branches_assigned_agents_leads", ["agent_id"], name: "index_agents_branches_assigned_agents_leads_on_agent_id", using: :btree
@@ -336,17 +339,6 @@ ActiveRecord::Schema.define(version: 20171025020731) do
     t.datetime "updated_at", null: false
   end
 
-  create_table "messages", force: :cascade do |t|
-    t.text     "content"
-    t.integer  "from"
-    t.integer  "to"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-  end
-
-  add_index "messages", ["from"], name: "index_messages_on_from", using: :btree
-  add_index "messages", ["to"], name: "index_messages_on_to", using: :btree
-
   create_table "pb_details", force: :cascade do |t|
     t.jsonb    "details"
     t.datetime "created_at", null: false
@@ -366,13 +358,13 @@ ActiveRecord::Schema.define(version: 20171025020731) do
   add_index "property_ads", ["property_id", "ad_type", "hash_str"], name: "index_property_ads_on_property_id_and_ad_type_and_hash_str", unique: true, using: :btree
 
   create_table "property_buyers", force: :cascade do |t|
-    t.jsonb    "searches",          default: [], null: false
+    t.jsonb    "searches",          default: [],    null: false
     t.string   "name"
-    t.string   "email_id",                       null: false
-    t.string   "account_type",                   null: false
-    t.jsonb    "visited_udprns",    default: [], null: false
-    t.datetime "created_at",                     null: false
-    t.datetime "updated_at",                     null: false
+    t.string   "email_id",                          null: false
+    t.string   "account_type",                      null: false
+    t.jsonb    "visited_udprns",    default: [],    null: false
+    t.datetime "created_at",                        null: false
+    t.datetime "updated_at",                        null: false
     t.integer  "status_id"
     t.boolean  "chain_free"
     t.string   "full_name"
@@ -395,7 +387,7 @@ ActiveRecord::Schema.define(version: 20171025020731) do
     t.integer  "vendor_id"
     t.string   "first_name"
     t.string   "last_name"
-    t.string   "property_types",    default: [],              array: true
+    t.string   "property_types",    default: [],                 array: true
     t.integer  "min_beds"
     t.integer  "max_beds"
     t.integer  "min_baths"
@@ -406,6 +398,7 @@ ActiveRecord::Schema.define(version: 20171025020731) do
     t.jsonb    "biggest_problems"
     t.integer  "viewings"
     t.integer  "enquiries"
+    t.boolean  "is_premium",        default: false
   end
 
   add_index "property_buyers", ["email"], name: "property_buyers_email_idx", using: :btree
@@ -445,6 +438,9 @@ ActiveRecord::Schema.define(version: 20171025020731) do
     t.integer  "amount"
     t.datetime "created_at",  null: false
   end
+
+# Could not dump table "test_ukps" because of following StandardError
+#   Unknown type 'uint1' for column 'county'
 
   create_table "uk_properties", primary_key: "udprn", force: :cascade do |t|
     t.string  "postcode",          limit: 8

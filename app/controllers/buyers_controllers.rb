@@ -51,5 +51,86 @@ class BuyersController < ActionController::Base
     render json: buyer_suggestions, status: 200
   end
 
+  #### buyer tracking history
+  #### curl -XGET -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo"  'http://localhost/buyers/tracking/history'
+  def tracking_history
+    buyer = user_valid_for_viewing?('Buyer')
+    if !buyer.nil?
+      events = Events::Track.where(buyer_id: buyer.id).order("created_at desc")
+      results = events.map do |event|
+        {
+          udprn: event.udprn,
+          hash_str: event.hash_str,
+          type_of_tracking:  Events::Track::REVERSE_TRACKING_TYPE_MAP[event.type_of_tracking],
+          created_at: event.created_at
+        }
+      end
+      render json: results, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+
+  ### Premium access for buyers for tracking localities, streets and property
+  # curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 
+  ### -H "Content-Type: application/json"  "http://localhost/buyers/premium/access" -d  '{ "stripeEmail" : "abhiuec@gmail.com", "stripeToken":"tok_19WlE9AKL3KAwfPBkWwgTpqt", "buyer_id":211}'
+  def process_premium_payment
+    buyer = user_valid_for_viewing?('Buyer')
+    if !buyer.nil?
+      # Create the customer in Stripe
+      customer = Stripe::Customer.create(
+        email: params[:stripeEmail],
+        card: params[:stripeToken]
+      )
+      chargeable_amount = (PropertyBuyer::PREMIUM_AMOUNT)*100.0
+      begin
+        charge = Stripe::Charge.create(
+          customer: customer.id,
+          amount: chargeable_amount,
+          description: "Ads amount charged for premium access for buyer id, #{params[:buyer_id]} on #{Time.now.to_s}",
+          currency: 'GBP'
+        )
+        PropertyBuyer.find(buyer.id).update_attributes(is_premium: true)
+        message = 'Premium access for trackings enabled'
+      rescue Stripe::CardError => e
+        Rails.logger.info("STRIPE_CARD_ERROR_#{buyer_id}: #{e.message}")
+        message = "Stripe card error with message #{e.message}"
+      ensure
+        render json: { message: message, status: 200 }
+      end
+
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  ### Get tracking stats for a buyer
+  # curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c"   "http://localhost/buyers/tracking/stats"  
+  def tracking_stats
+    buyer = user_valid_for_viewing?('Buyer')
+    if !buyer.nil?
+      property_tracking_count = Events::Track.where(buyer_id: buyer.id).where(type_of_tracking: TRACKING_TYPE_MAP[:property_tracking]).count
+      street_tracking_count = Events::Track.where(buyer_id: buyer.id).where(type_of_tracking: TRACKING_TYPE_MAP[:street_tracking]).count
+      locality_tracking_count = Events::Track.where(buyer_id: buyer.id).where(type_of_tracking: TRACKING_TYPE_MAP[:locality_tracking]).count
+      stats = {
+        type: (buyer.is_premium? ? 'Premium' : 'Standard'),
+        locality_tracking_count_limit: BUYER_LOCALITY_PREMIUM_LIMIT[buyer.is_premium.to_s],
+        street_tracking_count_limit: BUYER_STREET_PREMIUM_LIMIT[buyer.is_premium.to_s],
+        property_tracking_count_limit: BUYER_PROPERTY_PREMIUM_LIMIT[buyer.is_premium.to_s],
+        locality_tracking_count: locality_tracking_count,
+        property_tracking_count: property_tracking_count,
+        street_tracking_count: street_tracking_count
+      }
+      render json: stats, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  private
+  def user_valid_for_viewing?(klass)
+    AuthorizeApiRequest.call(request.headers, klass).result
+  end
 end
 

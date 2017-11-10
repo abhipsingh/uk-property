@@ -364,13 +364,14 @@ class Trackers::Buyer
   ### with new row
   def push_property_enquiry_details_buyer(new_row, details)
     attrs = [:address, :price, :dream_price, :current_valuation, :pictures, :street_view_image_url, :sale_prices, :property_status_type, 
-             :verification_status]
+             :verification_status, :vanity_url, :assigned_agent_id, :assigned_agent_image_url, :assigned_agent_name, :assigned_agent_mobile,
+             :assigned_agent_email, :assigned_agent_title, :dependent_locality, :thoroughfare_description, :post_town, :agent_id]
     new_row.merge!(details.slice(*attrs))
     new_row[:image_url] = new_row[:street_view_image_url] || details[:pictures].first rescue nil
     if new_row[:image_url].nil?
-      # image_url = process_image(details) if Rails.env != 'test'
-      # image_url ||= "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details['udprn']}/fov_120_#{details['udprn']}.jpg"
-      # new_row[:image_url] = image_url
+      image_url = process_image(details) if Rails.env != 'test'
+      image_url ||= "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details['udprn']}/fov_120_#{details['udprn']}.jpg"
+      new_row[:street_view_image_url] = image_url
     end
     new_row[:status] = new_row[:property_status_type]
   end
@@ -569,8 +570,7 @@ class Trackers::Buyer
       max_baths: details['baths'].to_i + 2,
       min_receptions: details['receptions'].to_i - 2,
       max_receptions: details['receptions'].to_i + 2,
-      property_status_types: details['property_status_type'],
-      fields: 'udprn'
+      property_status_types: details['property_status_type']
     }
 
     ### analysis for each of the postcode type
@@ -596,12 +596,7 @@ class Trackers::Buyer
       ### Accumulate buyer_id for each udprn
       buyer_ids = []
       event = EVENTS[:save_search_hash]
-      query = nil
-      if property_for == 'Sale'
-        query = Event.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
-      else
-        query = Event.where(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
-      end
+      query = Event
       buyer_ids = query.where(event: event).where(udprn: udprns).pluck(:buyer_id).uniq
 
       ### Extract status of the buyers in bulk
@@ -639,13 +634,7 @@ class Trackers::Buyer
     details = PropertyDetails.details(udprn.to_i)['_source'] rescue {}
     event = EVENTS[:save_search_hash]
 
-    query = nil
-    if property_for == 'Sale'
-      query = Event.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
-    else
-      query = Event.where(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
-    end
-
+    query = Event
     buyer_ids = query.where(event: event).where(udprn: property_id).where(type_of_match: 1).pluck(:buyer_id).uniq
 
     ### Buying status stats

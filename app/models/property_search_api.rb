@@ -23,7 +23,7 @@ class PropertySearchApi
               :building_number, :sub_building_name, :cost_per_month, :date_added, :floors, :year_built, 
               :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, 
               :beds, :baths, :receptions, :current_valuation, :dream_price, :not_yet_built, :is_new_home, :is_retirement_home,
-              :is_shared_ownership
+              :is_shared_ownership, :sale_price
             ]
 
   ADDRESS_LOCALITY_LEVELS = [:county, :post_town, :dependent_locality, :thoroughfare_description, :dependent_thoroughfare_description,
@@ -160,7 +160,8 @@ class PropertySearchApi
 
 
       POSTCODE_LEVELS.each do |level|
-        query = query.where("to_tsvector('simple'::regconfig, postcode)  @@ to_tsquery('simple', '#{@filtered_params[level]}:*')") if @filtered_params[level]
+        value = @filtered_params[level].gsub(/[A-Z0-9]+/).to_a.join('') if @filtered_params[level]
+        query = query.where("to_tsvector('simple'::regconfig, postcode)  @@ to_tsquery('simple', '#{value}:*')") if value
       end
 
       #### Paginate
@@ -189,6 +190,7 @@ class PropertySearchApi
   def modify_query
     if @filtered_params.has_key?(:match_type)
       type_of_match = @filtered_params[:match_type]
+      #binding.pry
       modify_type_of_match_query(type_of_match)
     end
   end
@@ -244,8 +246,8 @@ class PropertySearchApi
       @filtered_params[:post_town] = @filtered_params[:post_town].split(' ').map{|t| if t.downcase != 'and' then t.capitalize else t.downcase end }.join(' ')
     end
 
-    @filtered_params[:sort_key] = :building_number if @filtered_params[:sort_key].nil?
-    @filtered_params[:sort_order] = 'desc' if @filtered_params[:sort_order].nil?
+    #@filtered_params[:sort_key] = :building_number if @filtered_params[:sort_key].nil?
+    #@filtered_params[:sort_order] = 'desc' if @filtered_params[:sort_order].nil?
 
     @filtered_params.delete(:hash_str)
     @filtered_params.delete(:hash_type)

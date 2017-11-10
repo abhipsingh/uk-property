@@ -212,7 +212,7 @@ module Agents
 
         new_row[:last_sale_price] = new_row['sale_prices'].last['price'] rescue nil
         #### Vendor details
-        if lead.agent_id == self.id
+        if lead.agent_id == self.id && lead.vendor_id
           vendor = Vendor.where(id: lead.vendor_id).first
           new_row[:vendor_first_name] = vendor.first_name
           new_row[:vendor_last_name] = vendor.last_name
@@ -259,6 +259,9 @@ module Agents
         else
           new_row[:status] = status
         end
+
+        ### Visit time if any
+        new_row[:visit_time] = Time.parse(lead.visit_time.to_s).strftime("%Y-%m-%dT%H:%M:%SZ") if lead.visit_time
 
         ### Normalize timestamps
         new_row[:claimed_on] = Time.parse(new_row['claimed_on']).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row['claimed_on']

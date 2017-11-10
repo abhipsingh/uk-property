@@ -34,6 +34,7 @@
       "district":{"type":"string","index":"not_analyzed"},
       "double_dependent_locality":{"type":"string","index":"not_analyzed"},
       "dream_price":{"type":"integer"},
+      "sale_price":{"type":"integer"},
       "epc":{"type":"string","index":"not_analyzed"},
       "improvement_spend":{"type":"integer"},
       "post_code":{"type":"string"},

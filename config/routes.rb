@@ -305,7 +305,7 @@ Rails.application.routes.draw do
   get 'agents/manual/properties/leads',                         to: 'agents#manual_property_leads'
 
   ### Info about the verification hash(Verified or Not)
-  get 'sessions/hash/verified/:hash',                           to: 'sessions#verification_hash_verified'
+  get 'sessions/hash/verified',                                 to: 'sessions#verification_hash_verified'
 
   ### Quote details api
   get '/property/quotes/details/:id',                           to: 'quotes#quote_details'
@@ -315,6 +315,22 @@ Rails.application.routes.draw do
   
   ### Branches list for a district
   get '/branches/:location/:location_type',                     to: 'agents#branch_info_for_location'
+
+  ### matrix view searches testing perfect/potential
+  get '/matrix/view/load/testing',                              to: 'matrix_view#matrix_view_load_testing'
+
+  ### buyer tracking history
+  get '/buyers/tracking/history',                               to: 'buyers#tracking_history'
+
+  ### buyers premium access
+  post '/buyers/premium/access',                                to: 'buyers#process_premium_payment'
+
+  ### buyers tracking stats
+  get '/buyers/tracking/stats',                                to: 'buyers#tracking_stats'
+
+  ### populate lead visit time by the agent
+  post '/agents/lead/submit/visit/time',                       to: 'leads#submit_lead_visit_time'
+
   #####################################################################
   #####################################################################
   #####################################################################

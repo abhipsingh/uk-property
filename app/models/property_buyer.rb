@@ -32,6 +32,8 @@ class PropertyBuyer < ActiveRecord::Base
     "Can't sell right property" => 3
   }
 
+  PREMIUM_AMOUNT = 2
+
   REVERSE_BIGGEST_PROBLEM_HASH = BIGGEST_PROBLEM_HASH.invert
   def self.from_omniauth(auth)
     new_params = auth.as_json.with_indifferent_access
