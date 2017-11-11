@@ -13,4 +13,13 @@ class UsersController < ApplicationController
   rescue Exception => e
     render json: { message: "User not found with #{params[:user_type]}" }, status: 400
   end
+
+  def postcode_area_panel_details
+    res = {}
+    if params[:debug]
+      res = User.postcode_area_panel_details
+    end
+    render json: res, status: 200
+  end
+
 end

@@ -14,6 +14,7 @@ Rails.application.routes.draw do
 
   ## Get user details
   get 'users/details', to: 'users#details'
+  get 'users/postcode_area_panel_details', to: 'users#postcode_area_panel_details'
 
   ###### ENQUIRIES ####################################################
   #####################################################################
