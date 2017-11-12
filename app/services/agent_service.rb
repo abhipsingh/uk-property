@@ -18,9 +18,13 @@ class AgentService
       assigned_agent_present = true
     else
       InvitedAgent.create!(email: assigned_agent_email, udprn: udprn)
-      branch.invited_agents = [{ branch_id: branch.id, company_id: branch.agent_id, email: assigned_agent_email }]
+      branch_invited_agents = branch.invited_agents
+      branch.invited_agents =  [{ branch_id: branch.id, company_id: branch.agent_id, email: assigned_agent_email }]
       branch.save!
       branch.send_emails
+      branch_invited_agents ||= []
+      branch.invited_agents = branch_invited_agents + [{ branch_id: branch.id, company_id: branch.agent_id, email: assigned_agent_email }]
+      branch.save!
       assigned_agent_present = false
     end
     property_id = property_attrs[:property_id]
@@ -37,7 +41,7 @@ class AgentService
     address = PropertyDetails.details(property_id)['_source']['address']
     response, status = PropertyDetails.update_details(client, udprn, property_attrs)
     property_service = PropertyService.new(property_id)
-    property_service.claim_new_property_manual(assigned_agent.id) ### TODO: Make it generic to Rent
+    property_service.claim_new_property_manual(assigned_agent.id)
     agent_attrs = {
       name: assigned_agent.first_name.to_s + ' ' + assigned_agent.last_name.to_s,
       branch_address: branch.address,
@@ -70,7 +74,8 @@ class AgentService
       assigned_agent_present = false
     end
     property_id = property_attrs[:property_id]
-    response, status = PropertyDetails.update_details(client, udprn, property_attrs)
+    property_service = PropertyService.new(property_id)
+    response, status = property_service.update_details(property_attrs)
     Agents::Branches::AssignedAgent.find(@agent_id).send_vendor_email(vendor_email, @udprn, assigned_agent_present, assigned_agent_email)
     return response, status
   end

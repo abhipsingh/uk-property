@@ -6,9 +6,12 @@ module BranchEmailSender
       invited_agents['email'] = email
       invited_agents['branch_id'] = branch.id
       invited_agents['company_id'] = branch.agent_id
-      branch.invited_agents = [invited_agents]
+      branch_invited_agents = branch.invited_agents
       branch.save
       branch.send_emails
+      branch_invited_agents ||= []
+      branch.invited_agents = branch_invited_agents + [ invited_agents ]
+      branch.save
     end
   end
 end

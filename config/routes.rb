@@ -332,6 +332,9 @@ Rails.application.routes.draw do
   ### populate lead visit time by the agent
   post '/agents/lead/submit/visit/time',                       to: 'leads#submit_lead_visit_time'
 
+  ### Get pricing history for a property
+  get '/property/pricing/history/:udprn',                     to: 'properties#pricing_history'
+
   #####################################################################
   #####################################################################
   #####################################################################

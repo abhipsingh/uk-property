@@ -51,13 +51,13 @@ class EventsController < ApplicationController
     property_status_type = params[:property_status_type]
     verification_status = params[:verification_status]
     ads = params[:ads]
-    search_str = params[:search_str]
+    hash_str = params[:hash_str]
     last_time = params[:latest_time]
     is_premium = Agents::Branches::AssignedAgent.where(id: params[:agent_id].to_i).select(:is_premium).first.is_premium rescue nil
     buyer_id = params[:buyer_id]
     archived = params[:archived]
     response = []
-    response = Trackers::Buyer.new.search_latest_enquiries(params[:agent_id].to_i, property_status_type, verification_status, ads, search_str, last_time, is_premium, buyer_id, params[:page].to_i, archived) if params[:agent_id]
+    response = Trackers::Buyer.new.search_latest_enquiries(params[:agent_id].to_i, property_status_type, verification_status, ads, hash_str, last_time, is_premium, buyer_id, params[:page].to_i, archived) if params[:agent_id]
 
     render json: response, status: 200
   end
@@ -87,18 +87,19 @@ class EventsController < ApplicationController
 #    end
     #params_key = "#{params[:agent_id].to_i}_#{params[:enquiry_type]}_#{params[:type_of_match]}_#{params[:qualifying_stage]}_#{params[:rating]}_#{params[:buyer_status]}_#{params[:buyer_funding]}_#{params[:buyer_biggest_problem]}_#{params[:buyer_chain_free]}_#{params[:search_str]}_#{params[:budget_from]}_#{params[:budget_to]}"
     param_list = [ :enquiry_type, :type_of_match, :qualifying_stage, :rating, :buyer_status, :buyer_funding, 
-                   :buyer_biggest_problem, :buyer_chain_free, :search_str, :budget_from, :budget_to, 
-                   :property_for, :archived ]
+                   :buyer_biggest_problem, :buyer_chain_free, :hash_str, :budget_from, :budget_to, 
+                   :property_for, :archived, :closed ]
     cache_parameters = param_list.map{ |t| params[t].to_s }
     cache_response(params[:agent_id].to_i, cache_parameters) do
       last_time = params[:latest_time]
       is_premium = Agents::Branches::AssignedAgent.where(id: params[:agent_id].to_i).select(:is_premium).first.is_premium rescue nil
       buyer_id = params[:buyer_id]
       archived = params[:archived]
+      closed = params[:closed]
       results = Trackers::Buyer.new.property_enquiry_details_buyer(params[:agent_id].to_i, params[:enquiry_type], params[:type_of_match], 
         params[:qualifying_stage], params[:rating],  
-        params[:search_str], 'Sale', last_time,
-        is_premium, buyer_id, params[:page], archived) if params[:agent_id]
+        params[:hash_str], 'Sale', last_time,
+        is_premium, buyer_id, params[:page], archived, closed) if params[:agent_id]
       final_response = results.empty? ? {"enquiries" => results, "message" => "No quotes to show"} : {"enquiries" => results}
       render json: final_response, status: status
     end
@@ -116,14 +117,14 @@ class EventsController < ApplicationController
   #### ii) Rent or Sale
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent/quotes?agent_id=1234&property_for=Rent'
   def recent_properties_for_quotes
-    cache_parameters = [ :agent_id, :payment_terms, :services_required, :quote_status, :search_str, :property_for ]
+    cache_parameters = [ :agent_id, :payment_terms, :services_required, :quote_status, :hash_str, :property_for ]
     #cache_response(params[:agent_id].to_i, cache_parameters) do
       results = []
       response = {}
       status = 200
       #begin
         agent = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i)
-        results = agent.recent_properties_for_quotes(params[:payment_terms], params[:services_required], params[:quote_status], params[:search_str], 'Sale', params[:buyer_id], agent.is_premium, params[:page]) if params[:agent_id]
+        results = agent.recent_properties_for_quotes(params[:payment_terms], params[:services_required], params[:quote_status], params[:hash_str], 'Sale', params[:buyer_id], agent.is_premium, params[:page]) if params[:agent_id]
         response = results.empty? ? { quotes: results, message: 'No quotes to show' } : { quotes: results}
       #rescue => e
       #  Rails.logger.error "Error with agent quotes => #{e}"
@@ -153,7 +154,9 @@ class EventsController < ApplicationController
           response = { message: 'Agent ID missing' }
         else
           agent = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i)
-          results = agent.recent_properties_for_claim(agent_status, 'Sale', params[:buyer_id], params[:search_str], params[:page])
+          owned_property = params[:manually_added] == 'true' ? true : nil
+          owned_property = params[:manually_added] == 'false' ? false : owned_property
+          results = agent.recent_properties_for_claim(agent_status, 'Sale', params[:buyer_id], params[:hash_str], params[:page], owned_property)
           response = results.empty? ? { leads: results, message: 'No leads to show'} : { leads: results}
         end
 #      rescue ActiveRecord::RecordNotFound

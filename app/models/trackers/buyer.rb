@@ -169,13 +169,14 @@ class Trackers::Buyer
     response = property_ids.map { |e| Trackers::Buyer.new.property_and_enquiry_details(agent_id.to_i, e, property_status_type, verification_status, ads) }.compact
   end
 
-  def filtered_agent_query(agent_id: id, search_str: str=nil, last_time: time=nil, is_premium: premium=false, buyer_id: buyer=nil, type_of_match: match=nil, is_archived: archived=nil)
+  def filtered_agent_query(agent_id: id, search_str: str=nil, last_time: time=nil, is_premium: premium=false, buyer_id: buyer=nil, type_of_match: match=nil, is_archived: archived=nil, closed: is_closed=nil)
     query = Event.where(agent_id: agent_id)
     parsed_last_time = Time.parse(last_time) if last_time
     query = query.where("created_at > ? ", parsed_last_time) if last_time
     query = query.unscope(where: :is_archived).where(is_archived: true) if is_archived == true
     query = query.where(type_of_match: TYPE_OF_MATCH[type_of_match.to_s.downcase.to_sym]) if type_of_match
     query = query.where(buyer_id: buyer_id) if buyer_id && is_premium
+    query = query.where(stage: [EVENTS[:closed_won_stage], EVENTS[:closed_lost_stage]]) if closed
     udprns = fetch_udprns(search_str) if search_str && is_premium
     query = query.where(udprn: udprns) if search_str && is_premium
     query
@@ -304,7 +305,7 @@ class Trackers::Buyer
 
   ##### Agent level mock in console for new enquries coming
   ##### Trackers::Buyer.new.property_enquiry_details_buyer(1234, 'requested_message', nil, nil, nil,nil, nil, nil, nil, nil, nil, nil)
-  def property_enquiry_details_buyer(agent_id, enquiry_type=nil, type_of_match=nil, qualifying_stage=nil, rating=nil, hash_str=nil, property_for='Sale', last_time=nil, is_premium=nil, buyer_id=nil, page_number=0, is_archived=nil)
+  def property_enquiry_details_buyer(agent_id, enquiry_type=nil, type_of_match=nil, qualifying_stage=nil, rating=nil, hash_str=nil, property_for='Sale', last_time=nil, is_premium=nil, buyer_id=nil, page_number=0, is_archived=nil, closed=nil)
     result = []
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
     ### Process filtered buyer_id only
@@ -312,7 +313,7 @@ class Trackers::Buyer
     events = events.select{ |t| t == EVENTS[enquiry_type.to_sym] } if enquiry_type
 
     ### Filter only the type_of_match which are asked by the caller
-    query = filtered_agent_query agent_id: agent_id, search_str: hash_str, last_time: last_time, is_premium: is_premium, buyer_id: buyer_id, type_of_match: type_of_match, is_archived: is_archived
+    query = filtered_agent_query agent_id: agent_id, search_str: hash_str, last_time: last_time, is_premium: is_premium, buyer_id: buyer_id, type_of_match: type_of_match, is_archived: is_archived, closed: closed
     query = query.where(event: events) if enquiry_type
     query = query.where(stage: EVENTS[qualifying_stage]) if qualifying_stage
     query = query.where(rating: EVENTS[rating]) if rating
@@ -632,13 +633,13 @@ class Trackers::Buyer
     result_hash = {}
     property_id = udprn.to_i
     details = PropertyDetails.details(udprn.to_i)['_source'] rescue {}
-    event = EVENTS[:save_search_hash]
+    #event = EVENTS[:save_search_hash]
 
     query = Event
-    buyer_ids = query.where(event: event).where(udprn: property_id).where(type_of_match: 1).pluck(:buyer_id).uniq
-
+    buyer_ids = query.where(udprn: property_id).pluck(:buyer_id).uniq
     ### Buying status stats
-    buying_status_distribution = PropertyBuyer.where(id: buyer_ids).group(:buying_status).count
+    buying_status_distribution = PropertyBuyer.where(id: buyer_ids).where.not(buying_status: nil).group(:buying_status).count
+    p buyer_ids
     total_count = buying_status_distribution.inject(0) do |result, (key, value)|
       result += value
     end
@@ -651,7 +652,7 @@ class Trackers::Buyer
     result_hash[:buying_status] = buying_status_stats
 
     ### Funding status stats
-    funding_status_distribution = PropertyBuyer.where(id: buyer_ids).group(:funding).count
+    funding_status_distribution = PropertyBuyer.where(id: buyer_ids).where.not(funding: nil).group(:funding).count
     total_count = funding_status_distribution.inject(0) do |result, (key, value)|
       result += value
     end
@@ -663,19 +664,21 @@ class Trackers::Buyer
     result_hash[:funding_status] = funding_status_stats
 
     ### Biggest problem stats
-    biggest_problem_distribution = PropertyBuyer.where(id: buyer_ids).group(:biggest_problem).count
+    biggest_problem_distribution = PropertyBuyer.where(id: buyer_ids).where.not(biggest_problems: nil).group(:biggest_problems).count
     total_count = biggest_problem_distribution.inject(0) do |result, (key, value)|
-      result += value
+      result += (value*(key.length))
     end
     biggest_problem_stats = {}
-    biggest_problem_distribution.each do |key, value|
-      biggest_problem_stats[PropertyBuyer::REVERSE_BIGGEST_PROBLEM_HASH[key]] = ((value.to_f/total_count.to_f)*100).round(2)
+    biggest_problem_distribution.each do |keys, value|
+      keys.each do |key|
+        biggest_problem_stats[key] = ((value.to_f/total_count.to_f)*100).round(2)
+      end
     end
     PropertyBuyer::BIGGEST_PROBLEM_HASH.each { |k,v| biggest_problem_stats[k] = 0 unless biggest_problem_stats[k] }
     result_hash[:biggest_problem] = biggest_problem_stats
 
     ### Chain free stats
-    chain_free_distribution = PropertyBuyer.where(id: buyer_ids).group(:chain_free).count
+    chain_free_distribution = PropertyBuyer.where(id: buyer_ids).where.not(chain_free: nil).group(:chain_free).count
     total_count = chain_free_distribution.inject(0) do |result, (key, value)|
       result += value
     end

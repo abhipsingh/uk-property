@@ -10,7 +10,7 @@ module Agents
       attr_accessor :vendor_email, :vendor_address, :email_udprn, :verification_hash, :assigned_agent_present, :alternate_agent_email
 
       ### TODO: Refactoring required. Figure out a better way of dumping details of a user through a consensus
-      DETAIL_ATTRS = [:id, :name, :email, :mobile, :branch_id, :title, :office_phone_number, :mobile_phone_number, :image_url, :invited_agents, :provider, :uid]
+      DETAIL_ATTRS = [:id, :name, :email, :mobile, :branch_id, :title, :office_phone_number, :mobile_phone_number, :image_url, :invited_agents, :provider, :uid, :is_premium]
 
       PER_CREDIT_COST = 5
       QUOTE_CREDIT_LIMIT = -10
@@ -161,7 +161,7 @@ module Agents
       #### To test this function, create the following lead.
       #### Agents::Branches::AssignedAgents::Lead.create(district: "CH45", property_id: 4745413, vendor_id: 1)
       #### Then call the following function for the agent in that district
-      def recent_properties_for_claim(status=nil, property_for='Sale', buyer_id=nil, search_str=nil, is_premium=false, page_number=0)
+      def recent_properties_for_claim(status=nil, property_for='Sale', buyer_id=nil, search_str=nil, is_premium=false, page_number=0, owned_property=nil)
         district = self.branch.district
         query = Agents::Branches::AssignedAgents::Lead
         vendor = PropertyBuyer.where(id: buyer_id).select(:vendor_id).first if buyer_id
@@ -169,7 +169,7 @@ module Agents
         vendor_id ||= nil
         query = query.where(vendor_id: vendor_id) if buyer_id
         query = query.where(district: district)
-        query = query.where(owned_property: false)
+        query = query.where(owned_property: owned_property) if owned_property
 
         if search_str && is_premium
           udprns = Trackers::Buyer.new.fetch_udprns(search_str)
@@ -190,7 +190,7 @@ module Agents
       end
 
       def personal_claimed_properties
-        leads = Agents::Branches::AssignedAgents::Lead.where(agent_id: self.id).where(owned_property: true) 
+        leads = Agents::Branches::AssignedAgents::Lead.where(agent_id: self.id).where(vendor_id: nil).where(owned_property: true)
         leads.map { |lead| populate_lead_details(lead, nil) }
       end
 

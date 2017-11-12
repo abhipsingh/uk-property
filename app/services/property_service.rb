@@ -123,7 +123,8 @@ class PropertyService
       update_hash = { agent_id: agent_id, agent_status: 1 }
       details, status = PropertyDetails.update_details(client, udprn.to_i, update_hash)
       vendor_id = lead.vendor_id
-      message = 'You have claimed this property successfully. Now survey this property within 7 days'
+      vendor_details = Vendor.where(id: vendor_id).select([:first_name, :last_name, :email, :image_url]).last
+      message = { message: 'You have claimed this property successfully. Now survey this property within 7 days', vendor_details: vendor_details }
       address = nil
       VendorService.new(vendor_id).send_email_following_agent_lead(agent_id, address)
       status = 200
@@ -137,7 +138,7 @@ class PropertyService
     return message, status
   end
 
-  def claim_new_property_manual(agent_id, property_for='Sale')
+  def claim_new_property_manual(agent_id, owned_property=true)
     message, status = nil
     details = PropertyDetails.details(udprn)
     details['property_status_type'] = 'Sale' if property_for == 'Sale'
@@ -147,7 +148,7 @@ class PropertyService
       district: details['district'], 
       property_id: udprn,
       agent_id: agent_id,
-      owned_property: true,
+      owned_property: owned_property,
       vendor_id: nil
     )
     message = 'You have claimed this property successfully'
@@ -372,6 +373,22 @@ class PropertyService
     details[:photo_urls] = [ Api::V0::PropertySearchController.helpers.process_image(details) ] 
     details[:description] = get_description(udprn)
     details
+  end
+
+  def calculate_pricing_history
+    valuation_history = PropertyEvent.where(udprn: @udprn).where("attr_hash ? 'current_valuation'").order('created_at asc')
+                                     .select([:created_at]).select("attr_hash ->> 'current_valuation' as current_valuation ")
+    dream_price_history = PropertyEvent.where(udprn: @udprn).where("attr_hash ? 'dream_price'").order('created_at asc')
+                                     .select([:created_at]).select("attr_hash ->> 'dream_price' as dream_price ")
+    sold_price_history = SoldProperty.where(udprn: @udprn).select([:sale_price, :completion_date])
+    sale_price_history = PropertyEvent.where(udprn: @udprn).where("attr_hash ? 'price'").order('created_at asc')
+                                     .select([:created_at]).select("attr_hash ->> 'price' as sale_price ")
+    {
+      valuation_history: valuation_history,
+      dream_price_history: dream_price_history,
+      sold_price_history: sold_price_history,
+      sale_price_history: sale_price_history
+    }
   end
 
 

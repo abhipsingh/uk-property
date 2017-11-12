@@ -29,17 +29,33 @@ class PropertiesController < ActionController::Base
       render json: details, status: 200
   end
 
+  ### When a request is made to fetch the updated historic pricing details for a udprn(sale price, current valuation, dream price etc)
+  ### curl -XGET -H "Content-Type: application/json" -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c"  'http://localhost/property/pricing/history/10966139'
+  def pricing_history
+    if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
+      history_data = PropertyService.new(params[:udprn].to_i).calculate_pricing_history
+      render json: history_data, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
   ### This route provides all the details of the recent enquiries made by the users on this property
   ### curl -XGET -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/enquiries/property/10966139'
   def enquiries
-    #if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
-    if true
-      cache_response(params[:udprn].to_i, [params[:page], params[:buyer_id]]) do
+    if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
+    #if true
+      cache_response(params[:udprn].to_i, [params[:page], params[:buyer_id], params[:qualifying_stage], params[:rating], params[:archived], params[:closed]]) do
         page = params[:page]
         page ||= 0
         page = page.to_i
         udprn = params[:udprn].to_i
-        enquiries = EventService.new(udprn: udprn, buyer_id: params[:buyer_id], last_time: params[:latest_time]).property_specific_enquiry_details(page)
+        is_premium = @current_user.is_premium rescue false
+        enquiries = EventService.new(udprn: udprn, buyer_id: params[:buyer_id], 
+                                     last_time: params[:latest_time], qualifying_stage: params[:qualifying_stage],
+                                     rating: params[:rating], archived: params[:archived], is_premium: is_premium, 
+                                     closed: params[:closed])
+                                .property_specific_enquiry_details(page)
         render json: enquiries, status: 200
       end
     else
@@ -126,14 +142,10 @@ class PropertiesController < ActionController::Base
   def history_enquiries
     enquiry_type = params[:enquiry_type]
     type_of_match = params[:type_of_match].downcase.to_sym if params[:type_of_match]
-    property_status_type = params[:property_status_type]
     search_str = params[:search_str]
-    property_for = params[:property_for]
-    property_for ||= 'Sale'
-    property_for = 'Rent' if property_for != 'Sale'
-    cache_parameters = [ :enquiry_type, :type_of_match, :property_status_type,:search_str, :property_for].map{ |t| params[t].to_s }
+    cache_parameters = [ :enquiry_type, :type_of_match, :search_str].map{ |t| params[t].to_s }
     cache_response(params[:buyer_id].to_i, cache_parameters) do
-      ranking_info = Trackers::Buyer.new.history_enquiries(buyer_id: params[:buyer_id].to_i,enquiry_type: enquiry_type,type_of_match: type_of_match, property_status_type:  property_status_type, search_str: search_str, verified: params[:verified], last_time: params[:latest_time], page_number: params[:page])
+      ranking_info = Trackers::Buyer.new.history_enquiries(buyer_id: params[:buyer_id].to_i, enquiry_type: enquiry_type, type_of_match: type_of_match, property_status_type:  nil, search_str: search_str, verified: params[:verified], last_time: params[:latest_time], page_number: params[:page])
       render json: ranking_info, status: status
     end
   end

@@ -1,7 +1,8 @@
 class EventService
   include EventsHelper
 
-  attr_accessor :udprn, :agent_id, :vendor_id, :service, :buyer_id, :details
+  attr_accessor :udprn, :agent_id, :vendor_id, :service, :buyer_id, :details, :is_premium, :qualifying_stage, :rating, :archived,
+                :closed
 
    EVENTS = {
     viewed: 2,
@@ -138,20 +139,42 @@ class EventService
   ENQUIRY_PAGE_SIZE = 20
 
 
-  def initialize(udprn: udprn=nil, agent_id: agent_id=nil, vendor_id: vendor_id=nil, buyer_id: buyer_id=nil, last_time: time=nil)
+  def initialize(udprn: udprn=nil, agent_id: agent_id=nil, vendor_id: vendor_id=nil, buyer_id: buyer_id=nil, last_time: time=nil, qualifying_stage: stage=nil, rating: enquiry_rating=nil, archived: is_archived=nil, is_premium: premium=nil, closed: is_closed=nil)
     @udprn = udprn.to_i
     @agent_id = agent_id
     @vendor_id = vendor_id
     @buyer_id = buyer_id
     @last_time = last_time
+    @qualifying_stage = qualifying_stage
+    @rating = rating
+    @archived = archived
+    @is_premium = is_premium
+    @closed = closed
     @details = PropertyDetails.details(@udprn.to_i)['_source'] if @udprn
   end
 
   def property_specific_enquiries(page)
     raise StandardError, 'Udprn is not present ' if @udprn.nil?
     query = Event.where(udprn: @udprn)
+
+    ### Last time filter
     query = query.where("created_at > ?", @last_time) if @last_time
-    query = query.where(buyer_id: @buyer_id) if @buyer_id
+
+    ### Stage filter
+    query = query.where(stage: Trackers::Buyer::EVENTS[@qualifying_stage]) if @qualifying_stage
+
+    ### Rating filter
+    query = query.where(rating: Trackers::Buyer::EVENTS[@rating]) if @rating
+
+    ### buyer id filter
+    query = query.where(buyer_id: @buyer_id) if @buyer_id && @is_premium
+
+    ### closed won or lost filter
+    query = query.where(stage: [Trackers::Buyer::EVENTS[:closed_won_stage], Trackers::Buyer::EVENTS[:closed_lost_stage]]) if @closed
+
+    ### Archived filter
+    query = query.unscope(where: :is_archived).where(is_archived: true) if @archived == true && @is_premium
+
     query.order('created_at DESC').limit(ENQUIRY_PAGE_SIZE)
          .offset(ENQUIRY_PAGE_SIZE*page)
   end

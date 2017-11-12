@@ -30,6 +30,18 @@ class AgentsController < ApplicationController
     render json: count, status: 200
   end
 
+  #### Information about branches for this district
+  #### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo"  'http://localhost/branches/list/:district'
+  def list_branches
+    vendor = user_valid_for_viewing?('Vendor')
+    if !vendor.nil?
+      branch_list = Agents::Branch.where(district: params[:district]).select([:id, :name]) 
+      render json: branch_list, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
   ### Gets the last valuation info done for a udprn
   ### curl -XGET 'http://localhost/10966183/valuations/last/details'
   def last_valuation_details
@@ -69,7 +81,7 @@ class AgentsController < ApplicationController
     assigned_agent_id = params[:assigned_agent_id]
     assigned_agent = Agents::Branches::AssignedAgent.find(assigned_agent_id)
     agent_details = assigned_agent.as_json(methods: [:active_properties], except: [:password_digest, 
-                                          :password, :provider, :uid, :oauth_token, :oauth_expires_at])
+                                          :password, :provider, :uid, :oauth_token, :oauth_expires_at, :invited_agents])
     agent_details[:company_id] = assigned_agent.branch.agent_id
     agent_details[:group_id] = assigned_agent.branch.agent.group_id
     agent_details[:domain_name] = assigned_agent.branch.domain_name
@@ -82,7 +94,7 @@ class AgentsController < ApplicationController
     branch_id = params[:branch_id]
     branch = Agents::Branch.find(branch_id)
     branch_details = branch.as_json(include: {assigned_agents: {methods: [:active_properties], except: [:password_digest, 
-                                          :password, :provider, :uid, :oauth_token, :oauth_expires_at]}}, except: [:verification_hash])
+                                          :password, :provider, :uid, :oauth_token, :oauth_expires_at, :invited_agents]}}, except: [:verification_hash, :invited_agents])
     branch_details[:company_id] = branch.agent_id
     branch_details[:group_id] = branch.agent.group.id
     render json: branch_details, status: 200
