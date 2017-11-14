@@ -27,13 +27,19 @@ class QuotesController < ApplicationController
   def new
     agent = user_valid_for_viewing?('Agent')
     if agent
-      if agent.credit > Agents::Branches::AssignedAgent::QUOTE_CREDIT_LIMIT
-        service = QuoteService.new(params[:udprn].to_i)
-        response = service.submit_price_for_quote(params[:agent_id].to_i, params[:payment_terms], 
-                                                  params[:quote_details], params[:services_required], params[:terms_url])
-        render json: response, status: 200
+      details = PropertyDetails.details(params[:udprn].to_i)[:_source]
+      current_valuation = details[:current_valuation].to_i
+      if current_valuation > 0
+        if agent.credit > Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(current_valuation.to_f)
+          service = QuoteService.new(params[:udprn].to_i)
+          response = service.submit_price_for_quote(params[:agent_id].to_i, params[:payment_terms], 
+                                                    params[:quote_details], params[:services_required], params[:terms_url])
+          render json: response, status: 200
+        else
+          render json: { message: "Credits possessed for quotes #{agent.credit}, not more than #{Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01} ", current_valuation: current_valuation, cost_of_quote: (Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(current_valuation.to_i.to_f)), beds: details[:beds], baths: details[:baths], receptions: details[:receptions], street_view_image_url: details[:street_view_image_url], pictures: details[:pictures] }, status: 400
+        end
       else
-        render json: { message: "Credits possessed for quotes #{agent.credit},  not more than #{Agents::Branches::AssignedAgents::QUOTE_CREDIT_LIMIT} " }, status: 401
+        render json: { message: 'Current valuation of the property, does not exist' }, status: 400
       end
     else
       render json: { message: 'Authorization failed' }, status: 401

@@ -18,6 +18,8 @@ module Agents
       PAGE_SIZE = 30
       PREMIUM_COST = 25
 
+      CURRENT_VALUATION_PERCENT = 0.01
+
       ##### All recent quotes for the agent being displayed
       ##### Data being fetched from this function
       ##### Example run the following in irb

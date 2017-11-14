@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20171110122300) do
+ActiveRecord::Schema.define(version: 20171114155350) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -124,8 +124,8 @@ ActiveRecord::Schema.define(version: 20171110122300) do
     t.string   "payment_terms"
     t.jsonb    "quote_details"
     t.boolean  "service_required"
-    t.datetime "created_at",           null: false
-    t.datetime "updated_at",           null: false
+    t.datetime "created_at",                           null: false
+    t.datetime "updated_at",                           null: false
     t.string   "district"
     t.string   "vendor_name"
     t.string   "vendor_email"
@@ -134,6 +134,7 @@ ActiveRecord::Schema.define(version: 20171110122300) do
     t.integer  "property_status_type"
     t.boolean  "is_assigned_agent"
     t.string   "terms_url"
+    t.boolean  "refund_status",        default: false
   end
 
   add_index "agents_branches_assigned_agents_quotes", ["agent_id", "property_id"], name: "quotes_unique_property_agents_idx", unique: true, where: "(agent_id IS NOT NULL)", using: :btree
@@ -434,9 +435,11 @@ ActiveRecord::Schema.define(version: 20171110122300) do
 
   create_table "stripe_payments", force: :cascade do |t|
     t.integer  "entity_id"
-    t.string   "entity_type"
     t.integer  "amount"
     t.datetime "created_at",  null: false
+    t.string   "charge_id"
+    t.integer  "udprn"
+    t.integer  "entity_type"
   end
 
 # Could not dump table "test_ukps" because of following StandardError
@@ -461,6 +464,7 @@ ActiveRecord::Schema.define(version: 20171110122300) do
   end
 
   add_index "uk_properties", ["district"], name: "index_uk_properties_on_district", using: :btree
+  add_index "uk_properties", ["district"], name: "test_index", using: :btree
   add_index "uk_properties", ["post_town", "dl", "td", "dtd", "district"], name: "ukp_search_idx", using: :btree
   add_index "uk_properties", ["postcode"], name: "index_uk_properties_on_postcode", using: :btree
 

@@ -75,10 +75,10 @@ class QuoteService
 
   #### TODO: Accepting Quote is racy
   def accept_quote_from_agent(agent_id)
-    new_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
-    won_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']
-    lost_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Lost']
     klass = Agents::Branches::AssignedAgents::Quote
+    new_status = klass::STATUS_HASH['New']
+    won_status = klass::STATUS_HASH['Won']
+    lost_status = klass::STATUS_HASH['Lost']
     quote = klass.where(property_id: @udprn.to_i, agent_id: nil).order('created_at DESC').last
     agent_quote = klass.where(property_id: @udprn.to_i, agent_id: agent_id).order('created_at DESC').last
     agent = Agents::Branches::AssignedAgent.where(id: agent_id).last
@@ -87,6 +87,7 @@ class QuoteService
       quote.destroy!
       agent_quote.status = won_status
       agent_quote.save!
+      klass.where(property_id: @udprn.to_i).where.not(agent_id: nil).where.not(agent_id: agent_id).update_all(status: lost_status)
       client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
       doc = { agent_id: agent_id, agent_status: 2, property_status_type: 'Green' } #### agent_status = 2(agent is actively attached, agent_status = 1, agent submitting pictures and quote)
       PropertyDetails.update_details(client, @udprn.to_i, doc)
@@ -95,6 +96,10 @@ class QuoteService
       ### Deduct agents credits
       agent.credit = agent.credit - 5
       agent.save!
+
+      ### Refund the credits of other agents
+      QuoteRefundWorker.perform_async(@udprn.to_i)
+
       response = { details: details, message: 'The quote is accepted' }
     else
       response = { message: 'Another quote for this property has already been accepted' }

@@ -540,7 +540,7 @@ class Trackers::Buyer
 
       ### Accumulate data for each property searched
       body.each do |property_info|
-        search_stats[region_type][property_info['property_status_type'].downcase.to_sym] += 1
+        search_stats[region_type][property_info['property_status_type'].downcase.to_sym] += 1 if property_info['property_status_type']
       end
 
       search_stats[region_type][:total] = search_stats[region_type][:green] + search_stats[region_type][:amber] + search_stats[region_type][:red]

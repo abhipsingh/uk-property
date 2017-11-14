@@ -518,7 +518,7 @@ class AgentsController < ApplicationController
 
   ### Adds credits  to the agents account
   ### The agent having the email will have to reset the password
-  ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" -H "Content-Type: application/json" 'http://localhost/agents/credits/add' -d '{ "stripeEmail" : "abhiuec@gmail.com", "stripeToken":"tok_19WlE9AKL3KAwfPBkWwgTpqt", "credits" : 100 }'
+  ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" -H "Content-Type: application/json" 'http://localhost/agents/credits/add' -d '{ "stripeEmail" : "abhiuec@gmail.com", "stripeToken":"tok_19WlE9AKL3KAwfPBkWwgTpqt", "credits" : 100, "udprn":23840421 }'
   def add_credits
     agent = user_valid_for_viewing?('Agent')
     if !agent.nil?
@@ -536,7 +536,7 @@ class AgentsController < ApplicationController
         )
         agent.credit = agent.credit + params[:credit].to_i
         agent.save!
-        Stripe::Payment.create!(entity_type: 'Agents::Branches::AssignedAgent', entity_id: agent.id, amount: amount)
+        Stripe::Payment.create!(entity_type: 'Agents::Branches::AssignedAgent', entity_id: agent.id, amount: amount, charge_id: charge.id, udprn: params[:udprn].to_i)
         render json: { message: 'Successfully added credits', credits: agent.credit, credits_bought: params[:credit].to_i }, status: 200
       rescue Exception => e
         re = Stripe::Refund.create(
@@ -558,7 +558,7 @@ class AgentsController < ApplicationController
     if !agent.nil?
       page_size = 20
       offset = params[:page].to_i*page_size
-      payments = Stripe::Payment.where(entity_type: 'Agents::Branches::AssignedAgent', entity_id: agent.id).order('created_at DESC').limit(page_size).offset(offset)
+      payments = Stripe::Payment.where(entity_type: Stripe::Payment::USER_TYPES['Agent'], entity_id: agent.id).order('created_at DESC').limit(page_size).offset(offset)
       render json: { payments: payments }, status: 200
     else
       render json: { message: 'Authorization failed' }, status: 401
