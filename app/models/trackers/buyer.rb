@@ -707,34 +707,21 @@ class Trackers::Buyer
       stage_stats[REVERSE_EVENTS[key.to_i]] = value
       sum_count += value.to_i
     end
-
-    stage_stats.each do |key, value|
-      stage_stats[key] = ((value.to_f/sum_count)*100).round(2)
-      stage_stats[key.to_s+'_count'] = value
-    end
+    #stage_stats.merge!(count_stats)
+    QUALIFYING_STAGE_EVENTS.each {|t| stage_stats[t] ||= 0 }
 
     aggregate_stats[:buyer_enquiry_distribution] = stage_stats
 
     rating_stats = {}
 
-    query = nil
-    if property_for == 'Sale'
-      query = Event.where.not(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
-    else
-      query = Event.where(property_status_type: PROPERTY_STATUS_TYPES['Rent'])
-    end
-
+    query = Event
     sum_count = 0
-    stats = query.where(udprn: udprn).where("created_at > ?", 5.months.ago).group(:rating).count
+    stats = query.where(udprn: udprn).group(:rating).count
     stats.each do |key, value|
       rating_stats[REVERSE_EVENTS[key.to_i]] = value
       sum_count += value.to_i
     end
-
-    stage_stats.each do |key, value|
-      rating_stats[key] = ((value.to_f/sum_count)*100).round(2)
-      rating_stats[key.to_s+'_count'] = value
-    end
+    HOTNESS_EVENTS.each {|t| rating_stats[t] ||= 0 }
 
     aggregate_stats[:rating_stats] = rating_stats
     aggregate_stats

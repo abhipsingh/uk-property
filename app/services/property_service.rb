@@ -123,7 +123,7 @@ class PropertyService
       update_hash = { agent_id: agent_id, agent_status: 1 }
       details, status = PropertyDetails.update_details(client, udprn.to_i, update_hash)
       vendor_id = lead.vendor_id
-      vendor_details = Vendor.where(id: vendor_id).select([:first_name, :last_name, :email, :image_url]).last
+      vendor_details = Vendor.where(id: vendor_id).select([:first_name, :last_name, :email, :image_url, :mobile]).last
       message = { message: 'You have claimed this property successfully. Now survey this property within 7 days', vendor_details: vendor_details }
       address = nil
       VendorService.new(vendor_id).send_email_following_agent_lead(agent_id, address)

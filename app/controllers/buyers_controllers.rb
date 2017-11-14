@@ -110,14 +110,14 @@ class BuyersController < ActionController::Base
   def tracking_stats
     buyer = user_valid_for_viewing?('Buyer')
     if !buyer.nil?
-      property_tracking_count = Events::Track.where(buyer_id: buyer.id).where(type_of_tracking: TRACKING_TYPE_MAP[:property_tracking]).count
-      street_tracking_count = Events::Track.where(buyer_id: buyer.id).where(type_of_tracking: TRACKING_TYPE_MAP[:street_tracking]).count
-      locality_tracking_count = Events::Track.where(buyer_id: buyer.id).where(type_of_tracking: TRACKING_TYPE_MAP[:locality_tracking]).count
+      property_tracking_count = Events::Track.where(buyer_id: buyer.id).where(type_of_tracking: Events::Track::TRACKING_TYPE_MAP[:property_tracking]).count
+      street_tracking_count = Events::Track.where(buyer_id: buyer.id).where(type_of_tracking: Events::Track::TRACKING_TYPE_MAP[:street_tracking]).count
+      locality_tracking_count = Events::Track.where(buyer_id: buyer.id).where(type_of_tracking: Events::Track::TRACKING_TYPE_MAP[:locality_tracking]).count
       stats = {
         type: (buyer.is_premium? ? 'Premium' : 'Standard'),
-        locality_tracking_count_limit: BUYER_LOCALITY_PREMIUM_LIMIT[buyer.is_premium.to_s],
-        street_tracking_count_limit: BUYER_STREET_PREMIUM_LIMIT[buyer.is_premium.to_s],
-        property_tracking_count_limit: BUYER_PROPERTY_PREMIUM_LIMIT[buyer.is_premium.to_s],
+        locality_tracking_count_limit: Events::Track::BUYER_LOCALITY_PREMIUM_LIMIT[buyer.is_premium.to_s],
+        street_tracking_count_limit: Events::Track::BUYER_STREET_PREMIUM_LIMIT[buyer.is_premium.to_s],
+        property_tracking_count_limit: Events::Track::BUYER_PROPERTY_PREMIUM_LIMIT[buyer.is_premium.to_s],
         locality_tracking_count: locality_tracking_count,
         property_tracking_count: property_tracking_count,
         street_tracking_count: street_tracking_count

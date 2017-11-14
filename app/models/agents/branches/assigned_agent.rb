@@ -184,7 +184,7 @@ module Agents
         elsif status == 'Lost'
           query = query.where.not(agent_id: self.id).where.not(agent_id: nil)
         end
-        leads = query.order('created_at DESC').limit(PAGE_SIZE).offset(page_number*PAGE_SIZE)
+        leads = query.order('created_at DESC').limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE)
 
         leads.map{|lead| populate_lead_details(lead, status) }
       end

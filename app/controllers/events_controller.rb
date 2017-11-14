@@ -156,7 +156,7 @@ class EventsController < ApplicationController
           agent = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i)
           owned_property = params[:manually_added] == 'true' ? true : nil
           owned_property = params[:manually_added] == 'false' ? false : owned_property
-          results = agent.recent_properties_for_claim(agent_status, 'Sale', params[:buyer_id], params[:hash_str], params[:page], owned_property)
+          results = agent.recent_properties_for_claim(agent_status, 'Sale', params[:buyer_id], params[:hash_str], agent.is_premium, params[:page], owned_property)
           response = results.empty? ? { leads: results, message: 'No leads to show'} : { leads: results}
         end
 #      rescue ActiveRecord::RecordNotFound
