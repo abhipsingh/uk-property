@@ -44,7 +44,6 @@ class BuyersController < ActionController::Base
 		render json: { message: 'Saved buyer successfully', details: details }, status: 200
 	end
 
-
   #### curl -XGET  'http://localhost/buyers/predict?str=test10@pr'
   def predictions
     buyer_suggestions = PropertyBuyer.suggest_buyers(params[:str]).select([:id, :name, :image_url]).limit(20)
@@ -123,6 +122,34 @@ class BuyersController < ActionController::Base
         street_tracking_count: street_tracking_count
       }
       render json: stats, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  ### Get tracking filters and find details of properties in type of tracking
+  def tracking_details
+    buyer = user_valid_for_viewing?('Buyer')
+    if !buyer.nil?
+      type_of_tracking = (params[:type_of_tracking] || "property_tracking").to_sym
+      if type_of_tracking == :property_tracking
+        udprns = Events::Track.where(buyer_id: buyer.id).where(type_of_tracking: Events::Track::TRACKING_TYPE_MAP[:property_tracking]).pluck(:udprn)
+        api = PropertySearchApi.new(filtered_params: {})
+        body = api.fetch_details_from_udprns(udprns)
+        render json: {property_details: body}, status: 200
+      else
+        if params["hash_str"].present?
+          body = Oj.load(Net::HTTP.get(URI.parse(URI.encode("http://52.66.124.42/api/v0/properties/search?hash_str=#{params['hash_str']}"))))
+          render json: {property_details: body}, status: 200
+        else
+          body = []
+          search_hashes = Events::Track.where(buyer_id: buyer.id).where(type_of_tracking: Events::Track::TRACKING_TYPE_MAP[type_of_tracking]).pluck(:hash_str).compact
+          search_hashes.each do |search_hash|
+            body = Oj.load(Net::HTTP.get(URI.parse(URI.encode("http://52.66.124.42/api/v0/properties/search?hash_str=#{search_hash}")))) + body
+          end
+          render json: {search_hashes: search_hashes, property_details: body}
+        end
+      end
     else
       render json: { message: 'Authorization failed' }, status: 401
     end
