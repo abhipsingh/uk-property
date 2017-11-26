@@ -70,10 +70,10 @@ class PropertiesController < ActionController::Base
   def interest_info
     if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
     #if true
-      cache_response(params[:udprn].to_i, []) do
+    #  cache_response(params[:udprn].to_i, []) do
         interest_info = Trackers::Buyer.new.interest_info(params[:udprn].to_i)
         render json: interest_info, status: 200
-      end
+    #  end
     else
       render json: { message: 'Authorization failed' }, status: 401
     end
@@ -85,6 +85,22 @@ class PropertiesController < ActionController::Base
   def supply_info
     supply_info = Trackers::Buyer.new.supply_info(params[:udprn].to_i)
     render json: supply_info, status: 200
+  end
+
+  #### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIi MOtADL0o5NadFJi2Xs4c" 'http://localhost/property/aggregate/supply/10966139'
+  def supply_info_aggregate
+    if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
+      supply_info = Trackers::Buyer.new.supply_info(params[:udprn].to_i)
+      #{"locality":{"Green":0,"Amber":0,"Red":0},"street":{"Green":0,"Amber":0,"Red":0}} 
+      supply_info_aggregate = {}
+      supply_info[:locality] ||= 0
+      supply_info_aggregate[:locality] = supply_info[:locality].map{|k,v| v}.reduce(:+)
+      supply_info[:street] ||= 0
+      supply_info_aggregate[:street] = supply_info[:street].map{|k,v| v}.reduce(:+)
+      render json: supply_info_aggregate, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
   end
 
   #### From supply table, this action gives the data regarding how many buyers are searching for properties

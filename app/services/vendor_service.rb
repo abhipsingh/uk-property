@@ -7,7 +7,7 @@ class VendorService
   end
 
   def send_email_following_agent_lead(agent_id, address)
-    agent_attrs = [ :name, :email, :mobile ]
+    agent_attrs = [ :first_name, :last_name, :email, :mobile ]
     agent_details = Agents::Branches::AssignedAgent.fetch_details(agent_attrs, [ agent_id.to_i ])
     vendor_attrs = [ :email, :name ]
     vendor_details = Vendor.fetch_details(vendor_attrs, [ @vendor_id ])

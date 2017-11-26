@@ -19,7 +19,14 @@ module Agents
       PREMIUM_COST = 25
 
       CURRENT_VALUATION_PERCENT = 0.01
-
+  
+      def name
+        str = self.first_name rescue nil
+        str += ' ' if str
+        str += self.last_name if str
+        str ||= self.last_name
+      end
+ 
       ##### All recent quotes for the agent being displayed
       ##### Data being fetched from this function
       ##### Example run the following in irb
@@ -334,7 +341,7 @@ module Agents
       def create_hash(vendor_email, udprn)
         salt_str = "#{vendor_email}_#{self.id}_#{self.class}"
         hash_value = BCrypt::Password.create salt_str
-        hash_obj = VerificationHash.create!(email: vendor_email, hash_value: hash_value, entity_id: self.id, entity_type: self.class, udprn: udprn.to_i)
+        hash_obj = VerificationHash.create!(email: vendor_email, hash_value: hash_value, entity_id: self.id, entity_type: 'Vendor', udprn: udprn.to_i)
         hash_obj
       end
 

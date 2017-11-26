@@ -173,7 +173,8 @@ class AgentsController < ApplicationController
     agent_id = params[:id].to_i
     agent = Agents::Branches::AssignedAgent.find(agent_id)
     agent_params = params[:agent].as_json
-    agent.name = agent_params['name'] if agent_params['name']
+    agent.first_name = agent_params['first_name'] if agent_params['first_name']
+    agent.last_name = agent_params['last_name'] if agent_params['last_name']
     agent.email = agent_params['email'] if agent_params['email']
     agent.title = agent_params['title'] if agent_params['title']
     agent.mobile = agent_params['mobile'] if agent_params['mobile']
@@ -572,19 +573,6 @@ class AgentsController < ApplicationController
     if !agent.nil?
       sig_header = request.env['HTTP_STRIPE_SIGNATURE']
       payload = request.body.read
-      event = nil
-      begin
-        event = Stripe::Webhook.construct_event(
-          payload, sig_header, Rails.configuration.stripe_signature_secret 
-        )
-      rescue JSON::ParserError => e
-        # Invalid payload
-        status 400
-        render json: { message: 'JSON parser error' }, status: 400
-      rescue Stripe::SignatureVerificationError => e
-        # Invalid signature
-        render json: { message: 'Invalid Signature' }, status: 400
-      end
       begin
         # Create the customer in Stripe
         customer = Stripe::Customer.create(
@@ -592,15 +580,20 @@ class AgentsController < ApplicationController
           card: params[:stripeToken],
           plan: 'agent_monthly_premium_package'
         )
-        Stripe::Charge.create customer: customer.id,
-                              amount: Agents::Branches::AssignedAgents::PREMIUM_COST * 100,
-                              description: 'Agents premium monthly subscription plan',
-                              currency: 'GBP'
+        Rails.logger.info("Heyllo")
+        stripe_subscription = customer.subscriptions.create(:plan => 'agent_monthly_premium_package')
 
         agent.stripe_customer_id = customer.id
         agent.premium_expires_at = 1.month.from_now.to_date
         agent.save!
         render json: { message: 'Created a monthly subscription for premium service' }, status: 200
+      rescue JSON::ParserError => e
+        # Invalid payload
+        status 400
+        render json: { message: 'JSON parser error' }, status: 400
+      rescue Stripe::SignatureVerificationError => e
+        # Invalid signature
+        render json: { message: 'Invalid Signature' }, status: 400
       rescue Exception => e
         Rails.logger.info(e.message)
         render json: { message: 'Unable to create Stripe customer and charge. Please retry again' }, status: 400
@@ -680,10 +673,6 @@ class AgentsController < ApplicationController
     else
       render json: { message: 'Authorization failed' }, status: 401
     end
-  end
-
-  def test_view
-    render "test_view"
   end
 
   private

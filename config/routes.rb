@@ -7,7 +7,7 @@ Rails.application.routes.draw do
   root 'welcome#index'
 
   ### Test view
-  get 'agents/test/view',                    to: 'agents#test_view'
+  get 'agents/test/view',                    to: 'buyers#test_view'
 
   ## JWT based authentication
   post 'authenticate', to: 'authentication#authenticate'
@@ -327,14 +327,42 @@ Rails.application.routes.draw do
   post '/buyers/premium/access',                                to: 'buyers#process_premium_payment'
 
   ### buyers tracking stats
-  get '/buyers/tracking/stats',                                to: 'buyers#tracking_stats'
+  get '/buyers/tracking/stats',                                 to: 'buyers#tracking_stats'
+
+  ### buyers tracking property details
+  get '/buyers/tracking/details',                               to: 'buyers#tracking_details'
 
   ### populate lead visit time by the agent
-  post '/agents/lead/submit/visit/time',                       to: 'leads#submit_lead_visit_time'
+  post '/agents/lead/submit/visit/time',                        to: 'leads#submit_lead_visit_time'
 
   ### Get pricing history for a property
-  get '/property/pricing/history/:udprn',                     to: 'properties#pricing_history'
+  get '/property/pricing/history/:udprn',                       to: 'properties#pricing_history'
 
+  ### Count of matching properties(aggregate) not divided by property_status_type
+  get '/property/aggregate/supply/:udprn',                      to: 'properties#supply_info_aggregate'
+
+  ### Count of matching properties(aggregate) not divided by property_status_type
+  post '/buyers/tracking/remove/:tracking_id',                  to: 'buyers#edit_tracking'
+
+  ### Get pricing history for a property
+  get '/property/pricing/history/:udprn',                       to: 'properties#pricing_history'
+
+  ### Count of matching properties(aggregate) not divided by property_status_type
+  get '/property/aggregate/supply/:udprn',                      to: 'properties#supply_info_aggregate'
+
+  ### For agents subscribe to a premium service
+  post '/agents/subscribe/premium/service',                     to: 'agents#subscribe_premium_service'
+
+  ### For agents info about premium subscription
+  get '/agents/premium/cost',                                   to: 'agents#info_premium'
+
+  ### For agents callback api from stripe
+  post '/agents/premium/subscription/process',                  to: 'agents#process_subscription'
+
+  ### For agents Stripe agents subscription recurring payment 
+  post '/agents/premium/subscription/remove',                   to: 'agents#remove_subscription'
+
+  ### Count of matching properties(aggregate) not divided by property_status_type
   #####################################################################
   #####################################################################
   #####################################################################

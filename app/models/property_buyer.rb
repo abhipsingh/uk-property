@@ -94,3 +94,4 @@ class PropertyBuyer < ActiveRecord::Base
     super(:except => [:password, :password_digest])
   end
 end
+

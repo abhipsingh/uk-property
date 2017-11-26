@@ -51,6 +51,12 @@ module Elasticsearch::Search::Filter
       append_filter_aggregation(field,filter) if @is_agg_filtered
     end
 
+    def append_exists_filter(field)
+      filter = { exists: { field: field } }
+      build_filter_hash(field, filter, :and)
+      return self
+    end
+
     def basic_and_query
        { and: { filters: [] }}
     end

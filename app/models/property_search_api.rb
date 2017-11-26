@@ -12,7 +12,7 @@ class PropertySearchApi
              :agent_id, :district, :udprn, :vendor_id, :postcode, :sector, :unit, :building_name, :building_number, :sub_building_name, :property_status_type, 
              :postcode, :post_town, :thoroughfare_description, :dependent_thoroughfare_description, :dependent_locality, :double_dependent_locality,
              :county, :udprn, :not_yet_built , :is_new_home, :is_retirement_home, :is_shared_ownership, :area ],
-    range: [ :cost_per_month, :date_added, :floors, :year_built, :inner_area, :outer_area, :total_area, :improvement_spend, :beds, :baths, :receptions, :current_valuation, :dream_price ],
+    range: [ :cost_per_month, :date_added, :floors, :year_built, :inner_area, :outer_area, :total_area, :improvement_spend, :beds, :baths, :receptions, :current_valuation, :dream_price, :last_sale_price ],
   }
 
   ES_ATTRS = [
@@ -23,7 +23,7 @@ class PropertySearchApi
               :building_number, :sub_building_name, :cost_per_month, :date_added, :floors, :year_built, 
               :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, 
               :beds, :baths, :receptions, :current_valuation, :dream_price, :not_yet_built, :is_new_home, :is_retirement_home,
-              :is_shared_ownership, :sale_price, :area
+              :is_shared_ownership, :sale_price, :area, :last_sale_price
             ]
 
   ADDRESS_LOCALITY_LEVELS = [:county, :post_town, :dependent_locality, :thoroughfare_description, :dependent_thoroughfare_description,
@@ -129,6 +129,10 @@ class PropertySearchApi
     return body, status
   end
 
+  def increase_size_filter
+    @query[:size] = 100000
+  end
+
   def fetch_udprns
     inst = self
     udprns = []
@@ -136,7 +140,7 @@ class PropertySearchApi
       udprns = [ @filtered_params[:udprn] ]
     elsif @filtered_params[:udprns]
       udprns = @filtered_params[:udprns].split(',')
-    elsif (((FIELDS[:terms] + FIELDS[:term] + FIELDS[:range]) - ADDRESS_LOCALITY_LEVELS - POSTCODE_LEVELS) & @filtered_params.keys).empty?
+    elsif ((((FIELDS[:terms] + FIELDS[:term] + FIELDS[:range]) - ADDRESS_LOCALITY_LEVELS - POSTCODE_LEVELS) & @filtered_params.keys).empty?) &&  @filtered_params[:sort_key].nil?
       query = TestUkp
       ADDRESS_LOCALITY_LEVELS.each do |level|
         column = MatrixViewCount::COLUMN_MAP[level]
@@ -165,14 +169,13 @@ class PropertySearchApi
       end
 
       #### Paginate
-      query = query.limit(@query[:size].to_i)
+      query = query.limit(@query[:size].to_i) if @query[:size]
       query = query.offset(@query[:from].to_i)
       TestUkp.connection.execute("set enable_seqscan to off;")
       query = query.select(:udprn)
       udprns = query.pluck(:udprn)
       TestUkp.connection.execute("set enable_seqscan to on;")
     else
-      Rails.logger.info(inst.query)
       body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name)
       parsed_body = Oj.load(body)['hits']['hits']
       udprns = parsed_body.map { |e|  e['_id'] }
@@ -394,12 +397,13 @@ class PropertySearchApi
   ### def append_premium_or_featured_filter
 
   def append_sort_filters
-    sort_keys = [:budget, :popularity, :rent, :date_added, :valuation, :dream_price, :status_last_updated, :building_number]
+    sort_keys = [:budget, :popularity, :rent, :date_added, :current_valuation, :dream_price, :status_last_updated, :building_number, :last_sale_price]
     inst = self
     sort_key = @filtered_params[:sort_key].to_sym rescue nil
     if sort_keys.include? sort_key
       sort_order = @filtered_params[:sort_order] || "asc"
       inst = inst.append_field_sorting(sort_key,sort_order)
+      inst = inst.append_exists_filter(sort_key)
     end
     inst
   end

@@ -177,8 +177,15 @@ class Trackers::Buyer
     query = query.where(type_of_match: TYPE_OF_MATCH[type_of_match.to_s.downcase.to_sym]) if type_of_match
     query = query.where(buyer_id: buyer_id) if buyer_id && is_premium
     query = query.where(stage: [EVENTS[:closed_won_stage], EVENTS[:closed_lost_stage]]) if closed
-    udprns = fetch_udprns(search_str) if search_str && is_premium
-    query = query.where(udprn: udprns) if search_str && is_premium
+
+    udprns = []
+    if search_str && is_premium
+      res = query.to_a
+      res_udprns = res.map(&:udprn).uniq
+      udprns = fetch_udprns(search_str, res_udprns)
+      query = query.where(udprn: udprns) if search_str && is_premium
+    end
+
     query
   end
 
@@ -315,8 +322,8 @@ class Trackers::Buyer
     ### Filter only the type_of_match which are asked by the caller
     query = filtered_agent_query agent_id: agent_id, search_str: hash_str, last_time: last_time, is_premium: is_premium, buyer_id: buyer_id, type_of_match: type_of_match, is_archived: is_archived, closed: closed
     query = query.where(event: events) if enquiry_type
-    query = query.where(stage: EVENTS[qualifying_stage]) if qualifying_stage
-    query = query.where(rating: EVENTS[rating]) if rating
+    query = query.where(stage: EVENTS[qualifying_stage.to_sym]) if qualifying_stage
+    query = query.where(rating: EVENTS[rating.to_sym]) if rating
     query = query.order('created_at DESC')
     total_rows = query.limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE)
     result = process_enquiries_result(total_rows, agent_id)
@@ -451,109 +458,88 @@ class Trackers::Buyer
   #### TODO: Integrate it with rent
   def demand_info(udprn, property_for='Sale')
     details = PropertyDetails.details(udprn.to_i)['_source']
-    Rails.logger.info(details)
-    table = ''
-    
     #### Similar properties to the udprn
     #### TODO: Remove HACK FOR SOME Results to be shown
     # p details['hashes']
-    default_search_params = {
-      min_beds: details['beds'].to_i - 2,
-      max_beds: details['beds'].to_i + 2,
-      min_baths: details['baths'].to_i - 2 ,
-      max_baths: details['baths'].to_i + 2,
-      min_receptions: details['receptions'].to_i - 2,
-      max_receptions: details['receptions'].to_i + 2,
-      property_status_types: details['property_status_type']
-    }
-    # p default_search_params
 
-    ### analysis for each of the postcode type
-    search_stats = {}
-    [ :district, :sector, :unit ].each do |region_type|
-      ### Default search stats
-      search_stats[region_type] = { perfect_matches: 0, potential_matches: 0, total_matches: 0 }
-
-      search_params = default_search_params.clone
-      search_params[region_type] = details[region_type.to_s]
-      # Rails.logger.info(search_params)
-      search_stats[region_type][:value] = details[region_type.to_s] ### Populate the value of sector, district and unit
-      api = PropertySearchApi.new(filtered_params: search_params)
-      api.apply_filters
-      udprns = []
-      udprns, status = api.fetch_udprns
-      udprns = udprns.map(&:to_i) if status.to_i == 200
-      ### Exclude the current udprn from the result
-      udprns = udprns - [ udprn.to_i ]
-      ### Accumulate data for each udprn
-      type_of_match = TYPE_OF_MATCH[:perfect]
-      event = EVENTS[:save_search_hash]
-
-      query = Event
-
-      search_stats[region_type][:perfect_matches] = Event.unscope(where: :is_archived).where(udprn: udprns).where(event: event).where(type_of_match: type_of_match).count
-
-      type_of_match = TYPE_OF_MATCH[:potential]
-      search_stats[region_type][:potential_matches] = Event.unscope(where: :is_archived).where(udprn: udprns).where(event: event).where(type_of_match: type_of_match).count
-
-      search_stats[region_type][:total_matches] = search_stats[region_type][:perfect_matches] + search_stats[region_type][:potential_matches]
-
-      if search_stats[region_type][:total_matches] > 0
-        search_stats[region_type][:perfect_percent] = ((search_stats[region_type][:perfect_matches].to_f/search_stats[region_type][:total_matches].to_f)*100).round(2)
-        search_stats[region_type][:potential_percent] = ((search_stats[region_type][:potential_matches].to_f/search_stats[region_type][:total_matches].to_f)*100).round(2)
-      else
-        search_stats[region_type][:perfect_percent] = nil
-        search_stats[region_type][:potential_percent] = nil
-      end
+    ### Get the distribution of properties according to their property types which match
+    ### exactly the buyer requirements
+    klass = PropertyBuyer
+    query = klass
+    query = query.where('min_beds <= ?', details[:beds].to_i) if details[:beds]
+    query = query.where('max_beds >= ?', details[:beds].to_i) if details[:beds]
+    query = query.where('min_baths <= ?', details[:baths].to_i) if details[:baths]
+    query = query.where('max_baths >= ?', details[:baths].to_i) if details[:baths]
+    query = query.where('min_receptions <= ?', details[:receptions].to_i) if details[:receptions]
+    query = query.where('max_receptions >= ?', details[:receptions].to_i) if details[:receptions]
+    query = query.where(" ? = ANY(property_types)", details[:property_type]) if details[:property_type]
+    query = query.where.not(status: nil)
+    result_hash = query.group(:status).count
+    
+    distribution = {}
+    PropertyBuyer::STATUS_HASH.each do |key, value|
+      distribution[key] = result_hash[PropertyBuyer::REVERSE_STATUS_HASH[value]]
+      distribution[key] ||= 0
     end
-    search_stats
+    distribution
   end
 
   #### Track the number of similar properties located around that property
   #### Trackers::Buyer.new.supply_info(10966139)
   def supply_info(udprn)
-    details = PropertyDetails.details(udprn.to_i)['_source'] rescue {}
-
+    details = PropertyDetails.details(udprn.to_i)['_source']
     #### Similar properties to the udprn
-    default_search_params = {
-      min_beds: details['beds'].to_i,
-      max_beds: details['beds'].to_i,
-      min_baths: details['baths'].to_i,
-      max_baths: details['baths'].to_i,
-      min_receptions: details['receptions'].to_i,
-      max_receptions: details['receptions'].to_i,
-      property_status_types: details['property_status_type']
-    }
+    #### TODO: Remove HACK FOR SOME Results to be shown
+    default_search_params = {}
+    default_search_params[:max_beds] = default_search_params[:min_beds] = details[:beds].to_i if details[:beds]
+    default_search_params[:min_baths] = default_search_params[:max_baths] = details[:baths].to_i if details[:baths]
+    default_search_params[:min_receptions] = default_search_params[:max_receptions] = details[:receptions].to_i if details[:receptions]
+    default_search_params[:property_type] = details[:property_type] if details[:property_type]
+    # p default_search_params
 
     ### analysis for each of the postcode type
     search_stats = {}
-    [ :district, :sector, :unit ].each do |region_type|
+    street = :thoroughfare_description if details[:thoroughfare_description]
+    street ||= :dependent_thoroughfare_description if details[:dependent_thoroughfare_description]
+
+    [ :dependent_locality, street ].each do |region_type|
       ### Default search stats
-      search_stats[region_type] = { green: 0, amber: 0, red: 0 }
-
-      search_params = default_search_params.clone
-      search_params[region_type] = details[region_type.to_s]
-      search_stats[region_type][:value] = details[region_type.to_s] ### Populate the value of sector, district and unit
-      api = PropertySearchApi.new(filtered_params: search_params)
-      api.apply_filters
-      body, status = api.fetch_data_from_es
-
-      ### Accumulate data for each property searched
-      body.each do |property_info|
-        search_stats[region_type][property_info['property_status_type'].downcase.to_sym] += 1 if property_info['property_status_type']
-      end
-
-      search_stats[region_type][:total] = search_stats[region_type][:green] + search_stats[region_type][:amber] + search_stats[region_type][:red]
-
-      if search_stats[region_type][:total] > 0
-        search_stats[region_type][:green_percent] = ((search_stats[region_type][:green].to_f/search_stats[region_type][:total].to_f)*100).round(2)
-        search_stats[region_type][:amber_percent] = ((search_stats[region_type][:amber].to_f/search_stats[region_type][:total].to_f)*100).round(2)
-        search_stats[region_type][:red_percent] = ((search_stats[region_type][:red].to_f/search_stats[region_type][:total].to_f)*100).round(2)
+      region = region_type
+      if region_type == :thoroughfare_description || region_type == :dependent_thoroughfare_description
+        region = :street
       else
-        search_stats[region_type][:green_percent] = nil
-        search_stats[region_type][:amber_percent] = nil
-        search_stats[region_type][:red_percent] = nil
+        region = :locality
       end
+      search_stats[region] = {}
+
+      results = []
+
+      if details[region_type]
+        hash_str = MatrixViewService.form_hash_str(details, region_type)      
+        search_params = default_search_params.clone
+        search_params[:hash_str] = hash_str
+        search_params[:hash_type] = region_type
+        # Rails.logger.info(search_params)
+        page_counter = 1
+        loop do
+          search_params[:p] = page_counter
+          api = PropertySearchApi.new(filtered_params: search_params)
+          body = []
+          body, status = api.filter
+          break if body[:results].length == 0
+          results += body[:results]
+          page_counter += 1
+        end
+        ### Exclude the current udprn from the result
+        results = results.select{|t| t[:udprn].to_i != udprn.to_i }
+  
+        results.each do |each_result|
+          search_stats[region][each_result[:property_status_type]] ||= 0 if each_result[:property_status_type]
+          search_stats[region][each_result[:property_status_type]] += 1 if each_result[:property_status_type]
+        end
+      end
+      ['Green', 'Amber', 'Red'].each { |status| search_stats[region][status] ||= 0 }
+      
     end
     search_stats
   end
@@ -750,7 +736,6 @@ class Trackers::Buyer
     [ :district, :sector, :unit ].each do |region_type|
       ### Default search stats
       ranking_stats[region_type] = {
-        property_search_ranking: nil,
         view_ranking: nil,
         total_enquiries_ranking: nil,
         tracking_ranking: nil,
@@ -839,18 +824,32 @@ class Trackers::Buyer
     total_rows
   end
 
-  def fetch_udprns(hash_str)
+  def fetch_udprns(hash_str, udprns=[])
     hash_val = { hash_str: hash_str }
     PropertySearchApi.construct_hash_from_hash_str(hash_val)
     if hash_val[:udprn]
       [hash_val[:udprn]]      
-    else
-      hash_val.delete(:hash_str)
+    elsif !udprns.empty?
+      hash_val[:udprns] = udprns.map(&:to_s).join(',')
       api = PropertySearchApi.new(filtered_params: hash_val)
       api.apply_filters
-      udprns, status = api.fetch_udprns
-      if status.to_i == 200
-        udprns
+      api.increase_size_filter
+      udprns, status = api.fetch_udprns 
+      if status.nil?
+        udprns.map(&:to_i)
+      else
+        []
+      end
+    else
+      hash_val[:type] = 'Text'
+      #hash_val.delete(:hash_str)
+      api = PropertySearchApi.new(filtered_params: hash_val)
+      api.modify_filtered_params
+      api.apply_filters
+      api.increase_size_filter
+      udprns, status = api.fetch_udprns 
+      if status.nil?
+        udprns.map(&:to_i)
       else
         []
       end

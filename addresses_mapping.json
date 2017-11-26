@@ -3,7 +3,6 @@
   {"address":
     {
       "_source" : { "enabled" : false },
-      "_all":       { "enabled": false  },
       "properties":{
       "property_type":{"type":"string","index":"not_analyzed"},
       "monitoring_type":{"type":"string","index":"not_analyzed"},
@@ -35,6 +34,7 @@
       "double_dependent_locality":{"type":"string","index":"not_analyzed"},
       "dream_price":{"type":"integer"},
       "sale_price":{"type":"integer"},
+      "price":{"type":"integer"},
       "epc":{"type":"string","index":"not_analyzed"},
       "improvement_spend":{"type":"integer"},
       "post_code":{"type":"string"},
@@ -51,8 +51,9 @@
       "unit":{"type":"string","index":"not_analyzed"},
       "vendor_id":{"type":"integer"},
       "udprn":{"type":"integer"},
-      "verification_status":{"type":"boolean"}
+      "verification_status":{"type":"boolean"},
       "is_new_home":{"type":"boolean"},
       "is_shared_ownershup":{"type":"boolean"},
-      "is_retirement_home":{"type":"boolean"}
+      "is_retirement_home":{"type":"boolean"},
+      "last_sale_price":{"type":"integer"}
 }}}}

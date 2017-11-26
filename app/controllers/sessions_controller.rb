@@ -64,8 +64,7 @@ class SessionsController < ApplicationController
         render json: response, status: status
       else
         agent = Agents::Branches::AssignedAgent.new(agent_params)
-        verification_hash.verified = true
-        if agent.save && verification_hash.save!
+        if agent.save && VerificationHash.where(email: agent_params['email']).update_all({verified: true})
           command = AuthenticateUser.call(agent_params['email'], agent_params['password'], Agents::Branches::AssignedAgent)
           udprns = InvitedAgent.where(email: agent_params['email']).pluck(:udprn)
           client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
@@ -110,8 +109,7 @@ class SessionsController < ApplicationController
       buyer.vendor_id = vendor.id
       buyer.email_id = buyer.email
       buyer.account_type = 'a'
-      verification_hash.verified = true
-      verification_hash.save!
+      VerificationHash.where(email: vendor_params['email']).update_all({verified: true})
       buyer.save!
       vendor.buyer_id = buyer.id
       vendor.save!
@@ -215,8 +213,7 @@ class SessionsController < ApplicationController
     vendor.mobile = buyer_params['mobile']
     buyer = PropertyBuyer.new(buyer_params)
     verification_hash = VerificationHash.where(email: buyer_params['email']).last
-    verification_hash.verified = true if verification_hash
-    if buyer.save! && vendor.save! && verification_hash.save!
+    if buyer.save! && vendor.save! && VerificationHash.where(email: agent_params['email']).update_all({verified: true})
       buyer.vendor_id = vendor.id
       vendor.buyer_id = buyer.id
       vendor.save && buyer.save
@@ -276,3 +273,4 @@ class SessionsController < ApplicationController
   end
 
 end
+

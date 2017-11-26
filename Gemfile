@@ -31,7 +31,7 @@ gem 'rack-cors'
 gem 'redis'
 gem 'pg'
 gem 'figaro'
-gem 'stripe'
+gem 'stripe', '~> 3.8.0'
 
 ### For views
 gem 'bootstrap-sass', '~> 3.3.4.1'

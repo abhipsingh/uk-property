@@ -63,10 +63,6 @@ module EventsHelper
         month = Date.today.month
         time = Time.now.strftime("%Y-%m-%d %H:%M:%S").to_s
         buyer = PropertyBuyer.where(id: buyer_id).select([:name, :email, :mobile]).last
-        agent = Agents::Branches::AssignedAgent.where(id: agent_id).select([:name, :email, :mobile]).last
-        agent_name = agent.name if agent
-        agent_email = agent.email if agent
-        agent_mobile = agent.mobile if agent
         attrs_list = {
           agent_id: agent_id,
           buyer_id: buyer_id,

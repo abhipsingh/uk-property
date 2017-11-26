@@ -39,7 +39,7 @@ class PropertyService
   ADDITIONAL_ATTRS = [:status_last_updated, :sale_prices, :sale_price, :assigned_agent_first_name, :assigned_agent_last_name,
                       :assigned_agent_title, :total_area, :epc, :chain_free, :date_added, :not_yet_built, :is_new_home, :is_retirement_home, :is_shared_ownership, 
                       :description_set, :claimed_by, :listing_category, :price_qualifier, :price, :vendor_first_name, :vendor_last_name,
-                      :vendor_email, :vendor_image_url, :vendor_mobile_number, :description_snapshot, :street_view_image_url ]
+                      :vendor_email, :vendor_image_url, :vendor_mobile_number, :description_snapshot, :street_view_image_url, :last_sale_price ]
 
   COUNTIES = ["Aberdeenshire", "Kincardineshire", "Lincolnshire", "Banffshire", "Hertfordshire", "West Midlands", "Warwickshire", "Worcestershire", "Staffordshire", "Avon", "Somerset", "Wiltshire", "Lancashire", "West Yorkshire", "North Yorkshire", "ZZZZ", "Dorset", "Hampshire", "East Sussex", "West Sussex", "Kent", "County Antrim", "County Down", "Gwynedd", "County Londonderry", "County Armagh", "County Tyrone", "County Fermanagh", "Cumbria", "Cambridgeshire", "Suffolk", "Essex", "South Glamorgan", "Mid Glamorgan", "Cheshire", "Clwyd", "Merseyside", "Surrey", "Angus", "Fife", "Derbyshire", "Dumfriesshire", "Kirkcudbrightshire", "Wigtownshire", "County Durham", "Tyne and Wear", "South Yorkshire", "North Humberside", "South Humberside", "Nottinghamshire", "Midlothian", "West Lothian", "East Lothian", "Peeblesshire", "Middlesex", "Devon", "Cornwall", "Stirlingshire", "Clackmannanshire", "Perthshire", "Lanarkshire", "Dunbartonshire", "Gloucestershire", "Berkshire", "not", "Buckinghamshire", "Herefordshire", "Isle of Lewis", "Isle of Harris", "Isle of Scalpay", "Isle of North Uist", "Isle of Benbecula", "Inverness-shire", "Isle of Barra", "Norfolk", "Ross-shire", "Nairnshire", "Sutherland", "Morayshire", "Isle of Skye", "Ayrshire", "Isle of Arran", "Isle of Cumbrae", "Caithness", "Orkney", "Kinross-shire", "Powys", "Leicestershire", "Leicestershire / ", "Leicestershire / Rutland", "Dyfed", "Bedfordshire", "Northumberland", "Northamptonshire", "Gwent", "Shropshire", "Oxfordshire", "Renfrewshire", "Isle of Bute", "Argyll", "Isle of Gigha", "Isle of Islay", "Isle of Jura", "Isle of Colonsay", "Isle of Mull", "Isle of Iona", "Isle of Tiree", "Isle of Coll", "Isle of Eigg", "Isle of Rum", "Isle of Canna", "Isle of Wight", "West Glamorgan", "Selkirkshire", "Berwickshire", "Roxburghshire", "Isles of Scilly", "Cleveland", "Shetland Islands", "Central London", "East London", "North West London", "North London", "South East London", "South West London", "Central London", "West London"] 
        
@@ -250,7 +250,6 @@ class PropertyService
     details = []
     details = Rails.configuration.ardb_client.mget(*udprns) if udprns.length > 0
     results = details.map{ |detail| process_each_detail(detail) }
-    results.each_with_index{ |detail, index| detail[:udprn] = udprns[index].to_i }
     results
   end
 
@@ -542,6 +541,32 @@ class PropertyService
     nil
   end
 
+  def self.update_last_sale_price
+    ardb_client = Rails.configuration.ardb_client
+    udprns = []
+    count = 0
+    details_arr = []
+    File.foreach('/mnt3/corrected_royal.csv') do |line|
+      udprn = line.split(',')[12]
+      udprns.push(udprn)
+      if udprns.length == 400
+        arr_details = PropertyService.bulk_details(udprns)
+        arr_details.each_with_index do |details, index|
+          details[:price] = details[:sale_price]
+          if details[:sale_prices]
+            details[:last_sale_price] = details[:sale_prices].sort_by{ |t| Date.parse(t['date']) }.last['price']
+            details_arr.push(details)
+          end
+        end
+        udprns = []
+        PropertyService.bulk_set(details_arr)
+        details_arr = []
+      end
+      count += 1
+      p "#{count/10000}" if count % 10000 == 0
+    end
+  end
+
   def self.update_last_sale_prices
     ardb_client = Rails.configuration.ardb_client
     count = 0
@@ -558,8 +583,9 @@ class PropertyService
         arr_details = PropertyService.bulk_details(list_udprns)
         details_arr = []
         arr_details.each_with_index do |details, index|
-          details[:sale_prices] ||= []
-          details[:sale_prices].push({price: udprns[index][2], date: udprns[index][1]})
+          details[:price] = details[:sale_price]
+          #details[:sale_prices] ||= []
+          #details[:sale_prices].push({price: udprns[index][2], date: udprns[index][1]})
           details_arr.push(details)
         end
         PropertyService.bulk_set(details_arr)
@@ -572,6 +598,7 @@ class PropertyService
     arr_details = PropertyService.bulk_details(list_udprns)
     details_arr = []
     arr_details.each_with_index do |details, index|
+      details[:price] = details[:sale_price]
       details[:sale_prices] ||= []
       details[:sale_prices].push({price: udprns[index][2], date: udprns[index][1]})
       details_arr.push(details)

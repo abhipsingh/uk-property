@@ -193,53 +193,54 @@ class EventsController < ApplicationController
 
       unless params[:agent_id].nil?
         #### TODO: Need to fix agents quotes when verified by the vendor
-        search_params = { limit: 100}
-        search_params[:agent_id] = params[:agent_id].to_i
-        property_status_type = params[:property_status_type]
+        agent = Agents::Branches::AssignedAgent.where(id: params[:agent_id].to_i).select([:id, :is_premium]).first
+        if agent
+          search_params = { limit: 10000}
+          search_params[:agent_id] = params[:agent_id].to_i
+          property_status_type = params[:property_status_type]
 
-        property_for = params[:property_for]
-        property_for ||= 'Sale'
+          search_params[:property_status_type] = params[:property_status_type] if params[:property_status_type]
+          search_params[:verification_status] = true if params[:verification_status] == 'true'
+          search_params[:verification_status] = false if params[:verification_status] == 'false'
 
-        search_params[:property_status_type] = 'Green'
-        # search_params[:verification_status] = true
-        search_params[:ads] = params[:ads] if params[:ads] == true
-        property_ids = lead_property_ids = quote_property_ids = active_property_ids = []
-        quote_model = Agents::Branches::AssignedAgents::Quote
-        lead_model = Agents::Branches::AssignedAgents::Lead
-        rent_property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES['Rent']
-        if property_status_type.nil?
-          quote_property_ids = quote_model.where(agent_id: params[:agent_id].to_i)
-                                          .where.not(agent_id: 0)
-                                          .pluck(:property_id)
-          lead_property_ids = lead_model.where(agent_id: params[:agent_id].to_i)
-                                        .where.not(agent_id: 0)
-                                        .pluck(:property_id)
-          property_ids = lead_property_ids + quote_property_ids
-        elsif !property_status_type.nil?
-          quote_property_ids = quote_model.where(agent_id: params[:agent_id].to_i)
-                                          .where.not(agent_id: 0)
-                                          .where(property_status_type: property_status_type)
-                                          .pluck(:property_id)
-          lead_property_ids = lead_model.where(agent_id: params[:agent_id].to_i)
-                                        .where.not(agent_id: 0)
-                                        .where(property_status_type: property_status_type)
-                                        .pluck(:property_id)
-          property_ids = lead_property_ids + quote_property_ids
+          #### Buyer filter
+          if params[:buyer_id] && agent.is_premium
+            buyer = PropertyBuyer.where(id: params[:buyer_id]).select(:vendor_id).first
+            vendor_id = buyer.vendor_id if buyer
+            vendor_id ||= nil
+            search_params[:vendor_id] = vendor_id if vendor_id
+          end
+
+          ### Location filter
+          if agent.is_premium && params[:search_str]
+            search_params[:hash_str] = params[:search_str]
+            search_params[:hash_type] = 'Text'
+          end
+
+          property_ids = []
+          api = PropertySearchApi.new(filtered_params: search_params)
+          api.modify_filtered_params
+          api.apply_filters
+
+          ### THIS LIMIT IS THE MAXIMUM. CAN BE BREACHED IN AN EXCEPTIONAL CASE
+          api.query[:size] = 10000
+          udprns, status = api.fetch_udprns
+          ### Get all properties for whom the agent has won leads
+          property_ids = udprns.map(&:to_i).uniq
+
+          ### If ads filter is applied
+          ad_property_ids = PropertyAd.where(property_id: property_ids).pluck(:property_id) if params[:ads].to_s == 'true' || params[:ads].to_s == 'false'
+
+          property_ids = ad_property_ids if params[:ads].to_s == 'true'
+          property_ids = property_ids - ad_property_ids if params[:ads].to_s == 'false'
+
+          #Rails.logger.info("property ids found for detailed properties (agent) = #{property_ids}")
+          results = property_ids.map { |e| Trackers::Buyer.new.push_events_details(PropertyDetails.details(e)) }
+          results.each_with_index { |t, index| results[index][:ads] = (PropertyAd.where(property_id: t[:udprn]).count > 0) }
+          response = results.empty? ? {"properties" => results, "message" => "No properties to show"} : {"properties" => results}
+        else
+          render json: { message: 'Agent id not found in the db'}, status: 400
         end
-
-        api = PropertySearchApi.new(filtered_params: search_params)
-        api.apply_filters
-        udprns, status = api.fetch_udprns
-        active_property_ids = udprns.map(&:to_i)
-        ### Get all properties for whom the agent has won leads
-        property_ids = (active_property_ids + property_ids).uniq
-
-        ### If ads filter is applied
-        property_ids = PropertyAd.where(udprn: property_ids).pluck(:udprn) if params[:ads]
-        #Rails.logger.info("property ids found for detailed properties (agent) = #{property_ids}")
-        results = property_ids.uniq.map { |e| Trackers::Buyer.new.push_events_details(PropertyDetails.details(e)) }
-        vendor_ids = results.map{ |t| t[:vendor_id] }
-        response = results.empty? ? {"properties" => results, "message" => "No properties to show"} : {"properties" => results}
         #Rails.logger.info "Sending results for detailed properties (agent) => #{results.inspect}"
       else
         response = { message: 'Agent ID mandatory for getting properties' }

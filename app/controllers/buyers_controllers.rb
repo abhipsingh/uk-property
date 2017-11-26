@@ -61,7 +61,8 @@ class BuyersController < ActionController::Base
           udprn: event.udprn,
           hash_str: event.hash_str,
           type_of_tracking:  Events::Track::REVERSE_TRACKING_TYPE_MAP[event.type_of_tracking],
-          created_at: event.created_at
+          created_at: event.created_at,
+          tracking_id: event.id
         }
       end
       render json: results, status: 200
@@ -128,6 +129,8 @@ class BuyersController < ActionController::Base
   end
 
   ### Get tracking filters and find details of properties in type of tracking
+  ### TODO: Net HTTP calls made with hardcoded hostnames to be removed
+  ### TODO: tracking id should be returned or not?
   def tracking_details
     buyer = user_valid_for_viewing?('Buyer')
     if !buyer.nil?
@@ -153,6 +156,22 @@ class BuyersController < ActionController::Base
     else
       render json: { message: 'Authorization failed' }, status: 401
     end
+  end
+
+  ### Edit tracking details
+  # curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c"   "http://localhost/buyers/tracking/remove/:tracking_id"  
+  def edit_tracking
+    buyer = user_valid_for_viewing?('Buyer')
+    if !buyer.nil?
+      destroyed = Events::Track.where(id: params[:tracking_id].to_i).last.destroy
+      render json: { message: 'Destroyed tracking request' }, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  def test_view
+    render "test_view"
   end
 
   private

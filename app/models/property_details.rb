@@ -170,7 +170,7 @@ class PropertyDetails
     previous_agent_id = nil
     previous_agent_id = details[:agent_id] if details[:agent_id] && update_hash[:agent_id] && update_hash[:agent_id] != details[:agent_id]
     
-    begin
+    #begin
       ### Update snapshot of description as well
       ### No of characters = 500
       update_hash[:description_snapshot] = update_hash[:description][0..500] if update_hash[:description]
@@ -182,16 +182,17 @@ class PropertyDetails
       PropertySearchApi::ES_ATTRS.each { |key| es_hash[key] = details[key] if details[key] }
       PropertySearchApi::ADDRESS_LOCALITY_LEVELS.each { |key| es_hash[key] = details[key] if details[key] }
       PropertyService.update_udprn(udprn, details)
-      client.delete index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn
+      client.delete index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn rescue nil
+      #p es_hash
       client.index index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn , body: es_hash
       PropertyService.update_description(udprn, update_hash[:description]) if update_hash[:description]
 
       response = { message: 'Successfully updated' }
-    rescue => e
-      Rails.logger.info "Error updating details for udprn #{udprn} => #{e}"
-      response = {"message" => "Error in updating udprn #{udprn}", "details" => e.message}
-      status = 500
-    end
+    #rescue => e
+    #  Rails.logger.info "Error updating details for udprn #{udprn} => #{e}"
+    #i  response = {"message" => "Error in updating udprn #{udprn}", "details" => e.message}
+     # status = 500
+    #end
     
     ### TODO: Email Offline or Daily
     perform_async_actions(details, update_hash, last_property_status_type, previous_agent_id)

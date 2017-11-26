@@ -18,7 +18,7 @@ module Api
       def search
         api = ::PropertySearchApi.new(filtered_params: params)
         result, status = api.filter
-        result = result[:results].sort_by{|t| t[:score]}.reverse
+        result = result[:results]#.sort_by{|t| t[:score]}.reverse
         result = result.each{|t| t[:photo_urls] = [] }
         result = result.each{ |t| t[:photo_urls] = [ process_image(t) ] + t[:photo_urls] }
         #Rails.logger.info(result)

@@ -12,7 +12,7 @@ class VendorMailer < ApplicationMailer
   end
 
   def agent_lead_expect_visit(vendor, agent, address)
-    @agent_name = agent.name
+    @agent_name = agent.first_name + ' ' + agent.last_name
     @agent_email = agent.email
     @agent_mobile = agent.mobile
     @vendor_name = vendor.name

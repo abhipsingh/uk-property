@@ -1,5 +1,17 @@
-<%= yield :charts_js %> <!-- Rails -->
-<%= Rails.logger.info("HELLO_#{networth_data}") %>
-<%= column_chart networth_data, 
-  colors: ["green", "#FF0000"], 
-  library: {backgroundColor: "#FFF", height: 265} %>
+<div class="plan-container">
+  <ul>
+    <li class="plan">
+      <div class="header">
+        <%= 'Agents premium plan' %>
+      </div>
+      <div class="price">
+        <%= '25' %>
+      </div>
+      <%= form_tag('/subscription_checkout', {method: :post}) do %>
+        <input name="plan_id" type="hidden" value="2"></input>
+        <script class="stripe-button" data-amount="2500" data-currency="gbp" data-email="customer@example.com" data-image="2f81498e7c6b673f33db172c33f016f8f38aa0aa.jpg" data-key="<%= Rails.configuration.stripe[:publishable_key] %>" src="https://checkout.stripe.com/checkout.js"></script>
+      <% end %>
+    </li>
+  </ul>
+</div>
+
