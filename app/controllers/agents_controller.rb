@@ -317,7 +317,7 @@ class AgentsController < ApplicationController
       baths: params[:baths].to_i,
       receptions: params[:receptions].to_i,
       property_id: params[:property_id].to_i,
-      details_completed: true,
+      details_completed: false,
       claimed_on: Time.now.to_s,
       claimed_by: 'Agent'
     }
@@ -580,9 +580,8 @@ class AgentsController < ApplicationController
           card: params[:stripeToken],
           plan: 'agent_monthly_premium_package'
         )
-        Rails.logger.info("Heyllo")
         stripe_subscription = customer.subscriptions.create(:plan => 'agent_monthly_premium_package')
-
+        agent.is_premium = true
         agent.stripe_customer_id = customer.id
         agent.premium_expires_at = 1.month.from_now.to_date
         agent.save!
@@ -631,7 +630,7 @@ class AgentsController < ApplicationController
     if !agent.nil?
       customer_id = agent.stripe_customer_id
       customer = Stripe::Customer.retrieve(customer_id)
-      customer.delete
+      subscription.delete
       render json: { message: 'Unsubscribed succesfully' }, status: 200
     else
       render json: { message: 'Authorization failed' }, status: 401
@@ -670,6 +669,46 @@ class AgentsController < ApplicationController
         }
       end
       render json: { branches: results, count: count }, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  ### Get all the details of the crawled property
+  ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" '/agents/details/property/:property_id'
+  def crawled_property_details
+    agent = user_valid_for_viewing?('Agent')
+    if !agent.nil?
+    #if true
+      crawled_property = Agents::Branches::CrawledProperty.where(id: params[:property_id].to_i).last
+      if crawled_property
+        details = {}
+        details[:beds] = crawled_property.stored_response['beds']
+        details[:baths] = crawled_property.stored_response['baths']
+        details[:receptions] = crawled_property.stored_response['receptions']
+        details[:title] = crawled_property.stored_response['title']
+        details[:assigned_agent_image_url] = crawled_property.stored_response['agent_logo']
+        details[:assigned_agent_image_url] = crawled_property.stored_response['agent_logo']
+        details[:opening_hours] = crawled_property.stored_response['opening_hours']
+        details[:listing_category] = crawled_property.additional_details['listings_category']
+        details[:price] = crawled_property.additional_details['price']
+        details[:floorplan_url] = crawled_property.stored_response['floorplan_url']
+        details[:property_type] = crawled_property.additional_details['property_type']
+        details[:epc] = crawled_property.additional_details['has_epc']
+        details[:total_area] = crawled_property.additional_details['size_sq_feet']
+        details[:total_area] ||= (crawled_property.additional_details['size_sq_metres'].to_f*3.280).to_i if crawled_property.additional_details['size_sq_metres']
+        details[:price_qualifier] = crawled_property.additional_details['price_qualifier']
+        details[:property_style] = crawled_property.additional_details['listing_condition']
+        details[:is_retirement_home] = crawled_property.additional_details['is_retirement_home']
+        highlights = crawled_property.additional_details['property_highlights'].split('|') rescue []
+        main_features = crawled_property.stored_response['features']
+        main_features ||= []
+        details[:additional_features] = main_features + highlights
+        details[:description] = crawled_property.stored_response['description']
+        render json: details, status: 200
+      else
+        render json: { message: 'Property does not exist' }, status: 400
+      end
     else
       render json: { message: 'Authorization failed' }, status: 401
     end

@@ -179,7 +179,7 @@ class MatrixViewController < ActionController::Base
       response = matrix_view_service.process_result
     else
       hash = { hash_str: params[:str] }
-      PropertySearchApi.construct_hash_from_hash_str(hash)
+      PropertySearchApi.construct_hash_from_hash_str(hash) if hash[:hash_str]
       params.delete(:str)
       hash.delete(:hash_str)
       type_of_str(hash)

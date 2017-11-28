@@ -51,12 +51,16 @@ class PropertiesController < ActionController::Base
         page = page.to_i
         udprn = params[:udprn].to_i
         is_premium = @current_user.is_premium rescue false
-        enquiries = EventService.new(udprn: udprn, buyer_id: params[:buyer_id], 
+        event_service = EventService.new(udprn: udprn, buyer_id: params[:buyer_id], 
                                      last_time: params[:latest_time], qualifying_stage: params[:qualifying_stage],
                                      rating: params[:rating], archived: params[:archived], is_premium: is_premium, 
                                      closed: params[:closed])
-                                .property_specific_enquiry_details(page)
-        render json: enquiries, status: 200
+        if @current_user.is_a?(Agents::Branches::AssignedAgent) && event_service.details[:agent_id] != @current_user.id
+          render json: { message: 'The agent does not belong to the property' }, status: 400
+        else
+          enquiries = event_service.property_specific_enquiry_details(page)
+          render json: enquiries, status: 200
+        end
       end
     else
       render json: { message: 'Authorization failed' }, status: 401
@@ -90,13 +94,16 @@ class PropertiesController < ActionController::Base
   #### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIi MOtADL0o5NadFJi2Xs4c" 'http://localhost/property/aggregate/supply/10966139'
   def supply_info_aggregate
     if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
+    #if true
       supply_info = Trackers::Buyer.new.supply_info(params[:udprn].to_i)
       #{"locality":{"Green":0,"Amber":0,"Red":0},"street":{"Green":0,"Amber":0,"Red":0}} 
       supply_info_aggregate = {}
-      supply_info[:locality] ||= 0
+      supply_info[:locality] ||= {"Green"=>0,"Amber"=>0,"Red"=>0}
       supply_info_aggregate[:locality] = supply_info[:locality].map{|k,v| v}.reduce(:+)
-      supply_info[:street] ||= 0
+      supply_info[:street] ||= {"Green"=>0,"Amber"=>0,"Red"=>0}
       supply_info_aggregate[:street] = supply_info[:street].map{|k,v| v}.reduce(:+)
+      supply_info_aggregate[:locality_query_param] = supply_info[:locality_query_param]
+      supply_info_aggregate[:street_query_param] = supply_info[:street_query_param]
       render json: supply_info_aggregate, status: 200
     else
       render json: { message: 'Authorization failed' }, status: 401
@@ -158,10 +165,12 @@ class PropertiesController < ActionController::Base
   def history_enquiries
     enquiry_type = params[:enquiry_type]
     type_of_match = params[:type_of_match].downcase.to_sym if params[:type_of_match]
-    search_str = params[:search_str]
-    cache_parameters = [ :enquiry_type, :type_of_match, :search_str].map{ |t| params[t].to_s }
+    search_str = params[:hash_str]
+    property_status_type = params[:property_status_type]
+    verification_status = params[:verification_status]
+    cache_parameters = [:enquiry_type, :type_of_match, :hash_str].map{ |t| params[t].to_s }
     cache_response(params[:buyer_id].to_i, cache_parameters) do
-      ranking_info = Trackers::Buyer.new.history_enquiries(buyer_id: params[:buyer_id].to_i, enquiry_type: enquiry_type, type_of_match: type_of_match, property_status_type:  nil, search_str: search_str, verified: params[:verified], last_time: params[:latest_time], page_number: params[:page])
+      ranking_info = Trackers::Buyer.new.history_enquiries(buyer_id: params[:buyer_id].to_i, enquiry_type: enquiry_type, type_of_match: type_of_match, property_status_type:  property_status_type, hash_str: search_str, verification_status: verification_status, last_time: params[:latest_time], page_number: params[:page])
       render json: ranking_info, status: status
     end
   end

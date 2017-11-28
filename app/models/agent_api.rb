@@ -78,7 +78,27 @@ class AgentApi
     percent_of_last_valuation = 0
     valuation_events.each do |each_udprn|
       valuations = each_udprn.current_valuation.split('|') 
+      
+      last_valuation = nil
+      duplicate_indexes = []
+      duplicate_indexes = valuations.each_with_index do |curr_valuation, index|
+        if curr_valuation != last_valuation
+          curr_valuation = last_valuation
+        else
+          duplicate_indexes.push(index)
+          next
+        end
+      end
+
       dates = each_udprn.date.split('|').map{|t| Date.parse(t)}
+      modified_dates = []
+
+      dates.each_with_index do |each_date, index|
+        modified_dates.push(each_date) if !duplicate_indexes.include?(index)
+      end
+
+      dates = modified_dates
+
       sold_property_data = sold_property_map[each_udprn.udprn]
       sold_property_data ||= []
       sold_property_data.each do |each_sold_prop_data|

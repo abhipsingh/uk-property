@@ -175,6 +175,11 @@ class PropertyDetails
       ### No of characters = 500
       update_hash[:description_snapshot] = update_hash[:description][0..500] if update_hash[:description]
 
+      ### Check if mandatory attrs completed
+      update_hash[:details_completed] = false
+      details_completed = MANDATORY_ATTRS.all?{|attr| details.has_key?(attr) && !details[attr].nil? }
+      update_hash[:details_completed] = true if details_completed
+
       add_agent_details(details, update_hash[:agent_id]) if update_hash.has_key?(:agent_id) && update_hash[:agent_id] != details[:agent_id]
       PropertyService.attach_vendor_details(update_hash[:vendor_id], details) if update_hash[:vendor_id]
       update_hash.each{|key, value| details[key.to_sym] = value }

@@ -148,6 +148,7 @@ class BuyersController < ActionController::Base
           body = []
           search_hashes = Events::Track.where(buyer_id: buyer.id).where(type_of_tracking: Events::Track::TRACKING_TYPE_MAP[type_of_tracking]).pluck(:hash_str).compact
           search_hashes.each do |search_hash|
+            ### TODO: Fix this. Use internal methods rather than calling the api
             body = Oj.load(Net::HTTP.get(URI.parse(URI.encode("http://52.66.124.42/api/v0/properties/search?hash_str=#{search_hash}")))) + body
           end
           render json: {search_hashes: search_hashes, property_details: body}

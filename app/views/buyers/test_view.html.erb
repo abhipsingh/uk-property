@@ -1,0 +1,18 @@
+<div class="plan-container">
+  <ul>
+    <li class="plan">
+      <div class="header">
+        <%= 'Agents premium plan' %>
+      </div>
+      <div class="price">
+        <%= '25' %>
+      </div>
+      <%= form_tag('/agents/subscribe/premium/service', {method: :post}) do %>
+        <input name="stripeEmail" type="hidden" value="a@b.com"></input>
+        <input name="plan_id" type="hidden" value="2"></input>
+        <script class="stripe-button" data-amount="2500" data-currency="gbp" data-email="a@b.com" data-image="/2f81498e7c6b673f33db172c33f016f8f38aa0aa.jpg" data-key="<%= Rails.configuration.stripe[:publishable_key] %>" src="https://checkout.stripe.com/checkout.js"></script>
+      <% end %>
+    </li>
+  </ul>
+</div>
+

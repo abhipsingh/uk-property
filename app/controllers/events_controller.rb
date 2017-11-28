@@ -212,8 +212,8 @@ class EventsController < ApplicationController
           end
 
           ### Location filter
-          if agent.is_premium && params[:search_str]
-            search_params[:hash_str] = params[:search_str]
+          if agent.is_premium && params[:hash_str]
+            search_params[:hash_str] = params[:hash_str]
             search_params[:hash_type] = 'Text'
           end
 

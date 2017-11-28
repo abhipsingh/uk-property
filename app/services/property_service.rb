@@ -7,7 +7,7 @@ class PropertyService
   ####    1 => 'Lead',
   ####    2 => 'AssignedAgent'
   #### }
-  MANDATORY_ATTRS = [:property_type, :beds, :baths, :receptions, :pictures, :floorplan_url, :current_valuation, :inner_area, :outer_area]
+  MANDATORY_ATTRS = [:property_type, :beds, :baths, :receptions, :pictures, :floorplan_url, :current_valuation, :inner_area, :outer_area, :additional_features]
   EDIT_ATTRS = [
                   :property_type, :beds, :baths, :receptions, :property_style, :tenure, :floors, :listed_status,
                   :year_built, :central_heating, :parking_type, :outside_space_type, :additional_features, :decorative_condition,
@@ -185,9 +185,6 @@ class PropertyService
     ### Assume that details have been completed and are validated.
     ### TODO: Fix validations and delay assigning the attribute till validations are
     ### complete.
-    update_hash[:details_completed] = false
-    details_completed = MANDATORY_ATTRS.all?{|attr| details.has_key?(attr) && !details[attr].nil? }
-    update_hash[:details_completed] = true if details_completed
 
     ### Send the report to the vendor if the agent has submitted the attributes after winning the lead
     ### the details are complete
@@ -402,7 +399,6 @@ class PropertyService
       details[:property_type] = crawled_property_detail.additional_details['property_type'] 
       details[:epc] = crawled_property_detail.additional_details['has_epc'] 
       details[:floorplan_url] = crawled_property_detail.stored_response['floorplan_url']
-      details[:total_area] = crawled_property_detail.additional_details['size_sq_feet']
 
       details[:total_area] = crawled_property_detail.additional_details['size_sq_feet']
       ### If size_sq_metres exists and total_area is unknown

@@ -141,7 +141,7 @@ class Trackers::Buyer
     buyer = buyer_hash[buyer_id]
     if buyer_id && buyer_hash[buyer_id]
       details['buyer_status'] = REVERSE_STATUS_TYPES[buyer_hash[buyer_id].status] rescue nil
-      details['buyer_full_name'] = buyer_hash[buyer_id].first_name + ' ' + buyer_hash[buyer_id].last_name
+      details['buyer_full_name'] = buyer_hash[buyer_id].first_name + ' ' + buyer_hash[buyer_id].last_name rescue ''
       details['buyer_image'] = buyer_hash[buyer_id].image_url
       details['buyer_email'] = buyer_hash[buyer_id].email
       details['buyer_mobile'] = buyer_hash[buyer_id].mobile
@@ -177,7 +177,6 @@ class Trackers::Buyer
     query = query.where(type_of_match: TYPE_OF_MATCH[type_of_match.to_s.downcase.to_sym]) if type_of_match
     query = query.where(buyer_id: buyer_id) if buyer_id && is_premium
     query = query.where(stage: [EVENTS[:closed_won_stage], EVENTS[:closed_lost_stage]]) if closed
-
     udprns = []
     if search_str && is_premium
       res = query.to_a
@@ -501,7 +500,7 @@ class Trackers::Buyer
     search_stats = {}
     street = :thoroughfare_description if details[:thoroughfare_description]
     street ||= :dependent_thoroughfare_description if details[:dependent_thoroughfare_description]
-
+    
     [ :dependent_locality, street ].each do |region_type|
       ### Default search stats
       region = region_type
@@ -514,11 +513,12 @@ class Trackers::Buyer
 
       results = []
 
-      if details[region_type]
+      if details[region_type] && default_search_params.keys.count > 0
         hash_str = MatrixViewService.form_hash_str(details, region_type)      
         search_params = default_search_params.clone
         search_params[:hash_str] = hash_str
         search_params[:hash_type] = region_type
+        search_stats["#{region.to_s}_query_param".to_sym] = search_params.to_query
         # Rails.logger.info(search_params)
         page_counter = 1
         loop do
@@ -541,6 +541,7 @@ class Trackers::Buyer
       ['Green', 'Amber', 'Red'].each { |status| search_stats[region][status] ||= 0 }
       
     end
+
     search_stats
   end
 
@@ -802,53 +803,65 @@ class Trackers::Buyer
 
   ##### History of enquiries made by the user
   ##### Trackers::Buyer.new.history_enquiries(1)
-  def history_enquiries(buyer_id: id, enquiry_type: enquiry=nil, type_of_match: match=nil, property_status_type: status=nil, search_str: str=nil, verified: is_verified=nil, last_time: time=nil, page_number: page=0)
+  def history_enquiries(buyer_id: id, enquiry_type: enquiry=nil, type_of_match: match=nil, property_status_type: status=nil, hash_str: str=nil, verification_status: is_verified=nil, last_time: time=nil, page_number: page=0)
     result = []
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
 
     ### Dummy agent id to form the query. Is removed in the next line
     ### By Default enable search for all buyers
-    query = filtered_agent_query agent_id: 1, search_str: search_str, last_time: last_time, is_premium: true, buyer_id: buyer_id, type_of_match: type_of_match
+    query = filtered_agent_query agent_id: 1, last_time: last_time, buyer_id: buyer_id, type_of_match: type_of_match
     query = query.unscope(where: :agent_id)
     query = query.unscope(where: :is_archived)
     query = query.where(event: EVENTS[enquiry_type.to_sym]) if enquiry_type
+
+    ### Search, verification status and property status type filters
+    udprns = []
+    if hash_str || property_status_type || verification_status
+      res = query.to_a
+      res_udprns = res.map(&:udprn).uniq
+      udprns = fetch_udprns(hash_str, res_udprns, property_status_type, verification_status)
+      query = query.where(udprn: udprns)
+    end
+
     query = query.order('created_at DESC')
     total_rows = query.limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE)
     total_rows = process_enquiries_result(total_rows)
-    total_rows = total_rows.map do |each_row|
-      (next if each_row['property_status_type'] != property_status_type) if property_status_type
-      (next if each_row['verification_status'] != verified) if verified
-      each_row
-    end
 
     total_rows
   end
 
-  def fetch_udprns(hash_str, udprns=[])
+  def fetch_udprns(hash_str, udprns=[], property_status_type=nil, verification_status=nil)
     hash_val = { hash_str: hash_str }
     PropertySearchApi.construct_hash_from_hash_str(hash_val)
     if hash_val[:udprn]
       [hash_val[:udprn]]      
     elsif !udprns.empty?
       hash_val[:udprns] = udprns.map(&:to_s).join(',')
-      api = PropertySearchApi.new(filtered_params: hash_val)
-      api.apply_filters
-      api.increase_size_filter
-      udprns, status = api.fetch_udprns 
-      if status.nil?
-        udprns.map(&:to_i)
-      else
-        []
-      end
-    else
-      hash_val[:type] = 'Text'
-      #hash_val.delete(:hash_str)
+      hash_val[:hash_str] = hash_str
+      hash_val[:property_status_type] = property_status_type if property_status_type
+      hash_val[:verification_status] = verification_status if verification_status
+      hash_val[:hash_type] = 'Text'
       api = PropertySearchApi.new(filtered_params: hash_val)
       api.modify_filtered_params
       api.apply_filters
       api.increase_size_filter
       udprns, status = api.fetch_udprns 
-      if status.nil?
+      if status.to_i == 200
+        udprns.map(&:to_i)
+      else
+        []
+      end
+    else
+      hash_val[:hash_type] = 'Text'
+      #hash_val.delete(:hash_str)
+      hash_val[:property_status_type] = property_status_type if property_status_type
+      hash_val[:verification_status] = verification_status if verification_status
+      api = PropertySearchApi.new(filtered_params: hash_val)
+      api.modify_filtered_params
+      api.apply_filters
+      api.increase_size_filter
+      udprns, status = api.fetch_udprns 
+      if status.to_i == 200
         udprns.map(&:to_i)
       else
         []

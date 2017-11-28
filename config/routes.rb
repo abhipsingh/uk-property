@@ -339,9 +339,6 @@ Rails.application.routes.draw do
   get '/property/pricing/history/:udprn',                       to: 'properties#pricing_history'
 
   ### Count of matching properties(aggregate) not divided by property_status_type
-  get '/property/aggregate/supply/:udprn',                      to: 'properties#supply_info_aggregate'
-
-  ### Count of matching properties(aggregate) not divided by property_status_type
   post '/buyers/tracking/remove/:tracking_id',                  to: 'buyers#edit_tracking'
 
   ### Get pricing history for a property
@@ -361,6 +358,9 @@ Rails.application.routes.draw do
 
   ### For agents Stripe agents subscription recurring payment 
   post '/agents/premium/subscription/remove',                   to: 'agents#remove_subscription'
+
+  ### For agents, get the details of the crawled property
+  get '/agents/details/property/:property_id',                  to: 'agents#crawled_property_details'
 
   ### Count of matching properties(aggregate) not divided by property_status_type
   #####################################################################

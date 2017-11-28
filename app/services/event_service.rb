@@ -196,15 +196,24 @@ class EventService
     new_row = {}
     new_row[:id] = each_row.id
     new_row[:received] = each_row.created_at
-    new_row[:type_of_enquiry] = REVERSE_EVENTS[each_row.event]
-    new_row[:buyer_id] = each_row.buyer_id
-    new_row[:property_tracking] = total_trackings
-    new_row[:views] = view_ratio(each_row.buyer_id)
-    new_row[:enquiries] = enquiry_ratio(each_row.buyer_id)
-    new_row[:type_of_match] = REVERSE_TYPE_OF_MATCH[each_row.type_of_match]
-    qualifying_stage_detail_for_enquiry(each_row.buyer_id, new_row, each_row)
-    new_row[:stage] = REVERSE_EVENTS[each_row.stage]
-    new_row[:hotness] = REVERSE_EVENTS[enquiry.rating]
+    if @details[:verification_status].to_s == 'true' &&  @details[:details_completed].to_s == 'true'
+      new_row[:type_of_enquiry] = REVERSE_EVENTS[each_row.event]
+      new_row[:buyer_id] = each_row.buyer_id
+      new_row[:property_tracking] = total_trackings
+      new_row[:views] = view_ratio(each_row.buyer_id)
+      new_row[:enquiries] = enquiry_ratio(each_row.buyer_id)
+      new_row[:type_of_match] = REVERSE_TYPE_OF_MATCH[each_row.type_of_match]
+      qualifying_stage_detail_for_enquiry(each_row.buyer_id, new_row, each_row)
+      new_row[:stage] = REVERSE_EVENTS[each_row.stage]
+      new_row[:hotness] = REVERSE_EVENTS[enquiry.rating]
+      new_row[:locked] = false
+    elsif @details[:verification_status].to_s == 'false'
+      new_row[:locked] = true
+      new_row[:reason] = "The vendor not verified yet the property"
+    elsif @details[:details_completed].to_s == 'false'
+      new_row[:locked] = true
+      new_row[:reason] = "All the mandatory attrs are not yet completed"
+    end
     new_row
   end
 

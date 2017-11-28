@@ -130,7 +130,7 @@ class PropertySearchApi
   end
 
   def increase_size_filter
-    @query[:size] = 100000
+    @query[:size] = 10000
   end
 
   def fetch_udprns
@@ -138,8 +138,6 @@ class PropertySearchApi
     udprns = []
     if @filtered_params[:udprn]
       udprns = [ @filtered_params[:udprn] ]
-    elsif @filtered_params[:udprns]
-      udprns = @filtered_params[:udprns].split(',')
     elsif ((((FIELDS[:terms] + FIELDS[:term] + FIELDS[:range]) - ADDRESS_LOCALITY_LEVELS - POSTCODE_LEVELS) & @filtered_params.keys).empty?) &&  @filtered_params[:sort_key].nil?
       query = TestUkp
       ADDRESS_LOCALITY_LEVELS.each do |level|
@@ -175,6 +173,7 @@ class PropertySearchApi
       query = query.select(:udprn)
       udprns = query.pluck(:udprn)
       TestUkp.connection.execute("set enable_seqscan to on;")
+      status = 200
     else
       body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name)
       parsed_body = Oj.load(body)['hits']['hits']
