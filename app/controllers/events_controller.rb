@@ -88,7 +88,7 @@ class EventsController < ApplicationController
     #params_key = "#{params[:agent_id].to_i}_#{params[:enquiry_type]}_#{params[:type_of_match]}_#{params[:qualifying_stage]}_#{params[:rating]}_#{params[:buyer_status]}_#{params[:buyer_funding]}_#{params[:buyer_biggest_problem]}_#{params[:buyer_chain_free]}_#{params[:search_str]}_#{params[:budget_from]}_#{params[:budget_to]}"
     param_list = [ :enquiry_type, :type_of_match, :qualifying_stage, :rating, :buyer_status, :buyer_funding, 
                    :buyer_biggest_problem, :buyer_chain_free, :hash_str, :budget_from, :budget_to, 
-                   :property_for, :archived, :closed ]
+                   :property_for, :archived, :closed, :count ]
     cache_parameters = param_list.map{ |t| params[t].to_s }
     cache_response(params[:agent_id].to_i, cache_parameters) do
       last_time = params[:latest_time]
@@ -96,11 +96,12 @@ class EventsController < ApplicationController
       buyer_id = params[:buyer_id]
       archived = params[:archived]
       closed = params[:closed]
+      count = params[:count].to_s == 'true'
       results = Trackers::Buyer.new.property_enquiry_details_buyer(params[:agent_id].to_i, params[:enquiry_type], params[:type_of_match], 
         params[:qualifying_stage], params[:rating],  
         params[:hash_str], 'Sale', last_time,
-        is_premium, buyer_id, params[:page], archived, closed) if params[:agent_id]
-      final_response = results.empty? ? {"enquiries" => results, "message" => "No quotes to show"} : {"enquiries" => results}
+        is_premium, buyer_id, params[:page], archived, closed, count) if params[:agent_id]
+      final_response = (!results.is_a?(Fixnum) && results.empty?) ? {"enquiries" => results, "message" => "No enquiries to show"} : {"enquiries" => results}
       render json: final_response, status: status
     end
   end
@@ -122,10 +123,11 @@ class EventsController < ApplicationController
       results = []
       response = {}
       status = 200
+      count = params[:count].to_s == 'true'
       #begin
         agent = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i)
-        results = agent.recent_properties_for_quotes(params[:payment_terms], params[:services_required], params[:quote_status], params[:hash_str], 'Sale', params[:buyer_id], agent.is_premium, params[:page]) if params[:agent_id]
-        response = results.empty? ? { quotes: results, message: 'No quotes to show' } : { quotes: results}
+        results = agent.recent_properties_for_quotes(params[:payment_terms], params[:services_required], params[:quote_status], params[:hash_str], 'Sale', params[:buyer_id], agent.is_premium, params[:page], count) if params[:agent_id]
+        response = (!results.is_a?(Fixnum) && results.empty?) ? {"quotes" => results, "message" => "No leads to show"} : {"quotes" => results}
       #rescue => e
       #  Rails.logger.error "Error with agent quotes => #{e}"
       #  response = { quotes: results, message: 'Error in showing quotes', details: e.message}
@@ -156,8 +158,9 @@ class EventsController < ApplicationController
           agent = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i)
           owned_property = params[:manually_added] == 'true' ? true : nil
           owned_property = params[:manually_added] == 'false' ? false : owned_property
-          results = agent.recent_properties_for_claim(agent_status, 'Sale', params[:buyer_id], params[:hash_str], agent.is_premium, params[:page], owned_property)
-          response = results.empty? ? { leads: results, message: 'No leads to show'} : { leads: results}
+          count = params[:count].to_s == 'true'
+          results = agent.recent_properties_for_claim(agent_status, 'Sale', params[:buyer_id], params[:hash_str], agent.is_premium, params[:page], owned_property, count)
+          response = (!results.is_a?(Fixnum) && results.empty?) ? {"leads" => results, "message" => "No leads to show"} : {"leads" => results}
         end
 #      rescue ActiveRecord::RecordNotFound
 #        response = { message: 'Agent not found in database' }
@@ -186,10 +189,11 @@ class EventsController < ApplicationController
   #### curl -XGET 'http://localhost/agents/properties?agent_id=1234'
   #### Filters on property_for, ads
   def detailed_properties
-    cache_parameters = [ :agent_id, :property_status_type, :verification_status, :ads ].map{ |t| params[t].to_s }
+    cache_parameters = [ :agent_id, :property_status_type, :verification_status, :ads , :count].map{ |t| params[t].to_s }
     cache_response(params[:agent_id].to_i, cache_parameters) do
       response = {}
       results = []
+      count = params[:count].to_s == 'true'
 
       unless params[:agent_id].nil?
         #### TODO: Need to fix agents quotes when verified by the vendor
@@ -233,11 +237,16 @@ class EventsController < ApplicationController
 
           property_ids = ad_property_ids if params[:ads].to_s == 'true'
           property_ids = property_ids - ad_property_ids if params[:ads].to_s == 'false'
-
+          results = []
           #Rails.logger.info("property ids found for detailed properties (agent) = #{property_ids}")
-          results = property_ids.map { |e| Trackers::Buyer.new.push_events_details(PropertyDetails.details(e)) }
-          results.each_with_index { |t, index| results[index][:ads] = (PropertyAd.where(property_id: t[:udprn]).count > 0) }
-          response = results.empty? ? {"properties" => results, "message" => "No properties to show"} : {"properties" => results}
+          if agent.is_premium && count
+            results = property_ids.count
+          else
+            results = property_ids.map { |e| Trackers::Buyer.new.push_events_details(PropertyDetails.details(e)) }
+            results.each_with_index { |t, index| results[index][:ads] = (PropertyAd.where(property_id: t[:udprn]).count > 0) }
+          end
+
+          response = (!results.is_a?(Fixnum) && results.empty?) ? {"properties" => results, "message" => "No properties to show"} : {"properties" => results}
         else
           render json: { message: 'Agent id not found in the db'}, status: 400
         end

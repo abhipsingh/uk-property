@@ -311,7 +311,7 @@ class Trackers::Buyer
 
   ##### Agent level mock in console for new enquries coming
   ##### Trackers::Buyer.new.property_enquiry_details_buyer(1234, 'requested_message', nil, nil, nil,nil, nil, nil, nil, nil, nil, nil)
-  def property_enquiry_details_buyer(agent_id, enquiry_type=nil, type_of_match=nil, qualifying_stage=nil, rating=nil, hash_str=nil, property_for='Sale', last_time=nil, is_premium=nil, buyer_id=nil, page_number=0, is_archived=nil, closed=nil)
+  def property_enquiry_details_buyer(agent_id, enquiry_type=nil, type_of_match=nil, qualifying_stage=nil, rating=nil, hash_str=nil, property_for='Sale', last_time=nil, is_premium=nil, buyer_id=nil, page_number=0, is_archived=nil, closed=nil, count=false)
     result = []
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
     ### Process filtered buyer_id only
@@ -323,9 +323,14 @@ class Trackers::Buyer
     query = query.where(event: events) if enquiry_type
     query = query.where(stage: EVENTS[qualifying_stage.to_sym]) if qualifying_stage
     query = query.where(rating: EVENTS[rating.to_sym]) if rating
-    query = query.order('created_at DESC')
-    total_rows = query.limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE)
-    result = process_enquiries_result(total_rows, agent_id)
+    
+    if count && is_premium
+      result = query.count
+    else
+      query = query.order('created_at DESC')
+      total_rows = query.limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE)
+      result = process_enquiries_result(total_rows, agent_id)
+    end
     result
   end
 
@@ -803,13 +808,14 @@ class Trackers::Buyer
 
   ##### History of enquiries made by the user
   ##### Trackers::Buyer.new.history_enquiries(1)
-  def history_enquiries(buyer_id: id, enquiry_type: enquiry=nil, type_of_match: match=nil, property_status_type: status=nil, hash_str: str=nil, verification_status: is_verified=nil, last_time: time=nil, page_number: page=0)
+  def history_enquiries(buyer_id: id, enquiry_type: enquiry=nil, type_of_match: match=nil, property_status_type: status=nil, hash_str: str=nil, verification_status: is_verified=nil, last_time: time=nil, page_number: page=0, count: count_flag=false)
     result = []
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
 
     ### Dummy agent id to form the query. Is removed in the next line
     ### By Default enable search for all buyers
     query = filtered_agent_query agent_id: 1, last_time: last_time, buyer_id: buyer_id, type_of_match: type_of_match
+    query = query.where(buyer_id: buyer_id)
     query = query.unscope(where: :agent_id)
     query = query.unscope(where: :is_archived)
     query = query.where(event: EVENTS[enquiry_type.to_sym]) if enquiry_type
@@ -822,10 +828,14 @@ class Trackers::Buyer
       udprns = fetch_udprns(hash_str, res_udprns, property_status_type, verification_status)
       query = query.where(udprn: udprns)
     end
-
-    query = query.order('created_at DESC')
-    total_rows = query.limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE)
-    total_rows = process_enquiries_result(total_rows)
+    
+    if count
+      total_rows = query.count
+    else
+      query = query.order('created_at DESC')
+      total_rows = query.limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE)
+      total_rows = process_enquiries_result(total_rows)
+    end
 
     total_rows
   end

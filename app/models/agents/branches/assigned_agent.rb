@@ -31,7 +31,7 @@ module Agents
       ##### Data being fetched from this function
       ##### Example run the following in irb
       ##### Agents::Branches::AssignedAgent.last.recent_properties_for_quotes
-      def recent_properties_for_quotes(payment_terms_params=nil, service_required_param=nil, status_param=nil, search_str=nil, property_for='Sale', buyer_id=nil, is_premium=false, page_number=0)
+      def recent_properties_for_quotes(payment_terms_params=nil, service_required_param=nil, status_param=nil, search_str=nil, property_for='Sale', buyer_id=nil, is_premium=false, page_number=0, count=false)
         results = []
 
         won_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']
@@ -66,97 +66,102 @@ module Agents
           udprns = udprns.map(&:to_i)
           query = query.where(property_id: udprns)
         end
-
-        page_number = page_number.to_i
-        #Rails.logger.info(query.to_sql)
-        results = query.order('created_at DESC').limit(PAGE_SIZE).offset(page_number*PAGE_SIZE)
+        
         final_results = []
 
-        results.each do |each_quote|
-          property_details = PropertyDetails.details(each_quote.property_id)['_source']
-          ### Quotes status filter
-          property_id = property_details['udprn'].to_i
-          agent_quote = nil
-          quote_status = nil
-          if each_quote.status == won_status && each_quote.agent_id == self.id
-            quote_status = 'Won'
-          elsif each_quote.status == new_status && each_quote.agent_id.nil?
-            agent_quote = Agents::Branches::AssignedAgents::Quote.where(agent_id: self.id).where(property_id: each_quote.property_id).last
-            agent_quote ? quote_status = 'Pending' : quote_status = 'New'
-          else
-            quote_status = 'Lost'
+        if count && is_premium
+          final_results = query.count
+        else
+          page_number = page_number.to_i
+          #Rails.logger.info(query.to_sql)
+          results = query.order('created_at DESC').limit(PAGE_SIZE).offset(page_number*PAGE_SIZE)
+  
+          results.each do |each_quote|
+            property_details = PropertyDetails.details(each_quote.property_id)['_source']
+            ### Quotes status filter
+            property_id = property_details['udprn'].to_i
+            agent_quote = nil
+            quote_status = nil
+            if each_quote.status == won_status && each_quote.agent_id == self.id
+              quote_status = 'Won'
+            elsif each_quote.status == new_status && each_quote.agent_id.nil?
+              agent_quote = Agents::Branches::AssignedAgents::Quote.where(agent_id: self.id).where(property_id: each_quote.property_id).last
+              agent_quote ? quote_status = 'Pending' : quote_status = 'New'
+            else
+              quote_status = 'Lost'
+            end
+            new_row = {}
+            new_row[:udprn] = property_id
+            new_row[:terms_url] = agent_quote.terms_url if agent_quote
+            new_row[:submitted_on] = agent_quote.created_at.to_s if agent_quote
+            new_row[:status] = quote_status
+            new_row[:property_status_type] = property_details['property_status_type']
+            new_row[:activated_on] = property_details['status_last_updated']
+            new_row[:type] = 'SALE'
+            new_row[:photo_url] = property_details['pictures'] ? property_details['pictures'][0] : "Image not available"
+  
+            new_row = new_row.merge(['property_type', 'beds', 'baths', 'receptions', 'floor_plan_url',
+              'verification_status','asking_price','fixed_price', 'dream_price', 'pictures', 'quotes', 'claimed_on', 'address'].reduce({}) {|h, k| h[k] = property_details[k]; h })
+            new_row['payment_terms'] = nil
+            new_row['payment_terms'] = agent_quote.payment_terms  if agent_quote
+            new_row['services_required'] = Agents::Branches::AssignedAgents::Quote::SERVICES_REQUIRED_HASH[each_quote.service_required.to_s.to_sym]
+            if quote_status == 'New'
+              new_row['quote_details'] = each_quote.quote_details 
+            else
+              new_row['quote_details'] = agent_quote.quote_details 
+            end
+            
+            new_row[:current_agent] = self.name
+            new_row['street_view_url'] = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{property_details['udprn']}/fov_120_#{property_details['udprn']}.jpg"
+            new_row[:latest_valuation] = property_details['current_valuation']
+  
+            ### Historical prices
+            new_row[:historical_prices] = property_details['sale_prices']
+  
+            vendor = Vendor.where(property_id: property_id).first
+            if vendor.present?
+              new_row[:vendor_first_name] = vendor.first_name
+              new_row[:vendor_last_name] = vendor.last_name
+              new_row[:vendor_email] = vendor.email
+              new_row[:vendor_mobile] = vendor.mobile
+              new_row[:vendor_image_url] = vendor.image_url
+            else
+              new_row[:vendor_first_name] = nil
+              new_row[:vendor_last_name] = nil
+              new_row[:vendor_email] = nil
+              new_row[:vendor_mobile] = nil
+              new_row[:vendor_image_url] = nil
+            end
+  
+            ### Branch and logo
+            new_row[:assigned_branch_logo] = self.branch.image_url
+            new_row[:assigned_branch_name] = self.branch.name
+            new_row[:assigned_agent_id] = property_details['agent_id']
+  
+            ### TODO: Fix for multiple lifetimes
+            new_row[:quotes_received] = Agents::Branches::AssignedAgents::Quote.where(property_id: property_id).where.not(agent_id: nil).count
+  
+            ### TODO: Fix for multiple lifetimes
+            #### WINNING AGENT
+            winning_quote = Agents::Branches::AssignedAgents::Quote.where(status: Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won'], property_id: property_id).last
+            if winning_quote
+              new_row[:winning_agent] = winning_quote.agent.name
+              new_row[:quote_price] = winning_quote.compute_price
+              new_row[:quote_accepted] = true
+            else
+              new_row[:winning_quote] = nil
+              new_row[:quote_price] = nil
+              new_row[:quote_accepted] = false
+            end
+            new_row[:deadline] = (each_quote.created_at + max_hours_for_expiry.hours).to_s
+            new_row[:claimed_on] = Time.parse(new_row['claimed_on']).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row['claimed_on']
+            new_row[:submitted_on] = Time.parse(new_row[:submitted_on]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:submitted_on]
+            new_row[:deadline] = Time.parse(new_row[:deadline]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:deadline]
+            new_row[:activated_on] = Time.parse(new_row[:activated_on]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:activated_on]
+  
+            final_results.push(new_row)
+  
           end
-          new_row = {}
-          new_row[:udprn] = property_id
-          new_row[:terms_url] = agent_quote.terms_url if agent_quote
-          new_row[:submitted_on] = agent_quote.created_at.to_s if agent_quote
-          new_row[:status] = quote_status
-          new_row[:property_status_type] = property_details['property_status_type']
-          new_row[:activated_on] = property_details['status_last_updated']
-          new_row[:type] = 'SALE'
-          new_row[:photo_url] = property_details['pictures'] ? property_details['pictures'][0] : "Image not available"
-
-          new_row = new_row.merge(['property_type', 'beds', 'baths', 'receptions', 'floor_plan_url',
-            'verification_status','asking_price','fixed_price', 'dream_price', 'pictures', 'quotes', 'claimed_on', 'address'].reduce({}) {|h, k| h[k] = property_details[k]; h })
-          new_row['payment_terms'] = nil
-          new_row['payment_terms'] = agent_quote.payment_terms  if agent_quote
-          new_row['services_required'] = Agents::Branches::AssignedAgents::Quote::SERVICES_REQUIRED_HASH[each_quote.service_required.to_s.to_sym]
-          if quote_status == 'New'
-            new_row['quote_details'] = each_quote.quote_details 
-          else
-            new_row['quote_details'] = agent_quote.quote_details 
-          end
-          
-          new_row[:current_agent] = self.name
-          new_row['street_view_url'] = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{property_details['udprn']}/fov_120_#{property_details['udprn']}.jpg"
-          new_row[:latest_valuation] = property_details['current_valuation']
-
-          ### Historical prices
-          new_row[:historical_prices] = property_details['sale_prices']
-
-          vendor = Vendor.where(property_id: property_id).first
-          if vendor.present?
-            new_row[:vendor_first_name] = vendor.first_name
-            new_row[:vendor_last_name] = vendor.last_name
-            new_row[:vendor_email] = vendor.email
-            new_row[:vendor_mobile] = vendor.mobile
-            new_row[:vendor_image_url] = vendor.image_url
-          else
-            new_row[:vendor_first_name] = nil
-            new_row[:vendor_last_name] = nil
-            new_row[:vendor_email] = nil
-            new_row[:vendor_mobile] = nil
-            new_row[:vendor_image_url] = nil
-          end
-
-          ### Branch and logo
-          new_row[:assigned_branch_logo] = self.branch.image_url
-          new_row[:assigned_branch_name] = self.branch.name
-          new_row[:assigned_agent_id] = property_details['agent_id']
-
-          ### TODO: Fix for multiple lifetimes
-          new_row[:quotes_received] = Agents::Branches::AssignedAgents::Quote.where(property_id: property_id).where.not(agent_id: nil).count
-
-          ### TODO: Fix for multiple lifetimes
-          #### WINNING AGENT
-          winning_quote = Agents::Branches::AssignedAgents::Quote.where(status: Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won'], property_id: property_id).last
-          if winning_quote
-            new_row[:winning_agent] = winning_quote.agent.name
-            new_row[:quote_price] = winning_quote.compute_price
-            new_row[:quote_accepted] = true
-          else
-            new_row[:winning_quote] = nil
-            new_row[:quote_price] = nil
-            new_row[:quote_accepted] = false
-          end
-          new_row[:deadline] = (each_quote.created_at + max_hours_for_expiry.hours).to_s
-          new_row[:claimed_on] = Time.parse(new_row['claimed_on']).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row['claimed_on']
-          new_row[:submitted_on] = Time.parse(new_row[:submitted_on]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:submitted_on]
-          new_row[:deadline] = Time.parse(new_row[:deadline]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:deadline]
-          new_row[:activated_on] = Time.parse(new_row[:activated_on]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:activated_on]
-
-          final_results.push(new_row)
-
         end
         final_results
       end
@@ -170,7 +175,7 @@ module Agents
       #### To test this function, create the following lead.
       #### Agents::Branches::AssignedAgents::Lead.create(district: "CH45", property_id: 4745413, vendor_id: 1)
       #### Then call the following function for the agent in that district
-      def recent_properties_for_claim(status=nil, property_for='Sale', buyer_id=nil, search_str=nil, is_premium=false, page_number=0, owned_property=nil)
+      def recent_properties_for_claim(status=nil, property_for='Sale', buyer_id=nil, search_str=nil, is_premium=false, page_number=0, owned_property=nil, count)
         district = self.branch.district
         query = Agents::Branches::AssignedAgents::Lead
         vendor = PropertyBuyer.where(id: buyer_id).select(:vendor_id).first if buyer_id
@@ -193,9 +198,13 @@ module Agents
         elsif status == 'Lost'
           query = query.where.not(agent_id: self.id).where.not(agent_id: nil)
         end
-        leads = query.order('created_at DESC').limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE)
-
-        leads.map{|lead| populate_lead_details(lead, status) }
+        
+        if count && is_premium
+          query.count
+        else
+          leads = query.order('created_at DESC').limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE)
+          leads.map{|lead| populate_lead_details(lead, status) }
+        end
       end
 
       def personal_claimed_properties

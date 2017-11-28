@@ -2,7 +2,7 @@ class EventService
   include EventsHelper
 
   attr_accessor :udprn, :agent_id, :vendor_id, :service, :buyer_id, :details, :is_premium, :qualifying_stage, :rating, :archived,
-                :closed
+                :closed, :count
 
    EVENTS = {
     viewed: 2,
@@ -139,7 +139,7 @@ class EventService
   ENQUIRY_PAGE_SIZE = 20
 
 
-  def initialize(udprn: udprn=nil, agent_id: agent_id=nil, vendor_id: vendor_id=nil, buyer_id: buyer_id=nil, last_time: time=nil, qualifying_stage: stage=nil, rating: enquiry_rating=nil, archived: is_archived=nil, is_premium: premium=nil, closed: is_closed=nil)
+  def initialize(udprn: udprn=nil, agent_id: agent_id=nil, vendor_id: vendor_id=nil, buyer_id: buyer_id=nil, last_time: time=nil, qualifying_stage: stage=nil, rating: enquiry_rating=nil, archived: is_archived=nil, is_premium: premium=nil, closed: is_closed=nil, count: count_flag=false)
     @udprn = udprn.to_i
     @agent_id = agent_id
     @vendor_id = vendor_id
@@ -151,6 +151,7 @@ class EventService
     @is_premium = is_premium
     @closed = closed
     @details = PropertyDetails.details(@udprn.to_i)['_source'] if @udprn
+    @count = count
   end
 
   def property_specific_enquiries(page)
@@ -174,21 +175,32 @@ class EventService
 
     ### Archived filter
     query = query.unscope(where: :is_archived).where(is_archived: true) if @archived == true && @is_premium
+    
+    query
 
-    query.order('created_at DESC').limit(ENQUIRY_PAGE_SIZE)
-         .offset(ENQUIRY_PAGE_SIZE*page)
   end
+
+  def order_and_paginate(query, page)
+    query.order('created_at DESC').limit(ENQUIRY_PAGE_SIZE)
+           .offset(ENQUIRY_PAGE_SIZE*page)
+  end
+
 
   def property_specific_enquiry_details(page)
     raise StandardError, 'Udprn is not present ' if @udprn.nil?
     enquiries = property_specific_enquiries(page)
-    enquiry_details = enquiries.map { |enquiry| construct_enquiry_detail(enquiry) }
-    buyer_ids = enquiry_details.map { |enquiry| enquiry[:buyer_id] }
-    buyers = PropertyBuyer.where(id: buyer_ids.flatten).select([:id, :email, :full_name, :mobile, :status, :chain_free, :funding, :biggest_problems, :buying_status, :budget_to, :budget_from, :image_url, :property_types]).order("position(id::text in '#{buyer_ids.join(',')}')")
-    buyer_hash = {}
-    buyers.each { |buyer| buyer_hash[buyer.id] = buyer }
-    enquiry_details.each { |row| add_buyer_details(row, buyer_hash) }
-    enquiry_details
+    if @count && @is_premium
+      enquiries.count  
+    else
+      order_and_paginate(enquiries, page)
+      enquiry_details = enquiries.map { |enquiry| construct_enquiry_detail(enquiry) }
+      buyer_ids = enquiry_details.map { |enquiry| enquiry[:buyer_id] }
+      buyers = PropertyBuyer.where(id: buyer_ids.flatten).select([:id, :email, :full_name, :mobile, :status, :chain_free, :funding, :biggest_problems, :buying_status, :budget_to, :budget_from, :image_url, :property_types]).order("position(id::text in '#{buyer_ids.join(',')}')")
+      buyer_hash = {}
+      buyers.each { |buyer| buyer_hash[buyer.id] = buyer }
+      enquiry_details.each { |row| add_buyer_details(row, buyer_hash) }
+      enquiry_details
+    end
   end
 
   def construct_enquiry_detail(enquiry)
