@@ -1,3 +1,4 @@
-#if Rails.env != "development"
-#  ActionMailer::Base.register_interceptor(RedirectOutgoingMails)
-#end
+if Rails.env != "development"
+  ActionMailer::Base.register_interceptor(RedirectOutgoingMails)
+end
+

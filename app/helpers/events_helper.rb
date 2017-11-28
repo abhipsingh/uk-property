@@ -114,7 +114,7 @@ module EventsHelper
 
           ### Update the property details
           update_hash = { property_status_type: nil, vendor_id: new_vendor_id , sold: true, claimed_on: Time.now.to_s, claimed_by: 'Vendor', agent_id: nil }
-          response = PropertyDetails.update_details(client, property_id, update_hash)
+          response = PropertyService.new(udprn).update_details(update_hash)
   
           ### Archive the enquiries that were received for this property
           Event.where(udprn: property_id).where(is_archived: false).update_all(is_archived: true)

@@ -8,6 +8,7 @@ class Vendor < ActiveRecord::Base
   has_many :leads, class_name: '::Agents::Branches::AssignedAgents::Lead'
 
   REVERSE_STATUS_HASH = STATUS_HASH.invert
+
    def self.from_omniauth(auth)
      new_params = auth.as_json.with_indifferent_access
      where(new_params.slice(:provider, :uid)).first_or_initialize.tap do |user|

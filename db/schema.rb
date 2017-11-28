@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20171127141007) do
+ActiveRecord::Schema.define(version: 20171128162037) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -135,6 +135,7 @@ ActiveRecord::Schema.define(version: 20171127141007) do
     t.boolean  "is_assigned_agent"
     t.string   "terms_url"
     t.boolean  "refund_status",        default: false
+    t.integer  "vendor_id",                            null: false
   end
 
   add_index "agents_branches_assigned_agents_quotes", ["agent_id", "property_id"], name: "quotes_unique_property_agents_idx", unique: true, where: "(agent_id IS NOT NULL)", using: :btree

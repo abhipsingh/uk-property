@@ -23,6 +23,7 @@ class QuoteService
         property_id: @udprn.to_i,
         property_status_type: property_status_type,
         agent_id: agent_id,
+        vendor_id: vendor.id,
         vendor_name: vendor.name,
         vendor_email: vendor.email,
         vendor_mobile: vendor.mobile,
@@ -47,7 +48,7 @@ class QuoteService
   end
 
   def new_quote_for_property(services_required, payment_terms, quote_details, assigned_agent)
-    deadline = 168.hours.from_now.to_s
+    deadline = 48.hours.from_now.to_s
     services_required = Agents::Branches::AssignedAgents::Quote::REVERSE_SERVICES_REQUIRED_HASH[services_required]
     services_required = eval(services_required.to_s)
     status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
@@ -66,6 +67,7 @@ class QuoteService
       is_assigned_agent: assigned_agent,
       service_required: services_required,
       district: district,
+      vendor_id: vendor.id,
       vendor_name: vendor.name,
       vendor_email: vendor.email,
       vendor_mobile: vendor.mobile
@@ -90,7 +92,7 @@ class QuoteService
       klass.where(property_id: @udprn.to_i).where.not(agent_id: nil).where.not(agent_id: agent_id).update_all(status: lost_status)
       client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
       doc = { agent_id: agent_id, agent_status: 2, property_status_type: 'Green' } #### agent_status = 2(agent is actively attached, agent_status = 1, agent submitting pictures and quote)
-      PropertyDetails.update_details(client, @udprn.to_i, doc)
+      PropertyService.new(@udprn.to_i).update_details(@udprn.to_i)
       details = PropertyDetails.details(@udprn.to_i)
 
       ### Deduct agents credits
@@ -108,3 +110,4 @@ class QuoteService
   end
 
 end
+

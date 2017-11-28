@@ -13,6 +13,7 @@ class Agents::Branches::AssignedAgents::Quote < ActiveRecord::Base
     'Won' => 3
   }
 
+  VENDOR_LIMIT = 5
   REVERSE_SERVICES_REQUIRED_HASH = SERVICES_REQUIRED_HASH.invert
 
   REVERSE_STATUS_HASH = STATUS_HASH.invert
