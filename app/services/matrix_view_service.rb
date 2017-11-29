@@ -55,6 +55,19 @@ class MatrixViewService
     ] 
   }
 
+  POSTCODE_ADDRESS_PARENT_MAP = {
+    unit: :dependent_thoroughfare_description,
+    sector: :dependent_locality,
+    district: :post_town
+  }
+
+  ADDRESS_POSTCODE_PARENT_MAP = {
+    post_town: :area,
+    dependent_locality: :district,
+    thoroughfare_description: :district,
+    dependent_thoroughfare_description: :district
+  }
+
   def initialize(hash_str: str)
     @hash_str = hash_str
     @context_hash = self.class.construct_hash_from_hash_str(@hash_str)
@@ -64,12 +77,47 @@ class MatrixViewService
   def type_of_str(hash)
     type = PropertySearchApi::ADDRESS_LOCALITY_LEVELS.reverse.select{ |t| hash[t] }.first
     postcode_locality_type ||= PropertySearchApi::POSTCODE_LEVELS.reverse.select { |e| hash[e] }.first
-    if type == :post_town && postcode_locality_type == :district
-      type = :district
+    if type == :post_town && ([:district, :sector, :unit].include?(postcode_locality_type))
+      type = postcode_locality_type
     else
       type ||= postcode_locality_type
     end 
     hash[:type] = type
+  end
+
+  def self.form_hash(context_hash, type)
+    if context_hash[:county].nil?
+      context_hash[:county] = MatrixViewCount::COUNTY_MAP[context_hash[:post_town].upcase]
+    end
+
+    address_strs = []
+    address_stop_index = postcode_stop_index = nil
+    if PropertySearchApi::ADDRESS_LOCALITY_LEVELS.index(type)
+      postcode_stop_level = ADDRESS_POSTCODE_PARENT_MAP[type]
+      postcode_stop_level ||= :area
+      address_stop_index = PropertySearchApi::ADDRESS_LOCALITY_LEVELS.index(type)
+      postcode_stop_index = PropertySearchApi::POSTCODE_LEVELS.reverse.index(postcode_stop_level)
+      postcode_stop_index ||= -1
+    else
+      address_stop_level = POSTCODE_ADDRESS_PARENT_MAP[type]
+      postcode_stop_level = type
+      address_stop_index = PropertySearchApi::ADDRESS_LOCALITY_LEVELS.index(address_stop_level)
+      postcode_stop_index = PropertySearchApi::POSTCODE_LEVELS.reverse.index(type)
+    end
+
+    PropertySearchApi::ADDRESS_LOCALITY_LEVELS.each_with_index do |level, index|
+      value = val(context_hash, level).to_s
+      value = '@' if index > address_stop_index
+      address_strs.push(value.to_s)
+    end
+
+    postcode_strs = []
+    PropertySearchApi::POSTCODE_LEVELS.reverse.each_with_index do |level, index|
+      value = val(context_hash, level)
+      value = '@' if index > postcode_stop_index
+      postcode_strs.push(value)
+    end
+    address_strs.join('_') + '|' + postcode_strs.reverse.join('_')
   end
 
   def self.form_hash_str(context_hash, type)
@@ -104,18 +152,18 @@ class MatrixViewService
       sector = '@' if sector.blank?
       "@_#{pt}_#{dl}_#{context_hash[:thoroughfare_description]}_@_@_@_@_@|@_#{sector}_#{context_hash[:district]}"
     elsif type == :district
-      area = context_hash[:area]
-      pt = context_hash[:post_town]
-      !area.nil? ? pt = '@' : pt = pt
-      pt = '@' if pt.blank?
-      "@_#{pt}_@_@_@_@_@_@_@|@_@_#{context_hash[:district]}"
+      form_hash(context_hash, :district)
     elsif type == :sector
-      dl = "#{context_hash[:dependent_locality]}"
-      dl = "@" if dl == ''
-      "@_@_#{dl}_@_@_@_@_@_@|@_#{context_hash[:sector]}_@"
+      form_hash(context_hash, :sector)
     elsif type == :unit
-      "@_@_@_@_@_@_@_@_@|#{context_hash[:unit]}_@_@"
+      form_hash(context_hash, :unit)
     end
+  end
+
+  def self.val(hash, key)
+    val = hash[key]
+    val ||= '@'
+    val
   end
 
   def self.construct_hash_from_hash_str(hash)

@@ -413,18 +413,10 @@ Rails.application.routes.draw do
     end
   end
 
-  # namespace :rents do
-  #   get 'agents/enquiries/new/:agent_id',                   to: 'agents_controller#agent_new_enquiries_rent'
-  #   get 'rents/agents/properties/:agent_id',                to: 'agents_controller#detailed_properties_rent'
-  #   get 'rents/agents/properties/recent/claims/:agent_id',  to: 'agents_controller#recent_properties_for_claim_rent'
-  #   get 'rents/agents/properties/recent/quotes/:agent_id',  to: 'agents_controller#recent_properties_for_quotes_rent'
-  # end
-
-
-  resources :charges
 
   ### Facebook login routes
   get 'auth/:provider/callback',                  to: 'sessions#create'
   get 'signout',                                  to: 'sessions#destroy', as: 'signout'
   resources 'sessions',                           only: [:create, :destroy]
 end
+

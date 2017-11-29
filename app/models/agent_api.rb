@@ -43,7 +43,7 @@ class AgentApi
     aggregate_stats[:payment_terms] = nil
     aggregate_stats[:payment_terms] = quote.payment_terms if quote
     aggregate_stats[:quote_details] = quote.quote_details if quote
-    aggregate_stats[:deadline] = Time.parse((quote.created_at + 24.hours).to_s).strftime("%Y-%m-%dT%H:%M:%SZ")
+    aggregate_stats[:deadline] = Time.parse((quote.created_at + 24.hours).to_s).strftime("%Y-%m-%dT%H:%M:%SZ") if quote
     aggregate_stats[:terms_url] = quote.terms_url if quote
     aggregate_stats[:services_required] = Agents::Branches::AssignedAgents::Quote::SERVICES_REQUIRED_HASH[quote.service_required.to_s.to_sym] if quote
     aggregate_stats
@@ -61,12 +61,11 @@ class AgentApi
     sold_property_map = {}
     avg_increase_in_price = 0
     sold_properties.each do |each_prop|
-      sale_price = PropertyEvent.where(agent_id: @agent_id).where(udprn: each_prop.udprn).where("attr_hash ? 'price'").last.price #### There might be multiple times an agent can be attached to this property TODO
+      sale_price = PropertyEvent.where(agent_id: @agent_id).where(udprn: each_prop.udprn).where("attr_hash ? 'price'").last.attr_hash['price'] #### There might be multiple times an agent can be attached to this property TODO
       avg_increase_in_price += (((each_prop.sale_price - sale_price).to_f)/(each_prop.sale_price.to_f)*100).round(2)
 
       sold_property_map[each_prop.udprn] = each_prop
     end
-
     ### Avg increase in price
     avg_increase_in_price = (avg_increase_in_price.to_f)/(sold_property_count.to_f)
 
@@ -99,9 +98,10 @@ class AgentApi
 
       dates = modified_dates
 
-      sold_property_data = sold_property_map[each_udprn.udprn]
+      sold_property_data = [ sold_property_map[each_udprn.udprn] ].compact
       sold_property_data ||= []
       sold_property_data.each do |each_sold_prop_data|
+        total_days_to_sell ||= 1
         total_days_to_sell += each_sold_prop_data.completion_date - dates.sort.first
 
         ### for finding first and last valuation

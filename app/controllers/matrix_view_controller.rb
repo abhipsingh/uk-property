@@ -70,7 +70,7 @@ class MatrixViewController < ActionController::Base
         counter += 1
       elsif text.start_with?('district') 
         output = "#{details[counter]['district']}, #{details[counter]['post_town']}"
-        hash = "@_#{details[counter]['post_town']}_@_@_@_@_@_@_@|@_@_#{details[counter]['district']}"
+        hash = MatrixViewService.form_hash(details[counter], :district)
         final_predictions.push({ hash: hash, output: output, type: 'district' })
         counter += 1
       elsif text.start_with?('sector') 
@@ -78,15 +78,14 @@ class MatrixViewController < ActionController::Base
         dl = nil
         details[counter]['dependent_locality'].nil? ? loc = '' : loc = ", #{details[counter]['dependent_locality']}"
         output = "#{details[counter]['sector']}#{loc}"
-        details[counter]['dependent_locality'].nil? ? dl = '@' : dl = details[counter]['dependent_locality']
-        hash = "@_@_#{dl}_@_@_@_@_@_@|@_#{details[counter]['sector']}_@"
+        hash = MatrixViewService.form_hash(details[counter], :sector)
         final_predictions.push({ hash: hash, output: output, type: 'sector' })
         counter += 1
       elsif text.start_with?('unit')
         street = nil
         details[counter]['dependent_thoroughfare_description'].nil? ? street = details[counter]['thoroughfare_description'] : street = details[counter]['dependent_thoroughfare_description']
         output = "#{details[counter]['unit']}, #{street}"
-        hash = "@_@_@_@_@_@_@_@_@|#{details[counter]['unit']}_@_@"
+        hash = MatrixViewService.form_hash(details[counter], :unit)
         final_predictions.push({ hash: hash, output: output, type: 'unit' })
         counter += 1
       elsif text.start_with?('post_town') || text.start_with?('county')

@@ -177,7 +177,7 @@ class PropertyDetails
 
       ### Check if mandatory attrs completed
       update_hash[:details_completed] = false
-      details_completed = MANDATORY_ATTRS.all?{|attr| details.has_key?(attr) && !details[attr].nil? }
+      details_completed = PropertyService::MANDATORY_ATTRS.all?{|attr| details.has_key?(attr) && !details[attr].nil? }
       update_hash[:details_completed] = true if details_completed
 
       add_agent_details(details, update_hash[:agent_id]) if update_hash.has_key?(:agent_id) && update_hash[:agent_id] != details[:agent_id]
@@ -227,15 +227,21 @@ class PropertyDetails
     filtered_new_hash = {}
     TRACKING_ATTRS.each{ |t| filtered_new_hash[t] = new_hash[t] if new_hash[t] }
     if !filtered_new_hash.empty?
+      agent_id = old_hash[:agent_id]
+      agent_id ||= new_hash[:agent_id]
+
+      vendor_id = old_hash[:vendor_id]
+      vendor_id ||= new_hash[:vendor_id]
+
       PropertyEvent.create(
         udprn: old_hash[:udprn],
         attr_hash: filtered_new_hash,
-        agent_id: old_hash[:agent_id],
-        vendor_id: old_hash[:vendor_id]
+        agent_id: agent_id,
+        vendor_id: vendor_id
        )
      end
 
-    if new_hash[:agent_id] 
+    if new_hash[:agent_id]
       ardb_client = Rails.configuration.ardb_client
       ardb_client.del("cache_#{new_hash[:agent_id]}_agent_new_enquiries") if previous_agent_id
     end

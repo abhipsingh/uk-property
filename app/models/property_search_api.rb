@@ -11,7 +11,7 @@ class PropertySearchApi
     term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :floorplan, :chain_free, :council_tax_band, :verification_status, 
              :agent_id, :district, :udprn, :vendor_id, :postcode, :sector, :unit, :building_name, :building_number, :sub_building_name, :property_status_type, 
              :postcode, :post_town, :thoroughfare_description, :dependent_thoroughfare_description, :dependent_locality, :double_dependent_locality,
-             :county, :udprn, :not_yet_built , :is_new_home, :is_retirement_home, :is_shared_ownership, :area ],
+             :county, :udprn, :not_yet_built , :is_new_home, :is_retirement_home, :is_shared_ownership, :area, :property_type ],
     range: [ :cost_per_month, :date_added, :floors, :year_built, :inner_area, :outer_area, :total_area, :improvement_spend, :beds, :baths, :receptions, :current_valuation, :dream_price, :last_sale_price ],
   }
 
@@ -136,9 +136,10 @@ class PropertySearchApi
   def fetch_udprns
     inst = self
     udprns = []
+    range_fields = FIELDS[:range].map{|t| ["max_#{t.to_s}".to_sym, "min_#{t.to_s}".to_sym] }.flatten
     if @filtered_params[:udprn]
       udprns = [ @filtered_params[:udprn] ]
-    elsif ((((FIELDS[:terms] + FIELDS[:term] + FIELDS[:range]) - ADDRESS_LOCALITY_LEVELS - POSTCODE_LEVELS) & @filtered_params.keys).empty?) &&  @filtered_params[:sort_key].nil?
+    elsif ((((FIELDS[:terms] + FIELDS[:term] +range_fields) - ADDRESS_LOCALITY_LEVELS - POSTCODE_LEVELS) & @filtered_params.keys).empty?) &&  @filtered_params[:sort_key].nil?
       query = TestUkp
       ADDRESS_LOCALITY_LEVELS.each do |level|
         column = MatrixViewCount::COLUMN_MAP[level]
@@ -173,8 +174,10 @@ class PropertySearchApi
       query = query.select(:udprn)
       udprns = query.pluck(:udprn)
       TestUkp.connection.execute("set enable_seqscan to on;")
+      Rails.logger.info("POSTGRES_QUERY_#{query.to_sql}")
       status = 200
     else
+      Rails.logger.info("ES_QUERY_#{inst.query}")
       body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name)
       parsed_body = Oj.load(body)['hits']['hits']
       udprns = parsed_body.map { |e|  e['_id'] }
