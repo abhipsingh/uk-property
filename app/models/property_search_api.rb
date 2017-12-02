@@ -103,7 +103,6 @@ class PropertySearchApi
     modify_filtered_params
     inst.apply_filters
     inst.modify_query
-    Rails.logger.info(inst.query)
     body, status = fetch_data_from_es
     return { results: body }, status
   end
@@ -143,8 +142,10 @@ class PropertySearchApi
       query = TestUkp
       ADDRESS_LOCALITY_LEVELS.each do |level|
         column = MatrixViewCount::COLUMN_MAP[level]
-        value = MatrixViewCount::POST_TOWNS.index(@filtered_params[level].upcase) + 1 if level == :post_town && @filtered_params[level]
-        value = MatrixViewCount::COUNTIES.index(@filtered_params[level]) + 1 if level == :county && @filtered_params[level]
+        pt_index = MatrixViewCount::POST_TOWNS.index(@filtered_params[level].upcase) + 1  if level == :post_town && @filtered_params[level]
+        pt_index = pt_index - 1 if pt_index && pt_index < 76 && pt_index ### British Air force post town
+        value = pt_index if level == :post_town && @filtered_params[level]
+        value = MatrixViewCount::COUNTIES.index(@filtered_params[level]) if level == :county && @filtered_params[level]
 #        value ||= @filtered_params[level]
         value ||= @filtered_params[level]
         query = query.where("#{column} = ?", value) if @filtered_params[level]

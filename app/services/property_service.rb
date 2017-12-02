@@ -41,7 +41,7 @@ class PropertyService
                       :description_set, :claimed_by, :listing_category, :price_qualifier, :price, :vendor_first_name, :vendor_last_name,
                       :vendor_email, :vendor_image_url, :vendor_mobile_number, :description_snapshot, :street_view_image_url, :last_sale_price ]
 
-  COUNTIES = ["Aberdeenshire", "Kincardineshire", "Lincolnshire", "Banffshire", "Hertfordshire", "West Midlands", "Warwickshire", "Worcestershire", "Staffordshire", "Avon", "Somerset", "Wiltshire", "Lancashire", "West Yorkshire", "North Yorkshire", "ZZZZ", "Dorset", "Hampshire", "East Sussex", "West Sussex", "Kent", "County Antrim", "County Down", "Gwynedd", "County Londonderry", "County Armagh", "County Tyrone", "County Fermanagh", "Cumbria", "Cambridgeshire", "Suffolk", "Essex", "South Glamorgan", "Mid Glamorgan", "Cheshire", "Clwyd", "Merseyside", "Surrey", "Angus", "Fife", "Derbyshire", "Dumfriesshire", "Kirkcudbrightshire", "Wigtownshire", "County Durham", "Tyne and Wear", "South Yorkshire", "North Humberside", "South Humberside", "Nottinghamshire", "Midlothian", "West Lothian", "East Lothian", "Peeblesshire", "Middlesex", "Devon", "Cornwall", "Stirlingshire", "Clackmannanshire", "Perthshire", "Lanarkshire", "Dunbartonshire", "Gloucestershire", "Berkshire", "not", "Buckinghamshire", "Herefordshire", "Isle of Lewis", "Isle of Harris", "Isle of Scalpay", "Isle of North Uist", "Isle of Benbecula", "Inverness-shire", "Isle of Barra", "Norfolk", "Ross-shire", "Nairnshire", "Sutherland", "Morayshire", "Isle of Skye", "Ayrshire", "Isle of Arran", "Isle of Cumbrae", "Caithness", "Orkney", "Kinross-shire", "Powys", "Leicestershire", "Leicestershire / ", "Leicestershire / Rutland", "Dyfed", "Bedfordshire", "Northumberland", "Northamptonshire", "Gwent", "Shropshire", "Oxfordshire", "Renfrewshire", "Isle of Bute", "Argyll", "Isle of Gigha", "Isle of Islay", "Isle of Jura", "Isle of Colonsay", "Isle of Mull", "Isle of Iona", "Isle of Tiree", "Isle of Coll", "Isle of Eigg", "Isle of Rum", "Isle of Canna", "Isle of Wight", "West Glamorgan", "Selkirkshire", "Berwickshire", "Roxburghshire", "Isles of Scilly", "Cleveland", "Shetland Islands", "Central London", "East London", "North West London", "North London", "South East London", "South West London", "Central London", "West London"] 
+  COUNTIES = ["Aberdeenshire", "Kincardineshire", "Lincolnshire", "Banffshire", "Hertfordshire", "West Midlands", "Warwickshire", "Worcestershire", "Staffordshire", "Avon", "Somerset", "Wiltshire", "Lancashire", "West Yorkshire", "North Yorkshire", "ZZZZ", "Dorset", "Hampshire", "East Sussex", "West Sussex", "Kent", "County Antrim", "County Down", "Gwynedd", "County Londonderry", "County Armagh", "County Tyrone", "County Fermanagh", "Cumbria", "Cambridgeshire", "Suffolk", "Essex", "South Glamorgan", "Mid Glamorgan", "Cheshire", "Clwyd", "Merseyside", "Surrey", "Angus", "Fife", "Derbyshire", "Dumfriesshire", "Kirkcudbrightshire", "Wigtownshire", "County Durham", "Tyne and Wear", "South Yorkshire", "North Humberside", "South Humberside", "Nottinghamshire", "Midlothian", "West Lothian", "East Lothian", "Peeblesshire", "Middlesex", "Devon", "Cornwall", "Stirlingshire", "Clackmannanshire", "Perthshire", "Lanarkshire", "Dunbartonshire", "Gloucestershire", "Berkshire", "not", "Buckinghamshire", "Herefordshire", "Isle of Lewis", "Isle of Harris", "Isle of Scalpay", "Isle of North Uist", "Isle of Benbecula", "Inverness-shire", "Isle of Barra", "Norfolk", "Ross-shire", "Nairnshire", "Sutherland", "Morayshire", "Isle of Skye", "Ayrshire", "Isle of Arran", "Isle of Cumbrae", "Caithness", "Orkney", "Kinross-shire", "Powys", "Leicestershire", "Leicestershire / ", "Leicestershire / Rutland", "Dyfed", "Bedfordshire", "Northumberland", "Northamptonshire", "Gwent", "Shropshire", "Oxfordshire", "Renfrewshire", "Isle of Bute", "Argyll", "Isle of Gigha", "Isle of Islay", "Isle of Jura", "Isle of Colonsay", "Isle of Mull", "Isle of Iona", "Isle of Tiree", "Isle of Coll", "Isle of Eigg", "Isle of Rum", "Isle of Canna", "Isle of Wight", "West Glamorgan", "Selkirkshire", "Berwickshire", "Roxburghshire", "Isles of Scilly", "Cleveland", "Shetland Islands", "Central London", "East London", "North West London", "North London", "South East London", "South West London", "West London"] 
        
   DETAIL_ATTRS = LOCALITY_ATTRS + AGENT_ATTRS + VENDOR_ATTRS + EXTRA_ATTRS + POSTCODE_ATTRS + EDIT_ATTRS + ADDITIONAL_ATTRS
 
@@ -83,11 +83,13 @@ class PropertyService
       update_hash[:vendor_first_name] = vendor.first_name
       update_hash[:vendor_last_name] = vendor.last_name
       update_hash[:vendor_image_url] = vendor.image_url
+      update_hash[:vendor_email] = vendor.email
       update_hash[:vendor_mobile_number] = vendor.mobile
     else
       update_hash[:vendor_first_name] = nil  
       update_hash[:vendor_last_name] = nil  
       update_hash[:vendor_image_url] = nil
+      update_hash[:vendor_email] = nil
       update_hash[:vendor_mobile_number] = nil
     end
   end
@@ -141,9 +143,6 @@ class PropertyService
   def claim_new_property_manual(agent_id, owned_property=true)
     message, status = nil
     details = PropertyDetails.details(udprn)
-    details['property_status_type'] = 'Sale' if property_for == 'Sale'
-    details['property_status_type'] ||= 'Sale'
-    property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[details['property_status_type']]
     Agents::Branches::AssignedAgents::Lead.create!(
       district: details['district'], 
       property_id: udprn,
@@ -174,13 +173,7 @@ class PropertyService
     client = Elasticsearch::Client.new(host: Rails.configuration.remote_es_host)
     details = details.with_indifferent_access
     update_hash = {}
-    attributes = EDIT_ATTRS + [ :property_status_type, :description ]
-    earlier_details = details.deep_dup
-    property_details = PropertyDetails.details(@udprn)['_source'].with_indifferent_access
-    details.merge!(property_details)
-    attributes.each do |attribute|
-      update_hash[attribute] = earlier_details[attribute] if earlier_details[attribute]
-    end
+    attributes = EDIT_ATTRS + [ :property_status_type, :description, :agent_id ]
 
     ### Assume that details have been completed and are validated.
     ### TODO: Fix validations and delay assigning the attribute till validations are
@@ -188,12 +181,15 @@ class PropertyService
 
     ### Send the report to the vendor if the agent has submitted the attributes after winning the lead
     ### the details are complete
+		attributes.each do |attribute|
+      update_hash[attribute] = details[attribute] if details[attribute]
+    end
     vendor_id = details[:vendor_id]
     agent_id = details[:agent_id]
     cond = !vendor_id.nil? && !agent_id.nil? && details[:agent_status] == AGENT_STATUS[:lead] && details_completed
     VendorService.new(vendor_id).send_email_following_agent_details_submission(agent_id, details) if cond
     self.class.normalize_all_attrs(update_hash)
-    PropertyDetails.update_details(client, udprn, update_hash) if !update_hash.empty?
+    update_details(update_hash) if !update_hash.empty?
     PropertyDetails.details(udprn)['_source']
   end
 
@@ -441,6 +437,7 @@ class PropertyService
 
   def self.update_full_ardb_db
     udprns = []
+    client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     count = 0
     county_map = JSON.parse(File.read("county_map.json"))
     post_towns = ["BELFAST", "HOLYWOOD", "DONAGHADEE", "NEWTOWNARDS", "BALLYNAHINCH", "DROMORE", "HILLSBOROUGH", "LISBURN", "CRUMLIN", "DOWNPATRICK", "CASTLEWELLAN", "BANBRIDGE", "NEWRY", "NEWTOWNABBEY", "CARRICKFERGUS", "BALLYCLARE", "LARNE", "ANTRIM", "BALLYMENA", "MAGHERAFELT", "MAGHERA", "LONDONDERRY", "LIMAVADY", "COLERAINE", "BALLYMONEY", "BALLYCASTLE", "PORTSTEWART", "PORTRUSH", "BUSHMILLS", "ARMAGH", "CRAIGAVON", "CALEDON", "AUGHNACLOY", "DUNGANNON", "ENNISKILLEN", "FIVEMILETOWN", "CLOGHER", "AUGHER", "OMAGH", "COOKSTOWN", "CASTLEDERG", "STRABANE"]

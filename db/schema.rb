@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20171128162037) do
+ActiveRecord::Schema.define(version: 20171202140841) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -261,6 +261,47 @@ ActiveRecord::Schema.define(version: 20171128162037) do
     t.datetime "updated_at",   null: false
   end
 
+  create_table "developers_branches", force: :cascade do |t|
+    t.string   "name"
+    t.string   "image_url"
+    t.string   "website"
+    t.string   "phone_number"
+    t.string   "address"
+    t.string   "district"
+    t.string   "domain_name"
+    t.integer  "company_id"
+    t.datetime "created_at",   null: false
+  end
+
+  create_table "developers_branches_employees", force: :cascade do |t|
+    t.string   "name"
+    t.string   "image_url"
+    t.string   "phone_number"
+    t.integer  "branch_id"
+    t.datetime "created_at",   null: false
+  end
+
+  create_table "developers_companies", force: :cascade do |t|
+    t.string   "name"
+    t.string   "image_url"
+    t.string   "website"
+    t.string   "phone_number"
+    t.string   "address"
+    t.integer  "group_id"
+    t.datetime "created_at",   null: false
+  end
+
+  add_index "developers_companies", ["group_id"], name: "index_developers_companies_on_group_id", using: :btree
+
+  create_table "developers_groups", force: :cascade do |t|
+    t.string   "name"
+    t.string   "image_url"
+    t.string   "website"
+    t.string   "phone_number"
+    t.string   "address"
+    t.datetime "created_at",   null: false
+  end
+
   create_table "events", force: :cascade do |t|
     t.integer  "agent_id"
     t.integer  "udprn"
@@ -332,8 +373,9 @@ ActiveRecord::Schema.define(version: 20171128162037) do
   add_index "events_tracks", ["buyer_id", "hash_str"], name: "index_events_tracks_on_buyer_id_and_hash_str", unique: true, using: :btree
 
   create_table "events_views", force: :cascade do |t|
-    t.integer "udprn", null: false
+    t.integer "udprn",    null: false
     t.integer "month"
+    t.integer "buyer_id"
   end
 
   create_table "invited_agents", force: :cascade do |t|
@@ -341,6 +383,15 @@ ActiveRecord::Schema.define(version: 20171128162037) do
     t.integer  "udprn"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer  "agent_id"
+  end
+
+  create_table "invited_developers", force: :cascade do |t|
+    t.string   "email"
+    t.integer  "udprn"
+    t.integer  "developer_id"
+    t.datetime "created_at",   null: false
+    t.datetime "updated_at",   null: false
   end
 
   create_table "pb_details", force: :cascade do |t|

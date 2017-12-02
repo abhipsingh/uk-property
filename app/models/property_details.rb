@@ -133,7 +133,8 @@ class PropertyDetails
     agent = Agents::Branches::AssignedAgent.where(id: agent_id).last
     if agent
       branch = agent.branch
-      details[:assigned_agent_name] = agent.name
+      details[:assigned_agent_first_name] = agent.first_name
+      details[:assigned_agent_last_name] = agent.last_name
       details[:assigned_agent_email] = agent.email
       details[:assigned_agent_mobile] = agent.mobile
       details[:assigned_agent_title] = agent.title
@@ -144,7 +145,8 @@ class PropertyDetails
       details[:assigned_agent_branch_logo] = branch.image_url
       details[:assigned_agent_branch_email] = branch.email
     else
-      details[:assigned_agent_name] = nil
+      details[:assigned_agent_first_name] = nil
+      details[:assigned_agent_last_name] = nil
       details[:assigned_agent_email] = nil
       details[:assigned_agent_mobile] = nil
       details[:assigned_agent_title] = nil
@@ -179,8 +181,7 @@ class PropertyDetails
       update_hash[:details_completed] = false
       details_completed = PropertyService::MANDATORY_ATTRS.all?{|attr| details.has_key?(attr) && !details[attr].nil? }
       update_hash[:details_completed] = true if details_completed
-
-      add_agent_details(details, update_hash[:agent_id]) if update_hash.has_key?(:agent_id) && update_hash[:agent_id] != details[:agent_id]
+      add_agent_details(details, update_hash[:agent_id]) if update_hash.has_key?(:agent_id) && update_hash[:agent_id].to_i != details[:agent_id].to_i
       PropertyService.attach_vendor_details(update_hash[:vendor_id], details) if update_hash[:vendor_id]
       update_hash.each{|key, value| details[key.to_sym] = value }
       PropertyService.normalize_all_attrs(details)

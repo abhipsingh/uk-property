@@ -8,11 +8,12 @@ class SessionsController < ApplicationController
     user_type = params[:user_type]
     if params[:token].nil? || params[:token].length < 10
       render json: { message: 'Please pass valid oauth token credentials' } , status: 400
-    elsif user_type && ['Vendor', 'Buyer', 'Agent'].include?(user_type)
+    elsif user_type && ['Vendor', 'Buyer', 'Agent', 'Developer'].include?(user_type)
       user_type_map = {
         'Agent' => 'Agents::Branches::AssignedAgent',
         'Vendor' => 'Vendor',
-        'Buyer' => 'PropertyBuyer'
+        'Buyer' => 'PropertyBuyer',
+        'Developer' => 'Developers::Branches::Employee'
       }
       req_params[:token] = params[:token]
       user = user_type_map[user_type].constantize.from_omniauth(req_params)
@@ -34,6 +35,10 @@ class SessionsController < ApplicationController
         udprns = InvitedAgent.where(email: user.email).pluck(:udprn)
         client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
         udprns.map { |udprn|  PropertyDetails.update_details(client, udprn, { agent_id: agent_id, agent_status: 2 }) }
+      elsif user_type == 'Developer'
+        developer_id = user.id
+        udprns = InvitedDeveloper.where(email: user.email).pluck(:udprn)
+        udprns.map { |t| PropertyService.new(t).update_details({ developer_id: developer_id, developer_status: 2 })}
       end
 
       session[:user_id] = user.id
@@ -87,11 +92,56 @@ class SessionsController < ApplicationController
     end    
   end
 
+
+  ### Used to create a first time developer
+  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost:8000/register/developer/' -d '{ "developer" : { "name" : "Jackie Bing", "email" : "jackie.bing@friends.com", "mobile" : "9873628231", "password" : "1234567890", "branch_id" : 9851 } }'
+  def create_developer
+    developer_params = params[:developer].as_json
+    developer_params.delete('company_id')
+    status = 200
+    verification_hash = VerificationHash.where(email: developer_params['email']).last
+    if verification_hash
+      if Agents::Branches::AssignedAgent.exists?(email: developer_params["email"])
+        response = {"message" => "Error! Agent already registered. Please login", "status" => "FAILURE"}
+        status = 400
+        render json: response, status: status
+      else
+        developer = Developers::Branches::Employee.new(developer_params)
+        if developer.save && VerificationHash.where(email: developer_params['email']).update_all({verified: true})
+          command = AuthenticateUser.call(developer_params['email'], developer_params['password'], Agents::Branches::AssignedAgent)
+          udprns = InvitedDeveloper.where(email: user.email).pluck(:udprn)
+          udprns.map { |t| PropertyService.new(t).update_details({ developer_id: developer_id, developer_status: 2 })}
+          developer.password = nil
+          developer.password_digest = nil
+          developer_details = developer.as_json
+          developer_details['group_id'] = developer.branch && developer.branch.developer ? developer.branch.developer.group_id : nil
+          developer_details['company_id'] = developer.branch && developer.branch.developer ? developer.branch.developer.id : nil
+          response = {"auth_token" => command.result, "details" => developer_details, "status" => "SUCCESS"}
+          render json: response, status: 200
+        else
+          response = {"message" => "Error in saving developer. Please check username and password.", "status" => "FAILURE"}
+          status = 500
+          render json: response, status: status
+        end
+      end
+    else
+      render json: { message: 'No verification hash found' }, status: 400
+    end    
+  end
+
   #### Used for login for an agent
   #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/login/agents/' -d '{ "agent" : { "email" : "jackie.bing@friends.com","password" : "1234567890" } }'
   def login_agent
     agent_params = params[:agent].as_json
     command = AuthenticateUser.call(agent_params['email'], agent_params['password'], Agents::Branches::AssignedAgent)
+    render json: { auth_token: command.result }
+  end
+
+  #### Used for login for a developer
+  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/login/developers/' -d '{ "developer" : { "email" : "jackie.bing@friends.com","password" : "1234567890" } }'
+  def login_developer
+    developer_params = params[:developer].as_json
+    command = AuthenticateUser.call(developer_params['email'], developer_params['password'], Developers::Branches::Employee)
     render json: { auth_token: command.result }
   end
 
@@ -133,7 +183,11 @@ class SessionsController < ApplicationController
   def vendor_details
     authenticate_request('Vendor')
     if @current_user
-      render json: @current_user.as_json, status: 200
+      vendor_details = @current_user.as_json
+      yearly_quote_count = Agents::Branches::AssignedAgents::Quote.where(vendor_id: @current_user.id).where("created_at > ?", 1.year.ago).group(:property_id).select("count(id)").to_a.count
+      vendor_details[:yearly_quote_count] = yearly_quote_count
+      vendor_details[:quote_limit] = Agents::Branches::AssignedAgents::Quote::VENDOR_LIMIT
+      render json: vendor_details, status: 200
     end
   end
 
@@ -141,6 +195,16 @@ class SessionsController < ApplicationController
   ### curl -XGET -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4LCJleHAiOjE0ODQxMjExNjN9.CisFo3nsAKkoQME7gxH42wiF-pMuwRCa6VGY8dPHbSA" 'http://localhost/details/agents'
   def agent_details
     authenticate_request
+    if @current_user
+      details = @current_user.details
+      render json: details, status: 200
+    end
+  end
+
+  ### Get agent details for authentication token
+  ### curl -XGET -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4LCJleHAiOjE0ODQxMjExNjN9.CisFo3nsAKkoQME7gxH42wiF-pMuwRCa6VGY8dPHbSA" 'http://localhost/details/developers'
+  def developer_details
+     authenticate_request('Developer')
     if @current_user
       details = @current_user.details
       render json: details, status: 200
@@ -266,8 +330,9 @@ class SessionsController < ApplicationController
         'Agent' => 'Agents::Branches::AssignedAgent',
         'Vendor' => 'Vendor',
         'Buyer' => 'PropertyBuyer'
+        'Developer' => 'Developers::Branches::Employee'
        } 
-    if session[:user_type] && ['Vendor', 'Buyer', 'Agent'].include?(session[:user_type])
+    if session[:user_type] && ['Vendor', 'Buyer', 'Agent', 'Developer'].include?(session[:user_type])
       @current_user ||= session[:user_type].constantize.find(session[:user_id])
     end
   end

@@ -315,7 +315,7 @@ Rails.application.routes.draw do
   get '/quotes/property/:udprn',                                to: 'quotes#property_quote'
   
   ### Branches list for a district
-  get '/branches/:location/:location_type',                     to: 'agents#branch_info_for_location'
+  get '/branches/list/:location',                               to: 'agents#branch_info_for_location'
 
   ### matrix view searches testing perfect/potential
   get '/matrix/view/load/testing',                              to: 'matrix_view#matrix_view_load_testing'
@@ -361,6 +361,9 @@ Rails.application.routes.draw do
 
   ### For agents, get the details of the crawled property
   get '/agents/details/property/:property_id',                  to: 'agents#crawled_property_details'
+
+  ### For vendors, get the details of the quote
+  get '/property/quotes/property/:udprn',                       to: 'quotes#property_quote'
 
   ### Count of matching properties(aggregate) not divided by property_status_type
   #####################################################################

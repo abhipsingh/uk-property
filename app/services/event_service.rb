@@ -181,8 +181,12 @@ class EventService
   end
 
   def order_and_paginate(query, page)
-    query.order('created_at DESC').limit(ENQUIRY_PAGE_SIZE)
-           .offset(ENQUIRY_PAGE_SIZE*page)
+    if @is_premium
+      query = query.order('created_at DESC')
+    else
+      query = query.order('created_at DESC').limit(ENQUIRY_PAGE_SIZE)
+                   .offset(ENQUIRY_PAGE_SIZE*page)
+    end
   end
 
 
@@ -195,7 +199,7 @@ class EventService
       order_and_paginate(enquiries, page)
       enquiry_details = enquiries.map { |enquiry| construct_enquiry_detail(enquiry) }
       buyer_ids = enquiry_details.map { |enquiry| enquiry[:buyer_id] }
-      buyers = PropertyBuyer.where(id: buyer_ids.flatten).select([:id, :email, :full_name, :mobile, :status, :chain_free, :funding, :biggest_problems, :buying_status, :budget_to, :budget_from, :image_url, :property_types]).order("position(id::text in '#{buyer_ids.join(',')}')")
+      buyers = PropertyBuyer.where(id: buyer_ids.flatten).select([:id, :first_name, :last_name, :email, :full_name, :mobile, :status, :chain_free, :funding, :biggest_problems, :buying_status, :budget_to, :budget_from, :image_url, :property_types]).order("position(id::text in '#{buyer_ids.join(',')}')")
       buyer_hash = {}
       buyers.each { |buyer| buyer_hash[buyer.id] = buyer }
       enquiry_details.each { |row| add_buyer_details(row, buyer_hash) }
@@ -208,7 +212,10 @@ class EventService
     new_row = {}
     new_row[:id] = each_row.id
     new_row[:received] = each_row.created_at
-    if @details[:verification_status].to_s == 'true' &&  @details[:details_completed].to_s == 'true'
+
+    ### Added new condition that when property is verified and details completed
+    #if @details[:verification_status].to_s == 'true' &&  @details[:details_completed].to_s == 'true'
+    if true
       new_row[:type_of_enquiry] = REVERSE_EVENTS[each_row.event]
       new_row[:buyer_id] = each_row.buyer_id
       new_row[:property_tracking] = total_trackings
@@ -221,10 +228,13 @@ class EventService
       new_row[:locked] = false
     elsif @details[:verification_status].to_s == 'false'
       new_row[:locked] = true
-      new_row[:reason] = "The vendor not verified yet the property"
+      new_row[:reason] = 'The vendor not verified yet the property'
     elsif @details[:details_completed].to_s == 'false'
       new_row[:locked] = true
-      new_row[:reason] = "All the mandatory attrs are not yet completed"
+      new_row[:reason] = 'All the mandatory attrs are not yet completed'
+    else 
+      new_row[:locked] = true
+      new_row[:reason] = 'All the mandatory attrs are not yet completed and the vendor has not verified the property'
     end
     new_row
   end
@@ -242,14 +252,14 @@ class EventService
 
   def enquiry_ratio(buyer_id)
     raise StandardError, 'Udprn is not present ' if @udprn.nil?
-    buyer_enquiries = Events::EnquiryStatBuyer.new(buyer_id: buyer_id).enquiries
+    buyer_enquiries = Event.where(buyer_id: buyer_id).where(udprn: @udprn).count
     total_enquiries = Events::EnquiryStatProperty.new(udprn: @udprn).enquiries
     buyer_enquiries.to_i.to_s + '/' + total_enquiries.to_i.to_s
   end
 
   def view_ratio(buyer_id)
     raise StandardError, 'Udprn is not present ' if @udprn.nil?
-    buyer_views = Events::EnquiryStatBuyer.new(buyer_id: buyer_id).views
+    buyer_views = Events::View.where(buyer_id: buyer_id, udprn: @udprn).count
     total_views = Events::EnquiryStatProperty.new(udprn: @udprn).views
     buyer_views.to_i.to_s + '/' + total_views.to_i.to_s
   end

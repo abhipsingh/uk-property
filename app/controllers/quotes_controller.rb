@@ -115,8 +115,13 @@ class QuotesController < ApplicationController
   ### Quote details api
   ### curl -XGET 'http://localhost/property/quotes/details/:id'
   def quote_details
-    quote = Agents::Branches::AssignedAgents::Quote.where(id: params[:id].to_i).last
-    render json: quote, status: 200
+    vendor = user_valid_for_viewing?('Vendor')
+    if vendor
+      quote = Agents::Branches::AssignedAgents::Quote.where(id: params[:id].to_i, vendor_id: vendor.id).last
+      render json: quote, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
   end
   
   ### vendor Quote details api

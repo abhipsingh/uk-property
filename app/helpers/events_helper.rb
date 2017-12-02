@@ -129,8 +129,8 @@ module EventsHelper
 
       elsif event == Trackers::Buyer::EVENTS[:viewed]
         Events::EnquiryStatProperty.new(udprn: property_id).update_views
-        Events::EnquiryStatBuyer.new(buyer_id: buyer_id).update_views if !buyer_id.nil?
-        Events::View.create!(udprn: property_id, month: Time.now.month)
+        #Events::EnquiryStatBuyer.new(buyer_id: buyer_id).update_views if !buyer_id.nil?
+        Events::View.create!(udprn: property_id, month: Time.now.month, buyer_id: buyer_id)
 
         ### Delete the interest info cache
         ardb_client = Rails.configuration.ardb_client

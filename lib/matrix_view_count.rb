@@ -2,7 +2,7 @@ class MatrixViewCount
   attr_accessor :scoping_parameter, :constraint_key, :constraints
 
   POST_TOWNS = JSON.parse(File.read('county_map.json')).keys.uniq
-  COUNTIES = JSON.parse(File.read('county_map.json')).values.uniq + [ 'Central London', 'East London', 'North West London', 'North London', 'South East London', 'South West London', 'Central London', 'West London' ]
+  COUNTIES = JSON.parse(File.read('county_map.json')).values.uniq + [ 'Central London', 'East London', 'North West London', 'North London', 'South East London', 'South West London', 'West London' ]
 
   COLUMN_MAP = {
     county: 'county',
@@ -95,9 +95,10 @@ class MatrixViewCount
         column_name = COLUMN_MAP[key]
         if key == :post_town
           pt_index = POST_TOWNS.index(value.upcase) + 1
+          pt_index = pt_index - 1 if pt_index < 76 ### British Air force post town
           query = query.where("#{column_name} = ?", pt_index)
         elsif key == :county
-          c_index = COUNTIES.index(value) + 1
+          c_index = COUNTIES.index(value)
           query = query.where("#{column_name} = ?", c_index)
         elsif key == :district
           query = query.where("to_tsvector('simple'::regconfig, postcode)  @@ to_tsquery('simple', '#{value}:*')")

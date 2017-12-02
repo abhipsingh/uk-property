@@ -165,7 +165,9 @@ class Trackers::Buyer
   ### Per property
   def search_latest_enquiries(agent_id, property_status_type=nil, verification_status=nil, ads=nil, search_str=nil, property_for='Sale', last_time=nil, is_premium=false, buyer_id=nil, page_number=0, is_archived=nil)
     query = filtered_agent_query agent_id: agent_id, search_str: search_str, last_time: last_time, is_premium: is_premium, buyer_id: buyer_id, archived: is_archived
-    property_ids = query.order('created_at DESC').limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE).select(:udprn).pluck(:udprn).uniq
+    ### property_ids = query.order('created_at DESC').limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE).select(:udprn).pluck(:udprn).uniq
+    ### Implementing search on the frontend
+    property_ids = query.order('created_at DESC').select(:udprn).pluck(:udprn).uniq
     response = property_ids.map { |e| Trackers::Buyer.new.property_and_enquiry_details(agent_id.to_i, e, property_status_type, verification_status, ads) }.compact
   end
 
@@ -244,7 +246,7 @@ class Trackers::Buyer
     attrs = [ :address, :pictures, :street_view_image_url, :verification_status, :dream_price, :current_valuation, 
               :price, :status_last_updated, :property_type, :property_status_type, :beds, :baths, :receptions, 
               :details_completed, :date_added, :vendor_id, :vendor_first_name, :vendor_last_name, :vendor_image_url,
-              :vendor_mobile_number, :street_view_image_url ]
+              :vendor_mobile_number, :street_view_image_url, :vendor_email ]
     new_row.merge!(details.slice(*attrs))
     if new_row[:street_view_image_url].nil?
       image_url = process_image(details) if Rails.env != 'test'
@@ -318,6 +320,7 @@ class Trackers::Buyer
     ### FIlter only the enquiries which are asked by the caller
     events = events.select{ |t| t == EVENTS[enquiry_type.to_sym] } if enquiry_type
 
+
     ### Filter only the type_of_match which are asked by the caller
     query = filtered_agent_query agent_id: agent_id, search_str: hash_str, last_time: last_time, is_premium: is_premium, buyer_id: buyer_id, type_of_match: type_of_match, is_archived: is_archived, closed: closed
     query = query.where(event: events) if enquiry_type
@@ -326,6 +329,10 @@ class Trackers::Buyer
     
     if count && is_premium
       result = query.count
+    elsif is_premium
+      query = query.order('created_at DESC')
+      total_rows = query.to_a
+      result = process_enquiries_result(total_rows, agent_id)
     else
       query = query.order('created_at DESC')
       total_rows = query.limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE)
@@ -400,13 +407,13 @@ class Trackers::Buyer
   end
 
   def buyer_view_ratio(buyer_id, udprn)
-    buyer_views = Events::EnquiryStatBuyer.new(buyer_id: buyer_id).views
+    buyer_views = Events::View.where(udprn: udprn).where(buyer_id: buyer_id).count
     property_views = Events::EnquiryStatProperty.new(udprn: udprn).views
     buyer_views.to_s + '/' + property_views.to_s
   end
 
   def buyer_enquiry_ratio(buyer_id, udprn)
-    buyer_enquiries = Events::EnquiryStatBuyer.new(buyer_id: buyer_id).enquiries
+    buyer_enquiries = Event.where(buyer_id: buyer_id).where(udprn: udprn).count
     property_enquiries = Events::EnquiryStatProperty.new(udprn: udprn).enquiries
     buyer_enquiries.to_s + '/' + property_enquiries.to_s
   end
@@ -828,12 +835,15 @@ class Trackers::Buyer
       udprns = fetch_udprns(hash_str, res_udprns, property_status_type, verification_status)
       query = query.where(udprn: udprns)
     end
-    
+
+    total_rows = []
     if count
       total_rows = query.count
     else
       query = query.order('created_at DESC')
-      total_rows = query.limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE)
+      query = query.to_a
+      total_rows = query
+      #total_rows = query.limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE)
       total_rows = process_enquiries_result(total_rows)
     end
 

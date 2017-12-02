@@ -240,9 +240,9 @@ class EventsController < ApplicationController
           results = []
           #Rails.logger.info("property ids found for detailed properties (agent) = #{property_ids}")
           if agent.is_premium && count
-            results = property_ids.count
+            results = property_ids.uniq.count
           else
-            results = property_ids.map { |e| Trackers::Buyer.new.push_events_details(PropertyDetails.details(e)) }
+            results = property_ids.uniq.map { |e| Trackers::Buyer.new.push_events_details(PropertyDetails.details(e)) }
             results.each_with_index { |t, index| results[index][:ads] = (PropertyAd.where(property_id: t[:udprn]).count > 0) }
           end
 
@@ -282,8 +282,9 @@ class EventsController < ApplicationController
   #### curl -XPOST -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" -H "Content-Type: application/json" 'http://localhost/events/property/claim/4745413' 
   def claim_property
     agent = user_valid_for_viewing?('Agent')
-    if !agent.nil?
-      if agent.credit >= Agents::Branches::AssignedAgent::LEAD_CREDIT_LIMIT
+    if true
+      #if agent.credit >= Agents::Branches::AssignedAgent::LEAD_CREDIT_LIMIT
+      if true
         property_service = PropertyService.new(params[:udprn].to_i)
         message, status = property_service.claim_new_property(params[:agent_id].to_i)
         render json: { message: message }, status: status
@@ -319,7 +320,7 @@ class EventsController < ApplicationController
   private
 
   def user_valid_for_viewing?(klass)
-    Rails.logger.info(request.headers)
+    #Rails.logger.info(request.headers)
     AuthorizeApiRequest.call(request.headers, klass).result
   end
 

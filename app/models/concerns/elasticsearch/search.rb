@@ -26,3 +26,4 @@ module Elasticsearch::Search
   end
 
 end
+

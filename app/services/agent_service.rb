@@ -17,7 +17,7 @@ class AgentService
       property_attrs[:agent_status] = 2
       assigned_agent_present = true
     else
-      InvitedAgent.create!(email: assigned_agent_email, udprn: udprn)
+      InvitedAgent.create!(email: assigned_agent_email, udprn: udprn, agent_id: @agent_id.to_i)
       branch_invited_agents = branch.invited_agents
       branch.invited_agents =  [{ branch_id: branch.id, company_id: branch.agent_id, email: assigned_agent_email }]
       branch.save!
@@ -26,6 +26,7 @@ class AgentService
       branch.invited_agents = branch_invited_agents + [{ branch_id: branch.id, company_id: branch.agent_id, email: assigned_agent_email }]
       branch.save!
       assigned_agent_present = false
+      property_attrs[:agent_id] = assigned_agent.id
     end
     property_id = property_attrs[:property_id]
     response, status = verify_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
@@ -67,16 +68,17 @@ class AgentService
       property_attrs[:agent_status] = 2
       assigned_agent_present = true
     else
-      InvitedAgent.create!(email: assigned_agent_email, udprn: udprn)
+      InvitedAgent.create!(email: assigned_agent_email, udprn: udprn, agent_id: @agent_id.to_i)
       branch.invited_agents = [{ branch_id: branch.id, company_id: branch.agent_id, email: assigned_agent_email }]
       branch.save!
       branch.send_emails
       assigned_agent_present = false
     end
-    property_id = property_attrs[:property_id]
+    property_id = @udprn
     property_service = PropertyService.new(property_id)
     response, status = property_service.update_details(property_attrs)
     Agents::Branches::AssignedAgent.find(@agent_id).send_vendor_email(vendor_email, @udprn, assigned_agent_present, assigned_agent_email)
     return response, status
   end
 end
+

@@ -68,13 +68,19 @@ module Agents
         end
         
         final_results = []
+        results = []
 
         if count && is_premium
           final_results = query.count
+        elsif is_premium
+          results = query.order('created_at DESC')
         else
           page_number = page_number.to_i
           #Rails.logger.info(query.to_sql)
           results = query.order('created_at DESC').limit(PAGE_SIZE).offset(page_number*PAGE_SIZE)
+        end
+
+        if !count
   
           results.each do |each_quote|
             property_details = PropertyDetails.details(each_quote.property_id)['_source']
@@ -113,6 +119,7 @@ module Agents
             
             new_row[:current_agent] = self.name
             new_row['street_view_url'] = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{property_details['udprn']}/fov_120_#{property_details['udprn']}.jpg"
+            new_row[:current_valuation] = property_details['current_valuation']
             new_row[:latest_valuation] = property_details['current_valuation']
   
             ### Historical prices
@@ -201,6 +208,9 @@ module Agents
         
         if count && is_premium
           query.count
+        elsif is_premium
+          leads = query.order('created_at DESC')
+          leads.map{|lead| populate_lead_details(lead, status) }
         else
           leads = query.order('created_at DESC').limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE)
           leads.map{|lead| populate_lead_details(lead, status) }

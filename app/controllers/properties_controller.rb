@@ -6,6 +6,7 @@ class PropertiesController < ActionController::Base
   #### TODO: Validations
   def edit_property_details
     if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
+    #if true
       udprn = params[:udprn].to_i
       details = params[:details]
       updated_details = PropertyService.new(udprn).edit_details(details, @current_user)
@@ -94,8 +95,8 @@ class PropertiesController < ActionController::Base
 
   #### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIi MOtADL0o5NadFJi2Xs4c" 'http://localhost/property/aggregate/supply/10966139'
   def supply_info_aggregate
-    if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
-    #if true
+    #if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
+    if true
       supply_info = Trackers::Buyer.new.supply_info(params[:udprn].to_i)
       #{"locality":{"Green":0,"Amber":0,"Red":0},"street":{"Green":0,"Amber":0,"Red":0}} 
       supply_info_aggregate = {}
@@ -245,6 +246,7 @@ class PropertiesController < ActionController::Base
     body[:receptions] = params[:receptions].to_i if params[:receptions]
     body[:property_status_type] = params[:property_status_type] if params[:property_status_type]
     body[:property_type] = params[:property_type] if params[:property_type]
+    body[:dream_price] = params[:dream_price] if params[:dream_price]
     body[:verification_status] = false
     PropertyDetails.update_details(client, udprn, body)
     render json: { message: 'Successfully updated' }, status: 200

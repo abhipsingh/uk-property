@@ -87,6 +87,7 @@ class VendorsController < ApplicationController
       update_hash = { vendor_id: params[:id].to_i }
       ### TODO: Update attributes in all the properties
       if vendor.save
+        VendorUpdateWorker.new.perform(vendor.id)
         render json: { message: 'Vendor successfully updated', details:  vendor.as_json }, status: 200
       else
         render json: { message: 'Vendor not able to update' }, status: 400

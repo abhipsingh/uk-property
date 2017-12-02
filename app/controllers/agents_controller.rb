@@ -35,6 +35,7 @@ class AgentsController < ApplicationController
   def list_branches
     vendor = user_valid_for_viewing?('Vendor')
     if !vendor.nil?
+      Rails.logger.info(params[:district])
       branch_list = Agents::Branch.where(district: params[:district]).select([:id, :name]) 
       render json: branch_list, status: 200
     else
@@ -184,6 +185,7 @@ class AgentsController < ApplicationController
     agent.office_phone_number = agent_params['office_phone_number'] if agent_params['office_phone_number']
     agent.mobile_phone_number = agent_params['mobile_phone_number'] if agent_params['mobile']
     agent.save!
+    AgentUpdateWorker.new.perform(agent.id)
     ### TODO: Update all properties containing this agent
     update_hash = { agent_id: agent_id }
     render json: {message: 'Updated successfully', details: agent}, status: 200  if agent.save!
@@ -288,7 +290,6 @@ class AgentsController < ApplicationController
     details[:dream_price] = params[:dream_price].to_i if params[:dream_price]
     details[:claimed_on] = Time.now.to_s
     details[:vendor_id] = params[:vendor_id].to_i
-    details[:claimed_by] = 'Vendor'
     details[:verification_status] = true
     response, status = PropertyDetails.update_details(client, udprn, details)
     response['message'] = "Property verification successful." unless status.nil? || status!=200
@@ -443,7 +444,6 @@ class AgentsController < ApplicationController
       render json: { message: 'Branch not found' }, status: 404
     end
   end
-
 
   #### Edit company details
   ### `curl -XPOST -H "Content-Type: application/json"  'http://localhost/companies/6290/edit' -d '{ "company" : { "name" : "Jackie Bing", "address" : "8 The Precinct, Main Road, Church Village, Pontypridd, HR1 1SB", "phone_number" : "9873628232", "website" : "www.google.com", "image_url" : "some random url", "email" : "a@b.com"  } }'`
@@ -651,7 +651,7 @@ class AgentsController < ApplicationController
   end
 
   ### Shows the leads for the personal properties claimed by the agent
-  ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/branches/:location/:location_type
+  ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/branches/list/:location
   def branch_info_for_location
     vendor = user_valid_for_viewing?('Vendor')
     if !vendor.nil?
