@@ -76,4 +76,11 @@ class AgentMailer < ApplicationMailer
     mail(to: admin_email, subject: "Change of Agent")
   end
 
+  def send_password_reset_email(email_hash)
+    @email = email_hash['email']
+    @hash = email_hash['hash']
+    @profile = email_hash['profile']
+    mail(to: @email, subject: 'Password reset')
+  end
+
 end

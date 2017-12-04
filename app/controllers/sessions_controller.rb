@@ -216,6 +216,56 @@ class SessionsController < ApplicationController
     end
   end
 
+  ### Send an email with a hash url to reset password
+  ### curl -XPOST   -H "Content-Type: application/json"  'http://localhost/forgot/password' -d '{ "email" : "test15@prophety.co.uk", "profile_type" : "Vendor" }'
+  def forgot_password
+    profile_type_map = {
+      'Agent' => 'Agents::Branches::AssignedAgent',
+      'Developer' => 'Developers::Branches::Employee',
+      'Vendor' => 'Vendor',
+      'Buyer' => 'PropertyBuyer'
+    }
+    profile_klass = profile_type_map[params[:profile_type]]
+    if profile_klass
+      entity = profile_klass.constantize.where(email: params[:email]).first
+      if entity
+        salt_str = "#{profile_klass}_#{entity.id}_password_reset" 
+      	hash = BCrypt::Password.create salt_str
+        verification_hash = VerificationHash.create!(entity_id: entity.id, entity_type: profile_klass, hash_value: hash, email: params[:email])
+        AgentMailer.send_password_reset_email({'email' => params[:email], 'hash' => hash, 'profile' => params[:profile_type]}).deliver_now
+        render json: { message: 'Password reset mail sent successfully' }, status: 200
+      else
+        render json: { message: "Email doesn't exist on the server"}, status: 400
+      end
+    else
+      render json: { message: "Profile type doesn't exist"}, status: 400
+    end
+  end
+
+  ### Reset the password given the verification hash
+  ### curl -XPOST   -H "Content-Type: application/json"  'http://localhost/reset/password' -d '{ "hash" : "$2a$10$qQ1kaM.RFeSXGFpcRr0awezhyWemxOtoCqXv5NW3v2d3TDCsc3sy", "password" : "1234567890" }'
+  def reset_password
+    verification_hash = VerificationHash.where(hash_value: params[:hash]).last
+    if verification_hash && !verification_hash.verified
+      password = params[:password]
+      klass = verification_hash.entity_type
+      entity = klass.constantize.where(email: verification_hash.email).first
+      if entity
+        entity.password = password
+        verification_hash.verified = true
+        if entity.save! && verification_hash.save!
+          render json: { message: 'Password reset successfully' }, status: 200
+        else
+          render json: { message: 'Password not able to save successfully. Please try again with a new link' }, status: 200
+        end
+      else
+        render json: { message: 'The account does not exist anymore' }, status: 400
+      end
+    else
+      render json: { message: 'Verification hash is invalid' }, status: 400
+    end
+  end
+
   def destroy
     session[:user_id] = nil
     redirect_to root_path

@@ -365,6 +365,12 @@ Rails.application.routes.draw do
   ### For vendors, get the details of the quote
   get '/property/quotes/property/:udprn',                       to: 'quotes#property_quote'
 
+  ### For all the users, to reset their password if they have done an email based signup
+  post '/forgot/password',                                      to: 'sessions#forgot_password'
+
+  ### Reset password for any user
+  post '/reset/password',                                       to: 'sessions#reset_password'
+
   ### Count of matching properties(aggregate) not divided by property_status_type
   #####################################################################
   #####################################################################
