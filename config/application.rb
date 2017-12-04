@@ -29,7 +29,8 @@ module TestApp
     config.assets.initialize_on_precompile = false
     config.assets.paths << "#{Rails.root}/vendor/assets/fonts"
     config.active_record.raise_in_transactional_callbacks = true
-    
+    config.paths["config/routes.rb"].concat(Dir[Rails.root.join('config/routes/*.rb')])
+
     config.action_mailer.delivery_method = :smtp
     config.action_mailer.smtp_settings = {
       address:              'smtp.gmail.com',

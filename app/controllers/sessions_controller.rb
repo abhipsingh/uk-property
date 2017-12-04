@@ -92,7 +92,6 @@ class SessionsController < ApplicationController
     end    
   end
 
-
   ### Used to create a first time developer
   #### curl -XPOST -H "Content-Type: application/json"  'http://localhost:8000/register/developer/' -d '{ "developer" : { "name" : "Jackie Bing", "email" : "jackie.bing@friends.com", "mobile" : "9873628231", "password" : "1234567890", "branch_id" : 9851 } }'
   def create_developer
@@ -101,21 +100,23 @@ class SessionsController < ApplicationController
     status = 200
     verification_hash = VerificationHash.where(email: developer_params['email']).last
     if verification_hash
-      if Agents::Branches::AssignedAgent.exists?(email: developer_params["email"])
+      if Developers::Branches::Employee.exists?(email: developer_params["email"])
         response = {"message" => "Error! Agent already registered. Please login", "status" => "FAILURE"}
         status = 400
         render json: response, status: status
       else
         developer = Developers::Branches::Employee.new(developer_params)
         if developer.save && VerificationHash.where(email: developer_params['email']).update_all({verified: true})
-          command = AuthenticateUser.call(developer_params['email'], developer_params['password'], Agents::Branches::AssignedAgent)
-          udprns = InvitedDeveloper.where(email: user.email).pluck(:udprn)
+          command = AuthenticateUser.call(developer_params['email'], developer_params['password'],Developers::Branches::Employee)
+          udprns = InvitedDeveloper.where(email: developer_params['email']).pluck(:udprn)
           udprns.map { |t| PropertyService.new(t).update_details({ developer_id: developer_id, developer_status: 2 })}
           developer.password = nil
           developer.password_digest = nil
           developer_details = developer.as_json
-          developer_details['group_id'] = developer.branch && developer.branch.developer ? developer.branch.developer.group_id : nil
-          developer_details['company_id'] = developer.branch && developer.branch.developer ? developer.branch.developer.id : nil
+          developer_details.delete(:password)
+          developer_details.delete(:password_digest)
+          # developer_details['group_id'] = developer.branch && developer.branch.developer ? developer.branch.developer.group_id : nil
+          # developer_details['company_id'] = developer.branch && developer.branch.developer ? developer.branch.developer.id : nil
           response = {"auth_token" => command.result, "details" => developer_details, "status" => "SUCCESS"}
           render json: response, status: 200
         else
@@ -204,9 +205,13 @@ class SessionsController < ApplicationController
   ### Get agent details for authentication token
   ### curl -XGET -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4LCJleHAiOjE0ODQxMjExNjN9.CisFo3nsAKkoQME7gxH42wiF-pMuwRCa6VGY8dPHbSA" 'http://localhost/details/developers'
   def developer_details
-     authenticate_request('Developer')
+    authenticate_request('Developer')
     if @current_user
-      details = @current_user.details
+      details = @current_user.as_json
+      details.delete("oauth_token")
+      details.delete("oauth_expires_at")
+      details.delete("password")
+      details.delete("password_digest")
       render json: details, status: 200
     end
   end
@@ -259,7 +264,7 @@ class SessionsController < ApplicationController
   ### curl -XGET  'http://localhost/users/all/hash?value=$2a$10$3YUduTL7Hc.vBzGIXDe4mOv8sVy4YrM3/TsGcnohBYeSu/izRq4K6'
   def hash_details
     hash_value = params[:value]
-    sql = VerificationHash.where(hash_value: hash_value).select(:email).select("CASE WHEN entity_type='PropertyBuyer' THEN 'Buyer' WHEN entity_type='Agents::Branches::AssignedAgent' THEN 'Agent' ELSE 'Vendor' END as type ").to_sql
+    sql = VerificationHash.where(hash_value: hash_value).select(:email).select("CASE WHEN entity_type='PropertyBuyer' THEN 'Buyer' WHEN entity_type='Agents::Branches::AssignedAgent' THEN 'Agent' WHEN entity_type='Developers::Branches::Employee' THEN 'Developer'  ELSE 'Vendor' END as type ").to_sql
     details = ActiveRecord::Base.connection.execute(sql)
     render json: { hash_details: details }, status: 200
   end
@@ -329,7 +334,7 @@ class SessionsController < ApplicationController
       user_type_map = {
         'Agent' => 'Agents::Branches::AssignedAgent',
         'Vendor' => 'Vendor',
-        'Buyer' => 'PropertyBuyer'
+        'Buyer' => 'PropertyBuyer',
         'Developer' => 'Developers::Branches::Employee'
        } 
     if session[:user_type] && ['Vendor', 'Buyer', 'Agent', 'Developer'].include?(session[:user_type])

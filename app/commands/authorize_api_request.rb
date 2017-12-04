@@ -9,7 +9,8 @@ class AuthorizeApiRequest
     user_type_map = {
       'Agent' => Agents::Branches::AssignedAgent,
       'Vendor' => Vendor,
-      'Buyer'   => PropertyBuyer
+      'Buyer'   => PropertyBuyer,
+      'Developer'   => Developers::Branches::Employee
     }
     klass = user_type_map[@user_type]
     user(klass) 

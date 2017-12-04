@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20171202140841) do
+ActiveRecord::Schema.define(version: 20171204120256) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -271,6 +271,7 @@ ActiveRecord::Schema.define(version: 20171202140841) do
     t.string   "domain_name"
     t.integer  "company_id"
     t.datetime "created_at",   null: false
+    t.string   "email"
   end
 
   create_table "developers_branches_employees", force: :cascade do |t|
@@ -278,7 +279,16 @@ ActiveRecord::Schema.define(version: 20171202140841) do
     t.string   "image_url"
     t.string   "phone_number"
     t.integer  "branch_id"
-    t.datetime "created_at",   null: false
+    t.datetime "created_at",       null: false
+    t.string   "email"
+    t.string   "first_name"
+    t.string   "last_name"
+    t.string   "password"
+    t.string   "password_digest"
+    t.string   "provider"
+    t.string   "uid"
+    t.string   "oauth_token"
+    t.string   "oauth_expires_at"
   end
 
   create_table "developers_companies", force: :cascade do |t|
@@ -289,6 +299,7 @@ ActiveRecord::Schema.define(version: 20171202140841) do
     t.string   "address"
     t.integer  "group_id"
     t.datetime "created_at",   null: false
+    t.string   "email"
   end
 
   add_index "developers_companies", ["group_id"], name: "index_developers_companies_on_group_id", using: :btree
@@ -300,6 +311,7 @@ ActiveRecord::Schema.define(version: 20171202140841) do
     t.string   "phone_number"
     t.string   "address"
     t.datetime "created_at",   null: false
+    t.string   "email"
   end
 
   create_table "events", force: :cascade do |t|

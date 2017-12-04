@@ -85,8 +85,7 @@ class PropertiesController < ActionController::Base
     end
   end
 
-  #### From supply table, this action gives the data regarding how many properties are similar to
-  #### their property.
+  #### From supply table, this action gives the data regarding how many properties are similar to their property.
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/supply/10966139'
   def supply_info
     supply_info = Trackers::Buyer.new.supply_info(params[:udprn].to_i)

@@ -20,7 +20,7 @@ class DevelopersController < ApplicationController
 
   ### Group by a district and calculate the number of agents and branches
   ### curl -XGET 'http://localhost/developers/info/10968961'
-  def info_developers
+  def local_info
     udprn = params[:udprn]
     details = PropertyDetails.details(udprn.to_i)
     district = details['_source']['district']
@@ -46,7 +46,7 @@ class DevelopersController < ApplicationController
     developer_id = params[:developer_id]
     developer = Developers::Branches::Employee.find(developer_id)
     developer_details = developer.as_json(methods: [:active_properties], except: [:password_digest, 
-                                          :password, :provider, :uid, :oauth_token, :oauth_expires_at, :invited_developers])
+                                          :password, :provider, :uid, :oauth_token, :oauth_expires_at])
     developer_details[:company_id] = developer.branch.company_id
     developer_details[:group_id] = developer.branch.company.group_id
     developer_details[:domain_name] = developer.branch.domain_name
@@ -59,7 +59,7 @@ class DevelopersController < ApplicationController
     branch_id = params[:branch_id]
     branch = Developers::Branch.find(branch_id)
     branch_details = branch.as_json(include: {employees: {methods: [:active_properties], except: [:password_digest, 
-                                          :password, :provider, :uid, :oauth_token, :oauth_expires_at, :invited_developers]}}, except: [:verification_hash, :invited_developers])
+                                          :password, :provider, :uid, :oauth_token, :oauth_expires_at]}}, except: [:verification_hash])
     branch_details[:company_id] = branch.company_id
     branch_details[:group_id] = branch.company.group.id
     render json: branch_details, status: 200
@@ -114,14 +114,9 @@ class DevelopersController < ApplicationController
     branch_id = params[:branch_id].to_i
     branch = Developers::Branch.where(id: branch_id).last
     if branch
-      other_developers = params[:invited_developers]
-      branch.invited_developers = branch.invited_developers + (JSON.parse(other_developers) rescue [])
-      if branch.save
-        branch.send_emails
-        render json: { message: 'Branch with given emails invited' }, status: 200
-      else
-        render json: { message: 'Server error' }, status: 400
-      end
+      branch.invited_developers = JSON.parse(params[:invited_developers]) rescue []
+      branch.send_emails
+      render json: { message: 'Branch with given emails invited' }, status: 200
     else
       render json: { message: 'Branch with given branch_id doesnt exist' }, status: 400
     end
@@ -268,6 +263,30 @@ class DevelopersController < ApplicationController
     else
       render json: { message: 'Group details not found' }, status: 404
     end
+  end
+
+  ### Edit developer employee details
+  ### `curl -XPOST -H "Content-Type: application/json"  'http://localhost/developers/employees/6292/edit' -d '{ "developer" : { "name" : "Jackie Bing", "phone_number" : "9873628232", "image_url" : "some random url", "email" : "a@b.com"  } }'`
+  def edit_developer_details
+    developer_id = params[:developer_id].to_i
+    developer = Developers::Branches::Employee.find(developer_id)
+    developer_params = params[:developer].as_json
+    developer.first_name = developer_params['first_name'] if developer_params['first_name']
+    developer.last_name = developer_params['last_name'] if developer_params['last_name']
+    developer.email = developer_params['email'] if developer_params['email']
+    developer.mobile = developer_params['mobile'] if developer_params['mobile']
+    developer.image_url = developer_params['image_url'] if developer_params['image_url']
+    developer.branch_id = developer_params['branch_id'] if developer_params['branch_id']
+    developer.password = developer_params['password'] if developer_params['password']
+    developer.phone_number = developer_params['phone_number'] if developer_params['phone_number']
+    developer.save!
+    ### TODO: DeveloperUpdateWorker
+#    AgentUpdateWorker.new.perform(developer.id)
+    ### TODO: Update all properties containing this developer
+    update_hash = { developer_id: developer_id }
+    render json: {message: 'Updated successfully', details: developer}, status: 200  if developer.save!
+  rescue 
+    render json: {message: 'Failed to Updated successfully'}, status: 200
   end
 
 end
