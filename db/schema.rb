@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20171204120256) do
+ActiveRecord::Schema.define(version: 20171205132729) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -39,6 +39,7 @@ ActiveRecord::Schema.define(version: 20171204120256) do
     t.string  "website"
     t.string  "address"
     t.string  "image_url"
+    t.boolean "is_developer",             default: false
   end
 
   add_index "agents", ["group_id"], name: "index_agents_on_group_id", using: :btree
@@ -51,7 +52,7 @@ ActiveRecord::Schema.define(version: 20171204120256) do
     t.string  "address",           limit: 255
     t.string  "postcode"
     t.string  "district"
-    t.text    "udprns",                        default: [], array: true
+    t.text    "udprns",                        default: [],    array: true
     t.string  "image_url"
     t.string  "email"
     t.string  "phone_number"
@@ -63,6 +64,7 @@ ActiveRecord::Schema.define(version: 20171204120256) do
     t.jsonb   "opening_hours"
     t.integer "zoopla_branch_id"
     t.string  "domain_name"
+    t.boolean "is_developer",                  default: false
   end
 
   add_index "agents_branches", ["district"], name: "index_agents_branches_on_district", using: :btree
@@ -92,6 +94,7 @@ ActiveRecord::Schema.define(version: 20171204120256) do
     t.boolean  "is_premium",          default: false
     t.string   "stripe_customer_id"
     t.date     "premium_expires_at"
+    t.boolean  "is_developer",        default: false
   end
 
   add_index "agents_branches_assigned_agents", ["branch_id"], name: "index_agents_branches_assigned_agents_on_branch_id", using: :btree
@@ -244,12 +247,13 @@ ActiveRecord::Schema.define(version: 20171204120256) do
   create_table "agents_groups", force: :cascade do |t|
     t.string   "name"
     t.string   "image_url"
-    t.datetime "created_at",   null: false
-    t.datetime "updated_at",   null: false
+    t.datetime "created_at",                   null: false
+    t.datetime "updated_at",                   null: false
     t.string   "website"
     t.string   "email"
     t.string   "phone_number"
     t.string   "address"
+    t.boolean  "is_developer", default: false
   end
 
   create_table "buyer_searches", force: :cascade do |t|

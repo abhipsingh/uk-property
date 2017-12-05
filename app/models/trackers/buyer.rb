@@ -453,13 +453,13 @@ class Trackers::Buyer
       present_months = value.map { |e| e['month'].to_i }
       missing_months = months.select{ |t| !present_months.include?(t) }
       missing_months.each do |each_month|
-        value.push({ 'month': each_month.to_s, count: 0 })
+        value.push({ 'month': each_month.to_s, count: 0.to_s })
       end
       aggregated_result[key] = value.sort_by{ |t| t['month'].to_i }
     end
 
     aggregated_result[:monthly_views] = months.map do |month|
-      { month:  month.to_s, count: monthly_views[month].to_i }
+      { month:  month.to_s, count: monthly_views[month].to_s }
     end
     aggregated_result
   end

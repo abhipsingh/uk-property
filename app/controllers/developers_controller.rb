@@ -1,13 +1,15 @@
 class DevelopersController < ApplicationController
+
+  #### Predictions api for developers
   def search
-    klasses = ['Developers::Group', 'Developers::Branch', 'Developers::Company', 'Developers::Branches::Employee']
+    klasses = ['Agents::Group', 'Agents::Branch', 'Agent', 'Agents::Branches::AssignedAgent']
     klass_map = {
-      'Developers::Company' => 'Company',
-      'Developers::Branch' => 'Branch',
-      'Developers::Group' => 'Group',
-      'Developers::Branches::Employee' => 'Agent'
+      'Agent' => 'Company',
+      'Agents::Branch' => 'Branch',
+      'Agents::Group' => 'Group',
+      'Agents::Branches::AssignedAgent' => 'Agent'
     }
-    search_results = klasses.map { |e|  e.constantize.where("lower(name) LIKE ?", "#{params[:str].downcase}%").limit(10).as_json }
+    search_results = klasses.map { |e|  e.constantize.unscope(where: :is_developer).where(is_developer: true).where("lower(name) LIKE ?", "#{params[:str].downcase}%").limit(10).as_json }
     results = []
     search_results.each_with_index do |result, index|
       new_row = {}
@@ -18,13 +20,14 @@ class DevelopersController < ApplicationController
     render json: results, status: 200
   end
 
+
   ### Group by a district and calculate the number of agents and branches
   ### curl -XGET 'http://localhost/developers/info/10968961'
   def local_info
     udprn = params[:udprn]
     details = PropertyDetails.details(udprn.to_i)
     district = details['_source']['district']
-    count = Developers::Branches::Employee.joins(:branch).where('developers_branches.district = ?', district).count
+    count = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(is_developer: true).joins(:branch).where('developers_branches.district = ?', district).count
     render json: count, status: 200
   end
 
@@ -33,7 +36,7 @@ class DevelopersController < ApplicationController
   def list_branches
     vendor = user_valid_for_viewing?('Vendor')
     if !vendor.nil?
-      branch_list = Developers::Branch.where(district: params[:district]).select([:id, :name]) 
+      branch_list = Agents::Branch.unscope(where: :is_developer).where(is_developer: true).where(district: params[:district]).select([:id, :name]) 
       render json: branch_list, status: 200
     else
       render json: { message: 'Authorization failed' }, status: 401
@@ -44,7 +47,7 @@ class DevelopersController < ApplicationController
   ### curl -XGET 'http://localhost/developers/employee/1234'
   def developer_details
     developer_id = params[:developer_id]
-    developer = Developers::Branches::Employee.find(developer_id)
+    developer = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(is_developer: true, id: developer_id).last
     developer_details = developer.as_json(methods: [:active_properties], except: [:password_digest, 
                                           :password, :provider, :uid, :oauth_token, :oauth_expires_at])
     developer_details[:company_id] = developer.branch.company_id
@@ -57,29 +60,29 @@ class DevelopersController < ApplicationController
   ### curl -XGET 'http://localhost/developers/branch/9851'
   def branch_details
     branch_id = params[:branch_id]
-    branch = Developers::Branch.find(branch_id)
+    branch = Agents::Branch.unscope(where: :is_developer).where(is_developer: true, id: branch_id).last
     branch_details = branch.as_json(include: {employees: {methods: [:active_properties], except: [:password_digest, 
-                                          :password, :provider, :uid, :oauth_token, :oauth_expires_at]}}, except: [:verification_hash])
+                                              :password, :provider, :uid, :oauth_token, :oauth_expires_at]}}, except: [:verification_hash])
     branch_details[:company_id] = branch.company_id
     branch_details[:group_id] = branch.company.group.id
     render json: branch_details, status: 200
   end
 
   ### Details of the company
-  ### curl -XGET 'http://localhost/agents/company/6290'
+  ### curl -XGET 'http://localhost/developers/company/6290'
   def company_details
     company_id = params[:company_id]
-    company_details = Developers::Company.find(company_id)
+    company_details = Agent.unscope(where: :is_developer).where(is_developer: true, id: company_id).last
     company_details = company_details.as_json(include:  { branches: { include: { employees: {methods: [:active_properties], except: [:password_digest, 
                                           :password, :provider, :uid, :oauth_token, :oauth_expires_at]}}, except: [:verification_hash]}})
     render json: company_details, status: 200
   end
 
   ### Details of the group
-  ### curl -XGET 'http://localhost/agents/group/1'
+  ### curl -XGET 'http://localhost/developers/group/1'
   def group_details
     group_id = params[:group_id]
-    group = Developers::Group.find(group_id)
+    group = Agents::Group.unscope(where: :is_developer).where(is_developer: true, id: group_id).last
     group_details = group.as_json(include:  { companies: { include: { branches: { include: { employees: {methods: [:active_properties]}}}}}})
     render json: group_details, status: 200
   end
@@ -88,7 +91,7 @@ class DevelopersController < ApplicationController
   #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/developers/register' -d '{ "branch_id" : 9851, "company_id" : 6290, "group_id" : 1, "group_name" :"Dynamic Group", "company_name" : "Dynamic Property Management", "branch_name" : "Dynamic Property Management", "branch_address" : "18 Hope Street, Crook, DL15 9HS", "branch_phone_number" : "9988776655", "branch_email" : "df@fg.com", "branch_website" : "www.dmg.com", "verification_hash" : "$2a$10$E0NsNocTd0getkV7h8GcFuwLlekcyUugcEg9lVXIzADRskrdcyYOu" }'
   def add_developer_details
     branch_id = params[:branch_id].to_i
-    branch = Developers::Branch.where(id: branch_id).first
+    branch = Agents::Branch.unscope(where: :is_developer).where(is_developer: true, id: branch_id).first
     company = branch.company
     group = company.group
     branch.name = params[:branch_name]
@@ -112,10 +115,14 @@ class DevelopersController < ApplicationController
   #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/developers/invite' -d '{"branch_id" : 9851, "invited_developers" : "\[ \{ \"branch_id\" : 9851, \"company_id\" : 6290, \"email\" : \"test@prophety.co.uk\" \} ]" }'
   def invite_developers_to_register
     branch_id = params[:branch_id].to_i
-    branch = Developers::Branch.where(id: branch_id).last
+    branch = Agents::Branch.unscope(where: :is_developer).where(is_developer: true, id: branch_id).last
     if branch
-      branch.invited_developers = JSON.parse(params[:invited_developers]) rescue []
-      branch.send_emails
+      other_developers = branch.invited_agents
+      invited_developers = JSON.parse(params[:invited_developers]) rescue []
+      branch.invited_agents = invited_developers
+      branch.send_emails(is_developer=true)
+      branch.invited_agents = other_developers + invited_developers
+      branch.save
       render json: { message: 'Branch with given emails invited' }, status: 200
     else
       render json: { message: 'Branch with given branch_id doesnt exist' }, status: 400
@@ -127,7 +134,7 @@ class DevelopersController < ApplicationController
   ### curl  -XGET  'http://localhost/developers/23/udprns/verify'
   def verify_developer_udprns
     employee_id = params[:id].to_i
-    employee = Developers::Branches::Employee.where(id: employee_id).first
+    employee = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(is_developer: true, id: employee_id).first
     if employee && employee.branch
       branch = employee.branch
       district = branch.district
@@ -138,7 +145,7 @@ class DevelopersController < ApplicationController
       search_api = PropertySearchApi.new(filtered_params: filtered_params)
       search_api.apply_filters
       body, status = search_api.fetch_data_from_es
-      developers = Developers::Branches::Employee.where(branch_id: branch.id).select([:email, :id])
+      developers = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(is_developer: true, branch_id: branch.id).select([:email, :id])
       render json: { properties: body, developers: developers }, status: 200
     else
       render json: { message: 'Developer not found with the given id' }, status: 400
@@ -149,12 +156,12 @@ class DevelopersController < ApplicationController
   ### curl  -XPOST -H  "Content-Type: application/json"  'http://localhost/developers/23/udprns/10968961/verify' -d '{ "developer_id": 25, "vendor_email" : "test@prophety.co.uk" }'
   def invite_vendor_developer
     udprn = params[:udprn].to_i
-    original_developer = Developers::Branches::Employee.find(params[:developer_id].to_i)
-    developer = Developers::Branches::Employee.find(params[:developer_id].to_i)
+    original_developer = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(is_developer: true, id: params[:developer_id].to_i).last
+    developer = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(is_developer: true, id: params[:developer_id].to_i).last
     if original_developer.branch_id == developer.branch_id
       developer_id = params[:developer_id].to_i
       vendor_email = params[:vendor_email]
-      Developers::Branches::Employee.find(developer_id).send_vendor_email(vendor_email, udprn)
+      Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(is_developer: true, id: developer_id).last.send_vendor_email(vendor_email, udprn)
       render json: {message: 'Message sent successfully'}, status: 200
     else
       raise 'Branch id doesnt match'
@@ -170,7 +177,7 @@ class DevelopersController < ApplicationController
     udprn = params[:udprn]
     hash_obj = VerificationHash.where(hash_value: verification_hash, udprn: udprn.to_i).last
     if hash_obj
-      developer = Developers::Branches::Employee.where(id: hash_obj.entity_id).last
+      developer = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(is_developer: true, id: hash_obj.entity_id).last
       if developer
         password = params[:password]
         agent.password = password
@@ -201,7 +208,7 @@ class DevelopersController < ApplicationController
   #### Edit details of a branch
   ### curl -XPOST -H "Content-Type: application/json"  'http://localhost/developers/branches/9851/edit' -d '{ "branch" : { "name" : "Jackie Bing", "address" : "8 The Precinct, Main Road, Church Village, Pontypridd, HR1 1SB", "phone_number" : "9873628232", "website" : "www.google.com", "image_url" : "some random url", "email" : "a@b.com"  } }'
   def edit_branch_details
-    branch = Developers::Branch.where(id: params[:id].to_i).last
+    branch = Agents::Branch.unscope(where: :is_developer).where(is_developer: true, id: params[:id].to_i).last
     if branch
       branch_details = params[:branch]
       branch.name = branch_details[:name] if branch_details[:name] && !branch_details[:name].blank?
@@ -224,7 +231,7 @@ class DevelopersController < ApplicationController
   #### Edit company details
   ### `curl -XPOST -H "Content-Type: application/json"  'http://localhost/developers/companies/6290/edit' -d '{ "company" : { "name" : "Jackie Bing", "address" : "8 The Precinct, Main Road, Church Village, Pontypridd, HR1 1SB", "phone_number" : "9873628232", "website" : "www.google.com", "image_url" : "some random url", "email" : "a@b.com"  } }'`
   def edit_company_details
-    company = Developers::Company.where(id: params[:id].to_i).last
+    company = Agent.unscope(where: :is_developer).where(is_developer: true, id: params[:id].to_i).last
     if company
       company_details = params[:company]
       company.name = company_details[:name] if company_details[:name] && !company_details[:name].blank?
@@ -246,7 +253,7 @@ class DevelopersController < ApplicationController
   #### Edit group details
   ### `curl -XPOST -H "Content-Type: application/json"  'http://localhost/groups/6292/edit' -d '{ "group" : { "name" : "Jackie Bing", "address" : "8 The Precinct, Main Road, Church Village, Pontypridd, HR1 1SB", "phone_number" : "9873628232", "website" : "www.google.com", "image_url" : "some random url", "email" : "a@b.com"  } }'`
   def edit_group_details
-    group = Developers::Group.where(id: params[:id].to_i).last
+    group = Agents::Group.unscope(where: :is_developer).where(is_developer: true, id: params[:id].to_i).last
     if group
       group_details = params[:group]
       group.name = group_details[:name] if group_details[:name] && !group_details[:name].blank?
@@ -269,7 +276,7 @@ class DevelopersController < ApplicationController
   ### `curl -XPOST -H "Content-Type: application/json"  'http://localhost/developers/employees/6292/edit' -d '{ "developer" : { "name" : "Jackie Bing", "phone_number" : "9873628232", "image_url" : "some random url", "email" : "a@b.com"  } }'`
   def edit_developer_details
     developer_id = params[:developer_id].to_i
-    developer = Developers::Branches::Employee.find(developer_id)
+    developer = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(is_developer: true, id: developer_id).last
     developer_params = params[:developer].as_json
     developer.first_name = developer_params['first_name'] if developer_params['first_name']
     developer.last_name = developer_params['last_name'] if developer_params['last_name']
@@ -278,12 +285,11 @@ class DevelopersController < ApplicationController
     developer.image_url = developer_params['image_url'] if developer_params['image_url']
     developer.branch_id = developer_params['branch_id'] if developer_params['branch_id']
     developer.password = developer_params['password'] if developer_params['password']
-    developer.phone_number = developer_params['phone_number'] if developer_params['phone_number']
     developer.save!
     ### TODO: DeveloperUpdateWorker
 #    AgentUpdateWorker.new.perform(developer.id)
     ### TODO: Update all properties containing this developer
-    update_hash = { developer_id: developer_id }
+    update_hash = { agent_id: developer_id }
     render json: {message: 'Updated successfully', details: developer}, status: 200  if developer.save!
   rescue 
     render json: {message: 'Failed to Updated successfully'}, status: 200

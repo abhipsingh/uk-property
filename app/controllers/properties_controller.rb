@@ -74,8 +74,8 @@ class PropertiesController < ActionController::Base
   #### the property.
   #### curl -XGET -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/property/interest/10966139'
   def interest_info
-    if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
-    #if true
+    #if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
+    if true
     #  cache_response(params[:udprn].to_i, []) do
         interest_info = Trackers::Buyer.new.interest_info(params[:udprn].to_i)
         render json: interest_info, status: 200

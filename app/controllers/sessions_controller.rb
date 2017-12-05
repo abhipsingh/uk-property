@@ -13,7 +13,7 @@ class SessionsController < ApplicationController
         'Agent' => 'Agents::Branches::AssignedAgent',
         'Vendor' => 'Vendor',
         'Buyer' => 'PropertyBuyer',
-        'Developer' => 'Developers::Branches::Employee'
+        'Developer' => 'Agents::Branches::AssignedAgent'
       }
       req_params[:token] = params[:token]
       user = user_type_map[user_type].constantize.from_omniauth(req_params)
@@ -99,15 +99,18 @@ class SessionsController < ApplicationController
     developer_params.delete('company_id')
     status = 200
     verification_hash = VerificationHash.where(email: developer_params['email']).last
-    if verification_hash
-      if Developers::Branches::Employee.exists?(email: developer_params["email"])
-        response = {"message" => "Error! Agent already registered. Please login", "status" => "FAILURE"}
+    if verification_hash 
+      if Agents::Branches::AssignedAgent.exists?(email: developer_params["email"])
+        response = {"message" => "Error! Developer already registered. Please login", "status" => "FAILURE"}
         status = 400
         render json: response, status: status
+      elsif verification_hash.verified
+        render json: { message: 'Verification hash already used. Please repeat the signup process' }, status: 200
       else
-        developer = Developers::Branches::Employee.new(developer_params)
-        if developer.save && VerificationHash.where(email: developer_params['email']).update_all({verified: true})
-          command = AuthenticateUser.call(developer_params['email'], developer_params['password'],Developers::Branches::Employee)
+        developer = Agents::Branches::AssignedAgent.new(developer_params)
+        developer.is_developer = true
+        if developer.save! && VerificationHash.where(email: developer_params['email']).update_all({verified: true})
+          command = AuthenticateUser.call(developer_params['email'], developer_params['password'], Agents::Branches::AssignedAgent)
           udprns = InvitedDeveloper.where(email: developer_params['email']).pluck(:udprn)
           udprns.map { |t| PropertyService.new(t).update_details({ developer_id: developer_id, developer_status: 2 })}
           developer.password = nil
@@ -142,7 +145,7 @@ class SessionsController < ApplicationController
   #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/login/developers/' -d '{ "developer" : { "email" : "jackie.bing@friends.com","password" : "1234567890" } }'
   def login_developer
     developer_params = params[:developer].as_json
-    command = AuthenticateUser.call(developer_params['email'], developer_params['password'], Developers::Branches::Employee)
+    command = AuthenticateUser.call(developer_params['email'], developer_params['password'], Agents::Branches::AssignedAgent)
     render json: { auth_token: command.result }
   end
 
@@ -196,7 +199,7 @@ class SessionsController < ApplicationController
   ### curl -XGET -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4LCJleHAiOjE0ODQxMjExNjN9.CisFo3nsAKkoQME7gxH42wiF-pMuwRCa6VGY8dPHbSA" 'http://localhost/details/agents'
   def agent_details
     authenticate_request
-    if @current_user
+    if @current_user && !@current_user.is_developer
       details = @current_user.details
       render json: details, status: 200
     end
@@ -206,7 +209,7 @@ class SessionsController < ApplicationController
   ### curl -XGET -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4LCJleHAiOjE0ODQxMjExNjN9.CisFo3nsAKkoQME7gxH42wiF-pMuwRCa6VGY8dPHbSA" 'http://localhost/details/developers'
   def developer_details
     authenticate_request('Developer')
-    if @current_user
+    if @current_user && @current_user.is_developer
       details = @current_user.as_json
       details.delete("oauth_token")
       details.delete("oauth_expires_at")
@@ -221,7 +224,7 @@ class SessionsController < ApplicationController
   def forgot_password
     profile_type_map = {
       'Agent' => 'Agents::Branches::AssignedAgent',
-      'Developer' => 'Developers::Branches::Employee',
+      'Developer' => 'Agents::Branches::AssignedAgent',
       'Vendor' => 'Vendor',
       'Buyer' => 'PropertyBuyer'
     }
@@ -314,8 +317,12 @@ class SessionsController < ApplicationController
   ### curl -XGET  'http://localhost/users/all/hash?value=$2a$10$3YUduTL7Hc.vBzGIXDe4mOv8sVy4YrM3/TsGcnohBYeSu/izRq4K6'
   def hash_details
     hash_value = params[:value]
-    sql = VerificationHash.where(hash_value: hash_value).select(:email).select("CASE WHEN entity_type='PropertyBuyer' THEN 'Buyer' WHEN entity_type='Agents::Branches::AssignedAgent' THEN 'Agent' WHEN entity_type='Developers::Branches::Employee' THEN 'Developer'  ELSE 'Vendor' END as type ").to_sql
+    sql = VerificationHash.where(hash_value: hash_value).select(:email).select("CASE WHEN entity_type='PropertyBuyer' THEN 'Buyer' WHEN entity_type='Agents::Branches::AssignedAgent' THEN 'Agent' WHEN entity_type='Developer' THEN 'Developer'  ELSE 'Vendor' END as entity_type ").to_sql
     details = ActiveRecord::Base.connection.execute(sql)
+    if details.first['entity_type'] == 'Agent'
+      is_agent = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(is_developer: true, email: details.first['email']).last.nil?
+      details.first['entity_type'] = 'Developer' if !is_agent
+    end
     render json: { hash_details: details }, status: 200
   end
 
@@ -353,8 +360,7 @@ class SessionsController < ApplicationController
   ### Get agent details for authentication token
   ### curl -XGET -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/details/buyers'
   def buyer_details
-    authenticate_request('Buyer')
-    authenticate_request('Agent') if @current_user.nil?
+    authenticate_request('Buyer', ['Buyer', 'Agent'])
     if @current_user
       details = @current_user.as_json
       details['buying_status'] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[details['buying_status']]
@@ -363,7 +369,7 @@ class SessionsController < ApplicationController
       render json: details, status: 200
     end
   end
-  
+
   ### Get verification hash info (verified or not)
   ### curl -XGET  'http://localhost/sessions/hash/verified/:hash'
   def verification_hash_verified
@@ -374,9 +380,14 @@ class SessionsController < ApplicationController
   end
 
   private
-  def authenticate_request(klass='Agent')
-    @current_user = AuthorizeApiRequest.call(request.headers, klass).result 
-    render json: { error: 'Not Authorized' }, status: 401 unless @current_user 
+
+  def authenticate_request(klass='Agent', klasses=[])
+    if !klasses.empty?
+      klasses.each {|klass| @current_user ||= AuthorizeApiRequest.call(request.headers, klass).result }
+    else
+      @current_user = AuthorizeApiRequest.call(request.headers, klass).result 
+    end
+    render json: { error: 'Not Authorized' }, status: 401 if @current_user.nil?
   end
 
   def current_user
@@ -385,10 +396,10 @@ class SessionsController < ApplicationController
         'Agent' => 'Agents::Branches::AssignedAgent',
         'Vendor' => 'Vendor',
         'Buyer' => 'PropertyBuyer',
-        'Developer' => 'Developers::Branches::Employee'
+        'Developer' => 'Agents::Branches::AssignedAgent'
        } 
     if session[:user_type] && ['Vendor', 'Buyer', 'Agent', 'Developer'].include?(session[:user_type])
-      @current_user ||= session[:user_type].constantize.find(session[:user_id])
+      @current_user ||= session[:user_type].constantize.unscope(where: :is_developer).where(id: session[:user_id]).last
     end
   end
 

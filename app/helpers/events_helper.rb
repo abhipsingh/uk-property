@@ -63,6 +63,7 @@ module EventsHelper
         month = Date.today.month
         time = Time.now.strftime("%Y-%m-%d %H:%M:%S").to_s
         buyer = PropertyBuyer.where(id: buyer_id).select([:name, :email, :mobile]).last
+
         attrs_list = {
           agent_id: agent_id,
           buyer_id: buyer_id,
@@ -70,11 +71,12 @@ module EventsHelper
           type_of_match: type_of_match,
           event: event
         }
+
         Event.create!(attrs_list)
 
         ### Update counts enquiry wise for both property and buyer
         Events::EnquiryStatProperty.new(udprn: property_id).update_enquiries(event)
-        Events::EnquiryStatBuyer.new(buyer_id: buyer_id).update_enquiries(event) if !buyer_id.nil?
+        #Events::EnquiryStatBuyer.new(buyer_id: buyer_id).update_enquiries(event) if !buyer_id.nil?
 
         ### Clear the cache. List all cached methods which has cache key as agent_id/udprn
         ardb_client = Rails.configuration.ardb_client

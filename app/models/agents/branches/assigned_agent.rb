@@ -19,7 +19,9 @@ module Agents
       PREMIUM_COST = 25
 
       CURRENT_VALUATION_PERCENT = 0.01
-  
+
+      default_scope { where(is_developer: false) }
+
       def name
         str = self.first_name rescue nil
         str += ' ' if str

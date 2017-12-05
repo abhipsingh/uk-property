@@ -422,7 +422,6 @@ Rails.application.routes.draw do
     end
   end
 
-
   ### Facebook login routes
   get 'auth/:provider/callback',                  to: 'sessions#create'
   get 'signout',                                  to: 'sessions#destroy', as: 'signout'
