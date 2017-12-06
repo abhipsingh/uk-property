@@ -93,15 +93,15 @@ class SessionsController < ApplicationController
   end
 
   ### Used to create a first time developer
-  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost:8000/register/developer/' -d '{ "developer" : { "name" : "Jackie Bing", "email" : "jackie.bing@friends.com", "mobile" : "9873628231", "password" : "1234567890", "branch_id" : 9851 } }'
+  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/register/developer/' -d '{ "developer" : { "name" : "Jackie Bing", "email" : "jackie.bing@friends.com", "mobile" : "9873628231", "password" : "1234567890", "branch_id" : 9851 } }'
   def create_developer
     developer_params = params[:developer].as_json
     developer_params.delete('company_id')
     status = 200
     verification_hash = VerificationHash.where(email: developer_params['email']).last
     if verification_hash 
-      if Agents::Branches::AssignedAgent.exists?(email: developer_params["email"])
-        response = {"message" => "Error! Developer already registered. Please login", "status" => "FAILURE"}
+      if Agents::Branches::AssignedAgent.exists?(email: developer_params['email'])
+        response = {'message' => 'Error! Developer already registered. Please login', 'status' => 'FAILURE'}
         status = 400
         render json: response, status: status
       elsif verification_hash.verified
@@ -123,7 +123,7 @@ class SessionsController < ApplicationController
           response = {"auth_token" => command.result, "details" => developer_details, "status" => "SUCCESS"}
           render json: response, status: 200
         else
-          response = {"message" => "Error in saving developer. Please check username and password.", "status" => "FAILURE"}
+          response = {'message' => 'Error in saving developer. Please check username and password.', 'status' => 'FAILURE'}
           status = 500
           render json: response, status: status
         end
@@ -339,7 +339,7 @@ class SessionsController < ApplicationController
     vendor.mobile = buyer_params['mobile']
     buyer = PropertyBuyer.new(buyer_params)
     verification_hash = VerificationHash.where(email: buyer_params['email']).last
-    if buyer.save! && vendor.save! && VerificationHash.where(email: agent_params['email']).update_all({verified: true})
+    if buyer.save! && vendor.save! && VerificationHash.where(email: buyer_params['email']).update_all({verified: true})
       buyer.vendor_id = vendor.id
       vendor.buyer_id = buyer.id
       vendor.save && buyer.save

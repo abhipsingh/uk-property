@@ -34,8 +34,9 @@ class DevelopersController < ApplicationController
   #### Information about branches for this district
   #### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo"  'http://localhost/developers/branches/list/:district'
   def list_branches
-    vendor = user_valid_for_viewing?('Vendor')
-    if !vendor.nil?
+    vendor = user_valid_for_viewing?('Vendor', ['Vendor', 'Agent'])
+    ### Either a vendor or a premium developer
+    if !vendor.nil? && (vendor.klass.to_s == 'Vendor' || (vendor.klass.to_s == 'Agent' && vendor.is_developer ))
       branch_list = Agents::Branch.unscope(where: :is_developer).where(is_developer: true).where(district: params[:district]).select([:id, :name]) 
       render json: branch_list, status: 200
     else
@@ -293,6 +294,62 @@ class DevelopersController < ApplicationController
     render json: {message: 'Updated successfully', details: developer}, status: 200  if developer.save!
   rescue 
     render json: {message: 'Failed to Updated successfully'}, status: 200
+  end
+
+
+  ### Verify the property's basic attributes and attach the crawled property to a udprn(new build)
+  ### Done when the developer attaches the udprn to the property
+  ### curl  -XPOST -H  "Content-Type: application/json"  'http://localhost/developers/properties/verify' -d '{ "properties" : [{"property_type" : "Barn conversion", "beds" : 1, "baths" : 1, "receptions" : 1, "udprn" : 340620, "assigned_developer_email" :  "residentevil293@prophety.co.uk" }]}'
+  def verify_properties_through_developer
+    user = user_valid_for_viewing?('Developer')
+    if user && user.is_developer
+      developer_id = params[:developer_id].to_i
+      properties = params[:properties]
+      response = {}
+      response = status = nil
+      if properties.is_a?(Array)
+        developer_service = DeveloperService.new(developer_id)
+        properties.each do |each_property|
+          property_attrs = {
+            property_status_type: 'Green',
+            verification_status: true,
+            property_type: each_property[:property_type],
+            beds: each_property[:beds].to_i,
+            baths: each_property[:baths].to_i,
+            receptions: each_property[:receptions].to_i,
+            details_completed: false,
+            claimed_on: Time.now.to_s,
+            claimed_by: 'Agent',
+            is_developer: true,
+            udprn: each_property[:udprn]
+          }
+          assigned_developer_email = each_property[:assigned_developer_email]
+          response, status = developer_service.upload_property_details(property_attrs, assigned_developer_email, user.branch_id, user.id)
+        end
+      else
+        response = 'Properties param should be in an array'
+        status = 400
+      end
+
+      response['message'] = 'Property details updated.' unless status.nil? || status != 200
+      render json: response, status: status
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  private
+
+  def user_valid_for_viewing?(klass, klasses=[])
+    if !klasses.is_empty?
+      result = nil
+      klasses.each do |klass|
+        result ||= AuthorizeApiRequest.call(request.headers, klass).result
+      end
+      result
+    else
+      AuthorizeApiRequest.call(request.headers, klass).result
+    end
   end
 
 end

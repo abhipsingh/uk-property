@@ -192,8 +192,14 @@ Rails.application.routes.draw do
   ### Login for a vendor when an email and a password is provided
   post 'login/vendors',                                         to: 'sessions#login_vendor'
 
+  ### Login for a developer when an email and a password is provided
+  post 'login/developers',                                      to: 'sessions#login_developer'
+
   ### Details for a vendor when a token is provided
   get 'details/vendors',                                        to: 'sessions#vendor_details'
+
+  ### Details for a developer when a token is provided
+  get 'details/developers',                                     to: 'sessions#developer_details'
 
   ### Sends an email to the buyer for registration
   post 'buyers/signup',                                         to: 'sessions#buyer_signup'

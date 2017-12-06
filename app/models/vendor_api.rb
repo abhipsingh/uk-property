@@ -52,9 +52,16 @@ class VendorApi
       sale_info.push({index: (sale_info.count +1), date: date, price_paid: sale_info.last[:price_paid], price_diff: price_diff_last, price_diff_percent: price_diff_last_percent, inflation_adjusted_price: inflation_adjusted_price, inflation_adjusted_price_diff: inflation_adjusted_price_diff, inflation_adjusted_price_diff_percent: inflation_adjusted_price_diff_percent})
     end
 
+
     ### Dream price compute
     property = PropertyDetails.details(@udprn)
     dream_price = property['_source']['dream_price'].to_f rescue -1.0
+
+    ### Sold Price History
+    sold_price_history = SoldProperty.where(udprn: @udprn).select(:sale_price).select('completion_date as created_at').order('created_at DESC').to_a
+    last_sale_prices = property['_source']['sale_prices']
+    last_sale_prices = [] if !last_sale_prices.is_a?(Array)
+    last_sale_prices.each{|t| sold_price_history.push({created_at: t['date'], sale_price: t['price'] }) }
 
     ### Current valuation compute
     current_valuation = nil

@@ -22,7 +22,7 @@ class AuthorizeApiRequest
   def user(klass)
     #Rails.logger.info "user = #{@user.inspect}"
     @user ||= errors.add(:user_type, 'Invalid user type') unless klass
-    @user ||= klass.unscope(where: :is_developer).where(id: decoded_auth_token[:user_id]).last if decoded_auth_token && klass
+    @user ||= klass.unscope(where: :is_developer).where(id: decoded_auth_token[:user_id]).last if decoded_auth_token && klass &&  decoded_auth_token[:klass] == klass.to_s
     @user ||= errors.add(:token, 'Invalid token') && nil
     #Rails.logger.debug "user = #{@user.inspect}"
     #Rails.logger.debug "errors = #{errors.inspect}"

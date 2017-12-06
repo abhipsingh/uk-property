@@ -9,7 +9,6 @@ class AgentService
   ### When an agent verifies a crawled property
   ### Called from agents_controller#verify_property_from_agent
   def verify_crawled_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
-    client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     assigned_agent = Agents::Branches::AssignedAgent.where(email: assigned_agent_email).first
     branch = Agents::Branches::AssignedAgent.where(id: @agent_id.to_i).last.branch
     if assigned_agent
@@ -17,16 +16,14 @@ class AgentService
       property_attrs[:agent_status] = 2
       assigned_agent_present = true
     else
-      InvitedAgent.create!(email: assigned_agent_email, udprn: udprn, agent_id: @agent_id.to_i)
+      InvitedAgent.create!(email: assigned_agent_email, udprn: udprn, entity_id: @agent_id.to_i)
       branch_invited_agents = branch.invited_agents
       branch.invited_agents =  [{ branch_id: branch.id, company_id: branch.agent_id, email: assigned_agent_email }]
-      branch.save!
       branch.send_emails
       branch_invited_agents ||= []
-      branch.invited_agents = branch_invited_agents + [{ branch_id: branch.id, company_id: branch.agent_id, email: assigned_agent_email }]
+      branch.invited_agents += branch_invited_agents
       branch.save!
       assigned_agent_present = false
-      property_attrs[:agent_id] = assigned_agent.id
     end
     property_id = property_attrs[:property_id]
     response, status = verify_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
@@ -60,19 +57,12 @@ class AgentService
   end
 
   def verify_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
-    client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     assigned_agent = Agents::Branches::AssignedAgent.where(email: assigned_agent_email).first
     branch = Agents::Branches::AssignedAgent.where(id: @agent_id.to_i).last.branch
     if assigned_agent
       property_attrs[:agent_id] = assigned_agent.id
       property_attrs[:agent_status] = 2
       assigned_agent_present = true
-    else
-      InvitedAgent.create!(email: assigned_agent_email, udprn: udprn, agent_id: @agent_id.to_i)
-      branch.invited_agents = [{ branch_id: branch.id, company_id: branch.agent_id, email: assigned_agent_email }]
-      branch.save!
-      branch.send_emails
-      assigned_agent_present = false
     end
     property_id = @udprn
     property_service = PropertyService.new(property_id)

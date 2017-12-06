@@ -384,7 +384,8 @@ class Trackers::Buyer
   def push_property_enquiry_details_buyer(new_row, details)
     attrs = [:address, :price, :dream_price, :current_valuation, :pictures, :street_view_image_url, :sale_prices, :property_status_type, 
              :verification_status, :vanity_url, :assigned_agent_id, :assigned_agent_image_url, :assigned_agent_name, :assigned_agent_mobile,
-             :assigned_agent_email, :assigned_agent_title, :dependent_locality, :thoroughfare_description, :post_town, :agent_id]
+             :assigned_agent_email, :assigned_agent_title, :dependent_locality, :thoroughfare_description, :post_town, :agent_id,
+             :beds, :baths, :receptions]
     new_row.merge!(details.slice(*attrs))
     new_row[:image_url] = new_row[:street_view_image_url] || details[:pictures].first rescue nil
     if new_row[:image_url].nil?
@@ -687,6 +688,10 @@ class Trackers::Buyer
     end
     chain_free_stats[true] = 0 unless chain_free_stats[true]
     chain_free_stats[false] = 0 unless chain_free_stats[false]
+    chain_free_stats['Yes'] = chain_free_stats[true]
+    chain_free_stats['No'] = chain_free_stats[false]
+    chain_free_stats.delete(true)
+    chain_free_stats.delete(false)
     result_hash[:chain_free] = chain_free_stats
     result_hash
   end
@@ -741,7 +746,7 @@ class Trackers::Buyer
       max_baths: details['baths'].to_i,
       min_receptions: details['receptions'].to_i,
       max_receptions: details['receptions'].to_i,
-      property_status_types: details['property_status_type']
+      property_types: details['property_type']
     }
 
     ### analysis for each of the postcode type
@@ -763,14 +768,12 @@ class Trackers::Buyer
       search_params = default_search_params.clone
       search_params[region_type] = details[region_type.to_s]
       ranking_stats[region_type][:value] = details[region_type.to_s] ### Populate the value of sector, district and unit
+      ##Rails.logger.info(search_params)
       api = PropertySearchApi.new(filtered_params: search_params)
       api.apply_filters
-      body, status = api.fetch_data_from_es
+      body, status = api.fetch_udprns
       udprns = []
-      if status.to_i == 200
-        udprns = body.map { |e| e['udprn'] }
-      end
-
+      udprns = body.map(&:to_i)  if status.to_i == 200
       ### Accumulate all stats for each udprn
       save_search_hash = {}
       view_hash = {}
@@ -798,7 +801,7 @@ class Trackers::Buyer
         requested_callback_hash[udprn] = property_stat.specific_enquiry_count(:requested_callback)
         hidden_hash[udprn] = Events::IsDeleted.where(udprn: property_id).count
       end
-
+      ranking_stats[region_type][:total_properties] = udprns.count
       ranking_stats[region_type][:view_ranking] = rank(view_hash, property_id)
       ranking_stats[region_type][:total_enquiries_ranking] = rank(total_enquiry_hash, property_id)
       ranking_stats[region_type][:tracking_ranking] = rank(tracking_hash, property_id)

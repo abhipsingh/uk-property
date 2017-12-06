@@ -177,20 +177,36 @@ class PropertyDetails
       ### No of characters = 500
       update_hash[:description_snapshot] = update_hash[:description][0..500] if update_hash[:description]
 
-      ### Check if mandatory attrs completed
+      ### If price or sale price has been changed, then make them the same attribute to be stored
+      if update_hash[:price] || update_hash[:sale_price]
+        price = update_hash[:price]
+        sale_price = update_hash[:sale_price]
+        price_abs = price || sale_price
+        update_hash[:price] = update_hash[:sale_price] = price_abs.to_i
+      end
+
+      ### Check if mandatory attrs completed since only agent and vendor attrs are populated after this
       update_hash[:details_completed] = false
       details_completed = PropertyService::MANDATORY_ATTRS.all?{|attr| details.has_key?(attr) && !details[attr].nil? }
       update_hash[:details_completed] = true if details_completed
+
       add_agent_details(details, update_hash[:agent_id]) if update_hash.has_key?(:agent_id) && update_hash[:agent_id].to_i != details[:agent_id].to_i
       add_agent_details(details, update_hash[:agent_id]) if update_hash.has_key?(:agent_id) && update_hash[:agent_id].to_i != details[:agent_id].to_i
       PropertyService.attach_vendor_details(update_hash[:vendor_id], details) if update_hash[:vendor_id]
       update_hash.each{|key, value| details[key.to_sym] = value }
       PropertyService.normalize_all_attrs(details)
+      
+      ### Normalise price attrs
+      if details[:price] || details[:sale_price]
+        abs_price = details[:price] || details[:sale_price]
+        details[:price] = details[:sale_price] = abs_price.to_i
+      end
+
       PropertySearchApi::ES_ATTRS.each { |key| es_hash[key] = details[key] if details[key] }
       PropertySearchApi::ADDRESS_LOCALITY_LEVELS.each { |key| es_hash[key] = details[key] if details[key] }
       PropertyService.update_udprn(udprn, details)
+      
       client.delete index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn rescue nil
-      #p es_hash
       client.index index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn , body: es_hash
       PropertyService.update_description(udprn, update_hash[:description]) if update_hash[:description]
 

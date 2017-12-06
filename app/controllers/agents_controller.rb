@@ -34,9 +34,9 @@ class AgentsController < ApplicationController
   #### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo"  'http://localhost/branches/list/:district'
   def list_branches
     vendor = user_valid_for_viewing?('Vendor')
-    if !vendor.nil?
-      Rails.logger.info(params[:district])
-      branch_list = Agents::Branch.where(district: params[:district]).select([:id, :name]) 
+    ### Either a vendor or a premium developer
+    if !vendor.nil? && (vendor.klass.to_s == 'Vendor' || (vendor.klass.to_s == 'Agent' && vendor.is_developer ))
+      branch_list = Agents::Branch.unscope(where: :is_developer).where(district: params[:district]).select([:id, :name]) 
       render json: branch_list, status: 200
     else
       render json: { message: 'Authorization failed' }, status: 401
@@ -614,7 +614,7 @@ class AgentsController < ApplicationController
     event = Stripe::Event.retrieve(params['id'])
     case event.type
       when "invoice.payment_succeeded" #renew subscription
-        agent = Agents::Branches::AssignedAgent.where(stripe_customer_id: event.data.object.customer).last
+        agent = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(stripe_customer_id: event.data.object.customer).last
         if agent
           agent.premium_expires_at = 1.month.from_now.to_date
           agent.save!
@@ -653,11 +653,13 @@ class AgentsController < ApplicationController
   ### Shows the leads for the personal properties claimed by the agent
   ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/branches/list/:location
   def branch_info_for_location
-    vendor = user_valid_for_viewing?('Vendor')
-    if !vendor.nil?
+    vendor = user_valid_for_viewing?('Vendor', ['Vendor', 'Agent'])
+    #vendor = user_valid_for_viewing?('Agent')
+    ### Either a vendor or a premium developer
+    if !vendor.nil? && (vendor.class.to_s == 'Vendor' || (vendor.class.to_s == 'Agents::Branches::AssignedAgent' && vendor.is_developer ))
     #if true
-      count = Agents::Branch.where(district: params[:location]).count
-      results = Agents::Branch.where(district: params[:location]).limit(20).offset(20*(params[:p].to_i)).map do |branch|
+      count = Agents::Branch.unscope(where: :is_developer).where(district: params[:location]).count
+      results = Agents::Branch.unscope(where: :is_developer).where(district: params[:location]).limit(20).offset(20*(params[:p].to_i)).map do |branch|
         {
           logo: branch.image_url,
           name: branch.name,
@@ -716,8 +718,16 @@ class AgentsController < ApplicationController
 
   private
 
-  def user_valid_for_viewing?(klass)
-    AuthorizeApiRequest.call(request.headers, klass).result
+  def user_valid_for_viewing?(klass, klasses=[])
+    if !klasses.empty?
+      result = nil
+      klasses.each do |klass|
+        result ||= AuthorizeApiRequest.call(request.headers, klass).result
+      end
+      result
+    else
+      AuthorizeApiRequest.call(request.headers, klass).result
+    end
   end
 
 end

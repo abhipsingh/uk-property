@@ -244,12 +244,14 @@ module Agents
         #### Vendor details
         if lead.agent_id == self.id && lead.vendor_id
           vendor = Vendor.where(id: lead.vendor_id).first
+          new_row[:vendor_id] = vendor.id
           new_row[:vendor_first_name] = vendor.first_name
           new_row[:vendor_last_name] = vendor.last_name
           new_row[:vendor_email] = vendor.email
           new_row[:vendor_mobile] = vendor.mobile
           new_row[:vendor_image_url] = vendor.image_url
         else
+          new_row[:vendor_id] = nil
           new_row[:vendor_first_name] = nil 
           new_row[:vendor_last_name] = nil
           new_row[:vendor_email] = nil
