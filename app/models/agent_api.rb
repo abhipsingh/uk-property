@@ -1,4 +1,3 @@
-
 class AgentApi
   attr_accessor :branch_id, :udprn, :details
 
@@ -150,70 +149,5 @@ class AgentApi
     end
     price.to_i
   end
-
-  #### This function gathers all the price movements of all the property
-  #### which were handled by this agent.
-  #### AgentApi.new(10966139, 1234).avg_percent_of_final_valuation_achieved
-  def calculate_all_property_stats_for_agent    
-  end
-
-
-  #### This function gathers all the price movements of a single property
-  #### which was handled by this agent
-  #### AgentApi.new(10966139, 1234).calculate_per_property_stats_for_agent({})
-  #### TODO: Fix me, after changing the event storage layer to propertyevent, this is obsolete
-  def calculate_per_property_stats_for_agent(result, agent_id=nil)
-    agent_id ||= @agent_id
-    all_valuations = all_valuations_of_agent(agent_id)
-    all_valuations.each do |each_property_valuation|
-      each_property_hash = {}
-      event_result = SoldProperty.where(agent_id: agent_id)
-      if event_result.count > 0
-        ### Property Ids
-        property_id = each_property_valuation.first.udprn
-        each_property_hash['property_id'] = property_id
-        sorted_valuations = each_property_valuation.reverse
-
-        ### First valuation if exists
-        each_property_hash['first_valuation'] = sorted_valuations.first.attr_hash['current_valuation'] if each_property_valuation.length > 0
-        
-        ### Second valuation if exists
-        each_property_hash['second_valuation'] = sorted_valuations.second.attr_hash['current_valuation'] if each_property_valuation.length > 1
-        
-        ### Third valuation if exists
-        each_property_hash['third_valuation'] = sorted_valuations.third.attr_hash['current_valuation'] if each_property_valuation.length > 2
-    
-        ### Final sale price of the property      
-        each_property_hash['final_sale_price'] = event_result.first.sale_price
-
-
-        ### Achieved more than valuation
-        final_valuation = each_property_valuation.first.attr_hash['current_valuation']
-        cond = nil
-        each_property_hash['final_sale_price'] > final_valuation ? cond = 1 : cond = 0
-        each_property_hash['achieved_more_than_valuation'] = cond  
-
-        ### Average changes to valuations
-        each_property_hash['average_changes_to_valuations'] = each_property_valuation.length
-
-        ### Average increase in valuation
-        first_valuation = each_property_valuation.last.attr_hash['current_valuation']
-        percent_increase = ((((each_property_hash['final_sale_price'] - first_valuation).to_f)/(first_valuation.to_f)) * 100 ).round(2)
-        each_property_hash['percent_increase'] = percent_increase
-
-        ### Percent of first valuation achieved
-        percent_first_achieved = (((each_property_hash['final_sale_price'].to_f)/(first_valuation.to_f)) * 100 ).round(2)
-        each_property_hash['percent_first_achieved'] = percent_first_achieved
-
-        ### Percent of final valuation achieved
-        percent_final_achieved = (((each_property_hash['final_sale_price'].to_f)/(final_valuation.to_f)) * 100 ).round(2)
-        each_property_hash['percent_final_achieved'] = percent_final_achieved
-
-        result[property_id] = each_property_hash
-      end
-    end
-    nil
-  end
-
 end
 
