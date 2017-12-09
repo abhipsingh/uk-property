@@ -136,7 +136,10 @@ class PropertySearchApi
     inst = self
     udprns = []
     range_fields = FIELDS[:range].map{|t| ["max_#{t.to_s}".to_sym, "min_#{t.to_s}".to_sym] }.flatten
-    if @filtered_params[:udprn]
+    if @filtered_params[:listing_type] && @filtered_params[:udprns]
+      udprns = @filtered_params[:udprns].split(',')
+      status = 200
+    elsif @filtered_params[:udprn]
       udprns = [ @filtered_params[:udprn] ]
     elsif ((((FIELDS[:terms] + FIELDS[:term] +range_fields) - ADDRESS_LOCALITY_LEVELS - POSTCODE_LEVELS) & @filtered_params.keys).empty?) &&  @filtered_params[:sort_key].nil?
       query = TestUkp
@@ -162,10 +165,13 @@ class PropertySearchApi
         query.where("#{column} is NULL")
       end
 
-
       POSTCODE_LEVELS.each do |level|
         value = @filtered_params[level].gsub(/[A-Z0-9]+/).to_a.join('') if @filtered_params[level]
-        query = query.where("to_tsvector('simple'::regconfig, postcode)  @@ to_tsquery('simple', '#{value}:*')") if value
+        if value && @filtered_params[:district]
+          query = query.where("to_tsvector('simple'::regconfig, district)  @@ to_tsquery('simple', '#{value}')") if value
+        else
+          query = query.where("to_tsvector('simple'::regconfig, postcode)  @@ to_tsquery('simple', '#{value}:*')") if value
+        end
       end
 
       #### Paginate
@@ -258,7 +264,6 @@ class PropertySearchApi
     @filtered_params.delete(:hash_str)
     @filtered_params.delete(:hash_type)
     @filtered_params.delete(:county) if !@filtered_params[:post_town].nil?
-    Rails.logger.info(@filtered_params)
   end
 
   def modify_filtered_params

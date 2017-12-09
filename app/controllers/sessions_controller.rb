@@ -255,6 +255,15 @@ class SessionsController < ApplicationController
       entity = klass.constantize.where(email: verification_hash.email).first
       if entity
         entity.password = password
+        if entity.class.to == 'Vendor'
+          buyer = PropertyBuyer.where(vendor_id: entity.id).last
+          buyer.password = password
+          buyer.save!
+        elsif  entity.class.to_s == 'PropertyBuyer'
+          vendor = Vendor.where(buyer_id: entity.id).last
+          vendor.password = password
+          vendor.save!
+        end
         verification_hash.verified = true
         if entity.save! && verification_hash.save!
           render json: { message: 'Password reset successfully' }, status: 200

@@ -259,13 +259,10 @@ class AgentsController < ApplicationController
   ### Verify the agent as the intended agent and udprn as the correct udprn
   ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/vendors/udprns/10968961/agents/23/verify'
   def verify_agent
-    client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     udprn = params[:udprn].to_i
     agent_id = params[:agent_id].to_i
-    property_for = params[:property_for]
-    property_for ||= 'Sale'
     property_status_type = params[:property_status_type]
-    response, status = PropertyDetails.update_details(client, udprn, { property_status_type: property_status_type, verification_status: true, agent_id: agent_id, agent_status: 2 })
+    response, status = PropertyService.new(udprn).update_details({ property_status_type: property_status_type, verification_status: true, agent_id: agent_id, agent_status: 2 })
     response['message'] = "Agent verification successful." unless status.nil? || status!=200
     render json: response, status: status
   rescue Exception => e
@@ -675,9 +672,48 @@ class AgentsController < ApplicationController
       render json: { message: 'Authorization failed' }, status: 401
     end
   end
+  
+  ### Details of the agent who invited the vendor for that property
+  ### curl -XGET 'http://properties/agent/details/:agent_id'
+  def manual_agent_details
+    vendor = user_valid_for_viewing?('Vendor')
+    if !vendor.nil?
+      agent_id = Agents::Branches::AssignedAgents::Lead.where(property_id: params[:udprn].to_i).first.agent_id
+      details = Agents::Branches::AssignedAgent.find(agent_id).details
+      render json: details, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  ### History of properties which have been manually invitedby the agents
+  ### curl -XGET -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/properties/history/invited'
+  def invited_vendor_history
+    agent = user_valid_for_viewing?('Agent')
+    if !agent.nil?
+      results = []
+      InvitedVendor.where(agent_id: agent.id).where(source: Vendor::INVITED_FROM_CONST[:family]).order('created_at DESC').each do |invited_vendor|
+        udprn = invited_vendor.udprn
+        details = PropertyDetails.details(udprn)[:_source]
+        result = {
+          beds: details[:beds],
+          baths: details[:baths],
+          receptions: details[:receptions],
+          vendor_email: invited_vendor.email,
+          property_type: details[:property_type],
+          address: details[:address],
+          created_at: invited_vendor.created_at
+        }
+        results.push(result)
+      end
+      render json: results, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
 
   ### Get all the details of the crawled property
-  ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" '/agents/details/property/:property_id'
+  ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/details/property/:property_id'
   def crawled_property_details
     agent = user_valid_for_viewing?('Agent')
     if !agent.nil?

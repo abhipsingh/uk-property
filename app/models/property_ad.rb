@@ -33,7 +33,7 @@ class PropertyAd < ActiveRecord::Base
       new_details = details.deep_dup.with_indifferent_access
       ALL_LOCALITY_LEVELS.each{|t| assign_null(new_details, t) }
       ALL_LOCALITY_LEVELS.each do |each_locality_level|
-        hash_str = hash_at_level(each_locality_level, new_details)
+        hash_str = MatrixViewService.form_hash_str(new_details, each_locality_level)
         response["#{each_locality_level.to_s}"] = details[each_locality_level]
         response["#{each_locality_level.to_s}_hash"] = hash_str if details[each_locality_level] &&   !details[each_locality_level].empty?
         response["#{each_locality_level.to_s}_#{each_type.downcase}_count"] = MAX_ADS_HASH[each_type] - PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(service: service).count  if details[each_locality_level] &&  !details[each_locality_level.to_s].empty?
@@ -42,7 +42,7 @@ class PropertyAd < ActiveRecord::Base
        response[:price_per_slot] = PRICE[each_type]
       end
       ALL_POSTCODE_LEVELS.each do |each_postcode_unit|
-        hash_str = hash_at_level(each_postcode_unit, new_details)
+        hash_str = MatrixViewService.form_hash(new_details, each_postcode_unit)
         response["#{each_postcode_unit.to_s}"] = details[each_postcode_unit]
         response["#{each_postcode_unit.to_s}_hash"] = hash_str
         response["#{each_postcode_unit.to_s}_#{each_type.downcase}_count"] = MAX_ADS_HASH[each_type] - PropertyAd.where(hash_str: hash_str).where(service: service).where(ad_type: TYPE_HASH[each_type]).count

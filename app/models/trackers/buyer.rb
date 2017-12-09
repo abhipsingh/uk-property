@@ -223,6 +223,8 @@ class Trackers::Buyer
     new_row[:pictures] = [] if details[:_source][:pictures].nil?
     image_url ||= "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details[:_source][:udprn]}/fov_120_#{details[:_source][:udprn]}.jpg"
     new_row[:street_view_image_url] = image_url
+    new_row[:status_last_updated] = details[:_source][:status_last_updated]
+    new_row[:status_last_updated] = Time.parse(new_row[:status_last_updated]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:status_last_updated] 
     add_details_to_enquiry_row(new_row, details['_source'], property_for)
     details['_source'].merge!(new_row)
     details['_source']
@@ -254,7 +256,6 @@ class Trackers::Buyer
       new_row[:street_view_image_url] = image_url
     end
     new_row[:pictures] = [] if new_row[:pictures].nil?
-    
     new_row[:completed_status] = new_row[:details_completed]
     new_row[:listed_since] = new_row[:date_added]
     new_row[:agent_profile_image] = nil

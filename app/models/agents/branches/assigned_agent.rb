@@ -113,10 +113,11 @@ module Agents
             new_row['payment_terms'] = nil
             new_row['payment_terms'] = agent_quote.payment_terms  if agent_quote
             new_row['services_required'] = Agents::Branches::AssignedAgents::Quote::SERVICES_REQUIRED_HASH[each_quote.service_required.to_s.to_sym]
-            if quote_status == 'New'
-              new_row['quote_details'] = each_quote.quote_details 
+
+            if quote_status == 'Pending'
+              new_row['quote_details'] = agent_quote.quote_details
             else
-              new_row['quote_details'] = agent_quote.quote_details 
+              new_row['quote_details'] = each_quote.quote_details 
             end
             
             new_row[:current_agent] = self.name
@@ -359,6 +360,7 @@ module Agents
         self.assigned_agent_present = assigned_agent_present
         self.alternate_agent_email = alternate_agent_email
         VendorMailer.welcome_email(self).deliver_now
+        ### http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=<%=@user.verification_hash%>&udprn=<%=@user.email_udprn%>&email=<%=@user.vendor_email%>
       end
 
       def create_hash(vendor_email, udprn)

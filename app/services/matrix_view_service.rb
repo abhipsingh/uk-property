@@ -140,16 +140,14 @@ class MatrixViewService
       pt = '@' if pt.blank?
       dl = "#{context_hash[:dependent_locality]}"
       dl = "@" if dl == ''
-      sector = context_hash[:sector]
-      sector = '@' if sector.blank?
+      sector = '@'
       "@_#{pt}_#{dl}_@_#{context_hash[:dependent_thoroughfare_description]}_@_@_@_@|@_#{sector}_#{context_hash[:district]}"
     elsif type == :thoroughfare_description
       pt = context_hash[:post_town]
       pt = '@' if pt.blank?
       dl = "#{context_hash[:dependent_locality]}"
       dl = "@" if dl == ''
-      sector = context_hash[:sector]
-      sector = '@' if sector.blank?
+      sector = '@'
       "@_#{pt}_#{dl}_#{context_hash[:thoroughfare_description]}_@_@_@_@_@|@_#{sector}_#{context_hash[:district]}"
     elsif type == :district
       form_hash(context_hash, :district)

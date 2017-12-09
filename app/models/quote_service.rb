@@ -21,6 +21,7 @@ class QuoteService
         status: new_status,
         quote_details: quote_details,
         property_id: @udprn.to_i,
+        district: details[:details],
         property_status_type: property_status_type,
         agent_id: agent_id,
         vendor_id: vendor.id,

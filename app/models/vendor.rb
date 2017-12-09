@@ -9,6 +9,11 @@ class Vendor < ActiveRecord::Base
 
   REVERSE_STATUS_HASH = STATUS_HASH.invert
 
+  INVITED_FROM_CONST = {
+    crawled: 1,
+    family: 2
+  }
+
    def self.from_omniauth(auth)
      new_params = auth.as_json.with_indifferent_access
      where(new_params.slice(:provider, :uid)).first_or_initialize.tap do |user|

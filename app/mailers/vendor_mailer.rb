@@ -1,6 +1,8 @@
 class VendorMailer < ApplicationMailer
   def welcome_email(user)
     @user = user
+    ### TODO: Conditionally change a link depending on whether the vendor has already registered or not
+    @link = "http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=<%=@user.verification_hash%>&udprn=<%=@user.email_udprn%>&email=<%=@user.vendor_email"
     mail(to: @user.vendor_email, subject: "Welcome to Prophety #{@user.vendor_email}")
   end
 

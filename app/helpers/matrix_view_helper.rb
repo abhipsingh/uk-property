@@ -105,7 +105,7 @@ module MatrixViewHelper
             new_context_map[each_agg_field[0].to_sym] = value[:key]
             new_context_map[each_agg_field[1].to_sym] = context
             new_context_map[:scoping_type] = each_agg_field[1].to_sym
-            hash_str = form_hash_str(new_context_map, each_agg_field[0].to_sym)
+            hash_str = MatrixViewService.form_hash_str(new_context_map, each_agg_field[0].to_sym)
             response_hash[each_agg_field[0].pluralize].push({ each_agg_field[0] => value[:key], flat_count: value[:doc_count], scoped_postcode: context, hash_str: hash_str })
           end
         end

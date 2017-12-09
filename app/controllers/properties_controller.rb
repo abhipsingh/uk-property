@@ -232,6 +232,24 @@ class PropertiesController < ActionController::Base
   #  render json: { message: 'Sorry, this udprn has already been claimed' }, status: 400
   end
 
+
+  #### Attach the vendor to a manually added property without making the vendor force the attributes
+  #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/properties/manually/added/claim/vendor' -d '{ "vendor_id" : 1235, "udprn" : 12649776 }'
+  def attach_vendor_to_udprn_manual_for_manually_added_properties
+    if user_valid_for_viewing?(['Vendor'], params[:udprn].to_i)
+      udprn = params[:udprn].to_i
+      vendor_id = @current_user.id
+      #### Attach the lead to the agent
+      details = PropertyDetails.details(udprn)[:_source]
+      Agents::Branches::AssignedAgents::Lead.where(property_id: udprn).where(vendor_id: nil).last.update_attributes(district: details[:district])
+      details = { udprn: udprn, vendor_id: vendor_id }
+      response, status = PropertyService.new(udprn).update_details(details)
+      render json: response, status: status
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
   ### Update basic details of a property by a vendor. Part of vendor verification workflow process
   #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/properties/vendor/basic/10966139/update' -d '{ "beds" : 2, "baths": 190, "receptions" : 34, "property_status_type" : "Green", "vendor_id" : 1, "property_type": "Countryside" }'
   def update_basic_details_by_vendor
@@ -248,6 +266,9 @@ class PropertiesController < ActionController::Base
     body[:dream_price] = params[:dream_price] if params[:dream_price]
     body[:verification_status] = false
     PropertyService.new(udprn).update_details(body)
+
+    ### Update district of manually claimed leads
+
     render json: { message: 'Successfully updated' }, status: 200
   #rescue Exception => e
   #  render json: { message: "Update failed  #{e}" }, status: 400

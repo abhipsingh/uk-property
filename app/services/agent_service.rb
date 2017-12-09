@@ -52,7 +52,12 @@ class AgentService
       udprn: udprn,
       hash_link: assigned_agent.create_hash(vendor_email, property_id).hash_value
     }
+
     VendorMailer.agent_lead_expect_visit_manual(agent_attrs, vendor_email).deliver_now
+
+    ### Add this vendor to invited vendors table, source
+    InvitedVendor.create!(udprn: @udprn, email: vendor_email, agent_id: @agent_id.to_i, source: Vendor::INVITED_FROM_CONST[:family] )
+
     return response, status
   end
 
@@ -68,6 +73,10 @@ class AgentService
     property_service = PropertyService.new(property_id)
     response, status = property_service.update_details(property_attrs)
     Agents::Branches::AssignedAgent.find(@agent_id).send_vendor_email(vendor_email, @udprn, assigned_agent_present, assigned_agent_email)
+
+    ### Add this vendor to invited vendors table, source
+    InvitedVendor.create!(udprn: @udprn, email: vendor_email, agent_id: @agent_id.to_i, source: Vendor::INVITED_FROM_CONST[:crawled] )
+
     return response, status
   end
 end

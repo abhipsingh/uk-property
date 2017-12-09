@@ -377,6 +377,15 @@ Rails.application.routes.draw do
   ### Reset password for any user
   post '/reset/password',                                       to: 'sessions#reset_password'
 
+  ### Get all the details of an agent who invited the vendor via friends and family
+  get 'properties/agent/details/:udprn',                        to: 'agents#manual_agent_details'
+
+  ### Attach the vendor to a manually added property(No basic attributes though)
+  post 'properties/manually/added/claim/vendor',                to: 'properties#attach_vendor_to_udprn_manual_for_manually_added_properties'
+
+  ### History of manually claimed properties for an agent
+  get 'agents/properties/history/invited',                      to: 'agents#invited_vendor_history'
+
   ### Count of matching properties(aggregate) not divided by property_status_type
   #####################################################################
   #####################################################################

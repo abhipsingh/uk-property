@@ -92,7 +92,8 @@ class MatrixViewController < ActionController::Base
         output = text.split('|')[1].split('_').join(', ')
         hash_str = nil
         text.split('|')[0] == 'county' ? hash_str = "#{output}_@" : hash_str = "#{output.split(',')[1].strip}_#{output.split(',')[0]}"
-        hash = "#{hash_str}_@_@_@_@_@_@_@_@"
+        hash = "#{hash_str}_@_@_@_@_@_@_@" if text.start_with?('county')
+        hash = "#{hash_str}_@_@_@_@_@_@_@" if text.start_with?('post_town')
         final_predictions.push({ hash: hash, output: output, type: text.split('|')[0] })
       end
     end
