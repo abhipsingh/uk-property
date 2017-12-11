@@ -7,3 +7,4 @@ Rails.configuration.address_index_name_load_testing = ENV['ADDRESS_INDEX_NAME_LO
 Rails.configuration.address_type_name_load_testing = ENV['ADDRESS_TYPE_NAME_LOAD_TESTING']
 Rails.configuration.location_index_name = ENV['LOCATIONS_INDEX_NAME']
 Rails.configuration.location_type_name = ENV['LOCATIONS_TYPE_NAME']
+Rails.configuration.new_property_locations_index_name = ENV['NEW_PROPERTIES_LOCATIONS_INDEX_NAME']

@@ -33,7 +33,7 @@ class MatrixViewController < ActionController::Base
         udprns.push(text.split('|')[1].to_i)
       end
     end
-    Rails.logger.info(udprns)
+    #Rails.logger.info(udprns)
     details = PropertyService.bulk_details(udprns)
     details = details.map{|t| t.with_indifferent_access }
     counter = 0

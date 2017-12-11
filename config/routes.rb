@@ -386,6 +386,9 @@ Rails.application.routes.draw do
   ### History of manually claimed properties for an agent
   get 'agents/properties/history/invited',                      to: 'agents#invited_vendor_history'
 
+  ### Auto suggest new properties
+  get 'properties/new/suggest',                                 to: 'auto_suggests#suggest_new_properties'
+
   ### Count of matching properties(aggregate) not divided by property_status_type
   #####################################################################
   #####################################################################

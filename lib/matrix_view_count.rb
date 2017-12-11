@@ -2,7 +2,7 @@ class MatrixViewCount
   attr_accessor :scoping_parameter, :constraint_key, :constraints
 
   POST_TOWNS = JSON.parse(File.read('county_map.json')).keys.uniq
-  COUNTIES = JSON.parse(File.read('county_map.json')).values.uniq + [ 'Central London', 'East London', 'North West London', 'North London', 'South East London', 'South West London', 'West London' ]
+  COUNTIES = JSON.parse(File.read('county_map.json')).values.uniq + [ 'Central London', 'East London', 'North West London', 'North London', 'South East London', 'South West London', 'Dummy', 'West London' ]
 
   COLUMN_MAP = {
     county: 'county',

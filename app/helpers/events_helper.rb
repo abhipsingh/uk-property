@@ -149,3 +149,4 @@ module EventsHelper
   end
 
 end
+

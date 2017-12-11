@@ -53,28 +53,6 @@ class PropertyAd < ActiveRecord::Base
     end
   end
 
-  def self.hash_at_level(level, details)
-    hash = nil
-    if level == :dependent_locality
-      hash = "@_#{details['post_town']}_#{details['dependent_locality']}_@_@_@_@_@_@|@_@_#{details['district']}"
-    elsif level == :dependent_thoroughfare_description
-      hash = "@_#{details['post_town']}_#{details['dependent_locality']}_@_#{details['dependent_thoroughfare_description']}_@_@_@_@|@_@_#{details['district']}"
-    elsif level == :thoroughfare_description
-      hash = "@_#{details['post_town']}_#{details['dependent_locality']}_#{details['thoroughfare_description']}_@_@_@_@_@|@_@_#{details['district']}"
-    elsif level == :post_town
-      hash = "#{details['county']}_#{details['post_town']}_@_@_@_@_@_@_@_@"
-    elsif level == :county
-      hash = "#{details['county']}_@_@_@_@_@_@_@_@_@"
-    elsif level == :sector
-      hash = "@_@_#{details['dependent_locality']}_@_@_@_@_@_@|@_#{details['sector']}_@"
-    elsif level == :district
-      hash = "@_#{details['post_town']}_@_@_@_@_@_@_@|@_@_#{details['district']}"
-    elsif level == :unit
-      hash = "@_@_@_@_@_@_@_@_@|#{details['unit']}_@_@"
-    end
-    hash
-  end
-
   def self.assign_null(hash, key)
     val = hash[key]
     val = '@' if val.nil? || val.empty?
