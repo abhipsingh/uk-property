@@ -130,7 +130,7 @@ class PropertyDetails
   end
 
   def self.add_agent_details(details, agent_id)
-    agent = Agents::Branches::AssignedAgent.where(id: agent_id).last
+    agent = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(id: agent_id).last
     if agent
       branch = agent.branch
       details[:assigned_agent_first_name] = agent.first_name

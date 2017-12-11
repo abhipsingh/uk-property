@@ -53,7 +53,7 @@ class EventsController < ApplicationController
     ads = params[:ads]
     hash_str = params[:hash_str]
     last_time = params[:latest_time]
-    is_premium = Agents::Branches::AssignedAgent.where(id: params[:agent_id].to_i).select(:is_premium).first.is_premium rescue nil
+    is_premium = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(id: params[:agent_id].to_i).select(:is_premium).first.is_premium rescue nil
     buyer_id = params[:buyer_id]
     archived = params[:archived]
     response = []
@@ -92,7 +92,7 @@ class EventsController < ApplicationController
     cache_parameters = param_list.map{ |t| params[t].to_s }
     cache_response(params[:agent_id].to_i, cache_parameters) do
       last_time = params[:latest_time]
-      is_premium = Agents::Branches::AssignedAgent.where(id: params[:agent_id].to_i).select(:is_premium).first.is_premium rescue nil
+      is_premium = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(id: params[:agent_id].to_i).select(:is_premium).first.is_premium rescue nil
       buyer_id = params[:buyer_id]
       archived = params[:archived]
       closed = params[:closed]
@@ -197,7 +197,7 @@ class EventsController < ApplicationController
 
       unless params[:agent_id].nil?
         #### TODO: Need to fix agents quotes when verified by the vendor
-        agent = Agents::Branches::AssignedAgent.where(id: params[:agent_id].to_i).select([:id, :is_premium]).first
+        agent = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(id: params[:agent_id].to_i).select([:id, :is_premium]).first
         if agent
           search_params = { limit: 10000}
           search_params[:agent_id] = params[:agent_id].to_i

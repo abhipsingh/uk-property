@@ -233,7 +233,7 @@ class Trackers::Buyer
   #### Push agent specific details
   def push_agent_details(new_row, agent_id)
     keys = [:name, :email, :mobile, :office_phone_number, :image_url]
-    agents = Agents::Branches::AssignedAgent.where(id: agent_id).select(keys).as_json
+    agents = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(id: agent_id).select(keys).as_json
     agents.each { |e| keys.each { |k| new_row[k] = e[k.to_s] } }
   end
 

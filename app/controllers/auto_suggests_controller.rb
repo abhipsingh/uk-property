@@ -10,7 +10,7 @@ class AutoSuggestsController < ActionController::Base
 
     predictions = predictions.each do |t|
       text = t['text']
-      udprns.push(text.split('_')[0].to_i) if text.end_with?('bt')
+      udprns.push(text.split('_')[0].to_i) if text.end_with?('bt') || text.end_with?('td') || text.end_with?('dtd')
     end
 
     details = PropertyService.bulk_details(udprns)
@@ -19,12 +19,12 @@ class AutoSuggestsController < ActionController::Base
     final_predictions = []
     predictions.each_with_index do |t, index|
       text = t['text']
-      if text.end_with?('bt')
+      if text.end_with?('bt') || text.end_with?('td') || text.end_with?('dtd')
         address = PropertyDetails.address(details[counter])
         udprn = text.split('_')[0]
         hash = "@_@_@_@_@_@_@_@_#{udprn}"
         final_predictions.push({ hash: hash, output: address, type: 'building_type' })
-      end
+      end 
       counter += 1
     end
 
