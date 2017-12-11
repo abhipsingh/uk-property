@@ -220,18 +220,18 @@ class AgentsController < ApplicationController
   ### curl  -XPOST -H  "Content-Type: application/json"  'http://localhost/agents/23/udprns/10968961/verify' -d '{ "assigned_agent_id": 25, "vendor_email" : "test@prophety.co.uk" }'
   def invite_vendor
     udprn = params[:udprn].to_i
-    original_agent = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i)
-    assigned_agent = Agents::Branches::AssignedAgent.find(params[:assigned_agent_id].to_i)
-    if original_agent.branch_id == assigned_agent.branch_id
-      agent_id = params[:assigned_agent_id].to_i
+    agent = user_valid_for_viewing?('Agent')
+    if !agent.nil?
       vendor_email = params[:vendor_email]
-      Agents::Branches::AssignedAgent.find(agent_id).send_vendor_email(vendor_email, udprn)
+      invited_vendor = InvitedVendor.where(email: vendor_email).where(agent_id: agent.id).last
+      if invited_vendor
+        invited_vendor.update_attributes(update_at: Time.now)
+        agent.send_vendor_email(vendor_email, udprn)
+      end
       render json: {message: 'Message sent successfully'}, status: 200
     else
-      raise 'Branch id doesnt match'
+      render json: { message: 'Authorization failed' }, status: 401
     end
-  rescue Exception => e
-   render json: {message: "#{e.message} " }, status: 400
   end
 
 
@@ -396,6 +396,7 @@ class AgentsController < ApplicationController
         new_row['post_code'] = property.postcode
         new_row['property_status_type'] = 'Green'
         new_row['assigned_agent_emails'] = assigned_agent_emails
+        new_row['udprn'] = property.udprn
         postcode = property.postcode
         response.push(new_row)
         postcodes = postcodes + "," + postcode
@@ -404,9 +405,21 @@ class AgentsController < ApplicationController
       logged_postcodes = []
       #Rails.logger.info(results.as_json)
       response.each do |each_crawled_property_data|
-        matching_udprns = results.select{ |t| t.postcode == each_crawled_property_data['post_code'] }
+        if !each_crawled_property_data['udprn'] 
+          matching_udprns = results.select{ |t| t.postcode == each_crawled_property_data['post_code'] }
         # Rails.logger.info("HELLO") if !matching_udprns.empty?
-        each_crawled_property_data['matching_properties'] = matching_udprns
+          each_crawled_property_data['matching_properties'] = matching_udprns
+          each_crawled_property_data['last_email_sent'] = nil
+          each_crawled_property_data['vendor_email'] = nil
+        else
+          matching_udprns = each_crawled_property_data['udprn']
+          each_crawled_property_data['matching_properties'] = [ matching_udprns ]
+          details = PropertyDetails.details(matching_udprns)[:_source]
+          each_crawled_property_data['address'] = details[:address]
+          invited_vendor = InvitedVendor.where(agent_id: agent.id).where(udprn: matching_udprns).last
+          each_crawled_property_data['last_email_sent'] = invited_vendor.created_at
+          each_crawled_property_data['vendor_email'] = invited_vendor.email
+        end
       end
       render json: { response: response, property_count: property_count }, status: 200
     else
@@ -702,7 +715,7 @@ class AgentsController < ApplicationController
           vendor_email: invited_vendor.email,
           property_type: details[:property_type],
           address: details[:address],
-          created_at: invited_vendor.created_at
+          last_email_sent: invited_vendor.created_at
         }
         results.push(result)
       end

@@ -401,12 +401,12 @@ class SessionsController < ApplicationController
 
   def current_user
      reset_session
-      user_type_map = {
-        'Agent' => 'Agents::Branches::AssignedAgent',
-        'Vendor' => 'Vendor',
-        'Buyer' => 'PropertyBuyer',
-        'Developer' => 'Agents::Branches::AssignedAgent'
-       } 
+     user_type_map = {
+      'Agent' => 'Agents::Branches::AssignedAgent',
+      'Vendor' => 'Vendor',
+      'Buyer' => 'PropertyBuyer',
+      'Developer' => 'Agents::Branches::AssignedAgent'
+     } 
     if session[:user_type] && ['Vendor', 'Buyer', 'Agent', 'Developer'].include?(session[:user_type])
       @current_user ||= session[:user_type].constantize.unscope(where: :is_developer).where(id: session[:user_id]).last
     end
