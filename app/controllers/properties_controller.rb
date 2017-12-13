@@ -274,6 +274,22 @@ class PropertiesController < ActionController::Base
   #  render json: { message: "Update failed  #{e}" }, status: 400
   end
 
+  ### Bulk api to filter the udprns which have a vendor attached to them
+  ### To know which udprns have been claimed or not
+  #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/properties/filter/claimed' -d '{ "hashes" : ["@_@_@_@_@_@_@_@_23830513"]}'
+  def filter_claimed_udprns
+    hashes = params[:hashes]
+    resp = []
+    hashes.each do |each_hash|
+      hash_val = { hash_str: each_hash }
+      PropertySearchApi.construct_hash_from_hash_str(hash_val)
+      udprn = hash_val[:udprn]
+      resp.push(udprn) if PropertyDetails.details(udprn)[:_source][:vendor_id].nil?
+    end
+
+    render json: resp, status: 200
+  end
+
   ### Auxilliary action used for testing purposes
   def process_event
     event_controller = EventsController.new

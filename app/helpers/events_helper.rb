@@ -96,7 +96,7 @@ module EventsHelper
           hash_str = Events::Track.send("#{address_attr}_hash", details[:_source])
           tracking_event = Events::Track.new(type_of_tracking: enum_type_of_tracking, hash_str: hash_str, agent_id: agent_id, buyer_id: buyer_id, udprn: property_id)
           tracking_event.premium = buyer.is_premium
-          tracking_event.save
+          tracking_event.save!
         end
       elsif Trackers::Buyer::QUALIFYING_STAGE_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
 

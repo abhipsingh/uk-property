@@ -31,11 +31,13 @@ class SessionsController < ApplicationController
       end
 
       if user_type == 'Agent'
+        user.save!
         agent_id = user.id
         udprns = InvitedAgent.where(email: user.email).pluck(:udprn)
         client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
         udprns.map { |udprn|  PropertyDetails.update_details(client, udprn, { agent_id: agent_id, agent_status: 2 }) }
       elsif user_type == 'Developer'
+        user.save!
         developer_id = user.id
         udprns = InvitedDeveloper.where(email: user.email).pluck(:udprn)
         udprns.map { |t| PropertyService.new(t).update_details({ developer_id: developer_id, developer_status: 2 })}

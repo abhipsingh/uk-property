@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20171208170546) do
+ActiveRecord::Schema.define(version: 20171213123355) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -139,11 +139,12 @@ ActiveRecord::Schema.define(version: 20171208170546) do
     t.string   "terms_url"
     t.boolean  "refund_status",        default: false
     t.integer  "vendor_id",                            null: false
+    t.boolean  "expired",              default: false
   end
 
-  add_index "agents_branches_assigned_agents_quotes", ["agent_id", "property_id"], name: "quotes_unique_property_agents_idx", unique: true, where: "(agent_id IS NOT NULL)", using: :btree
+  add_index "agents_branches_assigned_agents_quotes", ["agent_id", "property_id", "expired"], name: "quotes_unique_property_agents_idx", unique: true, where: "((agent_id IS NOT NULL) AND (expired = false))", using: :btree
   add_index "agents_branches_assigned_agents_quotes", ["district"], name: "index_agents_branches_assigned_agents_quotes_on_district", using: :btree
-  add_index "agents_branches_assigned_agents_quotes", ["property_id"], name: "quotes_unique_property_idx", unique: true, where: "(agent_id IS NULL)", using: :btree
+  add_index "agents_branches_assigned_agents_quotes", ["property_id", "expired"], name: "quotes_unique_property_idx", unique: true, where: "((agent_id IS NULL) AND (expired = false))", using: :btree
 
   create_table "agents_branches_crawled_properties", force: :cascade do |t|
     t.text     "html"
@@ -380,7 +381,7 @@ ActiveRecord::Schema.define(version: 20171208170546) do
     t.integer  "agent_id"
     t.integer  "udprn"
     t.integer  "property_status_type", default: 1
-    t.string   "hash_str"
+    t.string   "hash_str",                            null: false
     t.boolean  "active",               default: true
     t.datetime "created_at",                          null: false
     t.datetime "updated_at",                          null: false
@@ -416,6 +417,17 @@ ActiveRecord::Schema.define(version: 20171208170546) do
     t.integer  "udprn"
     t.integer  "source"
     t.datetime "created_at", null: false
+  end
+
+  create_table "new_property_upload_histories", force: :cascade do |t|
+    t.string   "property_type"
+    t.integer  "beds"
+    t.integer  "baths"
+    t.integer  "receptions"
+    t.string   "assigned_agent_email"
+    t.integer  "udprn"
+    t.integer  "developer_id"
+    t.datetime "created_at",           null: false
   end
 
   create_table "pb_details", force: :cascade do |t|

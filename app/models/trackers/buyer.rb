@@ -363,7 +363,7 @@ class Trackers::Buyer
       result.push(new_row)
     end
 
-    buyers = PropertyBuyer.where(id: buyer_ids).select([:id, :email, :full_name, :mobile, :status, :chain_free, :funding, 
+    buyers = PropertyBuyer.where(id: buyer_ids).select([:id, :email, :first_name, :last_name, :mobile, :status, :chain_free, :funding, 
                                                         :biggest_problems, :buying_status, :budget_to, :budget_from,
                                                         :first_name, :last_name, :image_url, :property_types])
                           .order("position(id::text in '#{buyer_ids.join(',')}')")
@@ -384,9 +384,9 @@ class Trackers::Buyer
   ### with new row
   def push_property_enquiry_details_buyer(new_row, details)
     attrs = [:address, :price, :dream_price, :current_valuation, :pictures, :street_view_image_url, :sale_prices, :property_status_type, 
-             :verification_status, :vanity_url, :assigned_agent_id, :assigned_agent_image_url, :assigned_agent_name, :assigned_agent_mobile,
+             :verification_status, :vanity_url, :assigned_agent_id, :assigned_agent_image_url, :assigned_agent_mobile,
              :assigned_agent_email, :assigned_agent_title, :dependent_locality, :thoroughfare_description, :post_town, :agent_id,
-             :beds, :baths, :receptions]
+             :beds, :baths, :receptions, :assigned_agent_first_name, :assigned_agent_last_name]
     new_row.merge!(details.slice(*attrs))
     new_row[:image_url] = new_row[:street_view_image_url] || details[:pictures].first rescue nil
     if new_row[:image_url].nil?

@@ -1,6 +1,7 @@
 class DevelopersController < ApplicationController
 
   #### Predictions api for developers
+  #### curl -XGET 'http://localhost/developers/predictions?str=a'
   def search
     klasses = ['Agents::Group', 'Agents::Branch', 'Agent', 'Agents::Branches::AssignedAgent']
     klass_map = {
@@ -27,7 +28,7 @@ class DevelopersController < ApplicationController
     udprn = params[:udprn]
     details = PropertyDetails.details(udprn.to_i)
     district = details['_source']['district']
-    count = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(is_developer: true).joins(:branch).where('developers_branches.district = ?', district).count
+    count = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(is_developer: true).joins(:branch).where('assigned_agents_branches.district = ?', district).count
     render json: count, status: 200
   end
 
@@ -153,61 +154,6 @@ class DevelopersController < ApplicationController
     end
   end
 
-  ### Invite vendor to verify the udprn
-  ### curl  -XPOST -H  "Content-Type: application/json"  'http://localhost/developers/23/udprns/10968961/verify' -d '{ "developer_id": 25, "vendor_email" : "test@prophety.co.uk" }'
-  def invite_vendor_developer
-    udprn = params[:udprn].to_i
-    original_developer = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(is_developer: true, id: params[:developer_id].to_i).last
-    developer = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(is_developer: true, id: params[:developer_id].to_i).last
-    if original_developer.branch_id == developer.branch_id
-      developer_id = params[:developer_id].to_i
-      vendor_email = params[:vendor_email]
-      Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(is_developer: true, id: developer_id).last.send_vendor_email(vendor_email, udprn)
-      render json: {message: 'Message sent successfully'}, status: 200
-    else
-      raise 'Branch id doesnt match'
-    end
-  rescue Exception => e
-   render json: {message: "#{e.message} " }, status: 400
-  end
-
-  ### Get the developer info who sent the mail to the vendor
-  ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/vendors/invite/udprns/10968961/developers/info?verification_hash=$2a$10$rPk93fpnhYE6lnaUqO/mquXRFT/65F7ab3iclYAqKXingqTKOcwni' -d '{ "password" : "new_password" }'
-  def info_for_developer_verification
-    verification_hash = params[:verification_hash]
-    udprn = params[:udprn]
-    hash_obj = VerificationHash.where(hash_value: verification_hash, udprn: udprn.to_i).last
-    if hash_obj
-      developer = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(is_developer: true, id: hash_obj.entity_id).last
-      if developer
-        password = params[:password]
-        agent.password = password
-        agent.save!
-        render json: { details: {developer_name: developer.name, developer_id: developer.id, developer_email: developer.email, udprn: udprn } }, status: 200
-      else
-        render json: { message: 'Agent not found' }, status: 400
-      end
-    else
-      render json: { message: 'hash not found' }, status: 400
-    end
-  end
-
-  ### Verify the developer as the intended developer and udprn as the correct udprn
-  ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/vendors/udprns/10968961/developers/23/verify'
-  def verify_developer_for_developer_claimed_property
-    udprn = params[:udprn].to_i
-    agent_id = params[:developer_id].to_i
-    property_status_type = params[:property_status_type]
-    response, status = PropertyService.new(udprn).update_details({ property_status_type: property_status_type, verification_status: true, developer_id: developer_id, developer_status: 2 })
-    response['message'] = "Developer verification successful." unless status.nil? || status!=200
-    render json: response, status: status
-  rescue Exception => e
-    Rails.logger.info("VERIFICATION_FAILURE_#{e}")
-    render json: { message: 'Verification failed due to some error' }, status: 400
-  end
-
-  #### Edit details of a branch
-  ### curl -XPOST -H "Content-Type: application/json"  'http://localhost/developers/branches/9851/edit' -d '{ "branch" : { "name" : "Jackie Bing", "address" : "8 The Precinct, Main Road, Church Village, Pontypridd, HR1 1SB", "phone_number" : "9873628232", "website" : "www.google.com", "image_url" : "some random url", "email" : "a@b.com"  } }'
   def edit_branch_details
     branch = Agents::Branch.unscope(where: :is_developer).where(is_developer: true, id: params[:id].to_i).last
     if branch
@@ -325,6 +271,7 @@ class DevelopersController < ApplicationController
           }
           assigned_developer_email = each_property[:assigned_developer_email]
           response, status = developer_service.upload_property_details(property_attrs, assigned_developer_email, user.branch_id, user.id)
+          NewPropertyUploadHistory.create!(property_type: each_property[:property_type], beds: each_property[:beds].to_i, baths: each_property[:baths].to_i, receptions: each_property[:receptions].to_i, udprn: each_property[:udprn])
         end
       else
         response = 'Properties param should be in an array'
@@ -338,10 +285,36 @@ class DevelopersController < ApplicationController
     end
   end
 
+  ### History of properties which have been manually uploaded by the developers
+  ### curl -XGET -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/developers/upload/history/properties'
+  def upload_property_history
+    agent = user_valid_for_viewing?('Developer')
+    if !agent.nil?
+      results = []
+      NewPropertyUploadHistory.where(developer_id: agent.id).order('created_at ASC').each do |uploaded_property|
+        details = PropertyDetails.details(uploaded_property.udprn)[:_source]
+        result = {
+          beds: uploaded_property.beds,
+          baths: uploaded_property.baths,
+          receptions: uploaded_property.receptions,
+          employee_email: uploaded_property.assigned_agent_email,
+          property_type: uploaded_property.property_type,
+          udprn: uploaded_property.udprn,
+          address: details[:address],
+          created_at: uploaded_property.created_at
+        }
+        results.push(result)
+      end
+      render json: results, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
   private
 
   def user_valid_for_viewing?(klass, klasses=[])
-    if !klasses.is_empty?
+    if !klasses.empty?
       result = nil
       klasses.each do |klass|
         result ||= AuthorizeApiRequest.call(request.headers, klass).result

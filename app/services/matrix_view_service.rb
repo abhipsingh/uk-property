@@ -117,7 +117,9 @@ class MatrixViewService
       value = '@' if index > postcode_stop_index
       postcode_strs.push(value)
     end
-    address_strs.join('_') + '|' + postcode_strs.reverse.join('_')
+    result = address_strs.join('_') + '|' + postcode_strs.reverse.join('_')
+    result = nil if context_hash[type].nil?
+    result
   end
 
   def self.form_hash_str(context_hash, type)

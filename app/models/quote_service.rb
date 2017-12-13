@@ -93,7 +93,7 @@ class QuoteService
       klass.where(property_id: @udprn.to_i).where.not(agent_id: nil).where.not(agent_id: agent_id).update_all(status: lost_status)
       client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
       doc = { agent_id: agent_id, agent_status: 2, property_status_type: 'Green' } #### agent_status = 2(agent is actively attached, agent_status = 1, agent submitting pictures and quote)
-      PropertyService.new(@udprn.to_i).update_details(@udprn.to_i)
+      PropertyService.new(@udprn.to_i).update_details(doc)
       details = PropertyDetails.details(@udprn.to_i)
 
       ### Deduct agents credits
@@ -101,7 +101,7 @@ class QuoteService
       agent.save!
 
       ### Refund the credits of other agents
-      QuoteRefundWorker.perform_async(@udprn.to_i)
+      #QuoteRefundWorker.perform_async(@udprn.to_i)
 
       response = { details: details, message: 'The quote is accepted' }
     else

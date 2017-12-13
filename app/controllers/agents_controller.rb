@@ -381,7 +381,7 @@ class AgentsController < ApplicationController
     page_size = 20
     if agent
       branch_id = agent.branch_id
-      properties = Agents::Branches::CrawledProperty.where(branch_id: branch_id).select([:id, :postcode, :image_urls, :stored_response, :additional_details, :udprn]).where.not(postcode: nil).where(udprn: nil).limit(page_size).offset(page_no*page_size).order('created_at asc')
+      properties = Agents::Branches::CrawledProperty.where(branch_id: branch_id).select([:id, :postcode, :image_urls, :stored_response, :additional_details, :udprn]).where.not(postcode: nil).limit(page_size).offset(page_no*page_size).order('created_at asc')
       property_count = Agents::Branches::CrawledProperty.where(branch_id: branch_id).where.not(postcode: nil).where(udprn: nil).count
       assigned_agent_emails = Agents::Branches::AssignedAgent.where(branch_id: branch_id).pluck(:email)
       properties.each do |property|
@@ -406,19 +406,20 @@ class AgentsController < ApplicationController
       #Rails.logger.info(results.as_json)
       response.each do |each_crawled_property_data|
         if !each_crawled_property_data['udprn'] 
-          matching_udprns = results.select{ |t| t.postcode == each_crawled_property_data['post_code'] }
-        # Rails.logger.info("HELLO") if !matching_udprns.empty?
+          matching_udprns = results.select{ |t| t.postcode == each_crawled_property_data['post_code']  }
           each_crawled_property_data['matching_properties'] = matching_udprns
           each_crawled_property_data['last_email_sent'] = nil
           each_crawled_property_data['vendor_email'] = nil
+          each_crawled_property_data['is_vendor_registered'] = false
         else
           matching_udprns = each_crawled_property_data['udprn']
-          each_crawled_property_data['matching_properties'] = [ matching_udprns ]
           details = PropertyDetails.details(matching_udprns)[:_source]
+          each_crawled_property_data['matching_properties'] = [ matching_udprns ]
           each_crawled_property_data['address'] = details[:address]
           invited_vendor = InvitedVendor.where(agent_id: agent.id).where(udprn: matching_udprns).last
-          each_crawled_property_data['last_email_sent'] = invited_vendor.created_at
-          each_crawled_property_data['vendor_email'] = invited_vendor.email
+          each_crawled_property_data['last_email_sent'] = invited_vendor.created_at if invited_vendor
+          each_crawled_property_data['vendor_email'] = invited_vendor.email if invited_vendor
+          each_crawled_property_data['is_vendor_registered'] = Vendor.where(email: invited_vendor.email).last.nil? if invited_vendor
         end
       end
       render json: { response: response, property_count: property_count }, status: 200
@@ -715,7 +716,8 @@ class AgentsController < ApplicationController
           vendor_email: invited_vendor.email,
           property_type: details[:property_type],
           address: details[:address],
-          last_email_sent: invited_vendor.created_at
+          last_email_sent: invited_vendor.created_at,
+          is_vendor_registered: Vendor.where(email: invited_vendor.email).last.nil?
         }
         results.push(result)
       end
