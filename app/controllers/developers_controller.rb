@@ -28,7 +28,7 @@ class DevelopersController < ApplicationController
     udprn = params[:udprn]
     details = PropertyDetails.details(udprn.to_i)
     district = details['_source']['district']
-    count = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(is_developer: true).joins(:branch).where('assigned_agents_branches.district = ?', district).count
+    count = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(is_developer: true).joins(:branch).where('agents_branches.district = ?', district).count
     render json: count, status: 200
   end
 
@@ -245,7 +245,7 @@ class DevelopersController < ApplicationController
 
   ### Verify the property's basic attributes and attach the crawled property to a udprn(new build)
   ### Done when the developer attaches the udprn to the property
-  ### curl  -XPOST -H  "Content-Type: application/json"  'http://localhost/developers/properties/verify' -d '{ "properties" : [{"property_type" : "Barn conversion", "beds" : 1, "baths" : 1, "receptions" : 1, "udprn" : 340620, "assigned_developer_email" :  "residentevil293@prophety.co.uk" }]}'
+  ### curl  -XPOST -H  "Content-Type: application/json"  'http://localhost/developers/properties/verify' -d '{ "properties" : [{"property_type" : "Barn conversion", "beds" : 1,  "baths" : 1, "receptions" : 1, "udprn" : 340620, "assigned_developer_email" :  "residentevil293@prophety.co.uk", "features" : ["Bla bla meh"], "description" : "ipsum lorem", "floorplan_urls": ["www.blablameh.com"] }]}'
   def verify_properties_through_developer
     user = user_valid_for_viewing?('Developer')
     if user && user.is_developer
@@ -267,11 +267,14 @@ class DevelopersController < ApplicationController
             claimed_on: Time.now.to_s,
             claimed_by: 'Agent',
             is_developer: true,
-            udprn: each_property[:udprn]
+            udprn: each_property[:udprn],
+            additional_features: each_property[:features],
+            description: each_property[:description],
+            floorplan_urls: each_property[:floorplan_urls]
           }
           assigned_developer_email = each_property[:assigned_developer_email]
           response, status = developer_service.upload_property_details(property_attrs, assigned_developer_email, user.branch_id, user.id)
-          NewPropertyUploadHistory.create!(property_type: each_property[:property_type], beds: each_property[:beds].to_i, baths: each_property[:baths].to_i, receptions: each_property[:receptions].to_i, udprn: each_property[:udprn])
+          NewPropertyUploadHistory.create!(property_type: each_property[:property_type], beds: each_property[:beds].to_i, baths: each_property[:baths].to_i, receptions: each_property[:receptions].to_i, udprn: each_property[:udprn], features: each_property[:features], description: each_property[:description], floorplan_urls: each_property[:floorplan_urls])
         end
       else
         response = 'Properties param should be in an array'
@@ -301,7 +304,10 @@ class DevelopersController < ApplicationController
           property_type: uploaded_property.property_type,
           udprn: uploaded_property.udprn,
           address: details[:address],
-          created_at: uploaded_property.created_at
+          created_at: uploaded_property.created_at,
+          features: uploaded_property.features,
+          description: uploaded_property.description,
+          floorplan_urls: uploaded_property.floorplan_urls
         }
         results.push(result)
       end

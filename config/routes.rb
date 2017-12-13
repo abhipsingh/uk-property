@@ -389,7 +389,11 @@ Rails.application.routes.draw do
   ### Auto suggest new properties
   get 'properties/new/suggest',                                 to: 'auto_suggests#suggest_new_properties'
 
-  post '/properties/filter/claimed',                             to: 'agents#filter_claimed_udprns'
+  ### Filter claimed properties
+  post '/properties/filter/claimed',                            to: 'agents#filter_claimed_udprns'
+
+  ### Get unclaimed properties for udprn
+  get '/properties/unclaimed/search/:postcode',                 to: 'properties#unclaimed_properties_for_postcode'
 
   ### Count of matching properties(aggregate) not divided by property_status_type
   #####################################################################

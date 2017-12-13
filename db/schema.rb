@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20171213123355) do
+ActiveRecord::Schema.define(version: 20171213160646) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -427,7 +427,10 @@ ActiveRecord::Schema.define(version: 20171213123355) do
     t.string   "assigned_agent_email"
     t.integer  "udprn"
     t.integer  "developer_id"
-    t.datetime "created_at",           null: false
+    t.datetime "created_at",                        null: false
+    t.jsonb    "features",             default: []
+    t.text     "description"
+    t.jsonb    "floorplan_urls",       default: []
   end
 
   create_table "pb_details", force: :cascade do |t|

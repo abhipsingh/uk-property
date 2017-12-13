@@ -57,6 +57,12 @@ module Elasticsearch::Search::Filter
       return self
     end
 
+    def append_not_exists_filter(field)
+      filter = { not: { exists: { field: field } } }
+      build_filter_hash(field, filter, :and)
+      return self
+    end
+
     def basic_and_query
        { and: { filters: [] }}
     end

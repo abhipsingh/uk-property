@@ -114,7 +114,7 @@ class SessionsController < ApplicationController
         if developer.save! && VerificationHash.where(email: developer_params['email']).update_all({verified: true})
           command = AuthenticateUser.call(developer_params['email'], developer_params['password'], Agents::Branches::AssignedAgent)
           udprns = InvitedDeveloper.where(email: developer_params['email']).pluck(:udprn)
-          udprns.map { |t| PropertyService.new(t).update_details({ developer_id: developer_id, developer_status: 2 })}
+          udprns.map { |t| PropertyService.new(t).update_details({ agent_id: developer.id, is_developer: true })}
           developer.password = nil
           developer.password_digest = nil
           developer_details = developer.as_json

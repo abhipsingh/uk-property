@@ -3,7 +3,7 @@ class PropertySearchApi
   include Elasticsearch::Search
   NEARBY_MAX_RADIUS = 5000
   RESULTS_PER_PAGE = 20
-  MAX_RESULTS_PER_PAGE = 150
+  MAX_RESULTS_PER_PAGE = 200
   ES_EC2_URL = Rails.configuration.remote_es_url
   ES_EC2_HOST = Rails.configuration.remote_es_host
   FIELDS = {
@@ -13,6 +13,8 @@ class PropertySearchApi
              :postcode, :post_town, :thoroughfare_description, :dependent_thoroughfare_description, :dependent_locality, :double_dependent_locality,
              :county, :udprn, :not_yet_built , :is_new_home, :is_retirement_home, :is_shared_ownership, :area, :property_type ],
     range: [ :cost_per_month, :date_added, :floors, :year_built, :inner_area, :outer_area, :total_area, :improvement_spend, :beds, :baths, :receptions, :current_valuation, :dream_price, :last_sale_price ],
+    exists: [ :vendor_id, :agent_id ],
+    not_exists: [ :vendor_id, :agent_id ]
   }
 
   ES_ATTRS = [
@@ -76,6 +78,8 @@ class PropertySearchApi
     inst = inst.append_terms_filters
     inst = inst.append_term_filters
     inst = inst.append_range_filters
+    inst = inst.append_exists_filters
+    inst = inst.append_not_exists_filters
     shift_query_keys
     #Rails.logger.info(inst.filtered_params)
     # Rails.logger.info(inst.query)
@@ -136,12 +140,19 @@ class PropertySearchApi
     inst = self
     udprns = []
     range_fields = FIELDS[:range].map{|t| ["max_#{t.to_s}".to_sym, "min_#{t.to_s}".to_sym] }.flatten
+
+    exists_filtered_keys = @filtered_params[:exists].split(',').map(&:to_sym) if @filtered_params[:exists].is_a?(String)
+    exists_filtered_keys ||= []
+
+    not_exists_filtered_keys = @filtered_params[:not_exists].split(',').map(&:to_sym) if @filtered_params[:not_exists].is_a?(String)
+    not_exists_filtered_keys ||= []
+
     if @filtered_params[:listing_type] && @filtered_params[:udprns]
       udprns = @filtered_params[:udprns].split(',')
       status = 200
     elsif @filtered_params[:udprn]
       udprns = [ @filtered_params[:udprn] ]
-    elsif ((((FIELDS[:terms] + FIELDS[:term] +range_fields) - ADDRESS_LOCALITY_LEVELS - POSTCODE_LEVELS) & @filtered_params.keys).empty?) &&  @filtered_params[:sort_key].nil?
+    elsif ((((FIELDS[:terms] + FIELDS[:term] +range_fields + FIELDS[:not_exists] + FIELDS[:exists]) - ADDRESS_LOCALITY_LEVELS - POSTCODE_LEVELS) & ( @filtered_params.keys + exists_filtered_keys + not_exists_filtered_keys )).empty?) &&  @filtered_params[:sort_key].nil?
       query = TestUkp
       ADDRESS_LOCALITY_LEVELS.each do |level|
         column = MatrixViewCount::COLUMN_MAP[level]
@@ -368,6 +379,20 @@ class PropertySearchApi
         inst = inst.append_range_filter_query(each_field,min_value.values.first,max_value.values.first)
       end
     end
+    inst
+  end
+
+  def append_not_exists_filters
+    inst = self
+    not_exists_filters = @filtered_params[:not_exists].split(',').map(&:to_sym) & FIELDS[:not_exists] if @filtered_params[:not_exists].is_a?(String)
+    not_exists_filters.each{ |t| inst.append_not_exists_filter(t.to_sym) } if not_exists_filters
+    inst
+  end
+
+  def append_exists_filters
+    inst = self
+    exists_filters = @filtered_params[:exists].split(',').map(&:to_sym) & FIELDS[:exists] if @filtered_params[:exists].is_a?(String)
+    exists_filters.each{ |t| inst.append_exists_filter(t.to_sym) } if exists_filters
     inst
   end
 

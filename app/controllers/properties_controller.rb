@@ -290,6 +290,32 @@ class PropertiesController < ActionController::Base
     render json: resp, status: 200
   end
 
+  #### Udprns and address suggest for postcodes(only unclaimed properties)
+  #### curl -XGET 'http://localhost/properties/unclaimed/search/:postcode'
+  def unclaimed_properties_for_postcode
+    postcode = params[:postcode]
+    results, code = PropertyService.get_results_from_es_suggest(postcode.upcase, 1)
+    predictions = Oj.load(results)['postcode_suggest'][0]['options']
+
+    if predictions.length > 0
+      type = predictions.first['text'].split('|')[0]
+      if type == 'unit'
+        udprn = predictions.first['text'].split('|')[1]
+        details = PropertyDetails.details(udprn)[:_source]
+        hash_str = MatrixViewService.form_hash(details, :unit)
+        search_params = { hash_str: hash_str, hash_type: 'unit', results_per_page: 1000 }
+        api = PropertySearchApi.new(filtered_params: search_params)
+        results, code = api.filter
+        results = results[:results].select{ |t| t[:vendor_id].nil? }
+        render json: results, status: code.to_i
+      else
+        render json: { message: 'Invalid postcode search' }, status: 400
+      end
+    else
+      render json: { message: 'Invalid postcode search' }, status: 400
+    end
+  end
+
   ### Auxilliary action used for testing purposes
   def process_event
     event_controller = EventsController.new
