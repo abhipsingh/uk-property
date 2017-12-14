@@ -42,7 +42,7 @@ class AgentApi
     aggregate_stats[:payment_terms] = nil
     aggregate_stats[:payment_terms] = quote.payment_terms if quote
     aggregate_stats[:quote_details] = quote.quote_details if quote
-    aggregate_stats[:deadline] = Time.parse((quote.created_at + 24.hours).to_s).strftime("%Y-%m-%dT%H:%M:%SZ") if quote
+    aggregate_stats[:deadline] = Time.parse((quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME).to_s).strftime("%Y-%m-%dT%H:%M:%SZ") if quote
     aggregate_stats[:terms_url] = quote.terms_url if quote
     aggregate_stats[:services_required] = Agents::Branches::AssignedAgents::Quote::SERVICES_REQUIRED_HASH[quote.service_required.to_s.to_sym] if quote
     aggregate_stats

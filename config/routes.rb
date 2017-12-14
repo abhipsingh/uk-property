@@ -395,6 +395,12 @@ Rails.application.routes.draw do
   ### Get unclaimed properties for udprn
   get '/properties/unclaimed/search/:postcode',                 to: 'properties#unclaimed_properties_for_postcode'
 
+  ### Quotes history for agents
+  get 'quotes/agents/history',                                  to: 'quotes#historical_agent_quotes'
+
+  ### Vendor quotes history
+  get 'quotes/vendors/history/:udprn',                          to: 'quotes#historical_vendor_quotes'
+
   ### Count of matching properties(aggregate) not divided by property_status_type
   #####################################################################
   #####################################################################

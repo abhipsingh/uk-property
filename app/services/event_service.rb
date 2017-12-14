@@ -2,7 +2,7 @@ class EventService
   include EventsHelper
 
   attr_accessor :udprn, :agent_id, :vendor_id, :service, :buyer_id, :details, :is_premium, :qualifying_stage, :rating, :archived,
-                :closed, :count
+                :closed, :count, :profile_type
 
    EVENTS = {
     viewed: 2,
@@ -139,7 +139,7 @@ class EventService
   ENQUIRY_PAGE_SIZE = 20
 
 
-  def initialize(udprn: udprn=nil, agent_id: agent_id=nil, vendor_id: vendor_id=nil, buyer_id: buyer_id=nil, last_time: time=nil, qualifying_stage: stage=nil, rating: enquiry_rating=nil, archived: is_archived=nil, is_premium: premium=nil, closed: is_closed=nil, count: count_flag=false)
+  def initialize(udprn: udprn=nil, agent_id: agent_id=nil, vendor_id: vendor_id=nil, buyer_id: buyer_id=nil, last_time: time=nil, qualifying_stage: stage=nil, rating: enquiry_rating=nil, archived: is_archived=nil, is_premium: premium=nil, closed: is_closed=nil, count: count_flag=false, profile: profile_type=nil)
     @udprn = udprn.to_i
     @agent_id = agent_id
     @vendor_id = vendor_id
@@ -152,6 +152,7 @@ class EventService
     @closed = closed
     @details = PropertyDetails.details(@udprn.to_i)['_source'] if @udprn
     @count = count
+    @profile_type = profile
   end
 
   def property_specific_enquiries(page)
@@ -198,11 +199,14 @@ class EventService
     else
       order_and_paginate(enquiries, page)
       enquiry_details = enquiries.map { |enquiry| construct_enquiry_detail(enquiry) }
-      buyer_ids = enquiry_details.map { |enquiry| enquiry[:buyer_id] }
-      buyers = PropertyBuyer.where(id: buyer_ids.flatten).select([:id, :first_name, :last_name, :email, :mobile, :status, :chain_free, :funding, :biggest_problems, :buying_status, :budget_to, :budget_from, :image_url, :property_types]).order("position(id::text in '#{buyer_ids.join(',')}')")
-      buyer_hash = {}
-      buyers.each { |buyer| buyer_hash[buyer.id] = buyer }
-      enquiry_details.each { |row| add_buyer_details(row, buyer_hash) }
+
+      if @profile_type == 'Agents::Branches::AssignedAgent'
+        buyer_ids = enquiry_details.map { |enquiry| enquiry[:buyer_id] }
+        buyers = PropertyBuyer.where(id: buyer_ids.flatten).select([:id, :first_name, :last_name, :email, :mobile, :status, :chain_free, :funding, :biggest_problems, :buying_status, :budget_to, :budget_from, :image_url, :property_types]).order("position(id::text in '#{buyer_ids.join(',')}')")
+        buyer_hash = {}
+        buyers.each { |buyer| buyer_hash[buyer.id] = buyer }
+        enquiry_details.each { |row| add_buyer_details(row, buyer_hash) }
+      end
       enquiry_details
     end
   end

@@ -56,4 +56,6 @@
       "is_shared_ownershup":{"type":"boolean"},
       "is_retirement_home":{"type":"boolean"},
       "last_sale_price":{"type":"integer"}
-}}}}
+    }
+  }
+}}

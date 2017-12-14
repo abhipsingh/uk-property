@@ -13,6 +13,9 @@ class Agents::Branches::AssignedAgents::Quote < ActiveRecord::Base
     'Won' => 3
   }
 
+  MAX_AGENT_QUOTE_WAIT_TIME = 24.hours
+  MAX_VENDOR_QUOTE_WAIT_TIME = 48.hours
+
   VENDOR_LIMIT = 5
   REVERSE_SERVICES_REQUIRED_HASH = SERVICES_REQUIRED_HASH.invert
 

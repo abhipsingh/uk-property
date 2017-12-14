@@ -1,13 +1,15 @@
 module Api
   module V0
+
     class VendorAdController < ActionController::Base
+
       include CacheHelper
       before_filter :set_headers
       #### Example curl -XGET  -H "Content-Type: application/json" "http://localhost/api/v0/ads/availability?udprn=10966139&property_status_type=Sale" 
       #### Parameters {"addresses"=>[" 33", " Loder Drive", " City Centre", " HEREFORD", " Herefordshire"], "udprn"=>"10966139", "property_status_type" => 'Rent'}
       def ads_availablity
-      #  if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
-        if true
+        if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
+      #  if true
             score_map = {
               :county => 7,
               :post_town => 6,
@@ -153,4 +155,6 @@ module Api
       end
     end
   end
+
 end
+

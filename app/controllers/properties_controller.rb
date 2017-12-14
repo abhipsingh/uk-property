@@ -45,8 +45,8 @@ class PropertiesController < ActionController::Base
   ### This route provides all the details of the recent enquiries made by the users on this property
   ### curl -XGET -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/enquiries/property/10966139'
   def enquiries
-    #if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
-    if true
+    if user_valid_for_viewing?(['Agent', 'Vendor', 'Developer'], params[:udprn].to_i)
+    #if true
       cache_response(params[:udprn].to_i, [params[:page], params[:buyer_id], params[:qualifying_stage], params[:rating], params[:archived], params[:closed], params[:count]]) do
         page = params[:page]
         page ||= 0
@@ -54,11 +54,12 @@ class PropertiesController < ActionController::Base
         udprn = params[:udprn].to_i
         count = params[:count].to_s == 'true'
         is_premium = @current_user.is_premium rescue false
+        profile = @current_user.class.to_s
         event_service = EventService.new(udprn: udprn, buyer_id: params[:buyer_id], 
                                      last_time: params[:latest_time], qualifying_stage: params[:qualifying_stage],
                                      rating: params[:rating], archived: params[:archived], is_premium: is_premium, 
-                                     closed: params[:closed], count: count)
-        if @current_user.is_a?(Agents::Branches::AssignedAgent) && event_service.details[:agent_id] != @current_user.id
+                                     closed: params[:closed], count: count, profile: profile)
+        if @current_user.is_a?(Agents::Branches::AssignedAgent) && event_service.details[:agent_id].to_i != @current_user.id
           render json: { message: 'The agent does not belong to the property' }, status: 400
         else
           enquiries = event_service.property_specific_enquiry_details(page)

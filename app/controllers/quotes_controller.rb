@@ -99,7 +99,7 @@ class QuotesController < ApplicationController
       status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
 
       ### 24 hour expiry deadline for vendors
-      agents_for_quotes = Agents::Branches::AssignedAgents::Quote.where(status: status).where.not(agent_id: nil).where.not(agent_id: 0).where.not(agent_id: 1).where(property_id: property_id).where('created_at > ?', 24.hours.ago)
+      agents_for_quotes = Agents::Branches::AssignedAgents::Quote.where(status: status).where.not(agent_id: nil).where.not(agent_id: 0).where.not(agent_id: 1).where(property_id: property_id).where('created_at > ?', Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME.ago)
       final_result = []
       agents_for_quotes.each do |each_agent_id|
         quotes = AgentApi.new(property_id.to_i, each_agent_id.agent_id.to_i).calculate_quotes
@@ -110,7 +110,6 @@ class QuotesController < ApplicationController
       render json: final_result, status: 200
     end
   end
-
 
   ### Quote details api
   ### curl -XGET 'http://localhost/property/quotes/details/:id'
@@ -129,6 +128,57 @@ class QuotesController < ApplicationController
   def property_quote
     quote = Agents::Branches::AssignedAgents::Quote.where(property_id: params[:udprn].to_i,agent_id: nil).last
     render json: quote, status: 200
+  end
+
+  ### Get all quotes for an agent
+  ### curl -XGET   -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/quotes/agents/history' 
+  def historical_agent_quotes
+    agent = user_valid_for_viewing?('Agent')
+    if agent
+      results = Agents::Branches::AssignedAgents::Quote.where(agent_id: agent.id).order('created_at DESC').map do |quote|
+        hash = {
+          created_at: quote.created_at,
+          payment_terms: quote.payment_terms,
+          quote_details: quote.quote_details,
+          udprn: quote.property_id,
+          expired: quote.expired,
+          refund_status: quote.refund_status,
+          service_required: Agents::Branches::AssignedAgents::Quote::SERVICES_REQUIRED_HASH[quote.service_required.to_s.to_sym],
+          status: Agents::Branches::AssignedAgents::Quote::REVERSE_STATUS_HASH[quote.status]
+        }
+        hash[:status] = 'Pending' if (hash[:status] == 'New' && !hash[:expired])
+        hash 
+      end
+      render json: results, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  ### Get all quotes for a property(historically)
+  ### curl -XGET   -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/quotes/vendors/history/:udprn' 
+  def historical_vendor_quotes
+    vendor = user_valid_for_viewing?('Vendor')
+    if vendor
+      udprn = params[:udprn].to_i
+      results = Agents::Branches::AssignedAgents::Quote.where(property_id: udprn).order('created_at DESC').map do |quote|
+        hash = {
+          created_at: quote.created_at,
+          agent_id: quote.agent_id,
+          payment_terms: quote.payment_terms,
+          quote_details: quote.quote_details,
+          expired: quote.expired,
+          refund_status: quote.refund_status,
+          service_required: Agents::Branches::AssignedAgents::Quote::SERVICES_REQUIRED_HASH[quote.service_required.to_s.to_sym],
+          status: Agents::Branches::AssignedAgents::Quote::REVERSE_STATUS_HASH[quote.status]
+        }
+        hash[:status] = 'Pending' if (hash[:status] == 'New' && !hash[:expired])
+        hash
+      end
+      render json: results, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
   end
 
   #### Shows all the properties available for quoting

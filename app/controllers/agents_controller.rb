@@ -95,7 +95,8 @@ class AgentsController < ApplicationController
     branch_id = params[:branch_id]
     branch = Agents::Branch.find(branch_id)
     branch_details = branch.as_json(include: {assigned_agents: {methods: [:active_properties], except: [:password_digest, 
-                                          :password, :provider, :uid, :oauth_token, :oauth_expires_at, :invited_agents]}}, except: [:verification_hash, :invited_agents])
+                                              :password, :provider, :uid, :oauth_token, :oauth_expires_at, :invited_agents]}},
+                                    except: [:verification_hash, :invited_agents])
     branch_details[:company_id] = branch.agent_id
     branch_details[:group_id] = branch.agent.group.id
     render json: branch_details, status: 200

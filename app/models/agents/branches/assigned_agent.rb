@@ -45,10 +45,10 @@ module Agents
         new_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
         query = Agents::Branches::AssignedAgents::Quote
         query = query.where(district: self.branch.district)
-        max_hours_for_expiry = 48
+        max_hours_for_expiry = Agents::Branches::AssignedAgents::Quote::MAX_AGENT_QUOTE_WAIT_TIME
 
         ### 48 hour expiry deadline
-        query = query.where('created_at > ?', max_hours_for_expiry.hours.ago)
+        query = query.where('created_at > ?', max_hours_for_expiry.ago)
         query = query.where(vendor_id: vendor_id) if buyer_id
         query = query.where(payment_terms: payment_terms_params) if payment_terms_params
         query = query.where(service_required: services_required) if service_required_param
@@ -343,7 +343,7 @@ module Agents
           user.image_url = "http://graph.facebook.com/#{new_params['uid']}/picture?type=large"
           user.password = "12345678"
           user.oauth_token = new_params['token']
-          user.oauth_expires_at = Time.at(new_params['expires_at']) rescue 24.hours.from_now
+          user.oauth_expires_at = Time.at(new_params['expires_at']) rescue  Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME.from_now
           user_details = user
         end
         user_details

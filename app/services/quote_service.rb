@@ -49,7 +49,7 @@ class QuoteService
   end
 
   def new_quote_for_property(services_required, payment_terms, quote_details, assigned_agent)
-    deadline = 48.hours.from_now.to_s
+    deadline = Agents::Branches::AssignedAgents::Quote::MAX_AGENT_QUOTE_WAIT_TIME.from_now.to_s
     services_required = Agents::Branches::AssignedAgents::Quote::REVERSE_SERVICES_REQUIRED_HASH[services_required]
     services_required = eval(services_required.to_s)
     status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
@@ -101,7 +101,7 @@ class QuoteService
       agent.save!
 
       ### Refund the credits of other agents
-      #QuoteRefundWorker.perform_async(@udprn.to_i)
+      QuoteRefundWorker.perform_async(@udprn.to_i)
 
       response = { details: details, message: 'The quote is accepted' }
     else

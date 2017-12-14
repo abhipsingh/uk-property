@@ -1,6 +1,8 @@
 class VendorUpdateWorker
+
   include Sidekiq::Worker
   sidekiq_options :retry => false # job will be discarded immediately if failed
+
   def perform(vendor_id)
     search_params = { vendor_id: vendor_id.to_i, limit: 1000 }
     search_params
@@ -17,5 +19,6 @@ class VendorUpdateWorker
       end
     end
   end
+
 end
 
