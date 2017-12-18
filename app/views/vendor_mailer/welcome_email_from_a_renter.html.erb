@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta content='text/html; charset=UTF-8' http-equiv='Content-Type' />
+  </head>
+  <body>
+    <h1>Hi <%= @user.vendor_email %></h1>
+
+    <p>
+      We're Prophety® (Prophety.co.uk), the UK's largest online property buying and selling research tool.
+    </p>
+
+    <p>
+      We understand that <%= @user.first_name + ' ' + @user.last_name %> is renting the following property for you:
+      <%= @user.renter_address%>
+    </p>
+
+    <p>
+      To start seeing all the inbound enquiries your property receives from potential buyers and just how many people are visiting your property listing online in real-time, simply click on the 'login' button to access your Prophety® account. 
+    </p>
+
+    <p>
+      Renter Name: <%= @user.first_name + ' ' + @user.last_name %>
+    </p>
+
+    <p>
+      Renter Address: <%= @user.renter_address %>
+    </p>
+
+    <p>
+      <%= @link %>
+    </p>
+
+  </body>
+</html>
+

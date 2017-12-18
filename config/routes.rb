@@ -401,6 +401,9 @@ Rails.application.routes.draw do
   ### Vendor quotes history
   get 'quotes/vendors/history/:udprn',                          to: 'quotes#historical_vendor_quotes'
 
+  ### Claim a property for renter
+  post 'property/claim/renter',                                 to: 'properties#upload_property_details_from_a_renter'
+
   ### Count of matching properties(aggregate) not divided by property_status_type
   #####################################################################
   #####################################################################

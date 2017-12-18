@@ -18,9 +18,21 @@ module Agents
       PAGE_SIZE = 30
       PREMIUM_COST = 25
 
+      ### Percent of current valuation charged as commission for quotes submission
       CURRENT_VALUATION_PERCENT = 0.01
 
+      #### By default, keep the scope limited to agents(not developers)
       default_scope { where(is_developer: false) }
+      
+      def calculate_is_first_agent
+        email = self.email
+        branch_id = self.branch_id
+        first_agent = self.class.unscope(where: :is_developer).where(branch_id: branch_id).select(:email).order('created_at ASC').limit(1).first
+        flag = (first_agent.email == email) if first_agent
+        flag = true if first_agent.nil?
+        flag ||= false
+        flag
+      end
 
       def name
         str = self.first_name rescue nil
@@ -52,13 +64,13 @@ module Agents
         query = query.where(vendor_id: vendor_id) if buyer_id
         query = query.where(payment_terms: payment_terms_params) if payment_terms_params
         query = query.where(service_required: services_required) if service_required_param
-        
+
         if status_param == 'New'
           query = query.where(agent_id: nil)
         elsif status_param == 'Lost'
           query = query.where.not(agent_id: self.id).where(status: won_status)
         elsif status_param == 'Pending'
-          query = query.where(agent_id: self.id).where(status: new_status)
+          query = query.where(agent_id: self.id).where(status: new_status).where(expired: false)
         elsif status_param == 'Won'
           query = query.where(agent_id: self.id).where(status: won_status)
         end
@@ -68,7 +80,7 @@ module Agents
           udprns = udprns.map(&:to_i)
           query = query.where(property_id: udprns)
         end
-        
+ 
         final_results = []
         results = []
 
@@ -83,7 +95,7 @@ module Agents
         end
 
         if !count
-  
+
           results.each do |each_quote|
             property_details = PropertyDetails.details(each_quote.property_id)['_source']
             ### Quotes status filter
@@ -93,8 +105,8 @@ module Agents
             if each_quote.status == won_status && each_quote.agent_id == self.id
               quote_status = 'Won'
             elsif each_quote.status == new_status && each_quote.agent_id.nil?
-              agent_quote = Agents::Branches::AssignedAgents::Quote.where(agent_id: self.id).where(property_id: each_quote.property_id).last
-              agent_quote ? quote_status = 'Pending' : quote_status = 'New'
+              agent_quote = Agents::Branches::AssignedAgents::Quote.where(agent_id: self.id).where(property_id: each_quote.property_id).where(expired: false).last
+              !agent_quote.nil? ? quote_status = 'Pending' : quote_status = 'New'
             else
               quote_status = 'Lost'
             end
@@ -142,15 +154,15 @@ module Agents
               new_row[:vendor_mobile] = nil
               new_row[:vendor_image_url] = nil
             end
-  
+
             ### Branch and logo
             new_row[:assigned_branch_logo] = self.branch.image_url
             new_row[:assigned_branch_name] = self.branch.name
             new_row[:assigned_agent_id] = property_details['agent_id']
-  
+
             ### TODO: Fix for multiple lifetimes
-            new_row[:quotes_received] = Agents::Branches::AssignedAgents::Quote.where(property_id: property_id).where.not(agent_id: nil).count
-  
+            new_row[:quotes_received] = Agents::Branches::AssignedAgents::Quote.where(property_id: property_id).where.not(agent_id: nil).where(expired: false).count
+
             ### TODO: Fix for multiple lifetimes
             #### WINNING AGENT
             winning_quote = Agents::Branches::AssignedAgents::Quote.where(status: Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won'], property_id: property_id).last
@@ -168,9 +180,9 @@ module Agents
             new_row[:submitted_on] = Time.parse(new_row[:submitted_on]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:submitted_on]
             new_row[:deadline] = Time.parse(new_row[:deadline]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:deadline]
             new_row[:activated_on] = Time.parse(new_row[:activated_on]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:activated_on]
-  
+
             final_results.push(new_row)
-  
+
           end
         end
         final_results

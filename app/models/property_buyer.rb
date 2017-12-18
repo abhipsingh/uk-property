@@ -1,10 +1,14 @@
 class PropertyBuyer < ActiveRecord::Base
+
+  attr_accessor :renter_address, :verification_hash, :email_udprn, :vendor_email
   has_secure_password
+
   STATUS_HASH = {
     green: 1,
     amber: 2,
     red: 3
   }
+
   belongs_to :vendor, class_name: 'Vendor'
 
   REVERSE_STATUS_HASH = STATUS_HASH.invert
@@ -53,6 +57,25 @@ class PropertyBuyer < ActiveRecord::Base
       user.save!
       #Rails.logger.info(user)
     end
+  end
+
+  ### PropertyBuyer.find(23).send_vendor_email("test@prophety.co.uk", 10968961)
+  def send_vendor_email(vendor_email, udprn)
+    hash_obj = create_hash(vendor_email, udprn)
+    self.verification_hash = hash_obj.hash_value
+    self.vendor_email = vendor_email
+    self.email_udprn = udprn
+    details = PropertyDetails.details(udprn)['_source']
+    self.renter_address = details['address']
+    VendorMailer.welcome_email_from_a_renter(self).deliver_now
+    ### http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=<%=@user.verification_hash%>&udprn=<%=@user.email_udprn%>&email=<%=@user.vendor_email%>
+  end
+
+  def create_hash(vendor_email, udprn)
+    salt_str = "#{vendor_email}_#{self.id}_#{self.class}"
+    hash_value = BCrypt::Password.create salt_str
+    hash_obj = VerificationHash.create!(email: vendor_email, hash_value: hash_value, entity_id: self.id, entity_type: 'Vendor', udprn: udprn.to_i)
+    hash_obj
   end
 
   def self.filter_buyers(udprn)

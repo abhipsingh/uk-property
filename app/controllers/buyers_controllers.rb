@@ -2,12 +2,13 @@
 class BuyersController < ActionController::Base
 
 	#### When basic details of the buyer is saved
-  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/buyers/7/edit' -d '{ "status" : "Green", "buying_status" : "First time buyer", "budget_from" : 5000, "budget_to": 100000, "chain_free" : false, "funding_status" : "Mortgage approved", "biggest_problem" : "Money" }'
+  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/buyers/7/edit' -d '{ "status" : "Green", "buying_status" : "First time buyer", "budget_from" : 5000, "budget_to": 100000, "chain_free" : false, "funding_status" : "Mortgage approved", "biggest_problem" : "Money" , "rent_requirement": { "min_beds" :3, "max_beds":4, "min_baths" : 1, "max_baths" : 2, "min_receptions":1, "max_receptions":3, "locations" : "bla bla bla"}  }'
   #### Another example of editing name, mobile and image_url
   #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/buyers/43/edit' -d '{ "name" : "Jack Bing", "image_url" : "random_image_url", "mobile" : "9876543321" }'
 	def edit_basic_details
 		buyer = PropertyBuyer.find(params[:id])
 		buying_status = PropertyBuyer::BUYING_STATUS_HASH[params[:buying_status]] if params[:buying_status]
+    rent_requirement_params = params[:rent_requirement]
 		budget_from = params[:budget_from].to_i if params[:budget_from]
 		budget_to = params[:budget_to].to_i if params[:budget_to]
 		status = PropertyBuyer::STATUS_HASH[params[:status].downcase.to_sym] if params[:status]
@@ -36,6 +37,19 @@ class BuyersController < ActionController::Base
 		buyer.max_receptions = params[:max_receptions] if params[:max_receptions]
 		buyer.mortgage_approval = params[:mortgage_approval] if params[:mortgage_approval]
 		buyer.password = params[:password] if params[:password]
+    if buyer.buying_status == PropertyBuyer::BUYING_STATUS_HASH['Looking to rent']
+      rent_requirement = buyer.rent_requirement
+      rent_requirement ||= RentRequirement.new 
+      rent_requirement.buyer_id = buyer.id
+      rent_requirement.min_beds = rent_requirement_params[:min_beds] if rent_requirement_params[:min_beds]
+      rent_requirement.max_beds = rent_requirement_params[:max_beds] if rent_requirement_params[:max_beds]
+      rent_requirement.min_baths = rent_requirement_params[:min_baths] if rent_requirement_params[:min_baths]
+      rent_requirement.max_baths = rent_requirement_params[:max_baths] if rent_requirement_params[:max_baths]
+      rent_requirement.min_receptions = rent_requirement_params[:min_receptions] if rent_requirement_params[:min_receptions]
+      rent_requirement.max_receptions = rent_requirement_params[:max_receptions] if rent_requirement_params[:max_receptions]
+      rent_requirement.locations = rent_requirement_params[:locations] if rent_requirement_params[:locations]
+      rent_requirement.save!
+    end
 		buyer.save!
     details = buyer.as_json
     details['buying_status'] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[details['buying_status']]

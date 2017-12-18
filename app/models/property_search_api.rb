@@ -25,7 +25,7 @@ class PropertySearchApi
               :building_number, :sub_building_name, :cost_per_month, :date_added, :floors, :year_built, 
               :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, 
               :beds, :baths, :receptions, :current_valuation, :dream_price, :not_yet_built, :is_new_home, :is_retirement_home,
-              :is_shared_ownership, :sale_price, :area, :last_sale_price
+              :is_shared_ownership, :sale_price, :area, :last_sale_price, :renter_id
             ]
 
   ADDRESS_LOCALITY_LEVELS = [:county, :post_town, :dependent_locality, :thoroughfare_description, :dependent_thoroughfare_description,

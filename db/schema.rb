@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20171213160646) do
+ActiveRecord::Schema.define(version: 20171217133736) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -95,6 +95,8 @@ ActiveRecord::Schema.define(version: 20171213160646) do
     t.string   "stripe_customer_id"
     t.date     "premium_expires_at"
     t.boolean  "is_developer",        default: false
+    t.boolean  "is_first_agent"
+    t.datetime "created_at"
   end
 
   add_index "agents_branches_assigned_agents", ["branch_id"], name: "index_agents_branches_assigned_agents_on_branch_id", using: :btree
@@ -514,6 +516,18 @@ ActiveRecord::Schema.define(version: 20171213160646) do
     t.string  "property_type"
     t.string  "age"
     t.string  "duration"
+  end
+
+  create_table "rent_requirements", force: :cascade do |t|
+    t.integer  "min_beds"
+    t.integer  "max_beds"
+    t.integer  "min_baths"
+    t.integer  "max_baths"
+    t.integer  "max_receptions"
+    t.integer  "min_receptions"
+    t.integer  "buyer_id"
+    t.jsonb    "locations"
+    t.datetime "created_at",     null: false
   end
 
   create_table "sold_properties", force: :cascade do |t|

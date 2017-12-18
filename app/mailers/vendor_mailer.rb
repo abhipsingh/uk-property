@@ -6,6 +6,12 @@ class VendorMailer < ApplicationMailer
     mail(to: @user.vendor_email, subject: "Welcome to Prophety #{@user.vendor_email}")
   end
 
+  def welcome_email_from_a_renter(user)
+    @user = user
+    @link = "http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=#{@user.verification_hash}&udprn=#{@user.email_udprn}&email=#{@user.vendor_email}"
+    mail(to: @user.vendor_email, subject: "Welcome to Prophety #{@user.vendor_email}")
+  end
+
   def signup_email(hash)
     @email = hash[:email]
     @hash = @hash
@@ -50,3 +56,4 @@ class VendorMailer < ApplicationMailer
     mail(to: vendor.email, subject: subject)
   end  
 end
+

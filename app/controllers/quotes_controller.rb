@@ -62,6 +62,7 @@ class QuotesController < ApplicationController
   def edit_agent_quote
     agent = user_valid_for_viewing?('Agent')
     if agent
+    #if true
       service = QuoteService.new(params[:udprn].to_i)
       response = service.edit_quote_details(params[:agent_id].to_i, params[:payment_terms], 
                                                   params[:quote_details], params[:services_required], params[:terms_url])

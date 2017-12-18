@@ -12,9 +12,9 @@ class MatrixViewController < ActionController::Base
     regexes = [[/^([A-Z]{1,2})([0-9]{0,3})$/, /^([A-Z]{1,2})([0-9]{1,3})([A-Z]{0,2})$/], /^([0-9]{1,2})([A-Z]{0,3})$/]
     str = nil
     if check_if_postcode?(params[:str].upcase, regexes)
-      str = params[:str].upcase
+      str = params[:str].upcase.strip
     else
-      str = params[:str].gsub(',',' ').downcase
+      str = params[:str].gsub(',',' ').strip.downcase
     end
     results, code = PropertyService.get_results_from_es_suggest(str, 100)
     #Rails.logger.info(results)
@@ -69,31 +69,40 @@ class MatrixViewController < ActionController::Base
         final_predictions.push({ hash: hash, output: output, type: 'thoroughfare_description' })
         counter += 1
       elsif text.start_with?('district') 
-        output = "#{details[counter]['district']}, #{details[counter]['post_town']}"
+        output = "#{details[counter]['district']} (#{details[counter]['post_town']})"
         hash = MatrixViewService.form_hash(details[counter], :district)
         final_predictions.push({ hash: hash, output: output, type: 'district' })
         counter += 1
       elsif text.start_with?('sector') 
         loc = ''
         dl = nil
-        details[counter]['dependent_locality'].nil? ? loc = '' : loc = ", #{details[counter]['dependent_locality']}"
+        details[counter]['dependent_locality'].nil? ? loc = '' : loc = " (#{details[counter]['dependent_locality']})"
         output = "#{details[counter]['sector']}#{loc}"
         hash = MatrixViewService.form_hash(details[counter], :sector)
         final_predictions.push({ hash: hash, output: output, type: 'sector' })
         counter += 1
       elsif text.start_with?('unit')
         street = nil
-        details[counter]['dependent_thoroughfare_description'].nil? ? street = details[counter]['thoroughfare_description'] : street = details[counter]['dependent_thoroughfare_description']
-        output = "#{details[counter]['unit']}, #{street}"
+        details[counter]['dependent_thoroughfare_description'].nil? ? street = "(#{details[counter]['thoroughfare_description']})" : street = "(#{details[counter]['dependent_thoroughfare_description']})"
+        output = "#{details[counter]['unit']} #{street}"
         hash = MatrixViewService.form_hash(details[counter], :unit)
         final_predictions.push({ hash: hash, output: output, type: 'unit' })
         counter += 1
       elsif text.start_with?('post_town') || text.start_with?('county')
-        output = text.split('|')[1].split('_').join(', ')
-        hash_str = nil
-        text.split('|')[0] == 'county' ? hash_str = "#{output}_@" : hash_str = "#{output.split(',')[1].strip}_#{output.split(',')[0]}"
-        hash = "#{hash_str}_@_@_@_@_@_@_@" if text.start_with?('county')
-        hash = "#{hash_str}_@_@_@_@_@_@_@" if text.start_with?('post_town')
+        output_parts = text.split('|')[1].split('_')
+        hash = nil
+        county = output_parts[1]
+        post_town = output_parts[0]
+        location_hash = { post_town: post_town, county: county }
+        output = nil
+        if text.start_with?('post_town')
+          hash = MatrixViewService.form_hash_str(location_hash, :post_town)
+          output = post_town + ' (' + county + ')'
+        else
+          location_hash[:county] = post_town
+          hash = MatrixViewService.form_hash_str(location_hash, :county)
+          output = post_town
+        end
         final_predictions.push({ hash: hash, output: output, type: text.split('|')[0] })
       end
     end

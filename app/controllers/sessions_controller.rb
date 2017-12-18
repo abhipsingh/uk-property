@@ -31,12 +31,14 @@ class SessionsController < ApplicationController
       end
 
       if user_type == 'Agent'
+        user.is_first_agent = user.calculate_is_first_agent
         user.save!
         agent_id = user.id
         udprns = InvitedAgent.where(email: user.email).pluck(:udprn)
         client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
         udprns.map { |udprn|  PropertyDetails.update_details(client, udprn, { agent_id: agent_id, agent_status: 2 }) }
       elsif user_type == 'Developer'
+        user.is_first_agent = user.calculate_is_first_agent
         user.save!
         developer_id = user.id
         udprns = InvitedDeveloper.where(email: user.email).pluck(:udprn)
@@ -71,6 +73,7 @@ class SessionsController < ApplicationController
         render json: response, status: status
       else
         agent = Agents::Branches::AssignedAgent.new(agent_params)
+        agent.is_first_agent = agent.calculate_is_first_agent
         if agent.save && VerificationHash.where(email: agent_params['email']).update_all({verified: true})
           command = AuthenticateUser.call(agent_params['email'], agent_params['password'], Agents::Branches::AssignedAgent)
           udprns = InvitedAgent.where(email: agent_params['email']).pluck(:udprn)
@@ -110,6 +113,7 @@ class SessionsController < ApplicationController
         render json: { message: 'Verification hash already used. Please repeat the signup process' }, status: 200
       else
         developer = Agents::Branches::AssignedAgent.new(developer_params)
+        developer.is_first_agent = developer.calculate_is_first_agent
         developer.is_developer = true
         if developer.save! && VerificationHash.where(email: developer_params['email']).update_all({verified: true})
           command = AuthenticateUser.call(developer_params['email'], developer_params['password'], Agents::Branches::AssignedAgent)
@@ -290,7 +294,7 @@ class SessionsController < ApplicationController
   end
 
   ### Sends an email to the buyer's email address for registration
-  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/buyers/signup/' -d '{ "email"  : "jackie.bing1@gmail.com" }'
+  #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/buyers/signup/' -d '{ "email"  : "jackie.bing1@gmail.com", "udprn":12345678, "rent":true }'
   def buyer_signup
     email = params[:email].strip
     if PropertyBuyer.where(email: email).count == 0
@@ -298,7 +302,8 @@ class SessionsController < ApplicationController
       verification_hash = BCrypt::Password.create salt_str
       VerificationHash.create(hash_value: verification_hash, email: email, entity_type: 'PropertyBuyer')
       email_link = 'http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=' + verification_hash  + '&user_type=Buyer'
-  
+      email_link += '&udprn=' + params[:udprn].to_i if params[:udprn]
+      email_link += '&rent=true' if params[:rent].to_s == 'true'
       params_hash = { verification_hash: verification_hash, email: email, link: email_link }
       UserMailer.signup_email(params_hash).deliver_now
       render json: { message:  'Please check your email id and click on the link sent'}, status: 200

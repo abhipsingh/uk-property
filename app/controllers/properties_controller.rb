@@ -76,8 +76,8 @@ class PropertiesController < ActionController::Base
   #### the property.
   #### curl -XGET -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/property/interest/10966139'
   def interest_info
-    #if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
-    if true
+    if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
+    #if true
     #  cache_response(params[:udprn].to_i, []) do
         interest_info = Trackers::Buyer.new.interest_info(params[:udprn].to_i)
         render json: interest_info, status: 200
@@ -317,6 +317,28 @@ class PropertiesController < ActionController::Base
     end
   end
 
+  ### This api allows a renter to tag these attribute
+  ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo3LCJleHAiOjE0ODUxODUwMTl9.7drkfFR5AUFZoPxzumLZ5TyEod_dLm8YoZZM0yqwq6U"   'http://localhost/property/claim/renter' -d ' { "udprn" : 4322959, "beds":3, "baths" : 2, "receptions" : 1, "property_type" : "bungalow", "vendor_email" : "renter@prophety.co.uk" }'
+  def upload_property_details_from_a_renter
+    if user_valid_for_viewing?(['Buyer'], params[:udprn].to_i)
+      validate_rent_property_upload_params
+      update_hash = {}
+      udprn = params[:udprn].to_i
+      update_hash[:beds] = params[:beds] if params[:beds].is_a?(Integer)
+      update_hash[:baths] = params[:baths] if params[:baths].is_a?(Integer)
+      update_hash[:receptions] = params[:receptions] if params[:receptions].is_a?(Integer)
+      update_hash[:property_type] = params[:property_type] if params[:property_type].is_a?(String)
+      update_hash[:verification_status] = false
+      update_hash[:renter_id] = @current_user.id
+      PropertyService.new(udprn).update_details(update_hash)
+      @current_user.send_vendor_email(params[:vendor_email], udprn)
+      render json: { message: 'Property details have been updated successfully' }, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+
+  end
+
   ### Auxilliary action used for testing purposes
   def process_event
     event_controller = EventsController.new
@@ -350,6 +372,14 @@ class PropertiesController < ActionController::Base
     params.require(:receptions)
     params.require(:property_status_type)
     params.require(:property_type)
+  end
+
+  def validate_rent_property_upload_params
+    params.require(:beds)
+    params.require(:baths)
+    params.require(:receptions)
+    params.require(:property_type)
+    params.require(:vendor_email)
   end
 
   def set_headers

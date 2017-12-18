@@ -7,7 +7,7 @@ class QuoteService
   end
 
   def submit_price_for_quote(agent_id, payment_terms, quote_details, services_required, terms_url)
-    quote_id = Agents::Branches::AssignedAgents::Quote.where(property_id: @udprn.to_i).order('created_at DESC').pluck(:id).last
+    quote_id = Agents::Branches::AssignedAgents::Quote.where(property_id: @udprn.to_i, expired: false).order('created_at DESC').pluck(:id).last
     new_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
     services_required = Agents::Branches::AssignedAgents::Quote::REVERSE_SERVICES_REQUIRED_HASH[services_required]
     services_required = eval(services_required.to_s)
@@ -35,16 +35,16 @@ class QuoteService
   end
 
   def edit_quote_details(agent_id, payment_terms, quote_details, services_required, terms_url)
-    quote = Agents::Branches::AssignedAgents::Quote.where(agent_id: agent_id, property_id: @udprn.to_i).order('created_at DESC').pluck(:id).last
+    quote = Agents::Branches::AssignedAgents::Quote.where(agent_id: agent_id, property_id: @udprn.to_i, expired: false).order('created_at DESC').first
     services_required = Agents::Branches::AssignedAgents::Quote::REVERSE_SERVICES_REQUIRED_HASH[services_required] if services_required
     services_required = eval(services_required.to_s) if services_required
-    property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[details['property_status_type']]
     if quote
       quote.payment_terms = payment_terms
-      quote.service_required = service_required
+      quote.service_required = services_required
       quote.quote_details = quote_details if quote_details
       quote.terms_url = terms_url if terms_url
     end
+    quote.save!
     return { message: 'Quote successfully submitted', quote: quote_details }, 200
   end
 
