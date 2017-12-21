@@ -308,6 +308,7 @@ class AgentsController < ApplicationController
     property_for ||= 'Sale'
     property_status_type = nil
     property_for == 'Sale' ? property_status_type = 'Green' : property_status_type = 'Rent'
+    pictures = params[:pictures]
     property_attrs = {
       property_status_type: property_status_type,
       verification_status: false,
@@ -320,6 +321,10 @@ class AgentsController < ApplicationController
       claimed_on: Time.now.to_s,
       claimed_by: 'Agent'
     }
+
+    if pictures.is_a?(Array) && pictures.length > 0 && pictures.all?{ |t| t.has_key?('priority') && t.has_key?('image_url') && t.has_key?('title') }
+      property_attrs[:pictures] = pictures
+    end
     vendor_email = params[:vendor_email]
     assigned_agent_email = params[:assigned_agent_email]
     ### Update udprn in crawled properties
@@ -564,6 +569,19 @@ class AgentsController < ApplicationController
     end
   end
 
+  ### Invited agents history for branches
+  ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" -H "Content-Type: application/json" 'http://localhost/agents/list/invited/agents'
+  def branch_specific_invited_agents
+    agent = user_valid_for_viewing?('Agent')
+    if !agent.nil?
+      branch_id = agent.branch_id
+      invited_agents = InvitedAgent.where(branch_id: branch_id).select([:email, :created_at])
+      render json: invited_agents, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
   ### Credits history
   ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" -H "Content-Type: application/json" 'http://localhost/agents/credits/history'
   def credit_history
@@ -662,7 +680,7 @@ class AgentsController < ApplicationController
     end
   end
 
-  ### Shows the leads for the personal properties claimed by the agent
+  ### Shows the local branches to the vendor or a developer(pseudo vendor for a new property)
   ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/branches/list/:location
   def branch_info_for_location
     vendor = user_valid_for_viewing?('Vendor', ['Vendor', 'Agent'])
@@ -672,6 +690,8 @@ class AgentsController < ApplicationController
     #if true
       count = Agents::Branch.unscope(where: :is_developer).where(district: params[:location]).count
       results = Agents::Branch.unscope(where: :is_developer).where(district: params[:location]).limit(20).offset(20*(params[:p].to_i)).map do |branch|
+        agent_count = Agents::Branches::AssignedAgent.where(branch_id: branch.id).count
+        agent_count == 0 ? agent_count = 0 : agent_count -= 1
         {
           logo: branch.image_url,
           name: branch.name,
@@ -679,7 +699,8 @@ class AgentsController < ApplicationController
           phone_number: branch.phone_number,
           email: branch.email,
           website: branch.website,
-          branch_id: branch.id
+          branch_id: branch.id,
+          agent_count: agent_count
         }
       end
       render json: { branches: results, count: count }, status: 200

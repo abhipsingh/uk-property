@@ -1,12 +1,13 @@
 class AgentApi
-  attr_accessor :branch_id, :udprn, :details
+  attr_accessor :branch_id, :udprn, :details, :vendor_quote
 
   def initialize(udprn, agent_id)
     @details = PropertyDetails.details(udprn)['_source']
     
-    @branch_id ||= Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(id: agent_id).first.branch_id
+    @branch_id ||= Agents::Branches::AssignedAgent.where(id: agent_id).first.branch_id
     @udprn ||= udprn
     @agent_id ||= agent_id
+    @vendor_quote = Agents::Branches::AssignedAgents::Quote.where.not(vendor_id: nil).where(property_id: @udprn.to_i).where(expired: false).last
   end
 
   #### To calculate the detailed quotes for each of the agent, we can call this function
@@ -42,7 +43,7 @@ class AgentApi
     aggregate_stats[:payment_terms] = nil
     aggregate_stats[:payment_terms] = quote.payment_terms if quote
     aggregate_stats[:quote_details] = quote.quote_details if quote
-    aggregate_stats[:deadline] = Time.parse((quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME).to_s).strftime("%Y-%m-%dT%H:%M:%SZ") if quote
+    aggregate_stats[:deadline] = Time.parse((@vendor_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME).to_s).strftime("%Y-%m-%dT%H:%M:%SZ") if quote
     aggregate_stats[:terms_url] = quote.terms_url if quote
     aggregate_stats[:services_required] = Agents::Branches::AssignedAgents::Quote::SERVICES_REQUIRED_HASH[quote.service_required.to_s.to_sym] if quote
     aggregate_stats

@@ -404,6 +404,18 @@ Rails.application.routes.draw do
   ### Claim a property for renter
   post 'property/claim/renter',                                 to: 'properties#upload_property_details_from_a_renter'
 
+  ### Get tags(field values) for a field
+  get 'tags/:field',                                            to: 'properties#show_tags'
+
+  ### Add new tags(field values) for a field
+  post 'tags/:field',                                           to: 'properties#add_new_tags'
+
+  ### Predict tags for a particular field
+  get 'predict/tags',                                           to: 'properties#predict_tags'
+
+  ### Gets the list of invited agents for a branch
+  get 'agents/list/invited/agents',                             to: 'agents#branch_specific_invited_agents'
+
   ### Count of matching properties(aggregate) not divided by property_status_type
   #####################################################################
   #####################################################################

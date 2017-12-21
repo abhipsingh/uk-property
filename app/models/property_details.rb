@@ -1,6 +1,8 @@
 require 'base64'
 class PropertyDetails
+
   attr_reader :attributes
+
   TRACKING_ATTRS = [ :agent_id, :vendor_id, :property_status_type, :current_valuation, :price, :dream_price, :beds, :baths, :receptions ]
 
   def initialize(attributes={})
@@ -49,12 +51,13 @@ class PropertyDetails
   def self.details(udprn)
     details = PropertyService.bulk_details([udprn]).first
     details['address'] = address(details)
-    details['vanity_url'] = vanity_url(details['address'])
+    details[:vanity_url] = vanity_url(details['address'])
     details[:udprn] = udprn.to_i
     { '_source' => details }.with_indifferent_access
   end
 
   def self.vanity_url(address)
+    address = address.gsub(/[\/]/,"_")
     address.split(',').map{|t| t.strip.split(' ').map{|k| k.downcase}.join('-') }.join('-')
   end
 
@@ -187,13 +190,22 @@ class PropertyDetails
 
       ### Check if mandatory attrs completed since only agent and vendor attrs are populated after this
       update_hash[:details_completed] = false
-      details_completed = PropertyService::MANDATORY_ATTRS.all?{|attr| details.has_key?(attr) && !details[attr].nil? }
-      update_hash[:details_completed] = true if details_completed
+      property_status_type = details[:property_status_type] || update_hash[:property_status_type]
+      mandatory_attrs = PropertyService::STATUS_MANDATORY_ATTRS_MAP[property_status_type]
+      mandatory_attrs ||= []
 
-      add_agent_details(details, update_hash[:agent_id]) if update_hash.has_key?(:agent_id) && update_hash[:agent_id].to_i != details[:agent_id].to_i
+      ### Populate details completed and percent of attributes completed
+      details_completed = mandatory_attrs.all?{ |attr| details.has_key?(attr) && !details[attr].nil? }
+      update_hash[:details_completed] = true if details_completed
+      total_mandatory_attrs = mandatory_attrs.select{ |t| !t.to_s.end_with?('_unit') }
+      attrs_completed = total_mandatory_attrs.select{ |attr| details.has_key?(attr) && !details[attr].nil? }.count
+      update_hash[:percent_completed] = ((attrs_completed.to_f/total_mandatory_attrs.length.to_f)*100.0).round(2)
+      update_hash.delete(:percent_completed) if update_hash[:percent_completed].nan?
+
+      ### Add details of an agent
       add_agent_details(details, update_hash[:agent_id]) if update_hash.has_key?(:agent_id) && update_hash[:agent_id].to_i != details[:agent_id].to_i
       PropertyService.attach_vendor_details(update_hash[:vendor_id], details) if update_hash[:vendor_id]
-      update_hash.each{|key, value| details[key.to_sym] = value }
+      update_hash.each{ |key, value| details[key.to_sym] = value }
       PropertyService.normalize_all_attrs(details)
       
       ### Normalise price attrs

@@ -16,7 +16,7 @@ class AgentService
       property_attrs[:agent_status] = 2
       assigned_agent_present = true
     else
-      InvitedAgent.create!(email: assigned_agent_email, udprn: udprn, entity_id: @agent_id.to_i)
+      InvitedAgent.create!(email: assigned_agent_email, udprn: udprn, entity_id: @agent_id.to_i, branch_id: assigned_agent.branch_id)
       branch_invited_agents = branch.invited_agents
       branch.invited_agents =  [{ branch_id: branch.id, company_id: branch.agent_id, email: assigned_agent_email }]
       branch.send_emails

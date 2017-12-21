@@ -1,6 +1,8 @@
 class PropertiesController < ActionController::Base
+
   include CacheHelper
   before_filter :set_headers
+
   #### Edit property url
   #### curl -XPOST -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/properties/10966139/edit/details' -d '{ "details" : { "property_type" : "Terraced House", "beds" : 3, "baths" : 2, "receptions" : 2, "property_status_type" : "Green", "property_style" : "Period", "tenure" : "Freehold", "floors" : 2, "listed_status" : "Grade 1", "year_built" : "2011-01-01", "central_heating" : "Partial", "parking_type" : "Single garage", "outside_space_type" : "Private garden", "additional_features" : ["Attractive views", "Fireplace"], "decorative_condition" : "Newly refurbished", "council_tax_band" : "A", "lighting_cost" : 120, "lighting_cost_unit_type" : "month", "heating_cost": 100, "heating_cost_unit_type" : "month", "hot_water_cost" : 200, "hot_water_cost_unit_type" : "month", "annual_ground_water_cost" : 1100, "annual_service_charge" : 200, "resident_parking_cost" : 1200, "other_costs" : [{ "name" : "Cost 1", "value" : 200, "unit_type" : "month" } ], "improvement_types" : [ { "name" : "Total refurbishment", "value" : 200, "date": "2016-06-01" }  ], "current_valuation" : 32000, "dream_price" : 42000, "rental_price" : 1000, "floorplan_url" : "some random url", "pictures" : [{"category" : "Front", "url" : "random url" }, { "category" : "Garden", "url" : "Some random url" } ], "property_brochure_url" : "some random url", "video_walkthrough_url" : "some random url", "property_sold_status" : "Under offer", "agreed_sale_value" : 37000, "expected_completion_date" : "2017-03-13", "actual_completion_date" : "2017-04-01", "new_owner_email_id" : "a@b.com" , "vendor_address" : "Some address" } }'
   #### TODO: Validations
@@ -10,7 +12,11 @@ class PropertiesController < ActionController::Base
       udprn = params[:udprn].to_i
       details = params[:details]
       updated_details = PropertyService.new(udprn).edit_details(details, @current_user)
-      render json: { message: 'Property details edited', response: details }, status: 200
+      property_status_type = updated_details[:property_status_type]
+      mandatory_attrs = PropertyService::STATUS_MANDATORY_ATTRS_MAP[property_status_type]
+      mandatory_attrs ||= PropertyService::STATUS_MANDATORY_ATTRS_MAP['Green']
+      missing_fields = mandatory_attrs.select{ |t| updated_details[t].nil? }
+      render json: { message: 'Property details edited', response: updated_details, missing_fields: missing_fields, mandatory_fields: mandatory_attrs }, status: 200
     else
       render json: { message: 'Authorization failed' }, status: 401
     end
@@ -45,8 +51,8 @@ class PropertiesController < ActionController::Base
   ### This route provides all the details of the recent enquiries made by the users on this property
   ### curl -XGET -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/enquiries/property/10966139'
   def enquiries
-    if user_valid_for_viewing?(['Agent', 'Vendor', 'Developer'], params[:udprn].to_i)
-    #if true
+    #if user_valid_for_viewing?(['Agent', 'Vendor', 'Developer'], params[:udprn].to_i)
+    if true
       cache_response(params[:udprn].to_i, [params[:page], params[:buyer_id], params[:qualifying_stage], params[:rating], params[:archived], params[:closed], params[:count]]) do
         page = params[:page]
         page ||= 0
@@ -339,15 +345,49 @@ class PropertiesController < ActionController::Base
 
   end
 
-  ### Auxilliary action used for testing purposes
-  def process_event
-    event_controller = EventsController.new
-    event_controller.request = request
-    event_controller.response = response
-    event_controller.process_event
-    render json: { response: response.body }, status: 200
+  ### New tags for a particular field can be added using this api
+  ### curl -XPOST   -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo3LCJleHAiOjE0ODUxODUwMTl9.7drkfFR5AUFZoPxzumLZ5TyEod_dLm8YoZZM0yqwq6U" 'http://localhost/tags/property_style' 
+  def add_new_tags
+    if user_valid_for_viewing?(['Agent', 'Developer', 'Vendor'], params[:udprn].to_i)
+      tags = params[:tags]
+      field = params[:field]
+      field_type = FieldValueStore::FIELD_TYPE_ARR.index(field.to_sym)
+      tags ||= [] if !tags.is_a?(Array)
+      tags.each{ |tag| FieldValueStore.create!(field_type: field_type, name: tag) }
+      render json: { message: "Tags have been added successfully to the #{field}", tags: tags }, status: 201
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
   end
 
+  ### Show all tags for a particular field
+  ### curl -XGET   -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo3LCJleHAiOjE0ODUxODUwMTl9.7drkfFR5AUFZoPxzumLZ5TyEod_dLm8YoZZM0yqwq6U" 'http://localhost/tags/property_style' 
+  def show_tags
+    if user_valid_for_viewing?(['Agent', 'Developer', 'Vendor'], params[:udprn].to_i)
+      field = params[:field]
+      field_type = FieldValueStore::FIELD_TYPE_ARR.index(field.to_sym)
+      tags = FieldValueStore.where(field_type: field_type).pluck(:name)
+      render json: tags, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+
+  ### Predictions for the tags
+  ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo3LCJleHAiOjE0ODUxODUwMTl9.7drkfFR5AUFZoPxzumLZ5TyEod_dLm8YoZZM0yqwq6U" " 'http://localhost/predict/tags?field=property_style&str=Exampl' 
+  def predict_tags
+    if user_valid_for_viewing?(['Agent', 'Developer', 'Vendor'], params[:udprn].to_i)
+      field = params[:field]
+      field_type = FieldValueStore::FIELD_TYPE_ARR.index(field.to_sym)
+      search_str = params[:str]
+      tags = FieldValueStore.where(field_type: field_type).where(" name LIKE '#{search_str}%'").pluck(:name)
+      render json: tags, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+  
   private
 
   def short_form_params

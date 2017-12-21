@@ -7,26 +7,34 @@ class PropertyService
   ####    1 => 'Lead',
   ####    2 => 'AssignedAgent'
   #### }
-  MANDATORY_ATTRS = [:property_type, :beds, :baths, :receptions, :pictures, :floorplan_url, :current_valuation, :inner_area, :outer_area, :additional_features]
+  MANDATORY_ATTRS = [ :property_type, :beds, :baths, :receptions, :pictures, :floorplan_url, :current_valuation, :inner_area, :outer_area, :additional_features,
+                      :description, :property_style, :tenure, :floors, :listed_status, :year_built, :parking_type, :outside_space_types, :decorative_condition,
+                      :council_tax_band, :council_tax_band_cost, :council_tax_band_cost_unit, :lighting_cost, :lighting_cost_unit, :heating_cost,
+                      :heating_cost_unit, :hot_water_cost, :hot_water_cost_unit, :annual_service_charge, :ground_rent_cost, :ground_rent_unit ]
+
   EDIT_ATTRS = [
                   :property_type, :beds, :baths, :receptions, :property_style, :tenure, :floors, :listed_status,
                   :year_built, :central_heating, :parking_type, :outside_space_type, :additional_features, :decorative_condition,
-                  :council_tax_band, :lighting_cost, :lighting_cost_unit_type, :heating_cost, :heating_cost_unit_type,
-                  :hot_water_cost, :hot_water_cost_unit_type, :annual_ground_water_cost, :annual_service_charge,
+                  :council_tax_band, :lighting_cost, :lighting_cost_unit, :heating_cost, :heating_cost_unit,
+                  :hot_water_cost, :hot_water_cost_unit, :annual_ground_water_cost, :annual_service_charge,
                   :resident_parking_cost, :other_costs, :total_cost_per_month, :total_cost_per_year, :improvement_types, :dream_price,
                   :current_valuation, :floorplan_url, :pictures, :expected_completion_date, :actual_completion_date, :new_owner_email_id, :vendor_address,
                   :inner_area, :outer_area, :property_brochure_url, :video_walkthrough_url, :dream_price, :asking_price, :offers_price,
                   :fixed_price, :offers_over, :area_type
                 ]
-  LOCALITY_ATTRS = [:postcode, :post_town, :dependent_locality, :double_dependent_locality, :dependent_thoroughfare_description,
-                    :thoroughfare_description, :building_number, :building_name, :sub_building_name, :po_box_no,
-                    :department_name, :organization_name, :udprn, :postcode_type, :su_organisation_indicator, :delivery_point_suffix]
 
-  AGENT_ATTRS = [:agent_id, :assigned_agent_name, :assigned_agent_email, :assigned_agent_mobile, 
+  LOCALITY_ATTRS = [
+                    :postcode, :post_town, :dependent_locality, :double_dependent_locality, :dependent_thoroughfare_description,
+                    :thoroughfare_description, :building_number, :building_name, :sub_building_name, :po_box_no,
+                    :department_name, :organization_name, :udprn, :postcode_type, :su_organisation_indicator, :delivery_point_suffix
+                   ]
+
+  AGENT_ATTRS = [
+                 :agent_id, :assigned_agent_name, :assigned_agent_email, :assigned_agent_mobile, 
                  :assigned_agent_office_number, :assigned_agent_image_url, :assigned_agent_branch_name, 
                  :assigned_agent_branch_number, :assigned_agent_branch_address, :assigned_agent_branch_logo, 
                  :assigned_agent_branch_email, :agent_status
-               ]
+                ]
 
   VENDOR_ATTRS = [:vendor_id]
 
@@ -40,18 +48,27 @@ class PropertyService
                       :assigned_agent_title, :total_area, :epc, :chain_free, :date_added, :not_yet_built, :is_new_home, :is_retirement_home, :is_shared_ownership, 
                       :description_set, :claimed_by, :listing_category, :price_qualifier, :price, :vendor_first_name, :vendor_last_name,
                       :vendor_email, :vendor_image_url, :vendor_mobile_number, :description_snapshot, :street_view_image_url, :last_sale_price,
-                      :is_developer, :floorplan_urls, :latitude, :longitude, :renter_id]
+                      :is_developer, :floorplan_urls, :latitude, :longitude, :renter_id, :council_tax_band_cost, :council_tax_band_cost_unit,
+                      :resident_parking_cost_unit, :outside_space_types, :ground_rent_cost, :ground_rent_type, :sale_type, :percent_completed]
 
   COUNTIES = ["Aberdeenshire", "Kincardineshire", "Lincolnshire", "Banffshire", "Hertfordshire", "West Midlands", "Warwickshire", "Worcestershire", "Staffordshire", "Avon", "Somerset", "Wiltshire", "Lancashire", "West Yorkshire", "North Yorkshire", "ZZZZ", "Dorset", "Hampshire", "East Sussex", "West Sussex", "Kent", "County Antrim", "County Down", "Gwynedd", "County Londonderry", "County Armagh", "County Tyrone", "County Fermanagh", "Cumbria", "Cambridgeshire", "Suffolk", "Essex", "South Glamorgan", "Mid Glamorgan", "Cheshire", "Clwyd", "Merseyside", "Surrey", "Angus", "Fife", "Derbyshire", "Dumfriesshire", "Kirkcudbrightshire", "Wigtownshire", "County Durham", "Tyne and Wear", "South Yorkshire", "North Humberside", "South Humberside", "Nottinghamshire", "Midlothian", "West Lothian", "East Lothian", "Peeblesshire", "Middlesex", "Devon", "Cornwall", "Stirlingshire", "Clackmannanshire", "Perthshire", "Lanarkshire", "Dunbartonshire", "Gloucestershire", "Berkshire", "not", "Buckinghamshire", "Herefordshire", "Isle of Lewis", "Isle of Harris", "Isle of Scalpay", "Isle of North Uist", "Isle of Benbecula", "Inverness-shire", "Isle of Barra", "Norfolk", "Ross-shire", "Nairnshire", "Sutherland", "Morayshire", "Isle of Skye", "Ayrshire", "Isle of Arran", "Isle of Cumbrae", "Caithness", "Orkney", "Kinross-shire", "Powys", "Leicestershire", "Leicestershire / ", "Leicestershire / Rutland", "Dyfed", "Bedfordshire", "Northumberland", "Northamptonshire", "Gwent", "Shropshire", "Oxfordshire", "Renfrewshire", "Isle of Bute", "Argyll", "Isle of Gigha", "Isle of Islay", "Isle of Jura", "Isle of Colonsay", "Isle of Mull", "Isle of Iona", "Isle of Tiree", "Isle of Coll", "Isle of Eigg", "Isle of Rum", "Isle of Canna", "Isle of Wight", "West Glamorgan", "Selkirkshire", "Berwickshire", "Roxburghshire", "Isles of Scilly", "Cleveland", "Shetland Islands", "Central London", "East London", "North West London", "North London", "South East London", "South West London","Dummy", "West London"] 
        
   DETAIL_ATTRS = LOCALITY_ATTRS + AGENT_ATTRS + VENDOR_ATTRS + EXTRA_ATTRS + POSTCODE_ATTRS + EDIT_ATTRS + ADDITIONAL_ATTRS
+
+  ADDITIONAL_EDIT_ATTRS = [ :property_status_type, :description, :agent_id, :council_tax_band_cost, :council_tax_band_cost_unit, :annual_ground_water_cost_unit, :resident_parking_cost_unit, :outside_space_types ]
 
   AGENT_STATUS = {
     lead: 1,
     assigned: 2
   }
 
-  ARRAY_HASH_ATTRS = [:outside_space_type, :additional_features, :pictures, :property_style, :sale_prices, :other_costs, :improvement_types, :floorplan_urls]
+  ARRAY_HASH_ATTRS = [:outside_space_type, :additional_features, :pictures, :property_style, :sale_prices, :other_costs, :improvement_types, :floorplan_urls, :outside_space_types]
+
+  STATUS_MANDATORY_ATTRS_MAP = {
+    'Green' => MANDATORY_ATTRS + [:sale_price, :sale_type],
+    'Amber' => MANDATORY_ATTRS,
+    'Red'   => MANDATORY_ATTRS
+  }
 
   def initialize(udprn)
     @udprn = udprn
@@ -120,13 +137,17 @@ class PropertyService
   def create_lead_and_update_vendor_details(district, udprn, vendor_id, details, property_for='Sale')
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[details['property_status_type']]
-    Agents::Branches::AssignedAgents::Lead.create(district: district, property_id: udprn, vendor_id: vendor_id)
+    create_lead_for_local_branches(district, udprn, vendor_id) 
     details[:vendor_id] = vendor_id
     details[:claimed_on] = Time.now.to_s
     details[:claimed_by] = 'Vendor'
     # p details
     self.class.normalize_all_attrs(details)
     PropertyDetails.update_details(client, udprn, details)
+  end
+
+  def create_lead_for_local_branches(district, property_id, vendor_id)
+    Agents::Branches::AssignedAgents::Lead.create(district: district, property_id: udprn, vendor_id: vendor_id)
   end
 
   def claim_new_property(agent_id)
@@ -188,7 +209,7 @@ class PropertyService
     client = Elasticsearch::Client.new(host: Rails.configuration.remote_es_host)
     details = details.with_indifferent_access
     update_hash = {}
-    attributes = EDIT_ATTRS + [ :property_status_type, :description, :agent_id ]
+    attributes = (EDIT_ATTRS + MANDATORY_ATTRS).uniq
 
     ### Assume that details have been completed and are validated.
     ### TODO: Fix validations and delay assigning the attribute till validations are
@@ -374,6 +395,7 @@ class PropertyService
   end
 
   def self.fetch_details_from_vanity_url(url)
+    url = url.gsub(/[_]/,"/")
     str_parts = url.split('-')[0..-3]
     str = ''
     last_occurence = str_parts.reverse.find_all{|t| str=t+' '+ str;COUNTIES.include?(str.titleize.strip)}.last

@@ -56,11 +56,15 @@ module Agents
         services_required = Agents::Branches::AssignedAgents::Quote::REVERSE_SERVICES_REQUIRED_HASH[service_required_param]
         new_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
         query = Agents::Branches::AssignedAgents::Quote
-        query = query.where(district: self.branch.district)
+
+        ### District of that branch
+        branch = self.branch
+        query = query.where(district: branch.district)
         max_hours_for_expiry = Agents::Branches::AssignedAgents::Quote::MAX_AGENT_QUOTE_WAIT_TIME
 
         ### 48 hour expiry deadline
         query = query.where('created_at > ?', max_hours_for_expiry.ago)
+        query = query.where(expired: false)
         query = query.where(vendor_id: vendor_id) if buyer_id
         query = query.where(payment_terms: payment_terms_params) if payment_terms_params
         query = query.where(service_required: services_required) if service_required_param
@@ -198,11 +202,14 @@ module Agents
       #### Agents::Branches::AssignedAgents::Lead.create(district: "CH45", property_id: 4745413, vendor_id: 1)
       #### Then call the following function for the agent in that district
       def recent_properties_for_claim(status=nil, property_for='Sale', buyer_id=nil, search_str=nil, is_premium=false, page_number=0, owned_property=nil, count)
-        district = self.branch.district
+        ### District of that branch
+        branch = self.branch
+        district = branch.district
         query = Agents::Branches::AssignedAgents::Lead
         vendor = PropertyBuyer.where(id: buyer_id).select(:vendor_id).first if buyer_id
         vendor_id = vendor.vendor_id if vendor
         vendor_id ||= nil
+        
         query = query.where(vendor_id: vendor_id) if buyer_id
         query = query.where(district: district)
         query = query.where(owned_property: owned_property) if owned_property

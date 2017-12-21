@@ -220,6 +220,7 @@ class EventService
     ### Added new condition that when property is verified and details completed
     #if @details[:verification_status].to_s == 'true' &&  @details[:details_completed].to_s == 'true'
     if true
+      new_row[:id] = each_row.id
       new_row[:type_of_enquiry] = REVERSE_EVENTS[each_row.event]
       new_row[:buyer_id] = each_row.buyer_id
       new_row[:property_tracking] = total_trackings
@@ -230,6 +231,28 @@ class EventService
       new_row[:stage] = REVERSE_EVENTS[each_row.stage]
       new_row[:hotness] = REVERSE_EVENTS[enquiry.rating]
       new_row[:locked] = false
+
+      ### If the property is closed won, include the details of the new buyer as well
+      if each_row.stage == EVENTS[:closed_won_stage]
+        sold_property = SoldProperty.where(udprn: each_row.udprn).last
+        new_row[:final_price] = sold_property.sale_price
+        new_buyer = PropertyBuyer.where(id: sold_property.buyer_id)
+                                 .select([:id, :email, :first_name, :last_name, :mobile, :status, :chain_free, :funding, 
+                                          :biggest_problems, :buying_status, :budget_to, :budget_from,
+                                          :first_name, :last_name, :image_url, :property_types])
+                                 .last
+        if new_buyer
+          new_buyer.as_json.each do |key, value|
+            new_key = 'new_vendor_' + key.to_s
+            new_row[new_key.to_sym] = value
+          end
+        end
+
+        new_row[:actual_completion_date] = sold_property.completion_date
+
+      end
+      new_row[:actual_completion_date] ||= nil
+
     elsif @details[:verification_status].to_s == 'false'
       new_row[:locked] = true
       new_row[:reason] = 'The vendor not verified yet the property'

@@ -36,13 +36,13 @@ class SessionsController < ApplicationController
         agent_id = user.id
         udprns = InvitedAgent.where(email: user.email).pluck(:udprn)
         client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
-        udprns.map { |udprn|  PropertyDetails.update_details(client, udprn, { agent_id: agent_id, agent_status: 2 }) }
+        udprns.compact.map { |udprn|  PropertyDetails.update_details(client, udprn, { agent_id: agent_id, agent_status: 2 }) }
       elsif user_type == 'Developer'
         user.is_first_agent = user.calculate_is_first_agent
         user.save!
         developer_id = user.id
         udprns = InvitedDeveloper.where(email: user.email).pluck(:udprn)
-        udprns.map { |t| PropertyService.new(t).update_details({ developer_id: developer_id, developer_status: 2 })}
+        udprns.compact.map { |t| PropertyService.new(t).update_details({ developer_id: developer_id, developer_status: 2 })}
       end
 
       session[:user_id] = user.id
@@ -78,7 +78,7 @@ class SessionsController < ApplicationController
           command = AuthenticateUser.call(agent_params['email'], agent_params['password'], Agents::Branches::AssignedAgent)
           udprns = InvitedAgent.where(email: agent_params['email']).pluck(:udprn)
           client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
-          udprns.map { |udprn|  PropertyDetails.update_details(client, udprn, { agent_id: agent.id, agent_status: 2 }) }
+          udprns.compact.map { |udprn|  PropertyDetails.update_details(client, udprn, { agent_id: agent.id, agent_status: 2 }) }
           agent.password = nil
           agent.password_digest = nil
           agent_details = agent.as_json

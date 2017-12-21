@@ -243,6 +243,20 @@ class DevelopersController < ApplicationController
   end
 
 
+  ### Invited developers history for branches
+  ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" -H "Content-Type: application/json" 'http://localhost/developers/list/invited/developers'
+  def branch_specific_invited_developers
+    agent = user_valid_for_viewing?('Developer')
+    if !agent.nil?
+      branch_id = agent.branch_id
+      invited_developers = InvitedDeveloper.where(branch_id: branch_id).select([:email, :created_at])
+      render json: invited_developers, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+
   ### Verify the property's basic attributes and attach the crawled property to a udprn(new build)
   ### Done when the developer attaches the udprn to the property
   ### curl  -XPOST -H  "Content-Type: application/json"  'http://localhost/developers/properties/verify' -d '{ "properties" : [{"property_type" : "Barn conversion", "beds" : 1,  "baths" : 1, "receptions" : 1, "udprn" : 340620, "assigned_developer_email" :  "residentevil293@prophety.co.uk", "features" : ["Bla bla meh"], "description" : "ipsum lorem", "floorplan_urls": ["www.blablameh.com"] }]}'

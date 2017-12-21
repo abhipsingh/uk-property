@@ -33,7 +33,7 @@ module Agents
         self.agent_email = invited_agent['email']
         salt_str = "#{self.name}_#{self.address}_#{self.district}"
       	self.verification_hash = BCrypt::Password.create salt_str
-        invited_klass.create!(email: self.agent_email, udprn: invited_agent['udprn'], entity_id: invited_agent['entity_id'])
+        invited_klass.create!(email: self.agent_email, udprn: invited_agent['udprn'], entity_id: invited_agent['entity_id'], branch_id: self.id)
       	VerificationHash.create(hash_value: self.verification_hash, email: self.agent_email, entity_type: klass)
         AgentMailer.welcome_email(self).deliver_now
       end

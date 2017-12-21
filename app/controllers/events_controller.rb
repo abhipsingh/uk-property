@@ -229,6 +229,7 @@ class EventsController < ApplicationController
           ### THIS LIMIT IS THE MAXIMUM. CAN BE BREACHED IN AN EXCEPTIONAL CASE
           api.query[:size] = 10000
           udprns, status = api.fetch_udprns
+
           ### Get all properties for whom the agent has won leads
           property_ids = udprns.map(&:to_i).uniq
 

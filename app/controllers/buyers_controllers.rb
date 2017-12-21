@@ -41,14 +41,16 @@ class BuyersController < ActionController::Base
       rent_requirement = buyer.rent_requirement
       rent_requirement ||= RentRequirement.new 
       rent_requirement.buyer_id = buyer.id
-      rent_requirement.min_beds = rent_requirement_params[:min_beds] if rent_requirement_params[:min_beds]
-      rent_requirement.max_beds = rent_requirement_params[:max_beds] if rent_requirement_params[:max_beds]
-      rent_requirement.min_baths = rent_requirement_params[:min_baths] if rent_requirement_params[:min_baths]
-      rent_requirement.max_baths = rent_requirement_params[:max_baths] if rent_requirement_params[:max_baths]
-      rent_requirement.min_receptions = rent_requirement_params[:min_receptions] if rent_requirement_params[:min_receptions]
-      rent_requirement.max_receptions = rent_requirement_params[:max_receptions] if rent_requirement_params[:max_receptions]
-      rent_requirement.locations = rent_requirement_params[:locations] if rent_requirement_params[:locations]
-      rent_requirement.save!
+      if rent_requirement_params
+        rent_requirement.min_beds = rent_requirement_params[:min_beds] if rent_requirement_params[:min_beds]
+        rent_requirement.max_beds = rent_requirement_params[:max_beds] if rent_requirement_params[:max_beds]
+        rent_requirement.min_baths = rent_requirement_params[:min_baths] if rent_requirement_params[:min_baths]
+        rent_requirement.max_baths = rent_requirement_params[:max_baths] if rent_requirement_params[:max_baths]
+        rent_requirement.min_receptions = rent_requirement_params[:min_receptions] if rent_requirement_params[:min_receptions]
+        rent_requirement.max_receptions = rent_requirement_params[:max_receptions] if rent_requirement_params[:max_receptions]
+        rent_requirement.locations = rent_requirement_params[:locations] if rent_requirement_params[:locations]
+        rent_requirement.save!
+      end
     end
 		buyer.save!
     details = buyer.as_json

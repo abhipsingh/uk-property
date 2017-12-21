@@ -347,6 +347,7 @@ class Trackers::Buyer
     result = []
     arr_rows.each_with_index do |each_row, index|
       new_row = {}
+      new_row[:id] = each_row.id
       new_row[:udprn] = each_row.udprn
       new_row[:received] = each_row.created_at
       new_row[:type_of_enquiry] = REVERSE_EVENTS[each_row.event]
@@ -359,6 +360,33 @@ class Trackers::Buyer
       add_details_to_enquiry_row_buyer(new_row, property_id, each_row, agent_id, 'Sale')
       new_row[:stage] = REVERSE_EVENTS[each_row.stage]
       new_row[:hotness] = REVERSE_EVENTS[each_row.rating]
+      new_row[:offer_date] = each_row.offer_date
+      new_row[:offer_price] = each_row.offer_price
+
+      ### If the property is closed won, include the details of the new buyer as well
+      if each_row.stage == EVENTS[:closed_won_stage]
+        sold_property = SoldProperty.where(udprn: each_row.udprn).last
+        new_row[:final_price] = sold_property.sale_price
+        new_buyer = PropertyBuyer.where(id: sold_property.buyer_id)
+                                 .select([:id, :email, :first_name, :last_name, :mobile, :status, :chain_free, :funding, 
+                                          :biggest_problems, :buying_status, :budget_to, :budget_from,
+                                          :first_name, :last_name, :image_url, :property_types])
+                                 .last
+
+        if new_buyer
+
+          new_buyer.as_json.each do |key, value|
+            new_key = 'new_vendor_' + key.to_s
+            new_row[new_key.to_sym] = value
+          end
+
+        end
+        new_row[:actual_completion_date] = sold_property.completion_date
+
+      end
+      new_row[:actual_completion_date] ||= nil
+      new_row[:final_price] ||= nil
+      new_row[:expected_completion_date] = each_row.expected_completion_date
       buyer_ids.push(each_row.buyer_id)
       result.push(new_row)
     end
@@ -850,7 +878,6 @@ class Trackers::Buyer
       #total_rows = query.limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE)
       total_rows = process_enquiries_result(total_rows)
     end
-
     total_rows
   end
 
@@ -870,11 +897,14 @@ class Trackers::Buyer
       api.apply_filters
       api.increase_size_filter
       udprns, status = api.fetch_udprns 
+      
+      ### If the status is 200
       if status.to_i == 200
         udprns.map(&:to_i)
       else
         []
       end
+
     else
       hash_val[:hash_type] = 'Text'
       #hash_val.delete(:hash_str)
@@ -913,8 +943,5 @@ class Trackers::Buyer
 
     ranked[index.to_i].to_i
   end
-
 end
-
-
 

@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20171217133736) do
+ActiveRecord::Schema.define(version: 20171221164901) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -65,6 +65,8 @@ ActiveRecord::Schema.define(version: 20171217133736) do
     t.integer "zoopla_branch_id"
     t.string  "domain_name"
     t.boolean "is_developer",                  default: false
+    t.boolean "locked",                        default: false
+    t.date    "locked_date"
   end
 
   add_index "agents_branches", ["district"], name: "index_agents_branches_on_district", using: :btree
@@ -397,12 +399,22 @@ ActiveRecord::Schema.define(version: 20171217133736) do
     t.integer "buyer_id"
   end
 
+  create_table "field_value_stores", force: :cascade do |t|
+    t.integer  "field_type"
+    t.string   "name"
+    t.datetime "created_at", null: false
+  end
+
+  add_index "field_value_stores", ["field_type", "name"], name: "index_field_value_stores_on_field_type_and_name", unique: true, using: :btree
+  add_index "field_value_stores", ["name"], name: "field_value_stores_names_idx", using: :btree
+
   create_table "invited_agents", force: :cascade do |t|
     t.string   "email"
     t.integer  "udprn"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer  "entity_id"
+    t.integer  "branch_id"
   end
 
   create_table "invited_developers", force: :cascade do |t|
@@ -411,6 +423,7 @@ ActiveRecord::Schema.define(version: 20171217133736) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer  "entity_id"
+    t.integer  "branch_id"
   end
 
   create_table "invited_vendors", force: :cascade do |t|
@@ -538,6 +551,7 @@ ActiveRecord::Schema.define(version: 20171217133736) do
     t.integer  "buyer_id",        null: false
     t.integer  "agent_id",        null: false
     t.datetime "created_at",      null: false
+    t.integer  "new_vendor_id"
   end
 
   create_table "stripe_payments", force: :cascade do |t|

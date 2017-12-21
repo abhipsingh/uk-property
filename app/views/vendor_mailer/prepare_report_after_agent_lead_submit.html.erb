@@ -46,5 +46,124 @@
       Baths: <%= @property_details['baths'] %>
     </p>
 
+<p> 
+      Receptions: <%= @property_details['receptions'] %> 
+    </p>
+
+    <p> 
+      Pictures: <% @property_details['pictures'].each do |t| 
+          <img src="<%= t['image_url']  %>"
+        <% end %>
+    </p>
+
+    <p> 
+      Inside area: <%= @property_details['inner_area'] %> 
+    </p>
+
+    <p> 
+      Outside area: <%= @property_details['outer_area'] %> 
+    </p>
+
+    <p> 
+      Features: <%= @property_details['additional_features'] %> 
+    </p>
+
+    <p> 
+      Description: <%= @property_details['description'] %> 
+    </p>
+
+    <p> 
+      Style: <%= @property_details['property_style'] %> 
+    </p>
+
+    <p> 
+      Tenure: <%= @property_details['tenure'] %> 
+    </p>
+
+    <p> 
+      Floors: <%= @property_details['floors'] %> 
+    </p>
+
+    <p> 
+      Listed Status: <%= @property_details['listed_status'] %> 
+    </p>
+
+    <p> 
+      Year built: <%= @property_details['year_built'] %> 
+    </p>
+
+    <p> 
+      Parking: <%= @property_details['parking_type'] %> 
+    </p>
+
+    <p> 
+      Outside space: <%= @property_details['outside_space_types'] %> 
+    </p>
+
+    <p> 
+      Decorative condition: <%= @property_details['decorative_condition'] %> 
+    </p>
+
+    <p> 
+      Council Tax Band: <%= @property_details['council_tax_band'] %> 
+    </p>
+
+    <p> 
+      Council Tax Band Cost: <%= @property_details['council_tax_band_cost'] %> 
+    </p>
+
+    <p> 
+      Council Tax Band Unit: <%= @property_details['council_tax_band_cost_unit'] %> 
+    </p>
+
+    <p> 
+      Lighting Cost: <%= @property_details['lighting_cost'] %> 
+    </p>
+
+    <p> 
+      Lighting Cost Unit: <%= @property_details['lighting_cost_unit'] %> 
+    </p>
+
+    <p> 
+      Heating Cost Unit: <%= @property_details['heating_cost'] %> 
+    </p>
+
+    <p> 
+      Heating Cost Unit: <%= @property_details['heating_cost_unit'] %> 
+    </p>
+
+    <p> 
+      Hot water cost: <%= @property_details['hot_water_cost'] %> 
+    </p>
+
+    <p> 
+      Hot water cost unit: <%= @property_details['hot_water_cost_unit'] %> 
+    </p>
+
+    <p> 
+      Annual service charge: <%= @property_details['annual_service_charge'] %> 
+    </p>
+
+    <p> 
+      Ground rent cost: <%= @property_details['ground_rent_cost'] %> 
+    </p>
+
+    <p> 
+      Ground rent cost unit: <%= @property_details['ground_rent_unit'] %> 
+    </p>
+
+
+    If you are happy with the changes, please confirm by clicking on the following link.
+
+    <p>
+      URL LINKING TO PASSWORD RESET PAGE http://sleepy-mountain-35147.herokuapp.com/reset-password
+    </p>
+
+    Else, please click here.
+    <p>
+      To be implemented
+    </p>
+
+
   </body>
 </html>

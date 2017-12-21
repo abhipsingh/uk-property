@@ -2,6 +2,7 @@ class PropertyBuyer < ActiveRecord::Base
 
   attr_accessor :renter_address, :verification_hash, :email_udprn, :vendor_email
   has_secure_password
+  has_one :rent_requirement, class_name: 'RentRequirement', foreign_key: :buyer_id
 
   STATUS_HASH = {
     green: 1,
@@ -17,7 +18,7 @@ class PropertyBuyer < ActiveRecord::Base
     'First time buyer' => 1,
     'Not a first time buyer' => 2,
     'Property investor' => 3,
-    'Looking to rent' => 4
+    'I am currently renting a property' => 4
   }
 
   REVERSE_BUYING_STATUS_HASH = BUYING_STATUS_HASH.invert
