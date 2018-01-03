@@ -42,6 +42,46 @@ module Api
         render json: { details: details_json }, status: 200
       end
 
+      ### Returns the breadcrumbs for a given hash
+      ### curl -XGET 'http://localhost/api/v0/properties/breadcrumbs'
+      def breadcrumbs
+        str = params[:hash_str]
+        resp_hash = { hash_str: str }
+        PropertySearchApi.construct_hash_from_hash_str(resp_hash)
+        resp_hash.delete(:hash_str)
+        breadcrumbs = []
+        resp_hash[:county] = MatrixViewCount::COUNTY_MAP[resp_hash[:post_town].upcase] if resp_hash[:county].nil?
+        
+        ### For London handle it especially
+        if resp_hash[:county] == 'London'
+          district = resp_hash[:district]
+          if district.start_with?('EC')
+            resp_hash[:county] = 'Central London'
+          elsif district.start_with?('E')
+            resp_hash[:county] = 'East London'
+          elsif district.start_with?('NW')
+            resp_hash[:county] = 'North West London'
+          elsif district.start_with?('N')
+            resp_hash[:county] = 'North London'
+          elsif district.start_with?('SE')
+            resp_hash[:county] = 'South East London'
+          elsif district.start_with?('SW')
+            resp_hash[:county] = 'South West London'
+          elsif district.start_with?('WC')
+            resp_hash[:county] = 'Central London'
+          elsif district.start_with?('W')
+            resp_hash[:county] = 'West London'
+          end
+        end
+
+        result = resp_hash.clone
+        resp_hash.each do |key, value|
+          hash = MatrixViewService.form_hash_str(resp_hash, key)
+          result[(key.to_s + "_hash").to_sym] = hash
+        end
+        render json: result, status: 200
+      end
+
     end
   end
 end

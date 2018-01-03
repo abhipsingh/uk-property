@@ -322,7 +322,7 @@ class AgentsController < ApplicationController
       claimed_by: 'Agent'
     }
 
-    if pictures.is_a?(Array) && pictures.length > 0 && pictures.all?{ |t| t.has_key?('priority') && t.has_key?('image_url') && t.has_key?('title') }
+    if pictures.is_a?(Array) && pictures.length > 0 && pictures.all?{ |t| t.has_key?('priority') && t.has_key?('url') && t.has_key?('description') }
       property_attrs[:pictures] = pictures
     end
     vendor_email = params[:vendor_email]
@@ -689,7 +689,8 @@ class AgentsController < ApplicationController
     if !vendor.nil? && (vendor.class.to_s == 'Vendor' || (vendor.class.to_s == 'Agents::Branches::AssignedAgent' && vendor.is_developer ))
     #if true
       count = Agents::Branch.unscope(where: :is_developer).where(district: params[:location]).count
-      results = Agents::Branch.unscope(where: :is_developer).where(district: params[:location]).limit(20).offset(20*(params[:p].to_i)).map do |branch|
+      #results = Agents::Branch.unscope(where: :is_developer).where(district: params[:location]).limit(20).offset(20*(params[:p].to_i)).map do |branch|
+      results = Agents::Branch.unscope(where: :is_developer).where(district: params[:location]).map do |branch|
         agent_count = Agents::Branches::AssignedAgent.where(branch_id: branch.id).count
         agent_count == 0 ? agent_count = 0 : agent_count -= 1
         {

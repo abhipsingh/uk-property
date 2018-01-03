@@ -79,3 +79,5 @@ gem 'pg_search'
 gem 'textacular', '~> 3.0'
 gem 'dalli'
 
+### Verifying Ruby OTPs
+gem 'rotp'

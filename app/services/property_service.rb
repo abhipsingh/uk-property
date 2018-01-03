@@ -10,7 +10,8 @@ class PropertyService
   MANDATORY_ATTRS = [ :property_type, :beds, :baths, :receptions, :pictures, :floorplan_url, :current_valuation, :inner_area, :outer_area, :additional_features,
                       :description, :property_style, :tenure, :floors, :listed_status, :year_built, :parking_type, :outside_space_types, :decorative_condition,
                       :council_tax_band, :council_tax_band_cost, :council_tax_band_cost_unit, :lighting_cost, :lighting_cost_unit, :heating_cost,
-                      :heating_cost_unit, :hot_water_cost, :hot_water_cost_unit, :annual_service_charge, :ground_rent_cost, :ground_rent_unit ]
+                      :heating_cost_unit, :hot_water_cost, :hot_water_cost_unit, :annual_service_charge, :ground_rent_cost, :ground_rent_unit, :sale_price,
+                      :sale_price_type, :latitude, :longitude ]
 
   EDIT_ATTRS = [
                   :property_type, :beds, :baths, :receptions, :property_style, :tenure, :floors, :listed_status,
@@ -49,7 +50,7 @@ class PropertyService
                       :description_set, :claimed_by, :listing_category, :price_qualifier, :price, :vendor_first_name, :vendor_last_name,
                       :vendor_email, :vendor_image_url, :vendor_mobile_number, :description_snapshot, :street_view_image_url, :last_sale_price,
                       :is_developer, :floorplan_urls, :latitude, :longitude, :renter_id, :council_tax_band_cost, :council_tax_band_cost_unit,
-                      :resident_parking_cost_unit, :outside_space_types, :ground_rent_cost, :ground_rent_type, :sale_type, :percent_completed]
+                      :resident_parking_cost_unit, :outside_space_types, :ground_rent_cost, :ground_rent_type, :sale_price_type, :percent_completed]
 
   COUNTIES = ["Aberdeenshire", "Kincardineshire", "Lincolnshire", "Banffshire", "Hertfordshire", "West Midlands", "Warwickshire", "Worcestershire", "Staffordshire", "Avon", "Somerset", "Wiltshire", "Lancashire", "West Yorkshire", "North Yorkshire", "ZZZZ", "Dorset", "Hampshire", "East Sussex", "West Sussex", "Kent", "County Antrim", "County Down", "Gwynedd", "County Londonderry", "County Armagh", "County Tyrone", "County Fermanagh", "Cumbria", "Cambridgeshire", "Suffolk", "Essex", "South Glamorgan", "Mid Glamorgan", "Cheshire", "Clwyd", "Merseyside", "Surrey", "Angus", "Fife", "Derbyshire", "Dumfriesshire", "Kirkcudbrightshire", "Wigtownshire", "County Durham", "Tyne and Wear", "South Yorkshire", "North Humberside", "South Humberside", "Nottinghamshire", "Midlothian", "West Lothian", "East Lothian", "Peeblesshire", "Middlesex", "Devon", "Cornwall", "Stirlingshire", "Clackmannanshire", "Perthshire", "Lanarkshire", "Dunbartonshire", "Gloucestershire", "Berkshire", "not", "Buckinghamshire", "Herefordshire", "Isle of Lewis", "Isle of Harris", "Isle of Scalpay", "Isle of North Uist", "Isle of Benbecula", "Inverness-shire", "Isle of Barra", "Norfolk", "Ross-shire", "Nairnshire", "Sutherland", "Morayshire", "Isle of Skye", "Ayrshire", "Isle of Arran", "Isle of Cumbrae", "Caithness", "Orkney", "Kinross-shire", "Powys", "Leicestershire", "Leicestershire / ", "Leicestershire / Rutland", "Dyfed", "Bedfordshire", "Northumberland", "Northamptonshire", "Gwent", "Shropshire", "Oxfordshire", "Renfrewshire", "Isle of Bute", "Argyll", "Isle of Gigha", "Isle of Islay", "Isle of Jura", "Isle of Colonsay", "Isle of Mull", "Isle of Iona", "Isle of Tiree", "Isle of Coll", "Isle of Eigg", "Isle of Rum", "Isle of Canna", "Isle of Wight", "West Glamorgan", "Selkirkshire", "Berwickshire", "Roxburghshire", "Isles of Scilly", "Cleveland", "Shetland Islands", "Central London", "East London", "North West London", "North London", "South East London", "South West London","Dummy", "West London"] 
        
@@ -62,10 +63,12 @@ class PropertyService
     assigned: 2
   }
 
+  INT_ATTRS = [ :council_tax_band_cost, :ground_rent_cost, :annual_ground_water_cost, :annual_service_charge, :lighting_cost, :heating_cost, :hot_water_cost, :resident_parking_cost ]
+
   ARRAY_HASH_ATTRS = [:outside_space_type, :additional_features, :pictures, :property_style, :sale_prices, :other_costs, :improvement_types, :floorplan_urls, :outside_space_types]
 
   STATUS_MANDATORY_ATTRS_MAP = {
-    'Green' => MANDATORY_ATTRS + [:sale_price, :sale_type],
+    'Green' => MANDATORY_ATTRS + [:sale_price, :sale_price_type],
     'Amber' => MANDATORY_ATTRS,
     'Red'   => MANDATORY_ATTRS
   }
@@ -209,6 +212,7 @@ class PropertyService
     client = Elasticsearch::Client.new(host: Rails.configuration.remote_es_host)
     details = details.with_indifferent_access
     update_hash = {}
+
     attributes = (EDIT_ATTRS + MANDATORY_ATTRS).uniq
 
     ### Assume that details have been completed and are validated.
@@ -216,10 +220,17 @@ class PropertyService
     ### complete.
 
     ### Send the report to the vendor if the agent has submitted the attributes after winning the lead
-    ### the details are complete
 		attributes.each do |attribute|
       update_hash[attribute] = details[attribute] if details[attribute]
     end
+    ### Update pictures only when it is in the correct format
+    pictures = update_hash[:pictures]
+    if pictures.is_a?(Array) && pictures.all?{ |t| t.has_key?('url') }
+      update_hash[:pictures] = pictures
+    else
+      update_hash.delete(:pictures) if update_hash[:pictures] ### Disallow pictures to be updated if they're not valid
+    end
+
     vendor_id = details[:vendor_id]
     agent_id = details[:agent_id]
     cond = !vendor_id.nil? && !agent_id.nil? && details[:agent_status] == AGENT_STATUS[:lead] && details_completed

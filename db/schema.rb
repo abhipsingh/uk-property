@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20171221164901) do
+ActiveRecord::Schema.define(version: 20171230133834) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -20,6 +20,7 @@ ActiveRecord::Schema.define(version: 20171221164901) do
   enable_extension "uint"
   enable_extension "pageinspect"
   enable_extension "pg_buffercache"
+  enable_extension "unaccent"
 
   create_table "ad_payment_histories", force: :cascade do |t|
     t.string   "hash_str",   null: false
@@ -29,6 +30,20 @@ ActiveRecord::Schema.define(version: 20171221164901) do
     t.integer  "type_of_ad", null: false
     t.datetime "created_at", null: false
   end
+
+  create_table "agent_credit_verifiers", force: :cascade do |t|
+    t.integer  "entity_id"
+    t.integer  "agent_id"
+    t.integer  "udprn"
+    t.integer  "vendor_id"
+    t.integer  "entity_class"
+    t.integer  "amount"
+    t.boolean  "is_refund",    default: false
+    t.datetime "created_at",                   null: false
+    t.datetime "updated_at",                   null: false
+  end
+
+  add_index "agent_credit_verifiers", ["udprn", "vendor_id", "agent_id", "is_refund", "entity_class"], name: "agent_credit_unique_idx", unique: true, using: :btree
 
   create_table "agents", force: :cascade do |t|
     t.string  "name",         limit: 255
@@ -144,6 +159,8 @@ ActiveRecord::Schema.define(version: 20171221164901) do
     t.boolean  "refund_status",        default: false
     t.integer  "vendor_id",                            null: false
     t.boolean  "expired",              default: false
+    t.integer  "parent_quote_id"
+    t.integer  "amount"
   end
 
   add_index "agents_branches_assigned_agents_quotes", ["agent_id", "property_id", "expired"], name: "quotes_unique_property_agents_idx", unique: true, where: "((agent_id IS NOT NULL) AND (expired = false))", using: :btree
@@ -270,6 +287,21 @@ ActiveRecord::Schema.define(version: 20171221164901) do
     t.datetime "updated_at",   null: false
   end
 
+  create_table "ccgs", id: false, force: :cascade do |t|
+    t.string "code", limit: 32,  null: false
+    t.string "name", limit: 255
+  end
+
+  create_table "constituencies", id: false, force: :cascade do |t|
+    t.string "code", limit: 32,  null: false
+    t.string "name", limit: 255
+  end
+
+  create_table "counties", id: false, force: :cascade do |t|
+    t.string "code", limit: 32,  null: false
+    t.string "name", limit: 255
+  end
+
   create_table "developers_branches", force: :cascade do |t|
     t.string   "name"
     t.string   "image_url"
@@ -321,6 +353,11 @@ ActiveRecord::Schema.define(version: 20171221164901) do
     t.string   "address"
     t.datetime "created_at",   null: false
     t.string   "email"
+  end
+
+  create_table "districts", id: false, force: :cascade do |t|
+    t.string "code", limit: 32,  null: false
+    t.string "name", limit: 255
   end
 
   create_table "events", force: :cascade do |t|
@@ -434,6 +471,13 @@ ActiveRecord::Schema.define(version: 20171221164901) do
     t.datetime "created_at", null: false
   end
 
+  create_table "mobile_otp_verifies", force: :cascade do |t|
+    t.string   "mobile"
+    t.integer  "otp"
+    t.boolean  "verified",   default: false
+    t.datetime "created_at",                 null: false
+  end
+
   create_table "new_property_upload_histories", force: :cascade do |t|
     t.string   "property_type"
     t.integer  "beds"
@@ -448,10 +492,21 @@ ActiveRecord::Schema.define(version: 20171221164901) do
     t.jsonb    "floorplan_urls",       default: []
   end
 
+  create_table "parishes", id: false, force: :cascade do |t|
+    t.string "code", limit: 32,  null: false
+    t.string "name", limit: 255
+  end
+
   create_table "pb_details", force: :cascade do |t|
     t.jsonb    "details"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+  end
+
+  create_table "post_codes", force: :cascade do |t|
+    t.float  "lat"
+    t.float  "long"
+    t.string "postcode"
   end
 
   create_table "property_ads", force: :cascade do |t|

@@ -2,13 +2,23 @@ class VendorMailer < ApplicationMailer
   def welcome_email(user)
     @user = user
     ### TODO: Conditionally change a link depending on whether the vendor has already registered or not
-    @link = "http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=<%=@user.verification_hash%>&udprn=<%=@user.email_udprn%>&email=<%=@user.vendor_email"
+    ### Pass a flag that a vendor is already registered
+    vendor_flag = Vendor.where(email: @user.vendor_email).last.nil?
+    @link = "http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=#{@user.verification_hash}&udprn=#{@user.email_udprn}&email=#{@user.vendor_email}&vendor_present=#{vendor_flag}&user_type=Vendor"
+    mail(to: @user.vendor_email, subject: "Welcome to Prophety #{@user.vendor_email}")
+  end
+
+  def welcome_email_from_a_friend(user)
+    @user = user
+    vendor_flag = Vendor.where(email: @user.vendor_email).last.nil?
+    @link = "http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=#{@user.verification_hash}&udprn=#{@user.email_udprn}&email=#{@user.vendor_email}&vendor_present=#{vendor_flag}&user_type=Vendor"
     mail(to: @user.vendor_email, subject: "Welcome to Prophety #{@user.vendor_email}")
   end
 
   def welcome_email_from_a_renter(user)
     @user = user
-    @link = "http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=#{@user.verification_hash}&udprn=#{@user.email_udprn}&email=#{@user.vendor_email}"
+    vendor_flag = Vendor.where(email: @user.vendor_email).last.nil?
+    @link = "http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=#{@user.verification_hash}&udprn=#{@user.email_udprn}&email=#{@user.vendor_email}&vendor_present=#{vendor_flag}&user_type=Vendor"
     mail(to: @user.vendor_email, subject: "Welcome to Prophety #{@user.vendor_email}")
   end
 
@@ -40,7 +50,7 @@ class VendorMailer < ApplicationMailer
     @hash_link = agent_attrs[:hash_link]
     @vendor_email = vendor_email
     @udprn = agent_attrs[:udprn]
-    @hash_url = "http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=#{@hash_link}&udprn=#{@udprn}&email=#{@vendor_email}"
+    @hash_url = "http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=#{@hash_link}&udprn=#{@udprn}&email=#{@vendor_email}&user_type=Vendor&vendor_present=true"
     subject = 'An agent has claimed the lead of your property located at ' + @address
     mail(to: vendor_email, subject: subject)
   end

@@ -26,12 +26,14 @@ class PropertyAd < ActiveRecord::Base
     service = SERVICE[property_for]
     details = PropertyDetails.details(udprn.to_i)['_source']
     details = details.with_indifferent_access
-    types = ['Featured', 'Premium']
+    types = [ 'Featured', 'Premium' ]
     udprn = details['udprn'].to_i
     levels_arr = []
     types.each do |each_type|
       new_details = details.deep_dup.with_indifferent_access
+
       ALL_LOCALITY_LEVELS.each{|t| assign_null(new_details, t) }
+
       ALL_LOCALITY_LEVELS.each do |each_locality_level|
         hash_str = MatrixViewService.form_hash_str(new_details, each_locality_level)
         response["#{each_locality_level.to_s}"] = details[each_locality_level]
@@ -41,6 +43,7 @@ class PropertyAd < ActiveRecord::Base
         response["#{each_locality_level.to_s}_#{each_type.downcase}_oldest_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(service: service).order('expiry_at ASC').first.expiry_at rescue nil  if details[each_locality_level] &&   !details[each_locality_level.to_s].empty?
        response[:price_per_slot] = PRICE[each_type]
       end
+
       ALL_POSTCODE_LEVELS.each do |each_postcode_unit|
         hash_str = MatrixViewService.form_hash(new_details, each_postcode_unit)
         response["#{each_postcode_unit.to_s}"] = details[each_postcode_unit]
@@ -50,6 +53,7 @@ class PropertyAd < ActiveRecord::Base
         response["#{each_postcode_unit.to_s}_#{each_type.downcase}_oldest_booked"] = PropertyAd.where(hash_str: hash_str).where(ad_type: TYPE_HASH[each_type]).where(service: service).order('created_at ASC').first.expiry_at rescue nil
         response[:price_per_slot] = PRICE[each_type]
       end
+
     end
   end
 

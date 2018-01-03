@@ -17,8 +17,9 @@ class PropertyBuyer < ActiveRecord::Base
   BUYING_STATUS_HASH = {
     'First time buyer' => 1,
     'Not a first time buyer' => 2,
-    'Property investor' => 3,
-    'I am currently renting a property' => 4
+    'Property Investor' => 3,
+    'I am currently renting a property' => 4,
+    'I live with friends and family' => 5
   }
 
   REVERSE_BUYING_STATUS_HASH = BUYING_STATUS_HASH.invert
@@ -61,14 +62,22 @@ class PropertyBuyer < ActiveRecord::Base
   end
 
   ### PropertyBuyer.find(23).send_vendor_email("test@prophety.co.uk", 10968961)
-  def send_vendor_email(vendor_email, udprn)
+  def send_vendor_email(vendor_email, udprn, is_renter=true)
     hash_obj = create_hash(vendor_email, udprn)
     self.verification_hash = hash_obj.hash_value
     self.vendor_email = vendor_email
     self.email_udprn = udprn
     details = PropertyDetails.details(udprn)['_source']
     self.renter_address = details['address']
-    VendorMailer.welcome_email_from_a_renter(self).deliver_now
+
+    ### If the inviter is a renter, then send a different mail than
+    ### when its a buyer
+    if is_renter
+      VendorMailer.welcome_email_from_a_renter(self).deliver_now
+    else
+      VendorMailer.welcome_email_from_a_friend(self).deliver_now
+    end
+
     ### http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=<%=@user.verification_hash%>&udprn=<%=@user.email_udprn%>&email=<%=@user.vendor_email%>
   end
 

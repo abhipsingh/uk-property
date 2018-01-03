@@ -416,6 +416,12 @@ Rails.application.routes.draw do
   ### Gets the list of invited agents for a branch
   get 'agents/list/invited/agents',                             to: 'agents#branch_specific_invited_agents'
 
+  ### Invite a friend/family to a property
+  post 'invite/friends/family/',                                to: 'properties#invite_friends_and_family'
+
+  ### Sends an SMS to a mobile number to check it later
+  post '/send/otp',                                             to: 'sessions#send_otp_to_number'
+
   ### Count of matching properties(aggregate) not divided by property_status_type
   #####################################################################
   #####################################################################
@@ -443,6 +449,9 @@ Rails.application.routes.draw do
   post 'properties/agents/services', to: 'properties#final_quotes'
   namespace :api do
     namespace :v0 do
+      ### Get breadcrumbs for a hash and a type
+      get  'properties/breadcrumbs',                 to: 'property_search#breadcrumbs'
+
       get  'properties/search',                      to: 'property_search#search'
       get  'properties/saved/searches',              to: 'property_search#show_save_searches'
       post  'properties/search/searches',            to: 'property_search#save_searches'

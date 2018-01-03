@@ -126,8 +126,8 @@ class EventsController < ApplicationController
       count = params[:count].to_s == 'true'
       #begin
         agent = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i)
-        results = agent.recent_properties_for_quotes(params[:payment_terms], params[:services_required], params[:quote_status], params[:hash_str], 'Sale', params[:buyer_id], agent.is_premium, params[:page], count) if params[:agent_id]
-        response = (!results.is_a?(Fixnum) && results.empty?) ? {"quotes" => results, "message" => "No leads to show"} : {"quotes" => results}
+        results = agent.recent_properties_for_quotes(params[:payment_terms], params[:services_required], params[:quote_status], params[:hash_str], 'Sale', params[:buyer_id], agent.is_premium, params[:page], count, params[:latest_time])
+        response = (!results.is_a?(Fixnum) && results.empty?) ? {"quotes" => results, "message" => "No claims to show"} : {"quotes" => results}
       #rescue => e
       #  Rails.logger.error "Error with agent quotes => #{e}"
       #  response = { quotes: results, message: 'Error in showing quotes', details: e.message}
@@ -159,7 +159,7 @@ class EventsController < ApplicationController
           owned_property = params[:manually_added] == 'true' ? true : nil
           owned_property = params[:manually_added] == 'false' ? false : owned_property
           count = params[:count].to_s == 'true'
-          results = agent.recent_properties_for_claim(agent_status, 'Sale', params[:buyer_id], params[:hash_str], agent.is_premium, params[:page], owned_property, count)
+          results = agent.recent_properties_for_claim(agent_status, 'Sale', params[:buyer_id], params[:hash_str], agent.is_premium, params[:page], owned_property, count, params[:latest_time])
           response = (!results.is_a?(Fixnum) && results.empty?) ? {"leads" => results, "message" => "No leads to show"} : {"leads" => results}
         end
 #      rescue ActiveRecord::RecordNotFound
@@ -243,8 +243,28 @@ class EventsController < ApplicationController
           if agent.is_premium && count
             results = property_ids.uniq.count
           else
-            results = property_ids.uniq.map { |e| Trackers::Buyer.new.push_events_details(PropertyDetails.details(e)) }
-            results.each_with_index { |t, index| results[index][:ads] = (PropertyAd.where(property_id: t[:udprn]).count > 0) }
+            results = property_ids.uniq.map { |e| Trackers::Buyer.new.push_events_details(PropertyDetails.details(e), agent.is_premium) }
+            vendor_ids = []
+            vendor_id_property_map = {}
+            results.each_with_index do |t, index|
+              results[index][:ads] = (PropertyAd.where(property_id: t[:udprn]).count > 0) 
+              vendor_ids.push(results[index][:vendor_id])
+              vendor_id_property_map[results[index][:vendor_id].to_i] ||= []
+              vendor_id_property_map[results[index][:vendor_id].to_i].push(index)
+            end
+
+            buyers = PropertyBuyer.where(vendor_id: vendor_ids.uniq.compact).select([:status, :buying_status, :vendor_id])
+
+            buyers.each do |buyer|
+              indices = vendor_id_property_map[buyer.vendor_id]
+              indices.each do |index|
+                results[index][:buyer_status] = PropertyBuyer::REVERSE_STATUS_HASH[buyer.status]
+                results[index][:buying_status] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[buyer.buying_status]
+              end
+            end
+
+            vendor_id_property_map = {}
+
           end
 
           response = (!results.is_a?(Fixnum) && results.empty?) ? {"properties" => results, "message" => "No properties to show"} : {"properties" => results}
@@ -283,9 +303,9 @@ class EventsController < ApplicationController
   #### curl -XPOST -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" -H "Content-Type: application/json" 'http://localhost/events/property/claim/4745413' 
   def claim_property
     agent = user_valid_for_viewing?('Agent')
-    if true
-      #if agent.credit >= Agents::Branches::AssignedAgent::LEAD_CREDIT_LIMIT
-      if true
+    if agent
+      if agent.credit >= Agents::Branches::AssignedAgent::LEAD_CREDIT_LIMIT
+      #if true
         property_service = PropertyService.new(params[:udprn].to_i)
         message, status = property_service.claim_new_property(params[:agent_id].to_i)
         render json: { message: message }, status: status

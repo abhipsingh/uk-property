@@ -53,6 +53,7 @@ class PropertyDetails
     details['address'] = address(details)
     details[:vanity_url] = vanity_url(details['address'])
     details[:udprn] = udprn.to_i
+    PropertyService::INT_ATTRS.each { |t| details[t] = details[t].to_i if details[t] }
     { '_source' => details }.with_indifferent_access
   end
 
@@ -207,7 +208,6 @@ class PropertyDetails
       PropertyService.attach_vendor_details(update_hash[:vendor_id], details) if update_hash[:vendor_id]
       update_hash.each{ |key, value| details[key.to_sym] = value }
       PropertyService.normalize_all_attrs(details)
-      
       ### Normalise price attrs
       if details[:price] || details[:sale_price]
         abs_price = details[:price] || details[:sale_price]

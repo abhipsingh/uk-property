@@ -2,6 +2,8 @@ class AgentMailer < ApplicationMailer
   def welcome_email(user)
     @user = user
     @url  = 'http://example.com/login'
+    agent_present = Agents::Branches::AssignedAgent.where(email: @user.agent_email).last.nil?
+    @link = "http://sleepy-mountain-35147.herokuapp.com/auth?email=#{@user.agent_email}&verification_hash=#{@user.verification_hash}&branch_id=#{@user.id}&company_id=#{@user.agent_id}&group_id=#{@user.agent.group_id}&agent_present=#{agent_present}&user_type=Agent"
     mail(to: user.agent_email, subject: "Welcome to Prophety")
   end
 

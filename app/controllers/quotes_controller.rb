@@ -36,10 +36,20 @@ class QuotesController < ApplicationController
       details = PropertyDetails.details(params[:udprn].to_i)[:_source]
       current_valuation = details[:current_valuation].to_i
       if current_valuation > 0
-        if agent.credit > Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(current_valuation.to_f)
+
+        klass = Agents::Branches::AssignedAgents::Quote
+        entity_class = AgentCreditVerifier::KLASSES.index(klass.to_s)
+
+        if agent.credit > ((Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(current_valuation.to_f)).to_i/Agents::Branches::AssignedAgent::PER_CREDIT_COST)
           service = QuoteService.new(params[:udprn].to_i)
           response = service.submit_price_for_quote(params[:agent_id].to_i, params[:payment_terms], 
                                                     params[:quote_details], params[:services_required], params[:terms_url])
+
+          ### Create a agent credit verifier to prevent duplicate entries
+          AgentCreditVerifier.create!(entity_id: service.quote.id, entity_class: entity_class, agent_id: agent.id, udprn: params[:udprn].to_i, vendor_id: details[:vendor_id].to_i, amount: current_valuation.to_i)
+
+          agent.credit -= ((Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(current_valuation.to_f)).to_i/Agents::Branches::AssignedAgent::PER_CREDIT_COST)
+          agent.save!
           render json: response, status: 200
         else
           render json: { message: "Credits possessed for quotes #{agent.credit}, not more than #{Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01} ", current_valuation: current_valuation, cost_of_quote: (Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(current_valuation.to_i.to_f)), beds: details[:beds], baths: details[:baths], receptions: details[:receptions], street_view_image_url: details[:street_view_image_url], pictures: details[:pictures] }, status: 400
@@ -83,10 +93,15 @@ class QuotesController < ApplicationController
       quote_id = params[:quote_id]
       #### When the quote is won
       quote = Agents::Branches::AssignedAgents::Quote.find(quote_id)
-      service = QuoteService.new(quote.property_id)
-      agent_id = quote.agent_id
-      message = service.accept_quote_from_agent(agent_id)
-      render json: message, status: 200
+      if (Time.now > (quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_AGENT_QUOTE_WAIT_TIME)) && (Time.now < (quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME))
+        service = QuoteService.new(quote.property_id)
+        agent_id = quote.agent_id
+        message = service.accept_quote_from_agent(agent_id)
+        render json: message, status: 200
+      else
+        message = 'Current time is not within the time bounds'
+        reder json: message, status: 400
+      end
     else
       render json: { message: 'Authorization failed' }, status: 401
     end
@@ -141,6 +156,8 @@ class QuotesController < ApplicationController
   def historical_agent_quotes
     agent = user_valid_for_viewing?('Agent')
     if agent
+    #if true
+      #agent =  Agents::Branches::AssignedAgent.find(225)
       results = Agents::Branches::AssignedAgents::Quote.where(agent_id: agent.id).order('created_at DESC').map do |quote|
         hash = {
           id: quote.id,
@@ -167,26 +184,36 @@ class QuotesController < ApplicationController
   ### curl -XGET   -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/quotes/vendors/history/:udprn' 
   def historical_vendor_quotes
     vendor = user_valid_for_viewing?('Vendor')
-    #if vendor
-    if true
+    if vendor
+    #if true
       udprn = params[:udprn].to_i
       klass = Agents::Branches::AssignedAgents::Quote
-      results = klass.where("expired = 't' OR status = ? OR status = ?", klass::STATUS_HASH['Won'], klass::STATUS_HASH['Lost']).where(property_id: udprn).where.not(agent_id: nil).order('created_at DESC').map do |quote|
+
+      results = klass.where("expired = 't' OR status = ? OR status = ?", klass::STATUS_HASH['Won'], klass::STATUS_HASH['Lost']).where.not(agent_id: nil).where(property_id: udprn).order('created_at desc').map do |quote|
+        agent = Agents::Branches::AssignedAgent.where(id: quote.agent_id).select([:first_name, :last_name, :email, :mobile]).last
         hash = {
           id: quote.id,
           created_at: quote.created_at,
           agent_id: quote.agent_id,
+          agent_name: agent.first_name + ' ' + agent.last_name,
+          agent_email: agent.email,
+          agent_mobile: agent.mobile,
           payment_terms: quote.payment_terms,
           quote_details: quote.quote_details,
           expired: quote.expired,
           terms_url: quote.terms_url,
           refund_status: quote.refund_status,
+          quote_price: quote.compute_price,
           service_required: Agents::Branches::AssignedAgents::Quote::SERVICES_REQUIRED_HASH[quote.service_required.to_s.to_sym],
           status: Agents::Branches::AssignedAgents::Quote::REVERSE_STATUS_HASH[quote.status],
+          parent_quote_id: quote.parent_quote_id
         }
-        if hash[:status] != 'Won'
-          hash[:vendor_quote] = klass.where.not(vendor_id: nil).where(property_id: udprn).where('created_at < ?', quote.created_at).where('created_at > ?', quote.created_at - klass::MAX_AGENT_QUOTE_WAIT_TIME).select([:id, :created_at, :quote_details]).last
-        end
+        agent = Agents::Branches::AssignedAgent.where(id: quote.agent_id).select([:first_name, :last_name, :image_url, :branch_id]).last
+        hash[:agent_first_name] = agent.first_name
+        hash[:agent_last_name] = agent.last_name
+        hash[:agent_name] = agent.first_name + ' ' + agent.last_name
+        hash[:agent_image_url] = agent.image_url
+        hash[:branch_id] = agent.branch_id
         hash[:status] = 'Pending' if (hash[:status] == 'New' && !hash[:expired])
         hash
       end

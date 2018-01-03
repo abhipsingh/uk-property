@@ -1,5 +1,4 @@
 class PropertiesController < ActionController::Base
-
   include CacheHelper
   before_filter :set_headers
 
@@ -7,10 +6,17 @@ class PropertiesController < ActionController::Base
   #### curl -XPOST -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/properties/10966139/edit/details' -d '{ "details" : { "property_type" : "Terraced House", "beds" : 3, "baths" : 2, "receptions" : 2, "property_status_type" : "Green", "property_style" : "Period", "tenure" : "Freehold", "floors" : 2, "listed_status" : "Grade 1", "year_built" : "2011-01-01", "central_heating" : "Partial", "parking_type" : "Single garage", "outside_space_type" : "Private garden", "additional_features" : ["Attractive views", "Fireplace"], "decorative_condition" : "Newly refurbished", "council_tax_band" : "A", "lighting_cost" : 120, "lighting_cost_unit_type" : "month", "heating_cost": 100, "heating_cost_unit_type" : "month", "hot_water_cost" : 200, "hot_water_cost_unit_type" : "month", "annual_ground_water_cost" : 1100, "annual_service_charge" : 200, "resident_parking_cost" : 1200, "other_costs" : [{ "name" : "Cost 1", "value" : 200, "unit_type" : "month" } ], "improvement_types" : [ { "name" : "Total refurbishment", "value" : 200, "date": "2016-06-01" }  ], "current_valuation" : 32000, "dream_price" : 42000, "rental_price" : 1000, "floorplan_url" : "some random url", "pictures" : [{"category" : "Front", "url" : "random url" }, { "category" : "Garden", "url" : "Some random url" } ], "property_brochure_url" : "some random url", "video_walkthrough_url" : "some random url", "property_sold_status" : "Under offer", "agreed_sale_value" : 37000, "expected_completion_date" : "2017-03-13", "actual_completion_date" : "2017-04-01", "new_owner_email_id" : "a@b.com" , "vendor_address" : "Some address" } }'
   #### TODO: Validations
   def edit_property_details
-    if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
-    #if true
+    #if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
+    if true
       udprn = params[:udprn].to_i
       details = params[:details]
+      details.each do |key, value|
+        if PropertyService::ARRAY_HASH_ATTRS.include?(key.to_sym) && value.nil?
+          details[key] = []
+        end
+      end
+      details = details.with_indifferent_access
+      #@current_user = Agents::Branches::AssignedAgent.find(225)
       updated_details = PropertyService.new(udprn).edit_details(details, @current_user)
       property_status_type = updated_details[:property_status_type]
       mandatory_attrs = PropertyService::STATUS_MANDATORY_ATTRS_MAP[property_status_type]
@@ -225,14 +231,25 @@ class PropertiesController < ActionController::Base
   #### When a vendor click the claim to a property, the vendor gets a chance to visit
   #### the picture. The claim needs to be frozen and the property is no longer available
   #### for claiming.
-  #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/properties/udprns/claim/4745413' -d '{ "vendor_id" : 1235, "property_for" : "Sale" }'
+  #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/properties/udprns/claim/4745413' -d '{ "vendor_id" : 1235, "property_for" : "Sale", "otp::453212 }'
   def claim_udprn
     udprn = params[:udprn].to_i
     vendor_id = params[:vendor_id]
     params[:property_for] != 'Sale' ? params[:property_for] = 'Rent' : params[:property_for] = 'Sale'
-    property_service = PropertyService.new(udprn)
-    property_service.attach_vendor_to_property(vendor_id, {}, params[:property_for])
-    render json: { message: 'You have claimed this property Successfully. All the agents in this district will be notified' }, status: 200
+
+    ### Verify OTP within one hour
+    totp = ROTP::TOTP.new("base32secret3232", interval: 1)
+    user_otp = params['otp']
+    otp_verified = totp.verify_with_drift(user_otp, 3600, Time.now+3600)
+
+    ### OTP verified or not
+    if otp_verified
+      property_service = PropertyService.new(udprn)
+      property_service.attach_vendor_to_property(vendor_id, {}, params[:property_for])
+      render json: { message: 'You have claimed this property Successfully. All the agents in this district will be notified' }, status: 200
+    else
+      render json: { message: 'OTP Failure. Please retry' }, status: 400
+    end
   #rescue ActiveRecord::RecordNotUnique
   #  render json: { message: 'Sorry, this udprn has already been claimed' }, status: 400
   #rescue Exception
@@ -324,21 +341,31 @@ class PropertiesController < ActionController::Base
   end
 
   ### This api allows a renter to tag these attribute
-  ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo3LCJleHAiOjE0ODUxODUwMTl9.7drkfFR5AUFZoPxzumLZ5TyEod_dLm8YoZZM0yqwq6U"   'http://localhost/property/claim/renter' -d ' { "udprn" : 4322959, "beds":3, "baths" : 2, "receptions" : 1, "property_type" : "bungalow", "vendor_email" : "renter@prophety.co.uk" }'
+  ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo3LCJleHAiOjE0ODUxODUwMTl9.7drkfFR5AUFZoPxzumLZ5TyEod_dLm8YoZZM0yqwq6U"   'http://localhost/property/claim/renter' -d ' { "udprn" : 4322959, "beds":3, "baths" : 2, "receptions" : 1, "property_type" : "bungalow", "vendor_email" : "renter@prophety.co.uk", "otp":342131 }'
   def upload_property_details_from_a_renter
     if user_valid_for_viewing?(['Buyer'], params[:udprn].to_i)
-      validate_rent_property_upload_params
-      update_hash = {}
-      udprn = params[:udprn].to_i
-      update_hash[:beds] = params[:beds] if params[:beds].is_a?(Integer)
-      update_hash[:baths] = params[:baths] if params[:baths].is_a?(Integer)
-      update_hash[:receptions] = params[:receptions] if params[:receptions].is_a?(Integer)
-      update_hash[:property_type] = params[:property_type] if params[:property_type].is_a?(String)
-      update_hash[:verification_status] = false
-      update_hash[:renter_id] = @current_user.id
-      PropertyService.new(udprn).update_details(update_hash)
-      @current_user.send_vendor_email(params[:vendor_email], udprn)
+
+      ### Verify OTP within one hour
+      totp = ROTP::TOTP.new("base32secret3232", interval: 1)
+      user_otp = params['otp']
+      otp_verified = totp.verify_with_drift(user_otp, 3600, Time.now+3600)
+
+      if otp_verified
+        validate_rent_property_upload_params
+        update_hash = {}
+        udprn = params[:udprn].to_i
+        update_hash[:beds] = params[:beds] if params[:beds].is_a?(Integer)
+        update_hash[:baths] = params[:baths] if params[:baths].is_a?(Integer)
+        update_hash[:receptions] = params[:receptions] if params[:receptions].is_a?(Integer)
+        update_hash[:property_type] = params[:property_type] if params[:property_type].is_a?(String)
+        update_hash[:verification_status] = false
+        update_hash[:renter_id] = @current_user.id
+        PropertyService.new(udprn).update_details(update_hash)
+        @current_user.send_vendor_email(params[:vendor_email], udprn)
       render json: { message: 'Property details have been updated successfully' }, status: 200
+      else
+        render json: { message: 'OTP Failure' }, status: 400
+      end
     else
       render json: { message: 'Authorization failed' }, status: 401
     end
@@ -373,6 +400,31 @@ class PropertiesController < ActionController::Base
     end
   end
 
+  ### Invite friends/family for signing up as a vendor/property owner of a property
+  ### curl -XPOST  -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9." 'http://localhost/invite/friends/family/' -d '{ "email" : "johnt@yt.com", "udprn":123456789, "otp":432321  }'
+  def invite_friends_and_family
+    if user_valid_for_viewing?(['Buyer', 'Vendor'], params[:udprn].to_i)
+    #if true
+      udprn = params[:udprn].to_i
+      email = params[:email]
+      buyer_id = @current_user.class.to_s == 'PropertyBuyer' ? @current_user.id : @current_user.buyer_id
+
+      ### Verify OTP within one hour
+      totp = ROTP::TOTP.new("base32secret3232", interval: 1)
+      user_otp = params['otp']
+      otp_verified = totp.verify_with_drift(user_otp, 3600, Time.now+3600)
+
+      if otp_verified
+        PropertyBuyer.find(buyer_id).send_vendor_email(email, udprn, false)
+        render json: { message: 'Invited the friend/family of yours with email ' + email }, status: 200
+      else
+        render json: { message: 'OTP Failure' }, status: 400
+      end
+
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
 
   ### Predictions for the tags
   ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo3LCJleHAiOjE0ODUxODUwMTl9.7drkfFR5AUFZoPxzumLZ5TyEod_dLm8YoZZM0yqwq6U" " 'http://localhost/predict/tags?field=property_style&str=Exampl' 

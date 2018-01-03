@@ -42,7 +42,7 @@ module Api
       ### TODO: Incorporate ads, months and expiration accordingly
       # curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" -H "Content-Type: application/json"  "http://localhost/api/v0/ads/availability/update" -d  '{ "stripeEmail" : "abhiuec@gmail.com", "stripeToken":"tok_19WlE9AKL3KAwfPBkWwgTpqt", "udprn":10966139, "locations":{"0":{ "value":"10", "hash":"HEREFORD_City Centre_Loder Drive", "type":"Premium"}}, "months" : 2}'
       def update_availability
-        if user_valid_for_viewing?(['Vendor', 'Buyer'], params[:udprn].to_i)
+        if user_valid_for_viewing?(['Vendor', 'Agent'], params[:udprn].to_i)
           charge = nil
          
           # Create the customer in Stripe

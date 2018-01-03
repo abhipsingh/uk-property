@@ -14,9 +14,9 @@ class Agents::Branches::AssignedAgents::Quote < ActiveRecord::Base
   }
 
   #MAX_AGENT_QUOTE_WAIT_TIME = 48.hours
-  MAX_AGENT_QUOTE_WAIT_TIME = 5.minutes
+  MAX_AGENT_QUOTE_WAIT_TIME = 10.minutes
   #MAX_VENDOR_QUOTE_WAIT_TIME = 72.hours
-  MAX_VENDOR_QUOTE_WAIT_TIME = 10.minutes
+  MAX_VENDOR_QUOTE_WAIT_TIME = 20.minutes
 
   VENDOR_LIMIT = 15
   REVERSE_SERVICES_REQUIRED_HASH = SERVICES_REQUIRED_HASH.invert

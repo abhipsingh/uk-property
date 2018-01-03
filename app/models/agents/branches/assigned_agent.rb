@@ -14,7 +14,7 @@ module Agents
 
       PER_CREDIT_COST = 5
       QUOTE_CREDIT_LIMIT = -10
-      LEAD_CREDIT_LIMIT = 0
+      LEAD_CREDIT_LIMIT = 1
       PAGE_SIZE = 30
       PREMIUM_COST = 25
 
@@ -45,7 +45,7 @@ module Agents
       ##### Data being fetched from this function
       ##### Example run the following in irb
       ##### Agents::Branches::AssignedAgent.last.recent_properties_for_quotes
-      def recent_properties_for_quotes(payment_terms_params=nil, service_required_param=nil, status_param=nil, search_str=nil, property_for='Sale', buyer_id=nil, is_premium=false, page_number=0, count=false)
+      def recent_properties_for_quotes(payment_terms_params=nil, service_required_param=nil, status_param=nil, search_str=nil, property_for='Sale', buyer_id=nil, is_premium=false, page_number=0, count=false, latest_time=nil)
         results = []
 
         won_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']
@@ -60,11 +60,12 @@ module Agents
         ### District of that branch
         branch = self.branch
         query = query.where(district: branch.district)
-        max_hours_for_expiry = Agents::Branches::AssignedAgents::Quote::MAX_AGENT_QUOTE_WAIT_TIME
+        query = query.where('created_at > ?', Time.parse(latest_time)) if latest_time
+        max_hours_for_expiry = Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME
 
         ### 48 hour expiry deadline
-        query = query.where('created_at > ?', max_hours_for_expiry.ago)
         query = query.where(expired: false)
+        query = query.where("(agent_id = ? AND status = ?) OR (agent_id is null and status = ? AND created_at > ?)", self.id, won_status, new_status, max_hours_for_expiry.ago)
         query = query.where(vendor_id: vendor_id) if buyer_id
         query = query.where(payment_terms: payment_terms_params) if payment_terms_params
         query = query.where(service_required: services_required) if service_required_param
@@ -115,6 +116,7 @@ module Agents
               quote_status = 'Lost'
             end
             new_row = {}
+            new_row[:id] = each_quote.id
             new_row[:udprn] = property_id
             new_row[:terms_url] = agent_quote.terms_url if agent_quote
             new_row[:submitted_on] = agent_quote.created_at.to_s if agent_quote
@@ -179,7 +181,9 @@ module Agents
               new_row[:quote_price] = nil
               new_row[:quote_accepted] = false
             end
-            new_row[:deadline] = (each_quote.created_at + max_hours_for_expiry.hours).to_s
+            new_row[:deadline] = (each_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_AGENT_QUOTE_WAIT_TIME).to_s
+            new_row[:vendor_deadline_end] = (each_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME).to_s
+            new_row[:vendor_deadline_start] = (each_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_AGENT_QUOTE_WAIT_TIME).to_s
             new_row[:claimed_on] = Time.parse(new_row['claimed_on']).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row['claimed_on']
             new_row[:submitted_on] = Time.parse(new_row[:submitted_on]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:submitted_on]
             new_row[:deadline] = Time.parse(new_row[:deadline]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:deadline]
@@ -201,7 +205,7 @@ module Agents
       #### To test this function, create the following lead.
       #### Agents::Branches::AssignedAgents::Lead.create(district: "CH45", property_id: 4745413, vendor_id: 1)
       #### Then call the following function for the agent in that district
-      def recent_properties_for_claim(status=nil, property_for='Sale', buyer_id=nil, search_str=nil, is_premium=false, page_number=0, owned_property=nil, count)
+      def recent_properties_for_claim(status=nil, property_for='Sale', buyer_id=nil, search_str=nil, is_premium=false, page_number=0, owned_property=nil, count=false, latest_time=nil)
         ### District of that branch
         branch = self.branch
         district = branch.district
@@ -210,6 +214,7 @@ module Agents
         vendor_id = vendor.vendor_id if vendor
         vendor_id ||= nil
         
+        query = query.where('created_at > ?', Time.parse(latest_time)) if latest_time
         query = query.where(vendor_id: vendor_id) if buyer_id
         query = query.where(district: district)
         query = query.where(owned_property: owned_property) if owned_property
@@ -246,6 +251,7 @@ module Agents
 
       def populate_lead_details(lead, status)
         new_row = {}
+        new_row[:id] = lead.id
         #### Submitted on
         if lead.agent_id && lead.agent_id != self.id
           new_row[:submitted_on] = (lead.created_at + (1..5).to_a.sample.seconds).to_s
