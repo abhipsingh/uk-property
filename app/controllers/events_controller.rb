@@ -56,8 +56,9 @@ class EventsController < ApplicationController
     is_premium = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(id: params[:agent_id].to_i).select(:is_premium).first.is_premium rescue nil
     buyer_id = params[:buyer_id]
     archived = params[:archived]
+    old_stats_flag = params[:old_stats_flag].to_s == 'true'
     response = []
-    response = Trackers::Buyer.new.search_latest_enquiries(params[:agent_id].to_i, property_status_type, verification_status, ads, hash_str, last_time, is_premium, buyer_id, params[:page].to_i, archived) if params[:agent_id]
+    response = Trackers::Buyer.new.search_latest_enquiries(params[:agent_id].to_i, property_status_type, verification_status, ads, hash_str, last_time, is_premium, buyer_id, params[:page].to_i, archived, old_stats_flag) if params[:agent_id]
 
     render json: response, status: 200
   end
@@ -97,10 +98,11 @@ class EventsController < ApplicationController
       archived = params[:archived]
       closed = params[:closed]
       count = params[:count].to_s == 'true'
+      old_stats_flag = params[:old_stats_flag].to_s == 'true'
       results = Trackers::Buyer.new.property_enquiry_details_buyer(params[:agent_id].to_i, params[:enquiry_type], params[:type_of_match], 
         params[:qualifying_stage], params[:rating],  
         params[:hash_str], 'Sale', last_time,
-        is_premium, buyer_id, params[:page], archived, closed, count) if params[:agent_id]
+        is_premium, buyer_id, params[:page], archived, closed, count, old_stats_flag) if params[:agent_id]
       final_response = (!results.is_a?(Fixnum) && results.empty?) ? {"enquiries" => results, "message" => "No enquiries to show"} : {"enquiries" => results}
       render json: final_response, status: status
     end
@@ -189,16 +191,18 @@ class EventsController < ApplicationController
   #### curl -XGET 'http://localhost/agents/properties?agent_id=1234'
   #### Filters on property_for, ads
   def detailed_properties
-    cache_parameters = [ :agent_id, :property_status_type, :verification_status, :ads , :count].map{ |t| params[t].to_s }
+    cache_parameters = [ :agent_id, :property_status_type, :verification_status, :ads , :count, :old_stats_flag].map{ |t| params[t].to_s }
     cache_response(params[:agent_id].to_i, cache_parameters) do
       response = {}
       results = []
       count = params[:count].to_s == 'true'
+      old_stats_flag = params[:old_stats_flag].to_s == 'true'
 
       unless params[:agent_id].nil?
         #### TODO: Need to fix agents quotes when verified by the vendor
         agent = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(id: params[:agent_id].to_i).select([:id, :is_premium]).first
         if agent
+          old_stats_flag = params[:old_stats_flag].to_s == 'true'
           search_params = { limit: 10000}
           search_params[:agent_id] = params[:agent_id].to_i
           property_status_type = params[:property_status_type]
@@ -243,7 +247,7 @@ class EventsController < ApplicationController
           if agent.is_premium && count
             results = property_ids.uniq.count
           else
-            results = property_ids.uniq.map { |e| Trackers::Buyer.new.push_events_details(PropertyDetails.details(e), agent.is_premium) }
+            results = property_ids.uniq.map { |e| Trackers::Buyer.new.push_events_details(PropertyDetails.details(e), agent.is_premium, old_stats_flag) }
             vendor_ids = []
             vendor_id_property_map = {}
             results.each_with_index do |t, index|

@@ -66,11 +66,12 @@ class PropertiesController < ActionController::Base
         udprn = params[:udprn].to_i
         count = params[:count].to_s == 'true'
         is_premium = @current_user.is_premium rescue false
+        old_stats_flag = params[:old_stats_flag].to_s == 'true' ? true : false
         profile = @current_user.class.to_s
         event_service = EventService.new(udprn: udprn, buyer_id: params[:buyer_id], 
                                      last_time: params[:latest_time], qualifying_stage: params[:qualifying_stage],
                                      rating: params[:rating], archived: params[:archived], is_premium: is_premium, 
-                                     closed: params[:closed], count: count, profile: profile)
+                                     closed: params[:closed], count: count, profile: profile, old_stats_flag: old_stats_flag)
         if @current_user.is_a?(Agents::Branches::AssignedAgent) && event_service.details[:agent_id].to_i != @current_user.id
           render json: { message: 'The agent does not belong to the property' }, status: 400
         else

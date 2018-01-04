@@ -136,7 +136,7 @@ class Trackers::Buyer
 
   #### API Responses for tables
 
-  def add_buyer_details(details, buyer_hash, is_premium=false)
+  def add_buyer_details(details, buyer_hash, is_premium=false, old_stats_flag=false)
     buyer_id = details[:buyer_id]
     buyer = buyer_hash[buyer_id]
     if buyer_id && buyer_hash[buyer_id]
@@ -152,23 +152,23 @@ class Trackers::Buyer
       details['buyer_buying_status'] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[buyer_hash[buyer_id].buying_status] rescue nil
       details['buyer_budget_from'] = buyer_hash[buyer_id].budget_from
       details['buyer_budget_to'] = buyer_hash[buyer_id].budget_to
-      details['views'] = buyer_view_ratio(buyer_id, details[:udprn], is_premium)
-      details[:enquiries] = buyer_enquiry_ratio(buyer_id, details[:udprn], is_premium)
+      details['views'] = buyer_view_ratio(buyer_id, details[:udprn], is_premium, old_stats_flag)
+      details[:enquiries] = buyer_enquiry_ratio(buyer_id, details[:udprn], is_premium, old_stats_flag)
     else
       keys = [:buyer_status, :buyer_full_name, :buyer_image, :buyer_email, :buyer_mobile, :chain_free, :buyer_funding, :buyer_biggest_problems, :buyer_buying_status, :buyer_budget_from, :buyer_budget_to, :buyer_property_types, :views, :enquiries]
-      keys.each {|key| details[key] = nil }
+      keys.each { |key| details[key] = nil }
     end
   end
 
   #### Agent enquiries latest implementation
   #### Trackers::Buyer.new.search_latest_enquiries(1234)
   ### Per property
-  def search_latest_enquiries(agent_id, property_status_type=nil, verification_status=nil, ads=nil, search_str=nil, property_for='Sale', last_time=nil, is_premium=false, buyer_id=nil, page_number=0, is_archived=nil)
+  def search_latest_enquiries(agent_id, property_status_type=nil, verification_status=nil, ads=nil, search_str=nil, property_for='Sale', last_time=nil, is_premium=false, buyer_id=nil, page_number=0, is_archived=nil, old_stats_flag=false)
     query = filtered_agent_query agent_id: agent_id, search_str: search_str, last_time: last_time, is_premium: is_premium, buyer_id: buyer_id, archived: is_archived
     ### property_ids = query.order('created_at DESC').limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE).select(:udprn).pluck(:udprn).uniq
     ### Implementing search on the frontend
     property_ids = query.order('created_at DESC').select(:udprn).pluck(:udprn).uniq
-    response = property_ids.map { |e| Trackers::Buyer.new.property_and_enquiry_details(agent_id.to_i, e, property_status_type, verification_status, ads, is_premium) }.compact
+    response = property_ids.map { |e| Trackers::Buyer.new.property_and_enquiry_details(agent_id.to_i, e, property_status_type, verification_status, ads, is_premium, old_stats_flag) }.compact
   end
 
   def filtered_agent_query(agent_id: id, search_str: str=nil, last_time: time=nil, is_premium: premium=false, buyer_id: buyer=nil, type_of_match: match=nil, is_archived: archived=nil, closed: is_closed=nil)
@@ -199,12 +199,11 @@ class Trackers::Buyer
 
   ##### To mock this in the console try 
   ##### Trackers::Buyer.new.property_and_enquiry_details(1234, '10966139')
-  def property_and_enquiry_details(agent_id, property_id, property_status_type=nil, verification_status=nil, ads=nil, is_premium=false)
+  def property_and_enquiry_details(agent_id, property_id, property_status_type=nil, verification_status=nil, ads=nil, is_premium=false, old_stats_flag=false)
     details = PropertyDetails.details(property_id)['_source']
-    # details = {}
     new_row = {}
 
-    property_enquiry_details(new_row, property_id, details, is_premium)
+    property_enquiry_details(new_row, property_id, details, is_premium, old_stats_flag)
 
     return nil if property_status_type && property_status_type != new_row[:property_status_type]
     return nil if !verification_status.nil? && verification_status.to_s != new_row[:verification_status].to_s
@@ -217,7 +216,7 @@ class Trackers::Buyer
 
   #### Push event based additional details to each property details
   ### Trackers::Buyer.new.push_events_details(PropertyDetails.details(10966139))
-  def push_events_details(details, is_premium=false)
+  def push_events_details(details, is_premium=false, old_stats_flag=false)
     new_row = {}
     new_row[:pictures] = details[:_source][:pictures]
     new_row[:pictures] = [] if details[:_source][:pictures].nil?
@@ -225,7 +224,7 @@ class Trackers::Buyer
     new_row[:street_view_image_url] = image_url
     new_row[:status_last_updated] = details[:_source][:status_last_updated]
     new_row[:status_last_updated] = Time.parse(new_row[:status_last_updated]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:status_last_updated] 
-    add_details_to_enquiry_row(new_row, details['_source'], is_premium)
+    add_details_to_enquiry_row(new_row, details['_source'], is_premium, old_stats_flag)
     details['_source'].merge!(new_row)
     details['_source']
   end
@@ -237,9 +236,9 @@ class Trackers::Buyer
     agents.each { |e| keys.each { |k| new_row[k] = e[k.to_s] } }
   end
 
-  def property_enquiry_details(new_row, property_id, details, is_premium=false)
+  def property_enquiry_details(new_row, property_id, details, is_premium=false, old_stats_flag=false)
     push_property_details(new_row, details)
-    add_details_to_enquiry_row(new_row, details, is_premium)
+    add_details_to_enquiry_row(new_row, details, is_premium, old_stats_flag)
   end
 
   ### For every enquiry row, extract the info from details hash and merge it
@@ -264,35 +263,49 @@ class Trackers::Buyer
 
   ### FIXME: 
   ### TODO: Initial version of rent assumes that rent and buy udprns are exclusive
-  def add_details_to_enquiry_row(new_row, details, is_premium=false)
+  def add_details_to_enquiry_row(new_row, details, is_premium=false, old_stats_flag=false)
     table = ''
     #Rails.logger.info(details)
     property_id = details['udprn']
 
-    if !is_premium
+    if old_stats_flag && is_premium
+      unarchived_property_stat = Events::EnquiryStatProperty.new(udprn: property_id)
+      archived_property_stat = Events::ArchivedStat.new(udprn: property_id)
+
+      ### Total Visits for premium users
+      new_row['total_visits'] = archived_property_stat.views + unarchived_property_stat.views
+      new_row['total_enquiries'] = archived_property_stat.enquiries + unarchived_property_stat.enquiries
+      new_row['requested_viewing'] = archived_property_stat.specific_enquiry_count(:requested_viewing) + unarchived_property_stat.specific_enquiry_count(:requested_viewing)
+      new_row['requested_message'] = archived_property_stat.specific_enquiry_count(:requested_message) + unarchived_property_stat.specific_enquiry_count(:requested_message)
+      new_row['requested_callback'] = archived_property_stat.specific_enquiry_count(:requested_callback) + unarchived_property_stat.specific_enquiry_count(:requested_callback)
+      new_row['interested_in_making_an_offer'] = archived_property_stat.specific_enquiry_count(:interested_in_making_an_offer) + unarchived_property_stat.specific_enquiry_count(:interested_in_making_an_offer)
+      new_row['interested_in_viewing'] = archived_property_stat.specific_enquiry_count(:interested_in_viewing) + unarchived_property_stat.specific_enquiry_count(:interested_in_viewing)
+      new_row['deleted'] = Events::IsDeleted.where(udprn: property_id).count
+      new_row['offer_made_stage'] = Event.unscope(where: :is_developer).where(udprn: property_id).where(stage: EVENTS[:offer_made_stage]).count
+      new_row['trackings'] = Events::Track.where(udprn: property_id).count 
+    else
       property_stat = Events::EnquiryStatProperty.new(udprn: property_id)
       new_row['total_visits'] = property_stat.views
       new_row['total_enquiries'] = property_stat.enquiries
-    else
-      unarchived_property_stat = Events::EnquiryStatProperty.new(udprn: property_id)
-      archived_property_stat = Events::ArchivedStat.new(udprn: property_id)
-      unarchived_views = unarchived_property_stat.views
-      archived_views = archived_property_stat.views
+      new_row['requested_viewing'] = property_stat.specific_enquiry_count(:requested_viewing)
+      new_row['requested_message'] = property_stat.specific_enquiry_count(:requested_message)
+      new_row['requested_callback'] = property_stat.specific_enquiry_count(:requested_callback)
+      new_row['interested_in_making_an_offer'] = property_stat.specific_enquiry_count(:interested_in_making_an_offer)
+      new_row['interested_in_viewing'] = Event.where(udprn: property_id).where(stage: EVENTS[:interested_in_viewing]).count
+      new_row['offer_made_stage'] = Event.where(udprn: property_id).where(stage: EVENTS[:offer_made_stage]).count
 
-      ### Total Visits for premium users
-      new_row['total_visits'] = archived_views + unarchived_views
-      new_row['total_enquiries'] = archived_property_stat.enquiries + unarchived_property_stat.enquiries
+      ### Last sold property date
+      sold_property = SoldProperty.where(udprn: property_id).select([:completion_date]).last
+      if sold_property && sold_property.completion_date
+        completion_date = sold_property.completion_date
+        new_row['deleted'] = Events::IsDeleted.where('created_at > ?', completion_date).where(udprn: property_id).count
+        new_row['trackings'] = Events::Track.where('created_at > ?', completion_date).where(udprn: property_id).count 
+      else
+        new_row['deleted'] = Events::IsDeleted.where(udprn: property_id).count
+        new_row['trackings'] = Events::Track.where(udprn: property_id).count 
+      end
     end
 
-    ### TODO: Might have to unscope depending on the requirements
-    new_row['trackings'] = Events::Track.where(udprn: property_id).count 
-    new_row['requested_viewing'] = property_stat.specific_enquiry_count(:requested_viewing)
-    new_row['offer_made_stage'] = Event.where(udprn: property_id).where(stage: EVENTS[:offer_made_stage]).count
-    new_row['requested_message'] = property_stat.specific_enquiry_count(:requested_message)
-    new_row['requested_callback'] = property_stat.specific_enquiry_count(:requested_callback)
-    new_row['interested_in_making_an_offer'] = property_stat.specific_enquiry_count(:interested_in_making_an_offer)
-    new_row['interested_in_viewing'] = Event.where(udprn: property_id).where(stage: EVENTS[:interested_in_viewing]).count
-    new_row['deleted'] = Events::IsDeleted.where(udprn: property_id).count
   end
 
   ##### Trackers::Buyer.new.fetch_filtered_buyer_ids('First time buyer', 'Mortgage approved', 'Funding', true)
@@ -326,13 +339,12 @@ class Trackers::Buyer
 
   ##### Agent level mock in console for new enquries coming
   ##### Trackers::Buyer.new.property_enquiry_details_buyer(1234, 'requested_message', nil, nil, nil,nil, nil, nil, nil, nil, nil, nil)
-  def property_enquiry_details_buyer(agent_id, enquiry_type=nil, type_of_match=nil, qualifying_stage=nil, rating=nil, hash_str=nil, property_for='Sale', last_time=nil, is_premium=nil, buyer_id=nil, page_number=0, is_archived=nil, closed=nil, count=false)
+  def property_enquiry_details_buyer(agent_id, enquiry_type=nil, type_of_match=nil, qualifying_stage=nil, rating=nil, hash_str=nil, property_for='Sale', last_time=nil, is_premium=nil, buyer_id=nil, page_number=0, is_archived=nil, closed=nil, count=false, old_stats_flag=false)
     result = []
     events = ENQUIRY_EVENTS.map { |e| EVENTS[e] }
     ### Process filtered buyer_id only
     ### FIlter only the enquiries which are asked by the caller
     events = events.select{ |t| t == EVENTS[enquiry_type.to_sym] } if enquiry_type
-
 
     ### Filter only the type_of_match which are asked by the caller
     query = filtered_agent_query agent_id: agent_id, search_str: hash_str, last_time: last_time, is_premium: is_premium, buyer_id: buyer_id, type_of_match: type_of_match, is_archived: is_archived, closed: closed
@@ -345,7 +357,7 @@ class Trackers::Buyer
     elsif is_premium
       query = query.order('created_at DESC')
       total_rows = query.to_a
-      result = process_enquiries_result(total_rows, agent_id, is_premium)
+      result = process_enquiries_result(total_rows, agent_id, is_premium, old_stats_flag)
     else
       query = query.order('created_at DESC')
       total_rows = query.limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE)
@@ -354,7 +366,7 @@ class Trackers::Buyer
     result
   end
 
-  def process_enquiries_result(arr_rows=[], agent_id=nil, is_premium=false)
+  def process_enquiries_result(arr_rows=[], agent_id=nil, is_premium=false, old_stats_flag=false)
     buyer_ids = []
     result = []
     arr_rows.each_with_index do |each_row, index|
@@ -414,7 +426,7 @@ class Trackers::Buyer
     buyer_hash = {}
 
     buyers.each { |buyer| buyer_hash[buyer.id] = buyer }
-    result.each { |row| add_buyer_details(row, buyer_hash, is_premium) }
+    result.each { |row| add_buyer_details(row, buyer_hash, is_premium, old_stats_flag) }
     result
   end
 
@@ -451,33 +463,39 @@ class Trackers::Buyer
     new_row
   end
 
-  def buyer_view_ratio(buyer_id, udprn, is_premium=false)
+  def buyer_view_ratio(buyer_id, udprn, is_premium=false, old_stats_flag=false)
     property_views = buyer_views = nil
 
     if !is_premium
       buyer_views = Events::View.where(udprn: udprn).where(buyer_id: buyer_id).count
       property_views = Events::EnquiryStatProperty.new(udprn: udprn).views
-    else
+    elsif old_stats_flag
       buyer_views = Events::View.where(udprn: udprn).unscope(where: :is_archived).where(buyer_id: buyer_id).count
       unarchived_property_views = Events::EnquiryStatProperty.new(udprn: udprn).views
       archived_property_views = Events::ArchivedStat.new(udprn: udprn).views
       property_views = unarchived_property_views + archived_property_views
+    else
+      buyer_views = Events::View.where(udprn: udprn).where(buyer_id: buyer_id).count
+      property_views = Events::EnquiryStatProperty.new(udprn: udprn).views
     end
 
     buyer_views.to_s + '/' + property_views.to_s
   end
 
-  def buyer_enquiry_ratio(buyer_id, udprn, is_premium=false)
+  def buyer_enquiry_ratio(buyer_id, udprn, is_premium=false, old_stats_flag=false)
     property_enquiries = buyer_enquiries = nil
 
     if !is_premium
       buyer_enquiries = Event.where(buyer_id: buyer_id).where(udprn: udprn).count
       property_enquiries = Events::EnquiryStatProperty.new(udprn: udprn).enquiries
-    else
+    elsif old_stats_flag
       buyer_enquiries = Event.where(buyer_id: buyer_id).unscope(where: :is_archived).where(udprn: udprn).count
       unarchived_property_enquiries = Events::EnquiryStatProperty.new(udprn: udprn).enquiries
       archived_property_enquiries = Events::ArchivedStat.new(udprn: udprn).enquiries
       property_enquiries = unarchived_property_enquiries + archived_property_enquiries
+    else
+      buyer_enquiries = Event.where(buyer_id: buyer_id).where(udprn: udprn).count
+      property_enquiries = Events::EnquiryStatProperty.new(udprn: udprn).enquiries
     end
 
     buyer_enquiries.to_s + '/' + property_enquiries.to_s
