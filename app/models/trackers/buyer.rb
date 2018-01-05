@@ -218,6 +218,9 @@ class Trackers::Buyer
   ### Trackers::Buyer.new.push_events_details(PropertyDetails.details(10966139))
   def push_events_details(details, is_premium=false, old_stats_flag=false)
     new_row = {}
+    new_row[:percent_completed] = PropertyService.new(details[:_source][:udprn]).compute_percent_completed({}, details[:_source] )
+    new_row[:percent_completed] ||= nil
+
     new_row[:pictures] = details[:_source][:pictures]
     new_row[:pictures] = [] if details[:_source][:pictures].nil?
     image_url ||= "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details[:_source][:udprn]}/fov_120_#{details[:_source][:udprn]}.jpg"
@@ -441,7 +444,7 @@ class Trackers::Buyer
     attrs = [:address, :price, :dream_price, :current_valuation, :pictures, :street_view_image_url, :sale_prices, :property_status_type, 
              :verification_status, :vanity_url, :assigned_agent_id, :assigned_agent_image_url, :assigned_agent_mobile,
              :assigned_agent_email, :assigned_agent_title, :dependent_locality, :thoroughfare_description, :post_town, :agent_id,
-             :beds, :baths, :receptions, :assigned_agent_first_name, :assigned_agent_last_name]
+             :beds, :baths, :receptions, :assigned_agent_first_name, :assigned_agent_last_name, :percent_completed]
     new_row.merge!(details.slice(*attrs))
     new_row[:image_url] = new_row[:street_view_image_url] || details[:pictures].first rescue nil
     if new_row[:image_url].nil?
@@ -450,6 +453,7 @@ class Trackers::Buyer
       new_row[:street_view_image_url] = image_url
     end
     new_row[:status] = new_row[:property_status_type]
+    new_row[:percent_completed] ||= PropertyService.new(details[:udprn]).compute_percent_completed({}, details)
   end
 
   def add_details_to_enquiry_row_buyer(new_row, property_id, event_details, agent_id, property_for='Sale')

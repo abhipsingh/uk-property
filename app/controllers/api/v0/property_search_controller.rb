@@ -47,31 +47,50 @@ module Api
       def breadcrumbs
         str = params[:hash_str]
         resp_hash = { hash_str: str }
-        PropertySearchApi.construct_hash_from_hash_str(resp_hash)
-        resp_hash.delete(:hash_str)
-        breadcrumbs = []
-        resp_hash[:county] = MatrixViewCount::COUNTY_MAP[resp_hash[:post_town].upcase] if resp_hash[:county].nil?
-        
-        ### For London handle it especially
-        if resp_hash[:county] == 'London'
-          district = resp_hash[:district]
-          if district.start_with?('EC')
-            resp_hash[:county] = 'Central London'
-          elsif district.start_with?('E')
-            resp_hash[:county] = 'East London'
-          elsif district.start_with?('NW')
-            resp_hash[:county] = 'North West London'
-          elsif district.start_with?('N')
-            resp_hash[:county] = 'North London'
-          elsif district.start_with?('SE')
-            resp_hash[:county] = 'South East London'
-          elsif district.start_with?('SW')
-            resp_hash[:county] = 'South West London'
-          elsif district.start_with?('WC')
-            resp_hash[:county] = 'Central London'
-          elsif district.start_with?('W')
-            resp_hash[:county] = 'West London'
+        if params[:hash_type].to_s != 'building_type'
+          PropertySearchApi.construct_hash_from_hash_str(resp_hash)
+          resp_hash.delete(:hash_str)
+          breadcrumbs = []
+          resp_hash[:county] = MatrixViewCount::COUNTY_MAP[resp_hash[:post_town].upcase] if resp_hash[:county].nil?
+          
+          ### For London handle it especially
+          if resp_hash[:county] == 'London'
+            district = resp_hash[:district]
+            if district.start_with?('EC')
+              resp_hash[:county] = 'Central London'
+            elsif district.start_with?('E')
+              resp_hash[:county] = 'East London'
+            elsif district.start_with?('NW')
+              resp_hash[:county] = 'North West London'
+            elsif district.start_with?('N')
+              resp_hash[:county] = 'North London'
+            elsif district.start_with?('SE')
+              resp_hash[:county] = 'South East London'
+            elsif district.start_with?('SW')
+              resp_hash[:county] = 'South West London'
+            elsif district.start_with?('WC')
+              resp_hash[:county] = 'Central London'
+            elsif district.start_with?('W')
+              resp_hash[:county] = 'West London'
+            end
           end
+        else
+          PropertySearchApi.construct_hash_from_hash_str(resp_hash)
+          udprn = resp_hash[:udprn]
+          details = PropertyDetails.details(udprn)[:_source]
+          resp_hash = { 
+            county: details[:county],
+            post_town: details[:post_town],
+            dependent_locality: details[:dependent_locality],
+            dependent_thoroughfare_description: details[:dependent_thoroughfare_description],
+            thoroughfare_description: details[:thoroughfare_description],
+            udprn: details[:udprn]
+          }
+
+          resp_hash[:dependent_locality] = details[:dependent_locality] if details[:dependent_locality]
+          resp_hash[:dependent_thoroughfare_description] = details[:dependent_thoroughfare_description] if details[:dependent_thoroughfare_description]
+          resp_hash[:thoroughfare_description] = details[:thoroughfare_description] if details[:thoroughfare_description]
+          
         end
 
         result = resp_hash.clone

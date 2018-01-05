@@ -129,6 +129,23 @@ class PropertyService
     end
   end
 
+  def compute_percent_completed(update_hash={}, details_hash={})
+    details_hash = PropertyDetails.details(@udprn)[:_source] if details_hash.empty?
+
+    ### Check if mandatory attrs completed since only agent and vendor attrs are populated after this
+    update_hash[:details_completed] = false
+    property_status_type = details[:property_status_type] || update_hash[:property_status_type]
+    mandatory_attrs = PropertyService::STATUS_MANDATORY_ATTRS_MAP[property_status_type]
+    mandatory_attrs ||= []
+
+    ### Populate details completed and percent of attributes completed
+    details_completed = mandatory_attrs.all?{ |attr| details.has_key?(attr) && !details[attr].nil? }
+    update_hash[:details_completed] = true if details_completed
+    total_mandatory_attrs = mandatory_attrs.select{ |t| !t.to_s.end_with?('_unit') }
+    attrs_completed = total_mandatory_attrs.select{ |attr| details.has_key?(attr) && !details[attr].nil? }.count
+    ((attrs_completed.to_f/total_mandatory_attrs.length.to_f)*100.0).round(2)
+  end
+
   def attach_vendor_to_property(vendor_id, details={}, property_for='Sale')
     property_details = PropertyDetails.details(udprn)[:_source]
     details.symbolize_keys!

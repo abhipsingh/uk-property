@@ -64,20 +64,21 @@ module Agents
         max_hours_for_expiry = Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME
 
         ### 48 hour expiry deadline
-        query = query.where(expired: false)
-        query = query.where("(agent_id = ? AND status = ?) OR (agent_id is null and status = ? AND created_at > ?)", self.id, won_status, new_status, max_hours_for_expiry.ago)
+        #query = query.where("(agent_id = ? AND status = ?) OR (agent_id is null and status = ? AND created_at > ?)", self.id, won_status, new_status, max_hours_for_expiry.ago)
         query = query.where(vendor_id: vendor_id) if buyer_id
         query = query.where(payment_terms: payment_terms_params) if payment_terms_params
         query = query.where(service_required: services_required) if service_required_param
 
         if status_param == 'New'
-          query = query.where(agent_id: nil)
+          query = query.where(agent_id: nil).where(expired: false)
         elsif status_param == 'Lost'
           query = query.where.not(agent_id: self.id).where(status: won_status)
         elsif status_param == 'Pending'
           query = query.where(agent_id: self.id).where(status: new_status).where(expired: false)
         elsif status_param == 'Won'
           query = query.where(agent_id: self.id).where(status: won_status)
+        elsif status_param == 'expired'
+          query = query.where(expired: true)
         end
 
         if search_str && is_premium
@@ -125,6 +126,9 @@ module Agents
             new_row[:activated_on] = property_details['status_last_updated']
             new_row[:type] = 'SALE'
             new_row[:photo_url] = property_details['pictures'] ? property_details['pictures'][0] : "Image not available"
+
+            new_row[:percent_completed] = property_details['percent_completed']
+            new_row[:percent_completed] ||= PropertyService.new(property_details['udprn']).compute_percent_completed({}, property_details)
   
             new_row = new_row.merge(['property_type', 'beds', 'baths', 'receptions', 'floor_plan_url',
               'verification_status','asking_price','fixed_price', 'dream_price', 'pictures', 'quotes', 'claimed_on', 'address'].reduce({}) {|h, k| h[k] = property_details[k]; h })

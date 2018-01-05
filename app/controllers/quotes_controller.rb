@@ -64,8 +64,6 @@ class QuotesController < ApplicationController
     # render json: { message: 'QuotesController#new error occurred' }, status: 200
   end
 
-
-
   #### When a new quote is entered by an agent
   #### Flow is submit a quote --> new quote
   #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/quotes/edit/'  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" -d '{ "udprn" : "10966139",  "services_required" : "Fixed Price", "payment_terms" : "Pay upfront", "quote_details" : "\{ \"fixed_price_services_requested\" : \{ \"price\" : 4500, \"list_of_services\" : \[\"Full\"\]  \}  \}" }'
@@ -151,35 +149,6 @@ class QuotesController < ApplicationController
     render json: quote, status: 200
   end
 
-  ### Get all quotes for an agent
-  ### curl -XGET -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/quotes/agents/history' 
-  def historical_agent_quotes
-    agent = user_valid_for_viewing?('Agent')
-    if agent
-    #if true
-      #agent =  Agents::Branches::AssignedAgent.find(225)
-      results = Agents::Branches::AssignedAgents::Quote.where(agent_id: agent.id).order('created_at DESC').map do |quote|
-        hash = {
-          id: quote.id,
-          created_at: quote.created_at,
-          payment_terms: quote.payment_terms,
-          quote_details: quote.quote_details,
-          udprn: quote.property_id,
-          expired: quote.expired,
-          refund_status: quote.refund_status,
-          terms_url: quote.terms_url,
-          service_required: Agents::Branches::AssignedAgents::Quote::SERVICES_REQUIRED_HASH[quote.service_required.to_s.to_sym],
-          status: Agents::Branches::AssignedAgents::Quote::REVERSE_STATUS_HASH[quote.status]
-        }
-        hash[:status] = 'Pending' if (hash[:status] == 'New' && !hash[:expired])
-        hash 
-      end
-      render json: results, status: 200
-    else
-      render json: { message: 'Authorization failed' }, status: 401
-    end
-  end
-
   ### Get all quotes for a property(historically)
   ### curl -XGET   -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/quotes/vendors/history/:udprn' 
   def historical_vendor_quotes
@@ -229,3 +198,4 @@ class QuotesController < ApplicationController
     AuthorizeApiRequest.call(request.headers, klass).result
   end
 end
+

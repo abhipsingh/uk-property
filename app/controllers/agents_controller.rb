@@ -157,9 +157,11 @@ class AgentsController < ApplicationController
     branch = Agents::Branch.where(id: agent_id).last
     if branch
       other_agents = params[:invited_agents]
-      branch.invited_agents = branch.invited_agents + (JSON.parse(other_agents) rescue [])
+      invited_agents = branch.invited_agents
+      branch.invited_agents = (JSON.parse(other_agents) rescue [])
+      branch.send_emails
+      branch.invited_agents = invited_agents + branch.invited_agents
       if branch.save
-        branch.send_emails
         render json: { message: 'Branch with given emails invited' }, status: 200
       else
         render json: { message: 'Server error' }, status: 400

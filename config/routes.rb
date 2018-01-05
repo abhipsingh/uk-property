@@ -25,8 +25,10 @@ Rails.application.routes.draw do
 
   ### Post events to the server
   post 'events/new',                         to: 'events#process_event'
+
   ### Post events to the server
   post 'properties/events/new',              to: 'properties#process_event'
+
   ### Get property enquiries
   get 'property/enquiries/:property_id',     to: 'events#property_enquiries'
 
@@ -111,15 +113,12 @@ Rails.application.routes.draw do
   ### For a property get all the data regarding buyer intent of similar properties
   get 'property/buyer/intent/:udprn',       to: 'properties#buyer_intent_info'
 
-
   #### PIE Charts routes
-
   ### Buyer profile stats route
   get 'property/buyer/profile/stats/:udprn',to: 'properties#buyer_profile_stats'
 
   ### Stats regarding the qualifying stage of buyers of the property for the agents
   get 'property/agent/stage/rating/stats/:udprn', to: 'properties#agent_stage_and_rating_stats'
-
 
   #### Ranking routes
   get 'property/ranking/stats/:udprn',        to: 'properties#ranking_stats'
@@ -127,13 +126,11 @@ Rails.application.routes.draw do
   #### Buyer history event routes
   get 'property/history/enquiries/:buyer_id', to: 'properties#history_enquiries'
 
-
   #####################################################################
   #####################################################################
   #####################################################################
   #### Agents routes for assigned agents details panel
   get 'agents/agent/:assigned_agent_id',                       to: 'agents#assigned_agent_details'
-
 
   #### Agents routes for branch details
   get 'agents/branch/:branch_id',                               to: 'agents#branch_details'

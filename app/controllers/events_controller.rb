@@ -140,7 +140,6 @@ class EventsController < ApplicationController
     #end
   end
 
-
   #### For agents the leads page has to be shown in which the recent properties have been claimed
   #### Those properties have just been claimed recently in the area
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent/claims?agent_id=1234'
@@ -184,7 +183,6 @@ class EventsController < ApplicationController
     response = Trackers::Buyer.new.property_enquiry_details_buyer(params[:agent_id].to_i) if params[:agent_id]
     render json: response, status: 200
   end
-
 
   #### On demand quicklink for all the properties of agents, or group or branch or company
   #### To get list of properties for the concerned agent

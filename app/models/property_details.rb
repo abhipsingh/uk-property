@@ -189,18 +189,7 @@ class PropertyDetails
         update_hash[:price] = update_hash[:sale_price] = price_abs.to_i
       end
 
-      ### Check if mandatory attrs completed since only agent and vendor attrs are populated after this
-      update_hash[:details_completed] = false
-      property_status_type = details[:property_status_type] || update_hash[:property_status_type]
-      mandatory_attrs = PropertyService::STATUS_MANDATORY_ATTRS_MAP[property_status_type]
-      mandatory_attrs ||= []
-
-      ### Populate details completed and percent of attributes completed
-      details_completed = mandatory_attrs.all?{ |attr| details.has_key?(attr) && !details[attr].nil? }
-      update_hash[:details_completed] = true if details_completed
-      total_mandatory_attrs = mandatory_attrs.select{ |t| !t.to_s.end_with?('_unit') }
-      attrs_completed = total_mandatory_attrs.select{ |attr| details.has_key?(attr) && !details[attr].nil? }.count
-      update_hash[:percent_completed] = ((attrs_completed.to_f/total_mandatory_attrs.length.to_f)*100.0).round(2)
+      update_hash[:percent_completed] = PropertyService.new(udprn).compute_percent_completed(update_hash, details)
       update_hash.delete(:percent_completed) if update_hash[:percent_completed].nan?
 
       ### Add details of an agent
