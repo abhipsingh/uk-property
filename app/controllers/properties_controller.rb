@@ -238,19 +238,9 @@ class PropertiesController < ActionController::Base
     vendor_id = params[:vendor_id]
     params[:property_for] != 'Sale' ? params[:property_for] = 'Rent' : params[:property_for] = 'Sale'
 
-    ### Verify OTP within one hour
-    totp = ROTP::TOTP.new("base32secret3232", interval: 1)
-    user_otp = params['otp']
-    otp_verified = totp.verify_with_drift(user_otp, 3600, Time.now+3600)
-
-    ### OTP verified or not
-    if otp_verified
-      property_service = PropertyService.new(udprn)
-      property_service.attach_vendor_to_property(vendor_id, {}, params[:property_for])
-      render json: { message: 'You have claimed this property Successfully. All the agents in this district will be notified' }, status: 200
-    else
-      render json: { message: 'OTP Failure. Please retry' }, status: 400
-    end
+    property_service = PropertyService.new(udprn)
+    property_service.attach_vendor_to_property(vendor_id, {}, params[:property_for])
+    render json: { message: 'You have claimed this property Successfully. All the agents in this district will be notified' }, status: 200
   #rescue ActiveRecord::RecordNotUnique
   #  render json: { message: 'Sorry, this udprn has already been claimed' }, status: 400
   #rescue Exception
@@ -345,28 +335,18 @@ class PropertiesController < ActionController::Base
   ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo3LCJleHAiOjE0ODUxODUwMTl9.7drkfFR5AUFZoPxzumLZ5TyEod_dLm8YoZZM0yqwq6U"   'http://localhost/property/claim/renter' -d ' { "udprn" : 4322959, "beds":3, "baths" : 2, "receptions" : 1, "property_type" : "bungalow", "vendor_email" : "renter@prophety.co.uk", "otp":342131 }'
   def upload_property_details_from_a_renter
     if user_valid_for_viewing?(['Buyer'], params[:udprn].to_i)
-
-      ### Verify OTP within one hour
-      totp = ROTP::TOTP.new("base32secret3232", interval: 1)
-      user_otp = params['otp']
-      otp_verified = totp.verify_with_drift(user_otp, 3600, Time.now+3600)
-
-      if otp_verified
-        validate_rent_property_upload_params
-        update_hash = {}
-        udprn = params[:udprn].to_i
-        update_hash[:beds] = params[:beds] if params[:beds].is_a?(Integer)
-        update_hash[:baths] = params[:baths] if params[:baths].is_a?(Integer)
-        update_hash[:receptions] = params[:receptions] if params[:receptions].is_a?(Integer)
-        update_hash[:property_type] = params[:property_type] if params[:property_type].is_a?(String)
-        update_hash[:verification_status] = false
-        update_hash[:renter_id] = @current_user.id
-        PropertyService.new(udprn).update_details(update_hash)
-        @current_user.send_vendor_email(params[:vendor_email], udprn)
+      validate_rent_property_upload_params
+      update_hash = {}
+      udprn = params[:udprn].to_i
+      update_hash[:beds] = params[:beds] if params[:beds].is_a?(Integer)
+      update_hash[:baths] = params[:baths] if params[:baths].is_a?(Integer)
+      update_hash[:receptions] = params[:receptions] if params[:receptions].is_a?(Integer)
+      update_hash[:property_type] = params[:property_type] if params[:property_type].is_a?(String)
+      update_hash[:verification_status] = false
+      update_hash[:renter_id] = @current_user.id
+      PropertyService.new(udprn).update_details(update_hash)
+      @current_user.send_vendor_email(params[:vendor_email], udprn)
       render json: { message: 'Property details have been updated successfully' }, status: 200
-      else
-        render json: { message: 'OTP Failure' }, status: 400
-      end
     else
       render json: { message: 'Authorization failed' }, status: 401
     end

@@ -8,7 +8,6 @@ class QuoteService
 
   def submit_price_for_quote(agent_id, payment_terms, quote_details, services_required, terms_url)
     first_quote = Agents::Branches::AssignedAgents::Quote.where(property_id: @udprn.to_i, expired: false).order('created_at asc').select([:id, :amount]).first
-    @quote = first_quote
     quote_amount = first_quote.amount
     quote_id = first_quote.id
     new_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
@@ -35,6 +34,7 @@ class QuoteService
         parent_quote_id: quote_id,
         amount: quote_amount
       )
+      @quote = quote_details
     end
     return { message: 'Quote successfully submitted', quote: quote_details }, 200
   end

@@ -98,7 +98,7 @@ class QuotesController < ApplicationController
         render json: message, status: 200
       else
         message = 'Current time is not within the time bounds'
-        reder json: message, status: 400
+        render  json: message, status: 400
       end
     else
       render json: { message: 'Authorization failed' }, status: 401

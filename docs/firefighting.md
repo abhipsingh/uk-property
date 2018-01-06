@@ -76,7 +76,7 @@ Its also possible to create a new instance with the same application and data as
 
 And access the following apis
 
-1) Elasticsearch health monitoring
+1) Elasticsearch health monitoring(Needs to be setup properly)
 ```bash
 curl locahost:9200
 ```
@@ -87,4 +87,55 @@ curl localhost
 ```
  If everything seems fine, the instance copy has completed successfully.
  
+### Debugging issues
+ 
+If you logged into the instance successfully, here are some tips on where to look for fixes and what the problems might be.
 
+ - A 500 Status Code for an api (Application code error)
+    - The rails logs is located at `/mnt3/rails_logs/production.log`
+    - Look for the keyword `Completed 500` after opening the file and start the search from the last instance of the search result. Check if the 500 corresponds to the api which was serving a 500.
+    - The error stack trace will be present in the logs for that api
+    - Look at the first line of the stack trace which will point to the ruby source file causing an issue.
+    - Open the source file, go to the line number and test your luck by retrying the api or reproducing the 500 in some way.
+     
+ - A 502 (Api timeout)
+    - By default Nginx waits for 30 seconds for the unicorn process to return a response before sending a 503. If that api is taking more than 30 seconds(slow api). 
+    - Your best bet is to optimise the code for that api(using caching, indexes or segment that api into multiple fragments
+
+ - A 503(Nginx error)
+    - This might be a load or an application down issue.
+
+The nginx logs live in the directory
+`/var/log/nginx/error.log` and `/var/log/nginx/access.log`
+
+A background job scheduler enabled by [Sidekiq](https://github.com/mperham/sidekiq) can be run using the following command after accessing the rails directory
+```bash
+cd ~/uk-property 
+RAILS_ENV=production bundle exec sidekiq -L /mnt3/rails_logs/sidekiq.log
+```
+
+There are three worker classes `QuoteExpiryWorker`, `SoldPropertyUpdateWorker`, `TrackingEmailPropertySoldWorker` and `TrackingEmailStatusChangeWorker` which are triggered frequently.
+
+The workers are set to run on `retry: false` mode. So an error in any of the worker code means that the job is not retried. This may manifest itself into other bugs such as the some attribute not being updated etc.
+
+To see the jobs queued currently, go to the rails console
+
+```bash
+cd ~/uk-property
+rails c
+```
+ and in the rails console
+```ruby
+require 'sidekiq/api'
+r = Sidekiq::ScheduledSet.new
+jobs = r.select{|job| true }
+```
+
+Sometimes the job scheduler might not keep up with the pace of enqueing requests.
+In that situation, its better to kill some jobs to process them later.
+
+```bash
+jobs.each(&:delete)
+```
+
+Sidekiq uses Redis underneath, but since Ardb has a similar interface to Redis, it can also run upon Ardb. The latencies are reasonable but there are times when Ardb doesn't respond quickly. So the `redis_timeout` can be increased in the rails application for the worker to perform those enqueued tasks.

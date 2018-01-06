@@ -49,6 +49,7 @@ module Agents
         results = []
 
         won_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']
+        lost_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Lost']
         vendor = PropertyBuyer.where(id: buyer_id).select(:vendor_id).first if buyer_id
         vendor_id = vendor.vendor_id if vendor
         vendor_id ||= nil
@@ -68,11 +69,12 @@ module Agents
         query = query.where(vendor_id: vendor_id) if buyer_id
         query = query.where(payment_terms: payment_terms_params) if payment_terms_params
         query = query.where(service_required: services_required) if service_required_param
+        query = query.where("(agent_id is null and status = ? and expired = 'f') OR ( agent_id = ? and ( expired= 't' OR status = ? OR status = ? ))", new_status, self.id, won_status, lost_status)
 
         if status_param == 'New'
           query = query.where(agent_id: nil).where(expired: false)
         elsif status_param == 'Lost'
-          query = query.where.not(agent_id: self.id).where(status: won_status)
+          query = query.where(agent_id: self.id).where(status: lost_status)
         elsif status_param == 'Pending'
           query = query.where(agent_id: self.id).where(status: new_status).where(expired: false)
         elsif status_param == 'Won'
@@ -108,11 +110,13 @@ module Agents
             property_id = property_details['udprn'].to_i
             agent_quote = nil
             quote_status = nil
-            if each_quote.status == won_status && each_quote.agent_id == self.id
+            if each_quote.status == won_status
               quote_status = 'Won'
-            elsif each_quote.status == new_status && each_quote.agent_id.nil?
+            elsif each_quote.status == new_status && each_quote.agent_id.nil? && each_quote.expired == false
               agent_quote = Agents::Branches::AssignedAgents::Quote.where(agent_id: self.id).where(property_id: each_quote.property_id).where(expired: false).last
               !agent_quote.nil? ? quote_status = 'Pending' : quote_status = 'New'
+            elsif each_quote.expired
+              quote_status = 'Expired'
             else
               quote_status = 'Lost'
             end
@@ -120,10 +124,13 @@ module Agents
             new_row[:id] = each_quote.id
             new_row[:udprn] = property_id
             new_row[:terms_url] = agent_quote.terms_url if agent_quote
+            new_row[:terms_url] ||= each_quote.terms_url
             new_row[:submitted_on] = agent_quote.created_at.to_s if agent_quote
+            new_row[:submitted_on] ||= each_quote.created_at.to_s
             new_row[:status] = quote_status
             new_row[:property_status_type] = property_details['property_status_type']
-            new_row[:activated_on] = property_details['status_last_updated']
+            #new_row[:activated_on] = property_details['status_last_updated']
+            new_row[:activated_on] = each_quote.created_at.to_s
             new_row[:type] = 'SALE'
             new_row[:photo_url] = property_details['pictures'] ? property_details['pictures'][0] : "Image not available"
 
@@ -134,13 +141,11 @@ module Agents
               'verification_status','asking_price','fixed_price', 'dream_price', 'pictures', 'quotes', 'claimed_on', 'address'].reduce({}) {|h, k| h[k] = property_details[k]; h })
             new_row['payment_terms'] = nil
             new_row['payment_terms'] = agent_quote.payment_terms  if agent_quote
+            new_row['payment_terms'] ||= each_quote.payment_terms
             new_row['services_required'] = Agents::Branches::AssignedAgents::Quote::SERVICES_REQUIRED_HASH[each_quote.service_required.to_s.to_sym]
 
-            if quote_status == 'Pending'
-              new_row['quote_details'] = agent_quote.quote_details
-            else
-              new_row['quote_details'] = each_quote.quote_details 
-            end
+            new_row[:quote_details] = agent_quote.quote_details if agent_quote
+            new_row[:quote_details] ||= each_quote.quote_details
             
             new_row[:current_agent] = self.name
             new_row['street_view_url'] = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{property_details['udprn']}/fov_120_#{property_details['udprn']}.jpg"
@@ -178,7 +183,6 @@ module Agents
             winning_quote = Agents::Branches::AssignedAgents::Quote.where(status: Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won'], property_id: property_id).last
             if winning_quote
               new_row[:winning_agent] = winning_quote.agent.name
-              new_row[:quote_price] = winning_quote.compute_price
               new_row[:quote_accepted] = true
             else
               new_row[:winning_quote] = nil
