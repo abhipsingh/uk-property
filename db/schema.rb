@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20171230133834) do
+ActiveRecord::Schema.define(version: 20180106172200) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -43,7 +43,7 @@ ActiveRecord::Schema.define(version: 20171230133834) do
     t.datetime "updated_at",                   null: false
   end
 
-  add_index "agent_credit_verifiers", ["udprn", "vendor_id", "agent_id", "is_refund", "entity_class"], name: "agent_credit_unique_idx", unique: true, using: :btree
+  add_index "agent_credit_verifiers", ["agent_id", "entity_id", "is_refund"], name: "agent_credit_unique_refund_idx", unique: true, using: :btree
 
   create_table "agents", force: :cascade do |t|
     t.string  "name",         limit: 255
@@ -491,6 +491,9 @@ ActiveRecord::Schema.define(version: 20171230133834) do
     t.text     "description"
     t.jsonb    "floorplan_urls",       default: []
   end
+
+  add_index "new_property_upload_histories", ["udprn", "developer_id"], name: "index_new_property_upload_histories_on_udprn_and_developer_id", unique: true, using: :btree
+  add_index "new_property_upload_histories", ["udprn"], name: "index_new_property_upload_histories_on_udprn", unique: true, using: :btree
 
   create_table "parishes", id: false, force: :cascade do |t|
     t.string "code", limit: 32,  null: false

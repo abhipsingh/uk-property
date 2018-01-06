@@ -64,7 +64,8 @@ class AgentApi
     avg_increase_in_price = 0
     sold_properties.each do |each_prop|
       sold_property = PropertyEvent.where(agent_id: @agent_id).where(udprn: each_prop.udprn).where("(attr_hash ? 'price') OR (attr_hash ? 'sale_price')").order('created_at asc').limit(1).first #### There might be multiple times an agent can be attached to this property TODO
-      sale_price = sold_property.attr_hash['sale_price'] || sold_property.attr_hash['price']
+      sale_price = sold_property.attr_hash['sale_price'] || sold_property.attr_hash['price']  if sold_property
+      sale_price ||= 0
       avg_increase_in_price += (((each_prop.sale_price - sale_price).to_f)/(each_prop.sale_price.to_f)*100).round(2)
 
       sold_property_map[each_prop.udprn] = each_prop

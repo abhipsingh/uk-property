@@ -267,6 +267,7 @@ class DevelopersController < ApplicationController
       properties = params[:properties]
       response = {}
       response = status = nil
+      response_arr = []
       if properties.is_a?(Array)
         developer_service = DeveloperService.new(developer_id)
         properties.each do |each_property|
@@ -284,19 +285,28 @@ class DevelopersController < ApplicationController
             udprn: each_property[:udprn],
             additional_features: each_property[:features],
             description: each_property[:description],
-            floorplan_urls: each_property[:floorplan_urls]
+            floorplan_urls: each_property[:floorplan_urls],
+            agent_id: user.id
           }
           assigned_developer_email = each_property[:assigned_developer_email]
-          response, status = developer_service.upload_property_details(property_attrs, assigned_developer_email, user.branch_id, user.id)
-          NewPropertyUploadHistory.create!(property_type: each_property[:property_type], beds: each_property[:beds].to_i, baths: each_property[:baths].to_i, receptions: each_property[:receptions].to_i, udprn: each_property[:udprn], features: each_property[:features], description: each_property[:description], floorplan_urls: each_property[:floorplan_urls])
+          begin
+            NewPropertyUploadHistory.create!(property_type: each_property[:property_type], beds: each_property[:beds].to_i, baths: each_property[:baths].to_i, receptions: each_property[:receptions].to_i, udprn: each_property[:udprn], features: each_property[:features], description: each_property[:description], floorplan_urls: each_property[:floorplan_urls], developer_id: user.id)
+            response, status = developer_service.upload_property_details(property_attrs, assigned_developer_email, user.branch_id, user.id)
+            message = 'Successfully uploaded a property'
+            resp = { udprn: each_property[:udprn], message: message, status: 'SUCCESS' }
+            response_arr.push(resp)
+          rescue ActiveRecord::RecordNotUnique => e
+            message = 'This property was already uploaded'
+            resp = { udprn: each_property[:udprn],  message: message, status: 'FAILURE' }
+            response_arr.push(resp)
+          end
         end
       else
         response = 'Properties param should be in an array'
         status = 400
       end
 
-      response['message'] = 'Property details updated.' unless status.nil? || status != 200
-      render json: response, status: status
+      render json: response_arr, status: status
     else
       render json: { message: 'Authorization failed' }, status: 401
     end

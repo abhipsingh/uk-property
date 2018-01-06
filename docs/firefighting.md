@@ -139,3 +139,118 @@ jobs.each(&:delete)
 ```
 
 Sidekiq uses Redis underneath, but since Ardb has a similar interface to Redis, it can also run upon Ardb. The latencies are reasonable but there are times when Ardb doesn't respond quickly. So the `redis_timeout` can be increased in the rails application for the worker to perform those enqueued tasks.
+
+For debugging 500 application errors for apis which are stateless, its also useful to setup local development server on production, place a debugger on the lines producing the error and inspect the variables and data at that point.
+
+```bash
+cd ~/uk-property
+rails s -p 3001
+```
+
+Now, open any file.e.g.
+```bash
+vim app/models/property_search_api.rb
+```
+
+Place debugger at the relevant source line and resolve the issue.
+
+### Apis division
+
+There are nearly 200 Apis that exist in the application. They can all be listed by running
+```bash
+rake routes
+```
+
+Many apis are stateful and a lot are stateless. Meaning, many of them will change the state of the DB, might require a different api call to be executed before them(stateful and capable of modifying). Stateless apis are easier to debug using standard methods but stateful ones are a bit tricky. Listed below are the stateful apis and their flow in brief.
+
+#### Stateful apis
+
+1. `POST 'quotes/new' `(Post events to the server from an agent) is always followed by the following api call
+    --> `POST 'quotes/property/:udprn'`(Post new quotes for a property. Done by a vendor)
+
+2. `POST 'events/property/claim/:udprn'`(For an agent, claim this property) is always followed by the following api call
+    --> `POST 'properties/udprns/claim/:udprn'`(For any vendor, claim an unknown udprn)
+
+3. `POST 'agents/properties/:udprn/verify'`(Update property details, attach udprn to crawled properties, send vendor email and add assigned agents to properties) is always followed by 
+   --> `GET '/agents/:agent_id/udprns/attach/verify''`(List properties and their building details for the agent to tag)
+
+4. `POST vendors/:udprn/verify`(Verify property details, agent_id from the vendor) is always followed by either one of the following
+    --> `POST 'agents/properties/:udprn/manual/verify'` (Manually upload property detail for an agent)
+    --> `POST 'agents/properties/:udprn/verify`(Discussed above)
+
+5. `POST 'agents/properties/:udprn/manual/verify'` (Update property details, attach udprn to manually added properties, send  vendor email and add assigned agents to properties)
+    --> `GET '/agents/:agent_id/udprns/attach/verify'`(List properties and their building details for the agent to tag)
+
+6.  `POST 'properties/vendor/basic/:udprn/update'`(Update basic details of a property by a vendor) is always followed by
+    --> `POST 'properties/udprns/claim/:udprn'`(For any vendor, claim an unknown udprn)
+
+
+### Elasticsearch yml file
+
+The elasticsearch settings have been stored at `/etc/elasticsearch/elasticsearch.yml`. It would be quite useful to know the few of settings and tunables for cases where the elasticsearch search is performing slowly.
+
+```yml
+index.search.slowlog.threshold.query.warn: 150ms 
+index.search.slowlog.threshold.query.info: 100ms
+index.search.slowlog.threshold.query.debug: 300ms
+index.search.slowlog.threshold.query.trace: 700ms
+index.search.slowlog.threshold.fetch.warn: 150ms
+index.search.slowlog.threshold.fetch.info: 100ms
+index.search.slowlog.threshold.fetch.debug: 300ms
+index.search.slowlog.threshold.fetch.trace: 700ms
+index.indexing.slowlog.threshold.index.warn: 150ms
+index.indexing.slowlog.threshold.index.info: 100ms
+index.indexing.slowlog.threshold.index.debug: 300ms
+```
+The above settings correspond to enabling logs at various log levels for any elasticsearch operation exceeding the specified time limits.
+In the elasticsearch log directory, two files will contain slow logs 
+1. `/mnt3/elasticsearch_logs/elasticsearch_index_indexing_slowlog.log`
+2. `/mnt3/elasticsearch_logs/elasticsearch_index_search_slowlog.log`
+
+Search for queries which are possible culprits and resolve them (by indexing changes or optimising search queries)
+
+The Gc logs are also of particular interest, as it has happened in the past that the server was unavailable due to multi second old generation GC pauses(CMS) for Elasticsearch
+
+```yml
+### GC Log settings
+monitor.jvm.gc.young.warn: 1000ms
+monitor.jvm.gc.young.info: 700ms
+monitor.jvm.gc.young.debug: 400ms
+
+monitor.jvm.gc.old.warn: 10s 
+monitor.jvm.gc.old.info: 5s
+monitor.jvm.gc.old.debug: 2s
+```
+
+Currently the `Xmx` has been set to `4g`.
+
+### Elasticsearch index settings
+
+The index settings can be found at 
+```bash
+cd ~/uk-property
+cat addresses_mapping.json
+cat locations_mapping.json
+```
+
+There are two indexes in the server
+
+1. `locations` (Stores all the locations for serving auto suggest)
+   ```bash
+   curl -XGET 'http://localhost:9200/locations/_mapping'
+   curl -XGET 'http://localhost:9200/locations/_settings'
+   ```
+   
+2. `addresses`(Stores all the core property attributes like beds, baths etc for searching and filtering capabilities)
+    ```bash
+       curl -XGET 'http://localhost:9200/addresses/_mapping'
+       curl -XGET 'http://localhost:9200/addresses/_settings'
+    ```
+    This index only contains properties which have a property status of either `Green`,`Red` or `Yellow`
+
+
+
+
+
+
+
