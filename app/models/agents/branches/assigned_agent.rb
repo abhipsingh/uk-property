@@ -17,6 +17,7 @@ module Agents
       LEAD_CREDIT_LIMIT = 1
       PAGE_SIZE = 30
       PREMIUM_COST = 25
+      MIN_INVITED_FRIENDS_FAMILY_VALUE = 1
 
       ### Percent of current valuation charged as commission for quotes submission
       CURRENT_VALUATION_PERCENT = 0.01
@@ -79,7 +80,7 @@ module Agents
           query = query.where(agent_id: self.id).where(status: new_status).where(expired: false)
         elsif status_param == 'Won'
           query = query.where(agent_id: self.id).where(status: won_status)
-        elsif status_param == 'expired'
+        elsif status_param == 'Expired'
           query = query.where(expired: true)
         end
 
@@ -133,6 +134,7 @@ module Agents
             new_row[:activated_on] = each_quote.created_at.to_s
             new_row[:type] = 'SALE'
             new_row[:photo_url] = property_details['pictures'] ? property_details['pictures'][0] : "Image not available"
+            new_row[:vanity_url]= property_details[:vanity_url]
 
             new_row[:percent_completed] = property_details['percent_completed']
             new_row[:percent_completed] ||= PropertyService.new(property_details['udprn']).compute_percent_completed({}, property_details)
@@ -155,14 +157,15 @@ module Agents
             ### Historical prices
             new_row[:historical_prices] = property_details['sale_prices']
   
-            vendor = Vendor.where(property_id: property_id).first
-            if vendor.present?
-              new_row[:vendor_first_name] = vendor.first_name
-              new_row[:vendor_last_name] = vendor.last_name
-              new_row[:vendor_email] = vendor.email
-              new_row[:vendor_mobile] = vendor.mobile
-              new_row[:vendor_image_url] = vendor.image_url
+            if quote_status == 'Won'
+              new_row[:vendor_id] = property_details['vendor_id']
+              new_row[:vendor_first_name] = property_details['vendor_first_name']
+              new_row[:vendor_last_name] = property_details['vendor_last_name']
+              new_row[:vendor_email] = property_details['vendor_email']
+              new_row[:vendor_mobile] = property_details['vendor_mobile']
+              new_row[:vendor_image_url] = property_details['vendor_image_url']
             else
+              new_row[:vendor_id] = nil
               new_row[:vendor_first_name] = nil
               new_row[:vendor_last_name] = nil
               new_row[:vendor_email] = nil
@@ -269,7 +272,7 @@ module Agents
           new_row[:submitted_on] = nil
         end
         details = PropertyDetails.details(lead.property_id)[:_source]
-        new_row = new_row.merge(['property_type', 'street_view_url', 'udprn', 'beds', 'baths', 'receptions', 'dream_price', 'pictures', 'street_view_image_url', 'claimed_on', 'address', 'sale_prices'].reduce({}) {|h, k| h[k] = details[k]; h })
+        new_row = new_row.merge(['property_type', 'street_view_url', 'udprn', 'beds', 'baths', 'receptions', 'dream_price', 'pictures', 'street_view_image_url', 'claimed_on', 'address', 'sale_prices', 'vanity_url'].reduce({}) {|h, k| h[k] = details[k]; h })
         new_row['street_view_url'] = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details['udprn']}/fov_120_#{details['udprn']}.jpg"
         new_row[:photo_url] = details['pictures'] ? details['pictures'][0] : "Image not available"
         #new_row[:last_sale_prices] = PropertyHistoricalDetail.where(udprn: details['udprn']).order('date DESC').pluck(:price)

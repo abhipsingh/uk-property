@@ -306,13 +306,19 @@ class EventsController < ApplicationController
   def claim_property
     agent = user_valid_for_viewing?('Agent')
     if agent
-      if agent.credit >= Agents::Branches::AssignedAgent::LEAD_CREDIT_LIMIT
-      #if true
-        property_service = PropertyService.new(params[:udprn].to_i)
-        message, status = property_service.claim_new_property(params[:agent_id].to_i)
-        render json: { message: message }, status: status
+      invited_vendor_emails = InvitedVendor.where(agent_id: agent.id).where(source: Vendor::INVITED_FROM_CONST[:family]).pluck(:email).uniq
+      registered_vendor_count = Vendor.where(email: invited_vendor_emails).count
+      if registered_vendor_count >= Agents::Branches::AssignedAgent::MIN_INVITED_FRIENDS_FAMILY_VALUE
+        if agent.credit >= Agents::Branches::AssignedAgent::LEAD_CREDIT_LIMIT
+        #if true
+          property_service = PropertyService.new(params[:udprn].to_i)
+          message, status = property_service.claim_new_property(params[:agent_id].to_i)
+          render json: { message: message }, status: status
+        else
+          render json: { message: "Credits possessed for leads #{agent.credit},  not more than #{Agents::Branches::AssignedAgent::LEAD_CREDIT_LIMIT} " }, status: 401
+        end
       else
-        render json: { message: "Credits possessed for leads #{agent.credit},  not more than #{Agents::Branches::AssignedAgent::LEAD_CREDIT_LIMIT} " }, status: 401
+        render json: { message: "Invited friends family below the minimum value #{Agents::Branches::AssignedAgent::MIN_INVITED_FRIENDS_FAMILY_VALUE}" }, status: 400
       end
     else
       render json: { message: 'Authorization failed' }, status: 401

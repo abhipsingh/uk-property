@@ -103,7 +103,7 @@ module Api
             PropertyAd.where(property_id: udprn.to_i, service: service).where("created_at > ?", 1.hour.ago).destroy_all
           end
           # p message
-          Rails.logger.info(message)
+          # Rails.logger.info(message)
           render json: message, status: status
         else
           render json: { message: 'Authorization failed' }, status: 401

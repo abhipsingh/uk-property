@@ -1,7 +1,7 @@
 ### TODO: Daily night worker
 class QuoteExpiryWorker
   include Sidekiq::Worker
-  sidekiq_options :retry => true
+  sidekiq_options :retry => false
 
   def perform
     QuoteExpiryWorker.perform_in(1.minute)

@@ -10,7 +10,7 @@ class SessionsController < ApplicationController
 
     ### Verify OTP within one hour
     totp = ROTP::TOTP.new("base32secret3232", interval: 1)
-    otp_verified = totp.verify_with_drift(user_otp, 3600, Time.now+3600)
+    otp_verified = totp.verify_with_drift(user_otp, 3600, Time.now)
 
     if otp_verified
       if params[:token].nil? || params[:token].length < 10
@@ -73,12 +73,12 @@ class SessionsController < ApplicationController
   ### curl -XPOST  -H "Content-Type: application/json" 'http://localhost/send/otp'  -d '{ "mobile" : "+446474255672"  }'
   ### TODO: This is an open api. Checks needs to be put in place to prevent abuse of this api.
   def send_otp_to_number
-    sns = Aws::SNS::Client.new(region: "eu-west-2", access_key_id: Rails.configuration.aws_access_key, secret_access_key: Rails.configuration.aws_secret_key)
+    sns = Aws::SNS::Client.new(region: "us-east-1", access_key_id: Rails.configuration.aws_access_key, secret_access_key: Rails.configuration.aws_secret_key)
     mobile = params[:mobile]
     totp = ROTP::TOTP.new("base32secret3232", interval: 1)
     #totp.verify_with_drift(totp, 3600, Time.now+3600)
-    MobileOtpVerify.create!(mobile: mobile, otp: totp.now)
-    message = "You have received an OTP from Prophety. Enter the OTP #{otp} to proceed"
+    mobile_otp = MobileOtpVerify.create!(mobile: mobile, otp: totp.now)
+    message = "You have received an OTP from Prophety. Enter the OTP #{mobile_otp.otp} to proceed"
     sns.publish({ phone_number: mobile, message: message })
     render json: { message: 'OTP sent successfully' }, status: 200
   end
@@ -88,6 +88,7 @@ class SessionsController < ApplicationController
   def create_agent
     agent_params = params[:agent].as_json
     agent_params.delete('company_id')
+    agent_params = agent_params.with_indifferent_access
     status = 200
     verification_hash = VerificationHash.where(email: agent_params['email']).last
     if verification_hash
@@ -97,6 +98,17 @@ class SessionsController < ApplicationController
         render json: response, status: status
       else
 
+        first_branch_cond = (Agents::Branches::AssignedAgent.where(branch_id: agent_params[:branch_id]).count == 0)
+        otp_verified = true if first_branch_cond
+  
+        ### Verify OTP within one hour
+        totp = ROTP::TOTP.new("base32secret3232", interval: 1)
+        user_otp = agent_params['otp']
+        otp_verified ||= totp.verify_with_drift(user_otp, 3600, Time.now)
+        agent_params.delete("otp")
+
+        if otp_verified
+  
           agent = Agents::Branches::AssignedAgent.new(agent_params)
           ### To calculate if it is the first agent
           agent.is_first_agent = agent.calculate_is_first_agent
@@ -112,12 +124,16 @@ class SessionsController < ApplicationController
             agent_details['group_id'] = agent.branch && agent.branch.agent ? agent.branch.agent.group_id : nil
             agent_details['company_id'] = agent.branch && agent.branch.agent ? agent.branch.agent.id : nil
             response = {"auth_token" => command.result, "details" => agent_details, "status" => "SUCCESS"}
-            render json: response, status: 200
+            render json: {}, status: 200
           else
             response = {"message" => "Error in saving agent. Please check username and password.", "status" => "FAILURE"}
             status = 500
             render json: response, status: status
           end
+
+        else
+          render json: { message: 'OTP Failure' }, status: 400
+        end
       end
     else
       render json: { message: 'No verification hash found' }, status: 400
@@ -129,6 +145,7 @@ class SessionsController < ApplicationController
   def create_developer
     developer_params = params[:developer].as_json
     developer_params.delete('company_id')
+    developer_params = agent_params.with_indifferent_access
     status = 200
     verification_hash = VerificationHash.where(email: developer_params['email']).last
     if verification_hash 
@@ -139,6 +156,19 @@ class SessionsController < ApplicationController
       elsif verification_hash.verified
         render json: { message: 'Verification hash already used. Please repeat the signup process' }, status: 200
       else
+
+        first_branch_cond = Agents::Branches::AssignedAgent.unscope(where: :is_developer)
+                                                           .where(branch_id: developer_params[:branch_id])
+                                                           .where(is_developer: true)
+                                                           .count
+        otp_verified = true if first_branch_cond == 0
+        ### Verify OTP within one hour
+        totp = ROTP::TOTP.new("base32secret3232", interval: 1)
+        user_otp = developer_params['otp']
+        otp_verified ||= totp.verify_with_drift(user_otp, 3600, Time.now)
+        developer_params.delete("otp")
+
+        if otp_verified
 
           developer = Agents::Branches::AssignedAgent.new(developer_params)
           developer.is_first_agent = developer.calculate_is_first_agent
@@ -162,6 +192,9 @@ class SessionsController < ApplicationController
             status = 500
             render json: response, status: status
           end
+        else
+          render json: { message: 'OTP Failure' }, status: 400
+        end
       end
     else
       render json: { message: 'No verification hash found' }, status: 400
@@ -196,12 +229,13 @@ class SessionsController < ApplicationController
       ### Verify OTP within one hour
       totp = ROTP::TOTP.new("base32secret3232", interval: 1)
       user_otp = vendor_params['otp']
-      otp_verified = totp.verify_with_drift(user_otp, 3600, Time.now+3600)
+      otp_verified = totp.verify_with_drift(user_otp, 3600, Time.now)
   
       if otp_verified
         if verification_hash
           vendor_params['name'] = '' if vendor_params['name']
           vendor_params.delete("hash_value")
+          vendor_params.delete("otp")
           vendor = Vendor.new(vendor_params)
           vendor.save!
           buyer = PropertyBuyer.new(vendor_params)
@@ -400,13 +434,14 @@ class SessionsController < ApplicationController
       vendor.full_name = vendor.first_name.to_s + ' ' + vendor.last_name.to_s
       vendor.password = buyer_params['password']
       vendor.mobile = buyer_params['mobile']
-      buyer = PropertyBuyer.new(buyer_params)
       verification_hash = VerificationHash.where(email: buyer_params['email']).last
   
       ### Verify OTP within one hour
       totp = ROTP::TOTP.new("base32secret3232", interval: 1)
       user_otp = buyer_params['otp']
-      otp_verified = totp.verify_with_drift(user_otp, 3600, Time.now+3600)
+      otp_verified = totp.verify_with_drift(user_otp, 3600, Time.now)
+      buyer_params.delete("otp")
+      buyer = PropertyBuyer.new(buyer_params)
   
       if otp_verified
         if buyer.save! && vendor.save! && VerificationHash.where(email: buyer_params['email']).update_all({verified: true})

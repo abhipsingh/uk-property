@@ -132,7 +132,7 @@ class Trackers::Buyer
     :cold_property
   ]
 
-  PAGE_SIZE = 20
+  PAGE_SIZE = 10
 
   #### API Responses for tables
 

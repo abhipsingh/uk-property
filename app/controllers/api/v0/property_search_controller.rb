@@ -19,7 +19,7 @@ module Api
         api = ::PropertySearchApi.new(filtered_params: params)
         result, status = api.filter
         result = result[:results]#.sort_by{|t| t[:score]}.reverse
-        result = result.each{|t| t[:photo_urls] = [] }
+        result = result.each{|t| t[:photo_urls] = []; t[:percent_completed] = nil }
         result = result.each{ |t| t[:photo_urls] = [ process_image(t) ] + t[:photo_urls] }
         render :json => result, :status => status
       end
@@ -35,11 +35,17 @@ module Api
       #### Details Api for a udprn
       #### curl -XGET 'http://localhost/api/v0/properties/details/10968961'
       def details
+        agent = user_valid_for_viewing?('Agent', ['Agent', 'Vendor'])
         udprn = params[:property_id].to_i
         details_json = PropertyDetails.details(udprn)['_source']
         details_json['photo_urls'] =  process_image(details_json)
         details_json['description'] = PropertyService.get_description(udprn)
-        render json: { details: details_json }, status: 200
+        if !agent.nil? && details_json[:agent_id].to_i == agent.id
+          render json: { details: details_json }, status: 200
+        else
+          details_json['percent_completed'] = nil
+          render json: { details: details_json }, status: 200
+        end
       end
 
       ### Returns the breadcrumbs for a given hash
@@ -101,6 +107,21 @@ module Api
         render json: result, status: 200
       end
 
+      private
+
+      def user_valid_for_viewing?(klass, klasses=[])
+        if !klasses.empty?
+          result = nil
+          klasses.each do |klass|
+            result ||= AuthorizeApiRequest.call(request.headers, klass).result
+          end
+          result
+        else
+          AuthorizeApiRequest.call(request.headers, klass).result
+        end
+      end
+  
     end
+
   end
 end

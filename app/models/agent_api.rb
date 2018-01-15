@@ -7,7 +7,7 @@ class AgentApi
     @branch_id ||= Agents::Branches::AssignedAgent.where(id: agent_id).first.branch_id
     @udprn ||= udprn
     @agent_id ||= agent_id
-    @vendor_quote = Agents::Branches::AssignedAgents::Quote.where.not(vendor_id: nil).where(property_id: @udprn.to_i).where(expired: false).last
+    @vendor_quote = Agents::Branches::AssignedAgents::Quote.where.not(vendor_id: nil).where(agent_id: nil).where(property_id: @udprn.to_i).where(expired: false).last
   end
 
   #### To calculate the detailed quotes for each of the agent, we can call this function
@@ -106,6 +106,7 @@ class AgentApi
       sold_property_data ||= []
       sold_property_data.each do |each_sold_prop_data|
         total_days_to_sell ||= 1
+        Rails.logger.info("#{each_sold_prop_data.as_json}_data")
         total_days_to_sell += each_sold_prop_data.completion_date - dates.sort.first
 
         ### for finding first and last valuation

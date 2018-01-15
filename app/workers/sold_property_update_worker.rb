@@ -4,15 +4,30 @@ class SoldPropertyUpdateWorker
 
   def perform
     SoldPropertyUpdateWorker.perform_in(1.day.from_now)
-    sold_properties = SoldProperty.where('completion_date = ?', Date.today)
+    sold_properties = SoldProperty.where('completion_date = ?', Date.yesterday)
     sold_properties.each do |sold_property|
       udprn = sold_property.udprn
       details = PropertyDetails.details(udprn)[:_source]
       buyer_id = sold_property.buyer_id
       new_vendor_id = PropertyBuyer.find(buyer_id).vendor_id
 
+      sale_price = { price: sold_property.sale_price, date: sold_property.completion_date.to_s }
+      last_sale_price = sold_property.sale_price
+      sale_prices ||= details[:sale_prices] || []
+      sale_prices.push(sale_price)
       ### Update the property details
-      update_hash = { property_status_type: nil, vendor_id: new_vendor_id , sold: true, claimed_on: Time.now.to_s, claimed_by: 'Vendor' }
+      update_hash = { 
+                      property_status_type: 'Red',
+                      vendor_id: new_vendor_id,
+                      sold: true,
+                      claimed_on: Time.now.to_s,
+                      claimed_by: 'Vendor',
+                      sale_price: nil,
+                      sale_price_type: nil,
+                      price: nil,
+                      sale_prices: sale_prices,
+                      last_sale_price: last_sale_price
+                    }
 
       ### Create a lead for local agents if a new property is sold
       if details[:is_developer].to_s == 'true'

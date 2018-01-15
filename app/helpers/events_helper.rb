@@ -106,46 +106,41 @@ module EventsHelper
         ### Update stage of the enquiry
         if Trackers::Buyer::EVENTS[:offer_made_stage] == event
 
-          original_enquiries = Event.where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false)
-          original_enquiries.update_all(stage: event, offer_price: message[:offer_price], offer_date: Date.parse(message[:offer_date])) 
-          enquiries = Trackers::Buyer.new.process_enquiries_result(original_enquiries)
-          response[:enquiries] = enquiries
+          if message[:offer_price] && message[:offer_date]
+            original_enquiries = Event.where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false)
+            original_enquiries.update_all(stage: event, offer_price: message[:offer_price], offer_date: Date.parse(message[:offer_date])) 
+            enquiries = Trackers::Buyer.new.process_enquiries_result(original_enquiries)
+            response[:enquiries] = enquiries
+          else
+            response[:enquiries] = []
+          end
   
         elsif Trackers::Buyer::EVENTS[:viewing_stage] == event
 
-          original_enquiries = Event.where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false)
-          original_enquiries.update_all(stage: event, scheduled_visit_time: Time.parse(message[:scheduled_viewing_time])) 
-          enquiries = Trackers::Buyer.new.process_enquiries_result(original_enquiries)
-          response[:enquiries] = enquiries
+          if message[:scheduled_viewing_time]
+            original_enquiries = Event.where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false)
+            original_enquiries.update_all(stage: event, scheduled_visit_time: Time.parse(message[:scheduled_viewing_time])) 
+            enquiries = Trackers::Buyer.new.process_enquiries_result(original_enquiries)
+            response[:enquiries] = enquiries
+          else
+            response[:enquiries] = []
+          end
   
         elsif Trackers::Buyer::EVENTS[:completion_stage] == event
 
-          original_enquiries = Event.where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false)
-          original_enquiries.update_all(stage: event, expected_completion_date: Date.parse(message[:expected_completion_date]))
-          enquiries = Trackers::Buyer.new.process_enquiries_result(original_enquiries)
-          response[:enquiries] = enquiries
+          if message[:expected_completion_date]
+            original_enquiries = Event.where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false)
+            original_enquiries.update_all(stage: event, expected_completion_date: Date.parse(message[:expected_completion_date]))
+            enquiries = Trackers::Buyer.new.process_enquiries_result(original_enquiries)
+            response[:enquiries] = enquiries
+          else
+            response[:enquiries] = []
+          end
 
         elsif Trackers::Buyer::EVENTS[:closed_won_stage] == event
 
-          message = message.with_indifferent_access if message
-          details = PropertyDetails.details(property_id)
-          vendor_id = details[:_source][:vendor_id]
-          new_vendor_id = PropertyBuyer.find(buyer_id).vendor_id
-          
-          ### To accommodate for the sold property detail created earlier
-          existing_sold_property = SoldProperty.where(udprn: property_id, buyer_id: buyer_id, agent_id: agent_id, vendor_id: vendor_id).last
-          if existing_sold_property
-            existing_sold_property.completion_date = message[:completion_date] if message[:completion_date]
-            existing_sold_property.save!
-          else
-            SoldProperty.create!(udprn: property_id, buyer_id: buyer_id, agent_id: agent_id, vendor_id: vendor_id, sale_price: message[:final_price], completion_date: message[:completion_date])
-          end
-
-          ### Update the enquiry to closed won
-          original_enquiries = Event.where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false)
-          original_enquiries.update_all(stage: event)
-          enquiries = Trackers::Buyer.new.process_enquiries_result(original_enquiries)
-          response[:enquiries] = enquiries
+          service = SoldPropertyEventService.new(udprn: property_id, buyer_id: buyer_id, final_price: message[:final_price], agent_id: agent_id)
+          response[:enquiries] = service.close_enquiry(completion_date: message[:completion_date])
 
         else
 

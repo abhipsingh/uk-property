@@ -158,9 +158,13 @@ class AgentsController < ApplicationController
     if branch
       other_agents = params[:invited_agents]
       invited_agents = branch.invited_agents
-      branch.invited_agents = (JSON.parse(other_agents) rescue [])
+      new_agents = (JSON.parse(other_agents) rescue [])
+      new_agent_emails = new_agents.map{ |t| t['email'] }
+      existing_emails = Agents::Branches::AssignedAgent.where(email: new_agent_emails).pluck(:email).uniq
+      missing_emails = new_agent_emails - existing_emails
+      branch.invited_agents = new_agents.select{ |t| missing_emails.include?(t['email']) }
       branch.send_emails
-      branch.invited_agents = invited_agents + branch.invited_agents
+      branch.invited_agents = branch.invited_agents + invited_agents
       if branch.save
         render json: { message: 'Branch with given emails invited' }, status: 200
       else
@@ -409,12 +413,21 @@ class AgentsController < ApplicationController
         response.push(new_row)
         postcodes = postcodes + "," + postcode
       end
-      results = Uk::Property.where(postcode: postcodes.split(',')).where(indexed: false).select([:building_name, :building_number, :sub_building_name, :organisation_name, :department_name, :postcode, :udprn, :post_town, :county]).select('dl as dependent_locality').select('td as thoroughfare_descripion').select('dtd as dependent_thoroughfare_description').limit(1000)
+
+      query = TestUkp
+      where_query = postcodes.split(',').map{ |t| t.split(' ').join('') }.map{ |t| "(to_tsvector('simple'::regconfig, postcode)  @@ to_tsquery('simple', '#{t}'))" }.join(' OR ')
+      results = TestUkp.connection.execute(query.where(where_query).select([:udprn, :postcode]).limit(1000).to_sql).to_a
+      udprns = results.map{ |t| t['udprn'] }
+      ### TODO: USE OF BULK DETAILS API HERE
+      bulk_results = PropertyService.bulk_details(udprns)
+      nullable_attrs = [:building_name, :building_number, :sub_building_name, :organisation_name, :department_name, :dependent_locality, :thoroughfare_descripion, :dependent_thoroughfare_description]
+      bulk_results.each{ |result| nullable_attrs.each{ |attr| result[attr] ||= nil } }
+      #results = Uk::Property.where(postcode: postcodes.split(',')).where(indexed: false).select([:building_name, :building_number, :sub_building_name, :organisation_name, :department_name, :postcode, :udprn, :post_town, :county]).select('dl as dependent_locality').select('td as thoroughfare_descripion').select('dtd as dependent_thoroughfare_description').limit(1000)
       logged_postcodes = []
       #Rails.logger.info(results.as_json)
       response.each do |each_crawled_property_data|
         if !each_crawled_property_data['udprn'] 
-          matching_udprns = results.select{ |t| t.postcode == each_crawled_property_data['post_code']  }
+          matching_udprns = bulk_results.select{ |t| t[:postcode] == each_crawled_property_data['post_code'] && t[:property_status_type].nil?  }
           each_crawled_property_data['matching_properties'] = matching_udprns
           each_crawled_property_data['last_email_sent'] = nil
           each_crawled_property_data['vendor_email'] = nil
@@ -429,6 +442,7 @@ class AgentsController < ApplicationController
           each_crawled_property_data['vendor_email'] = invited_vendor.email if invited_vendor
           each_crawled_property_data['is_vendor_registered'] = Vendor.where(email: invited_vendor.email).last.nil? if invited_vendor
         end
+        each_crawled_property_data['udprn'] = each_crawled_property_data['udprn'].to_i
       end
       render json: { response: response, property_count: property_count }, status: 200
     else
@@ -747,6 +761,44 @@ class AgentsController < ApplicationController
         results.push(result)
       end
       render json: results, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  ### List of properties which have been won by the agent, to be show for filling sale price
+  ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/properties/quotes/missing/price'
+  def missing_sale_price_properties_for_agents
+    agent = user_valid_for_viewing?('Agent')
+    if !agent.nil?
+    #if true
+      won_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']
+      quotes_won = Agents::Branches::AssignedAgents::Quote.where(agent_id: agent.id, status: won_status).pluck(:property_id)
+      api = PropertySearchApi.new(filtered_params: { not_exists: 'sale_price', agent_id: agent.id, results_per_page: 200 })
+      api = api.filter_query
+      result, status = api.filter
+      if status.to_i == 200
+        render json: result, status: status
+      else
+        render json: { message: 'Something wrong happened' }, status: 400
+      end
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  ### Provide the credits which will be charged, if the agent makes an inactive property closed_won
+  ### curl -XGET -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/inactive/property/credits/53831459?buyer_id=331'
+  def inactive_property_credits
+    agent = user_valid_for_viewing?('Agent')
+    if !agent.nil?
+      udprn = params[:udprn].to_i
+      details = PropertyDetails.details(udprn)[:_source]
+      buyer_id = params[:buyer_id].to_i
+      offer_price = Evemt.where(buyer_id: buyer_id, udprn: udprn).last.offer_price
+      credits = ((Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(offer_price.to_f)).to_i/Agents::Branches::AssignedAgent::PER_CREDIT_COST)
+      has_required_credits = (agent.credit >= credits)
+      render json: { credits: credits, has_required_credits: has_required_credits, agent_credits: agent.credit }, status: 200
     else
       render json: { message: 'Authorization failed' }, status: 401
     end

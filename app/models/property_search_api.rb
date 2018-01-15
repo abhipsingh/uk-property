@@ -13,8 +13,8 @@ class PropertySearchApi
              :postcode, :post_town, :thoroughfare_description, :dependent_thoroughfare_description, :dependent_locality, :double_dependent_locality,
              :county, :udprn, :not_yet_built , :is_new_home, :is_retirement_home, :is_shared_ownership, :area, :property_type ],
     range: [ :cost_per_month, :date_added, :floors, :year_built, :inner_area, :outer_area, :total_area, :improvement_spend, :beds, :baths, :receptions, :current_valuation, :dream_price, :last_sale_price ],
-    exists: [ :vendor_id, :agent_id ],
-    not_exists: [ :vendor_id, :agent_id ]
+    exists: [ :vendor_id, :agent_id, :property_status_type, :udprn, :postcode, :property_style, :sale_price ],
+    not_exists: [ :vendor_id, :agent_id, :property_status_type, :udprn, :postcode, :property_style, :sale_price ]
   }
 
   ES_ATTRS = [
@@ -111,6 +111,13 @@ class PropertySearchApi
     return { results: body }, status
   end
 
+  def filter_query
+    inst = self
+    modify_filtered_params
+    inst.apply_filters
+    inst
+  end
+
   def adjust_size
     if @filtered_params.has_key?(:limit)
       @query[:size] = [@filtered_params[:limit], 1000].min
@@ -204,16 +211,17 @@ class PropertySearchApi
   end
 
   def fetch_details_from_udprns(udprns)
+    udprns = udprns.map(&:to_i).uniq.select{|t| t> 0 }
     body = PropertyService.bulk_details(udprns)    
     body.each{|t| t['address'] = PropertyDetails.address(t)}
     body.each{|t| t['vanity_url'] = PropertyDetails.vanity_url(t['address'])}
+
     return body
   end
 
   def modify_query
     if @filtered_params.has_key?(:match_type)
       type_of_match = @filtered_params[:match_type]
-      #binding.pry
       modify_type_of_match_query(type_of_match)
     end
   end

@@ -416,6 +416,9 @@ Rails.application.routes.draw do
   ### Sends an SMS to a mobile number to check it later
   post '/send/otp',                                             to: 'sessions#send_otp_to_number'
 
+  ### Properties for an agent which have missing sale price
+  get '/agents/properties/quotes/missing/price',                to: 'agents#missing_sale_price_properties_for_agents'
+
   ### Count of matching properties(aggregate) not divided by property_status_type
   #####################################################################
   #####################################################################

@@ -65,7 +65,7 @@ class PropertyService
 
   INT_ATTRS = [ :council_tax_band_cost, :ground_rent_cost, :annual_ground_water_cost, :annual_service_charge, :lighting_cost, :heating_cost, :hot_water_cost, :resident_parking_cost ]
 
-  ARRAY_HASH_ATTRS = [:outside_space_type, :additional_features, :pictures, :property_style, :sale_prices, :other_costs, :improvement_types, :floorplan_urls, :outside_space_types]
+  ARRAY_HASH_ATTRS = [:outside_space_type, :additional_features, :pictures, :sale_prices, :other_costs, :improvement_types, :floorplan_urls, :outside_space_types]
 
   STATUS_MANDATORY_ATTRS_MAP = {
     'Green' => MANDATORY_ATTRS + [:sale_price, :sale_price_type],
@@ -148,22 +148,15 @@ class PropertyService
 
   def attach_vendor_to_property(vendor_id, details={}, property_for='Sale')
     property_details = PropertyDetails.details(udprn)[:_source]
-    details.symbolize_keys!
-    details.each {|key, value|  property_details[key] = value }
     district = property_details[:district]
     create_lead_and_update_vendor_details(district, udprn, vendor_id, property_details, property_for)
   end
 
   def create_lead_and_update_vendor_details(district, udprn, vendor_id, details, property_for='Sale')
-    client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
-    property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[details['property_status_type']]
     create_lead_for_local_branches(district, udprn, vendor_id) 
-    details[:vendor_id] = vendor_id
-    details[:claimed_on] = Time.now.to_s
-    details[:claimed_by] = 'Vendor'
-    # p details
-    self.class.normalize_all_attrs(details)
-    PropertyDetails.update_details(client, udprn, details)
+    update_hash = { vendor_id: vendor_id, claimed_on: Time.now.to_s, claimed_by: 'Vendor' }
+    Rails.logger.info("UPDATE_HASH_#{update_hash}")
+    PropertyService.new(udprn.to_i).update_details(update_hash)
   end
 
   def create_lead_for_local_branches(district, property_id, vendor_id)
@@ -499,9 +492,6 @@ class PropertyService
       details[:description] = crawled_property_detail.stored_response['description']
 
       update_details(details)
-
-      ### Tag the property as indexed in the primary db
-      Uk::Property.where(udprn: @udprn).last.update_attributes(indexed: true)
     end
   end
 
