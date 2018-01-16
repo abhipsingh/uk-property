@@ -28,30 +28,13 @@ module Enquiries
       elsif is_premium
         query = query.order('created_at DESC')
         total_rows = query.to_a
-        result = self.class.process_enquiries_result(total_rows, @agent_id, is_premium, old_stats_flag)
+        result = process_enquiries_result(total_rows, @agent_id, is_premium, old_stats_flag)
       else
         query = query.order('created_at DESC')
         total_rows = query.limit(Event::PAGE_SIZE).offset(page_number.to_i*Event::PAGE_SIZE)
         result = self.class.process_enquiries_result(total_rows, @agent_id)
       end
       result
-    end
-
-    
-    def self.push_events_details(details, is_premium=false, old_stats_flag=false)
-      new_row = {}
-      new_row[:percent_completed] = PropertyService.new(details[:_source][:udprn]).compute_percent_completed({}, details[:_source] )
-      new_row[:percent_completed] ||= nil
-
-      new_row[:pictures] = details[:_source][:pictures]
-      new_row[:pictures] = [] if details[:_source][:pictures].nil?
-      image_url ||= "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details[:_source][:udprn]}/fov_120_#{details[:_source][:udprn]}.jpg"
-      new_row[:street_view_image_url] = image_url
-      new_row[:status_last_updated] = details[:_source][:status_last_updated]
-      new_row[:status_last_updated] = Time.parse(new_row[:status_last_updated]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:status_last_updated] 
-      add_enquiry_stats(new_row, details['_source'], is_premium, old_stats_flag)
-      details['_source'].merge!(new_row)
-      details['_source']
     end
 
   end

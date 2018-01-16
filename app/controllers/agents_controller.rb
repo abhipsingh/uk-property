@@ -1,4 +1,8 @@
 class AgentsController < ApplicationController
+  around_action :authenticate_agent, only: [ :branch_info_for_location, :invite_vendor, :create_agent_without_password, :add_credits,
+                                             :branch_specific_invited_agents, :credit_history, :subscribe_premium_service, :remove_subscription,
+                                             :manual_property_leads, :invited_vendor_history, :missing_sale_price_properties_for_agents, 
+                                             :inactive_property_credits, :crawled_property_details ]
   ### Details of the branch
   ### curl -XGET 'http://localhost/agents/predictions?str=Dyn'
   def search
@@ -28,19 +32,6 @@ class AgentsController < ApplicationController
     district = details['_source']['district']
     count = Agents::Branches::AssignedAgent.joins(:branch).where('agents_branches.district = ?', district).count
     render json: count, status: 200
-  end
-
-  #### Information about branches for this district
-  #### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo"  'http://localhost/branches/list/:district'
-  def list_branches
-    vendor = user_valid_for_viewing?('Vendor')
-    ### Either a vendor or a premium developer
-    if !vendor.nil? && (vendor.klass.to_s == 'Vendor' || (vendor.klass.to_s == 'Agent' && vendor.is_developer ))
-      branch_list = Agents::Branch.unscope(where: :is_developer).where(district: params[:district]).select([:id, :name]) 
-      render json: branch_list, status: 200
-    else
-      render json: { message: 'Authorization failed' }, status: 401
-    end
   end
 
   def quotes_per_property
@@ -199,18 +190,14 @@ class AgentsController < ApplicationController
   ### curl  -XPOST -H  "Content-Type: application/json"  'http://localhost/agents/23/udprns/10968961/verify' -d '{ "assigned_agent_id": 25, "vendor_email" : "test@prophety.co.uk" }'
   def invite_vendor
     udprn = params[:udprn].to_i
-    agent = user_valid_for_viewing?('Agent')
-    if !agent.nil?
-      vendor_email = params[:vendor_email]
-      invited_vendor = InvitedVendor.where(email: vendor_email).where(agent_id: agent.id).last
-      if invited_vendor
-        invited_vendor.update_attributes(update_at: Time.now)
-        agent.send_vendor_email(vendor_email, udprn)
-      end
-      render json: {message: 'Message sent successfully'}, status: 200
-    else
-      render json: { message: 'Authorization failed' }, status: 401
+    agent = @current_user
+    vendor_email = params[:vendor_email]
+    invited_vendor = InvitedVendor.where(email: vendor_email).where(agent_id: agent.id).last
+    if invited_vendor
+      invited_vendor.update_attributes(update_at: Time.now)
+      agent.send_vendor_email(vendor_email, udprn)
     end
+    render json: {message: 'Message sent successfully'}, status: 200
   end
 
 
@@ -322,32 +309,28 @@ class AgentsController < ApplicationController
   ### Done when the agent attaches the udprn to the property
   ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/agents/properties/10968961/manual/verify' -d '{ "property_type" : "Barn conversion", "beds" : 1, "baths" : 1, "receptions" : 1, "agent_id": 1234, "vendor_email": "residentevil293@prophety.co.uk", "assigned_agent_email" :  "residentevil293@prophety.co.uk" }'
   def verify_manual_property_from_agent
-    agent = user_valid_for_viewing?('Agent')
-    if !agent.nil?
-      udprn = params[:udprn].to_i
-      agent_id = agent.id
-      agent_service = AgentService.new(agent_id, udprn)
-      property_attrs = {
-        property_status_type: 'Green',
-        verification_status: false,
-        property_type: params[:property_type],
-        receptions: params[:receptions].to_i,
-        beds: params[:beds].to_i,
-        baths: params[:baths].to_i,
-        details_completed: false,
-        property_id: udprn,
-        claimed_on: Time.now.to_s,
-        claimed_by: 'Agent'
-      }
-      
-      vendor_email = params[:vendor_email]
-      assigned_agent_email = params[:assigned_agent_email]
-      response, status = agent_service.verify_manual_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
-      response['message'] = "Property details updated." unless status.nil? || status!=200
-      render json: response, status: status
-    else
-      render json: { message: 'Authorization failed' }, status: 401
-    end
+    agent = @current_user
+    udprn = params[:udprn].to_i
+    agent_id = agent.id
+    agent_service = AgentService.new(agent_id, udprn)
+    property_attrs = {
+      property_status_type: 'Green',
+      verification_status: false,
+      property_type: params[:property_type],
+      receptions: params[:receptions].to_i,
+      beds: params[:beds].to_i,
+      baths: params[:baths].to_i,
+      details_completed: false,
+      property_id: udprn,
+      claimed_on: Time.now.to_s,
+      claimed_by: 'Agent'
+    }
+    
+    vendor_email = params[:vendor_email]
+    assigned_agent_email = params[:assigned_agent_email]
+    response, status = agent_service.verify_manual_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
+    response['message'] = "Property details updated." unless status.nil? || status!=200
+    render json: response, status: status
   #rescue Exception => e
   #  Rails.logger.info("AGENT_MANUAL_PROPERTY_VERIFICATION_FAILURE_#{e}")
   #  render json: { message: 'Verification failed due to some error' }, status: 400
@@ -499,25 +482,21 @@ class AgentsController < ApplicationController
   ### The agent having the email will have to reset the password
   ### curl -XPOST -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/add/:agent_id' -d '{ "first_name" : "Jack", "last_name" : "Daniels", "title" : "Mr.", "email" : "jack_daniels@prophety.co.uk", "mobile_number" : "876628921", "branch_id" : 1422 }'
   def create_agent_without_password
-    agent = user_valid_for_viewing?('Agent')
-    if !agent.nil?
-      response = {}
-      agent_hash = {
-        name: params[:first_name] + ' ' + params[:last_name],
-        first_name: params[:first_name],
-        last_name: params[:last_name],
-        title: params[:title],
-        branch_id: params[:branch_id],
-        email: params[:email],
-        mobile: params[:mobile_number],
-        password: SecureRandom.hex(8)
-      }
-      response = Agents::Branches::AssignedAgent.create!(agent_hash)
-      status = 201
-      render json: response, status: status
-    else
-      render json: { message: 'Authorization failed' }, status: 401
-    end
+    agent = @current_user
+    response = {}
+    agent_hash = {
+      name: params[:first_name] + ' ' + params[:last_name],
+      first_name: params[:first_name],
+      last_name: params[:last_name],
+      title: params[:title],
+      branch_id: params[:branch_id],
+      email: params[:email],
+      mobile: params[:mobile_number],
+      password: SecureRandom.hex(8)
+    }
+    response = Agents::Branches::AssignedAgent.create!(agent_hash)
+    status = 201
+    render json: response, status: status
   rescue Exception => e 
     status = 400
     render json: { message: "#{e.message}" } , status: status
@@ -527,97 +506,81 @@ class AgentsController < ApplicationController
   ### The agent having the email will have to reset the password
   ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" -H "Content-Type: application/json" 'http://localhost/agents/credits/add' -d '{ "stripeEmail" : "abhiuec@gmail.com", "stripeToken":"tok_19WlE9AKL3KAwfPBkWwgTpqt", "credits" : 100, "udprn":23840421 }'
   def add_credits
-    agent = user_valid_for_viewing?('Agent')
-    if !agent.nil?
-      begin
-        customer = Stripe::Customer.create(
-          email: params[:stripeEmail],
-          card: params[:stripeToken]
-        )
-        amount = Agents::Branches::AssignedAgent::PER_CREDIT_COST*params[:credit].to_i*100 ### In pences
-        charge = Stripe::Charge.create(
-          customer: customer.id,
-          amount: amount,
-          description: 'Add credit to agents Stripe customer',
-          currency: 'GBP'
-        )
-        agent.credit = agent.credit + params[:credit].to_i
-        agent.save!
-        Stripe::Payment.create!(entity_type: 'Agents::Branches::AssignedAgent', entity_id: agent.id, amount: amount, charge_id: charge.id, udprn: params[:udprn].to_i)
-        render json: { message: 'Successfully added credits', credits: agent.credit, credits_bought: params[:credit].to_i }, status: 200
-      rescue Exception => e
-        re = Stripe::Refund.create(
-          charge: charge.id,
-          amount: value
-        )
-        Rails.logger.info("REFUND_INITIATED_#{e.message}_#{agent}_#{params[:credit]}")
-        render json: { message: 'Unsuccessful in adding credits' }, status: 401
-      end
-    else
-      render json: { message: 'Authorization failed' }, status: 401
+    agent = @current_user
+    begin
+      customer = Stripe::Customer.create(
+        email: params[:stripeEmail],
+        card: params[:stripeToken]
+      )
+      amount = Agents::Branches::AssignedAgent::PER_CREDIT_COST*params[:credit].to_i*100 ### In pences
+      charge = Stripe::Charge.create(
+        customer: customer.id,
+        amount: amount,
+        description: 'Add credit to agents Stripe customer',
+        currency: 'GBP'
+      )
+      agent.credit = agent.credit + params[:credit].to_i
+      agent.save!
+      Stripe::Payment.create!(entity_type: 'Agents::Branches::AssignedAgent', entity_id: agent.id, amount: amount, charge_id: charge.id, udprn: params[:udprn].to_i)
+      render json: { message: 'Successfully added credits', credits: agent.credit, credits_bought: params[:credit].to_i }, status: 200
+    rescue Exception => e
+      re = Stripe::Refund.create(
+        charge: charge.id,
+        amount: value
+      )
+      Rails.logger.info("REFUND_INITIATED_#{e.message}_#{agent}_#{params[:credit]}")
+      render json: { message: 'Unsuccessful in adding credits' }, status: 401
     end
   end
 
   ### Invited agents history for branches
   ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" -H "Content-Type: application/json" 'http://localhost/agents/list/invited/agents'
   def branch_specific_invited_agents
-    agent = user_valid_for_viewing?('Agent')
-    if !agent.nil?
-      branch_id = agent.branch_id
-      invited_agents = InvitedAgent.where(branch_id: branch_id).select([:email, :created_at])
-      render json: invited_agents, status: 200
-    else
-      render json: { message: 'Authorization failed' }, status: 401
-    end
+    agent = @current_user
+    branch_id = agent.branch_id
+    invited_agents = InvitedAgent.where(branch_id: branch_id).select([:email, :created_at])
+    render json: invited_agents, status: 200
   end
 
   ### Credits history
   ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" -H "Content-Type: application/json" 'http://localhost/agents/credits/history'
   def credit_history
-    agent = user_valid_for_viewing?('Agent')
-    if !agent.nil?
-      page_size = 20
-      offset = params[:page].to_i*page_size
-      payments = Stripe::Payment.where(entity_type: Stripe::Payment::USER_TYPES['Agent'], entity_id: agent.id).order('created_at DESC').limit(page_size).offset(offset)
-      render json: { payments: payments }, status: 200
-    else
-      render json: { message: 'Authorization failed' }, status: 401
-    end
+    agent = @current_user
+    page_size = 20
+    offset = params[:page].to_i*page_size
+    payments = Stripe::Payment.where(entity_type: Stripe::Payment::USER_TYPES['Agent'], entity_id: agent.id).order('created_at DESC').limit(page_size).offset(offset)
+    render json: { payments: payments }, status: 200
   end
 
   ### Agents api for submitting agent card info when subscribing to a premium service
   ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" -H "Content-Type: application/json" 'http://localhost/agents/subscribe/premium/service' -d '{ "stripeEmail" : "email", "stripeToken" : "token" }'
   def subscribe_premium_service
-    agent = user_valid_for_viewing?('Agent')
-    if !agent.nil?
-      sig_header = request.env['HTTP_STRIPE_SIGNATURE']
-      payload = request.body.read
-      begin
-        # Create the customer in Stripe
-        customer = Stripe::Customer.create(
-          email: params[:stripeEmail],
-          card: params[:stripeToken],
-          plan: 'agent_monthly_premium_package'
-        )
-        stripe_subscription = customer.subscriptions.create(:plan => 'agent_monthly_premium_package')
-        agent.is_premium = true
-        agent.stripe_customer_id = customer.id
-        agent.premium_expires_at = 1.month.from_now.to_date
-        agent.save!
-        render json: { message: 'Created a monthly subscription for premium service' }, status: 200
-      rescue JSON::ParserError => e
-        # Invalid payload
-        status 400
-        render json: { message: 'JSON parser error' }, status: 400
-      rescue Stripe::SignatureVerificationError => e
-        # Invalid signature
-        render json: { message: 'Invalid Signature' }, status: 400
-      rescue Exception => e
-        Rails.logger.info(e.message)
-        render json: { message: 'Unable to create Stripe customer and charge. Please retry again' }, status: 400
-      end
-    else
-      render json: { message: 'Authorization failed' }, status: 401
+    agent = @current_user
+    sig_header = request.env['HTTP_STRIPE_SIGNATURE']
+    payload = request.body.read
+    begin
+      # Create the customer in Stripe
+      customer = Stripe::Customer.create(
+        email: params[:stripeEmail],
+        card: params[:stripeToken],
+        plan: 'agent_monthly_premium_package'
+      )
+      stripe_subscription = customer.subscriptions.create(:plan => 'agent_monthly_premium_package')
+      agent.is_premium = true
+      agent.stripe_customer_id = customer.id
+      agent.premium_expires_at = 1.month.from_now.to_date
+      agent.save!
+      render json: { message: 'Created a monthly subscription for premium service' }, status: 200
+    rescue JSON::ParserError => e
+      # Invalid payload
+      status 400
+      render json: { message: 'JSON parser error' }, status: 400
+    rescue Stripe::SignatureVerificationError => e
+      # Invalid signature
+      render json: { message: 'Invalid Signature' }, status: 400
+    rescue Exception => e
+      Rails.logger.info(e.message)
+      render json: { message: 'Unable to create Stripe customer and charge. Please retry again' }, status: 400
     end
   end
 
@@ -645,28 +608,20 @@ class AgentsController < ApplicationController
   ### Stripe agents subscription recurring payment
   ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/premium/subscription/remove'
   def remove_subscription
-    agent = user_valid_for_viewing?('Agent')
-    if !agent.nil?
-      customer_id = agent.stripe_customer_id
-      customer = Stripe::Customer.retrieve(customer_id)
-      subscription.delete
-      render json: { message: 'Unsubscribed succesfully' }, status: 200
-    else
-      render json: { message: 'Authorization failed' }, status: 401
-    end
+    agent = @current_user
+    customer_id = agent.stripe_customer_id
+    customer = Stripe::Customer.retrieve(customer_id)
+    subscription.delete
+    render json: { message: 'Unsubscribed succesfully' }, status: 200
   end
 
   ### Shows the leads for the personal properties claimed by the agent
   ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/manual/properties/leads'
   def manual_property_leads
-    agent = user_valid_for_viewing?('Agent')
-    if !agent.nil?
+    agent = @current_user
     #if true
-      leads = Agents::Branches::AssignedAgent.find(agent.id).personal_claimed_properties
-      render json: leads, status: 200
-    else
-      render json: { message: 'Authorization failed' }, status: 401
-    end
+    leads = Agents::Branches::AssignedAgent.find(agent.id).personal_claimed_properties
+    render json: leads, status: 200
   end
 
   ### Shows the local branches to the vendor or a developer(pseudo vendor for a new property)
@@ -715,35 +670,30 @@ class AgentsController < ApplicationController
   ### History of properties which have been manually invitedby the agents
   ### curl -XGET -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/properties/history/invited'
   def invited_vendor_history
-    agent = user_valid_for_viewing?('Agent')
-    if !agent.nil?
-      results = []
-      InvitedVendor.where(agent_id: agent.id).where(source: Vendor::INVITED_FROM_CONST[:family]).order('created_at DESC').each do |invited_vendor|
-        udprn = invited_vendor.udprn
-        details = PropertyDetails.details(udprn)[:_source]
-        result = {
-          beds: details[:beds],
-          baths: details[:baths],
-          receptions: details[:receptions],
-          vendor_email: invited_vendor.email,
-          property_type: details[:property_type],
-          address: details[:address],
-          last_email_sent: invited_vendor.created_at,
-          is_vendor_registered: Vendor.where(email: invited_vendor.email).last.nil?
-        }
-        results.push(result)
-      end
-      render json: results, status: 200
-    else
-      render json: { message: 'Authorization failed' }, status: 401
+    agent = @current_user
+    results = []
+    InvitedVendor.where(agent_id: agent.id).where(source: Vendor::INVITED_FROM_CONST[:family]).order('created_at DESC').each do |invited_vendor|
+      udprn = invited_vendor.udprn
+      details = PropertyDetails.details(udprn)[:_source]
+      result = {
+        beds: details[:beds],
+        baths: details[:baths],
+        receptions: details[:receptions],
+        vendor_email: invited_vendor.email,
+        property_type: details[:property_type],
+        address: details[:address],
+        last_email_sent: invited_vendor.created_at,
+        is_vendor_registered: Vendor.where(email: invited_vendor.email).last.nil?
+      }
+      results.push(result)
     end
+    render json: results, status: 200
   end
 
   ### List of properties which have been won by the agent, to be show for filling sale price
   ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/properties/quotes/missing/price'
   def missing_sale_price_properties_for_agents
-    agent = user_valid_for_viewing?('Agent')
-    if !agent.nil?
+    agent = @current_user
     #if true
       won_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']
       quotes_won = Agents::Branches::AssignedAgents::Quote.where(agent_id: agent.id, status: won_status).pluck(:property_id)
@@ -755,65 +705,54 @@ class AgentsController < ApplicationController
       else
         render json: { message: 'Something wrong happened' }, status: 400
       end
-    else
-      render json: { message: 'Authorization failed' }, status: 401
-    end
   end
 
   ### Provide the credits which will be charged, if the agent makes an inactive property closed_won
   ### curl -XGET -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/inactive/property/credits/53831459?buyer_id=331'
   def inactive_property_credits
-    agent = user_valid_for_viewing?('Agent')
-    if !agent.nil?
-      udprn = params[:udprn].to_i
-      details = PropertyDetails.details(udprn)[:_source]
-      buyer_id = params[:buyer_id].to_i
-      offer_price = Evemt.where(buyer_id: buyer_id, udprn: udprn).last.offer_price
-      credits = ((Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(offer_price.to_f)).to_i/Agents::Branches::AssignedAgent::PER_CREDIT_COST)
-      has_required_credits = (agent.credit >= credits)
-      render json: { credits: credits, has_required_credits: has_required_credits, agent_credits: agent.credit }, status: 200
-    else
-      render json: { message: 'Authorization failed' }, status: 401
-    end
+    agent = @current_user
+    udprn = params[:udprn].to_i
+    details = PropertyDetails.details(udprn)[:_source]
+    buyer_id = params[:buyer_id].to_i
+    offer_price = Evemt.where(buyer_id: buyer_id, udprn: udprn).last.offer_price
+    credits = ((Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(offer_price.to_f)).to_i/Agents::Branches::AssignedAgent::PER_CREDIT_COST)
+    has_required_credits = (agent.credit >= credits)
+    render json: { credits: credits, has_required_credits: has_required_credits, agent_credits: agent.credit }, status: 200
   end
 
   ### Get all the details of the crawled property
   ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/details/property/:property_id'
   def crawled_property_details
-    agent = user_valid_for_viewing?('Agent')
-    if !agent.nil?
+    agent = @current_user
     #if true
-      crawled_property = Agents::Branches::CrawledProperty.where(id: params[:property_id].to_i).last
-      if crawled_property
-        details = {}
-        details[:beds] = crawled_property.stored_response['beds']
-        details[:baths] = crawled_property.stored_response['baths']
-        details[:receptions] = crawled_property.stored_response['receptions']
-        details[:title] = crawled_property.stored_response['title']
-        details[:assigned_agent_image_url] = crawled_property.stored_response['agent_logo']
-        details[:assigned_agent_image_url] = crawled_property.stored_response['agent_logo']
-        details[:opening_hours] = crawled_property.stored_response['opening_hours']
-        details[:listing_category] = crawled_property.additional_details['listings_category']
-        details[:price] = crawled_property.additional_details['price']
-        details[:floorplan_url] = crawled_property.stored_response['floorplan_url']
-        details[:property_type] = crawled_property.additional_details['property_type']
-        details[:epc] = crawled_property.additional_details['has_epc']
-        details[:total_area] = crawled_property.additional_details['size_sq_feet']
-        details[:total_area] ||= (crawled_property.additional_details['size_sq_metres'].to_f*3.280).to_i if crawled_property.additional_details['size_sq_metres']
-        details[:price_qualifier] = crawled_property.additional_details['price_qualifier']
-        details[:property_style] = crawled_property.additional_details['listing_condition']
-        details[:is_retirement_home] = crawled_property.additional_details['is_retirement_home']
-        highlights = crawled_property.additional_details['property_highlights'].split('|') rescue []
-        main_features = crawled_property.stored_response['features']
-        main_features ||= []
-        details[:additional_features] = main_features + highlights
-        details[:description] = crawled_property.stored_response['description']
-        render json: details, status: 200
-      else
-        render json: { message: 'Property does not exist' }, status: 400
-      end
+    crawled_property = Agents::Branches::CrawledProperty.where(id: params[:property_id].to_i).last
+    if crawled_property
+      details = {}
+      details[:beds] = crawled_property.stored_response['beds']
+      details[:baths] = crawled_property.stored_response['baths']
+      details[:receptions] = crawled_property.stored_response['receptions']
+      details[:title] = crawled_property.stored_response['title']
+      details[:assigned_agent_image_url] = crawled_property.stored_response['agent_logo']
+      details[:assigned_agent_image_url] = crawled_property.stored_response['agent_logo']
+      details[:opening_hours] = crawled_property.stored_response['opening_hours']
+      details[:listing_category] = crawled_property.additional_details['listings_category']
+      details[:price] = crawled_property.additional_details['price']
+      details[:floorplan_url] = crawled_property.stored_response['floorplan_url']
+      details[:property_type] = crawled_property.additional_details['property_type']
+      details[:epc] = crawled_property.additional_details['has_epc']
+      details[:total_area] = crawled_property.additional_details['size_sq_feet']
+      details[:total_area] ||= (crawled_property.additional_details['size_sq_metres'].to_f*3.280).to_i if crawled_property.additional_details['size_sq_metres']
+      details[:price_qualifier] = crawled_property.additional_details['price_qualifier']
+      details[:property_style] = crawled_property.additional_details['listing_condition']
+      details[:is_retirement_home] = crawled_property.additional_details['is_retirement_home']
+      highlights = crawled_property.additional_details['property_highlights'].split('|') rescue []
+      main_features = crawled_property.stored_response['features']
+      main_features ||= []
+      details[:additional_features] = main_features + highlights
+      details[:description] = crawled_property.stored_response['description']
+      render json: details, status: 200
     else
-      render json: { message: 'Authorization failed' }, status: 401
+      render json: { message: 'Property does not exist' }, status: 400
     end
   end
 
@@ -828,6 +767,29 @@ class AgentsController < ApplicationController
       result
     else
       AuthorizeApiRequest.call(request.headers, klass).result
+    end
+  end
+
+  def authenticate_agent
+    if user_valid_for_viewing?('Agent')
+      yield
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  private
+
+  def user_valid_for_viewing?(klass, klasses=[])
+    if !klasses.empty?
+      result = nil
+      klasses.each do |klass|
+        result ||= AuthorizeApiRequest.call(request.headers, klass).result
+      end
+      @current_user = result
+      result
+    else
+      @current_user = AuthorizeApiRequest.call(request.headers, klass).result
     end
   end
 
