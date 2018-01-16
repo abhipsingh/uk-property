@@ -81,3 +81,8 @@ gem 'dalli'
 
 ### Verifying Ruby OTPs
 gem 'rotp'
+
+### Tracking postgres stats
+gem 'pghero'
+gem 'pg_query', '>= 0.9.0'
+

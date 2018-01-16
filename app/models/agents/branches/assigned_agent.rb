@@ -17,7 +17,7 @@ module Agents
       LEAD_CREDIT_LIMIT = 1
       PAGE_SIZE = 30
       PREMIUM_COST = 25
-      MIN_INVITED_FRIENDS_FAMILY_VALUE = 1
+      MIN_INVITED_FRIENDS_FAMILY_VALUE = 0
 
       ### Percent of current valuation charged as commission for quotes submission
       CURRENT_VALUATION_PERCENT = 0.01
@@ -85,7 +85,7 @@ module Agents
         end
 
         if search_str && is_premium
-          udprns = Trackers::Buyer.new.fetch_udprns(search_str)
+          udprns = Enquiries::PropertyService.fetch_udprns(search_str)
           udprns = udprns.map(&:to_i)
           query = query.where(property_id: udprns)
         end
@@ -149,6 +149,20 @@ module Agents
             new_row[:quote_details] = agent_quote.quote_details if agent_quote
             new_row[:quote_details] ||= each_quote.quote_details
             
+            existing_agent = Agents::Branches::AssignedAgent.where(id: each_quote.existing_agent_id).last
+            if existing_agent
+              new_row[:current_agent] = existing_agent.name
+              ### Branch and logo
+              new_row[:assigned_branch_logo] = existing_agent.branch.image_url
+              new_row[:assigned_branch_name] = existing_agent.branch.name
+              new_row[:assigned_agent_id] = existing_agent.id
+            else
+              new_row[:current_agent] = nil
+              ### Branch and logo
+              new_row[:assigned_branch_logo] = nil
+              new_row[:assigned_branch_name] = nil
+              new_row[:assigned_agent_id] = nil
+            end
             new_row[:current_agent] = self.name
             new_row['street_view_url'] = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{property_details['udprn']}/fov_120_#{property_details['udprn']}.jpg"
             new_row[:current_valuation] = property_details['current_valuation']
@@ -231,7 +245,7 @@ module Agents
         query = query.where(owned_property: owned_property) if owned_property
 
         if search_str && is_premium
-          udprns = Trackers::Buyer.new.fetch_udprns(search_str)
+          udprns = Enquiries::PropertyService.fetch_udprns(search_str)
           udprns = udprns.map(&:to_i)
           query = query.where(property_id: udprns)
         end

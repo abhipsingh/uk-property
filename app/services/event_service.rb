@@ -164,16 +164,16 @@ class EventService
     query = query.where("created_at > ?", @last_time) if @last_time
 
     ### Stage filter
-    query = query.where(stage: Trackers::Buyer::EVENTS[@qualifying_stage]) if @qualifying_stage
+    query = query.where(stage: Event::EVENTS[@qualifying_stage]) if @qualifying_stage
 
     ### Rating filter
-    query = query.where(rating: Trackers::Buyer::EVENTS[@rating]) if @rating
+    query = query.where(rating: Event::EVENTS[@rating]) if @rating
 
     ### buyer id filter
     query = query.where(buyer_id: @buyer_id) if @buyer_id && @is_premium
 
     ### closed won or lost filter
-    query = query.where(stage: [Trackers::Buyer::EVENTS[:closed_won_stage], Trackers::Buyer::EVENTS[:closed_lost_stage]]) if @closed
+    query = query.where(stage: [Event::EVENTS[:closed_won_stage], Event::EVENTS[:closed_lost_stage]]) if @closed
 
     ### Archived filter
     query = query.unscope(where: :is_archived).where(is_archived: true) if @archived == true && @is_premium
@@ -382,7 +382,7 @@ class EventService
     udprns.map { |e| e.to_i }
   end
 
-  ##### Trackers::Buyer.new.fetch_filtered_buyer_ids('First time buyer', 'Mortgage approved', 'Funding', true)
+  ##### Event.new.fetch_filtered_buyer_ids('First time buyer', 'Mortgage approved', 'Funding', true)
   ##### Returns an array of buyer_ids
   def fetch_filtered_buyer_ids(buyer_buying_status=nil, buyer_funding=nil, buyer_biggest_problem=nil, buyer_chain_free=nil, buyer_search_value=nil, budget_from=nil, budget_to=nil)
     pb = PropertyBuyer

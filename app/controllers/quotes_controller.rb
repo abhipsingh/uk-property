@@ -11,11 +11,13 @@ class QuotesController < ApplicationController
   #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/quotes/property/10966139' -d '{ "services_required" : "Fixed Price", "payment_terms" : "Pay upfront", "quote_details" : "\{ \"fixed_price_services_requested\" : \{ \"price\" : null, \"list_of_services\" : \[\"Full\"\]  \}  \}", "assigned_agent": true }'
   def new_quote_for_property
     service = QuoteService.new(params[:udprn].to_i)
-    vendor_id = PropertyDetails.details(params[:udprn].to_i)[:_source][:vendor_id]
+    details = PropertyDetails.details(params[:udprn].to_i)[:_source]
+    existing_agent_id = details[:agent_id]
+    vendor_id = details[:vendor_id]
     yearly_quote_count = Agents::Branches::AssignedAgents::Quote.where(vendor_id: vendor_id).where("created_at > ?", 1.year.ago).group(:property_id).select("count(id)").to_a.count
     if yearly_quote_count <= Agents::Branches::AssignedAgents::Quote::VENDOR_LIMIT
       response, status = service.new_quote_for_property(params[:services_required], params[:payment_terms],
-                                              params[:quote_details], params[:assigned_agent])
+                                              params[:quote_details], params[:assigned_agent], existing_agent_id)
       render json: response, status: status
     else
       render json: { message: "Yearly quota limit for vendor has exceeded #{Agents::Branches::AssignedAgents::Quote::VENDOR_LIMIT}. You have claimed #{yearly_quote_count} quotes till now in this year ", quotes_count: yearly_quote_count, quote_limit: Agents::Branches::AssignedAgents::Quote::VENDOR_LIMIT }, status: 400

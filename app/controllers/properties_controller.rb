@@ -93,7 +93,7 @@ class PropertiesController < ActionController::Base
     if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
     #if true
     #  cache_response(params[:udprn].to_i, []) do
-        interest_info = Trackers::Buyer.new.interest_info(params[:udprn].to_i)
+        interest_info = Enquiries::PropertyService.new(udprn: params[:udprn].to_i).interest_info
         render json: interest_info, status: 200
     #  end
     else
@@ -104,7 +104,7 @@ class PropertiesController < ActionController::Base
   #### From supply table, this action gives the data regarding how many properties are similar to their property.
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/supply/10966139'
   def supply_info
-    supply_info = Trackers::Buyer.new.supply_info(params[:udprn].to_i)
+    supply_info = Enquiries::PropertyService.new(udprn: params[:udprn].to_i).supply_info
     render json: supply_info, status: 200
   end
 
@@ -112,7 +112,7 @@ class PropertiesController < ActionController::Base
   def supply_info_aggregate
     #if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
     if true
-      supply_info = Trackers::Buyer.new.supply_info(params[:udprn].to_i)
+      supply_info = Enquiries::PropertyService.new(udprn: params[:udprn].to_i).supply_info
       #{"locality":{"Green":0,"Amber":0,"Red":0},"street":{"Green":0,"Amber":0,"Red":0}} 
       supply_info_aggregate = {}
       supply_info[:locality] ||= {"Green"=>0,"Amber"=>0,"Red"=>0}
@@ -131,7 +131,7 @@ class PropertiesController < ActionController::Base
   #### similar to their property.
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/demand/10966139'
   def demand_info
-    demand_info = Trackers::Buyer.new.demand_info(params[:udprn].to_i)
+    demand_info = Enquiries::PropertyService.new(udprn: params[:udprn].to_i).demand_info
     render json: demand_info, status: 200
   end
 
@@ -139,14 +139,14 @@ class PropertiesController < ActionController::Base
   #### similar to their property.
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/buyer/intent/10966139'
   def buyer_intent_info
-    buyer_intent_info = Trackers::Buyer.new.buyer_intent_info(params[:udprn].to_i)
+    buyer_intent_info = Enquiries::PropertyService.new(udprn: params[:udprn].to_i).buyer_intent_info
     render json: buyer_intent_info, status: 200
   end
 
   #### For all the pie charts concerning the profile of the buyer, this action can be used.
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/buyer/profile/stats/10966139'
   def buyer_profile_stats
-    buyer_profile_stats = Trackers::Buyer.new.buyer_profile_stats(params[:udprn].to_i)
+    buyer_profile_stats = Enquiries::PropertyService.new(udprn: params[:udprn].to_i).buyer_profile_stats
     render json: buyer_profile_stats, status: 200
   end
 
@@ -155,7 +155,7 @@ class PropertiesController < ActionController::Base
   def agent_stage_and_rating_stats
     agent_id = PropertyDetails.details(params[:udprn].to_i)['_source']['agent_id'] rescue nil
     if agent_id ### && quote.status == 1
-      response = Trackers::Buyer.new.agent_stage_and_rating_stats(params[:udprn].to_i)
+      response = Enquiries::PropertyService.new(udprn: params[:udprn].to_i).agent_stage_and_rating_stats
       status = 200
     else
       response = { message: " You're not subscribed to this property " }
@@ -167,7 +167,7 @@ class PropertiesController < ActionController::Base
   #### Ranking stats for the given property
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/ranking/stats/10966139'
   def ranking_stats
-    ranking_info = Trackers::Buyer.new.ranking_stats(params[:udprn].to_i)
+    ranking_info = Enquiries::PropertyService.new(udprn: params[:udprn].to_i).ranking_stats
     render json: ranking_info, status: status
   end
 
@@ -188,7 +188,7 @@ class PropertiesController < ActionController::Base
     cache_parameters = [:enquiry_type, :type_of_match, :hash_str, :property_status_type, :verification_status, :last_time, :page, :count].map{ |t| params[t].to_s }
     count = params[:count].to_s == 'true'
     cache_response(params[:buyer_id].to_i, cache_parameters) do
-      ranking_info = Trackers::Buyer.new.history_enquiries(buyer_id: params[:buyer_id].to_i, enquiry_type: enquiry_type, type_of_match: type_of_match, property_status_type:  property_status_type, hash_str: search_str, verification_status: verification_status, last_time: params[:latest_time], page_number: params[:page], count: count)
+      ranking_info = Enquiries::BuyerService.new(buyer_id: params[:buyer_id]).history_enquiries(buyer_id: params[:buyer_id].to_i, enquiry_type: enquiry_type, type_of_match: type_of_match, property_status_type:  property_status_type, hash_str: search_str, verification_status: verification_status, last_time: params[:latest_time], page_number: params[:page], count: count)
       render json: ranking_info, status: status
     end
   end

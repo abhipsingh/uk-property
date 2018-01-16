@@ -58,7 +58,7 @@ module EventsHelper
     #### Defend against null cases
     # Rails.logger.info("(#{agent_id1}, #{property_id}, #{buyer_id}, #{message}, #{type_of_match}, #{property_status_type}, #{event})")
     if property_id && type_of_match && event
-      if Trackers::Buyer::ENQUIRY_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
+      if Event::ENQUIRY_EVENTS.include?(Event::REVERSE_EVENTS[event])
         date = Date.today.to_s
         month = Date.today.month
         time = Time.now.strftime("%Y-%m-%d %H:%M:%S").to_s
@@ -73,7 +73,7 @@ module EventsHelper
         }
 
         created_event = Event.create!(attrs_list)
-        enquiries = Trackers::Buyer.new.process_enquiries_result([created_event])
+        enquiries = Enquiries::PropertyService.process_enquiries_result([created_event])
         response[:enquiries] = enquiries
 
 
@@ -89,8 +89,8 @@ module EventsHelper
         ardb_client.del("cache_#{buyer_id}_history_enquiries")
 
         # Rails.logger.info("prop #{property_id}  type of match #{type_of_match} prop status #{property_status_type} event #{event}")
-      elsif Trackers::Buyer::TRACKING_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
-        type_of_tracking = Trackers::Buyer::REVERSE_EVENTS[event.to_i]
+      elsif Event::TRACKING_EVENTS.include?(Event::REVERSE_EVENTS[event])
+        type_of_tracking = Event::REVERSE_EVENTS[event.to_i]
         enum_type_of_tracking = Events::Track::TRACKING_TYPE_MAP[type_of_tracking]
         address_attr = Events::Track::ADDRESS_ATTRS.select{ |t| !type_of_tracking.to_s.index(t.to_s).nil? }.last
         if address_attr
@@ -101,65 +101,71 @@ module EventsHelper
           tracking_event.premium = buyer.is_premium
           tracking_event.save!
         end
-      elsif Trackers::Buyer::QUALIFYING_STAGE_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
+      elsif Event::QUALIFYING_STAGE_EVENTS.include?(Event::REVERSE_EVENTS[event])
 
         ### Update stage of the enquiry
-        if Trackers::Buyer::EVENTS[:offer_made_stage] == event
+        if Event::EVENTS[:offer_made_stage] == event
 
-          if message[:offer_price] && message[:offer_date]
+          if message[:offer_price] || message[:offer_date]
             original_enquiries = Event.where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false)
-            original_enquiries.update_all(stage: event, offer_price: message[:offer_price], offer_date: Date.parse(message[:offer_date])) 
-            enquiries = Trackers::Buyer.new.process_enquiries_result(original_enquiries)
+            update_hash = { stage: event }
+            update_hash[:offer_price] = message[:offer_price] if message[:offer_price]
+            update_hash[:offer_date] = message[:offer_date] if message[:offer_date]
+            original_enquiries.update_all(update_hash) 
+            enquiries = Enquiries::PropertyService.process_enquiries_result(original_enquiries)
             response[:enquiries] = enquiries
           else
             response[:enquiries] = []
           end
   
-        elsif Trackers::Buyer::EVENTS[:viewing_stage] == event
+        elsif Event::EVENTS[:viewing_stage] == event
 
           if message[:scheduled_viewing_time]
             original_enquiries = Event.where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false)
             original_enquiries.update_all(stage: event, scheduled_visit_time: Time.parse(message[:scheduled_viewing_time])) 
-            enquiries = Trackers::Buyer.new.process_enquiries_result(original_enquiries)
+            enquiries = Enquiries::PropertyService.process_enquiries_result(original_enquiries)
             response[:enquiries] = enquiries
           else
             response[:enquiries] = []
           end
   
-        elsif Trackers::Buyer::EVENTS[:completion_stage] == event
+        elsif Event::EVENTS[:completion_stage] == event
 
           if message[:expected_completion_date]
             original_enquiries = Event.where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false)
-            original_enquiries.update_all(stage: event, expected_completion_date: Date.parse(message[:expected_completion_date]))
-            enquiries = Trackers::Buyer.new.process_enquiries_result(original_enquiries)
+            update_hash = { stage: event, expected_completion_date: Date.parse(message[:expected_completion_date]) }
+            update_hash[:offer_price] = message[:offer_price] if message[:offer_price]
+            original_enquiries.update_all(update_hash)
+            enquiries = Enquiries::PropertyService.process_enquiries_result(original_enquiries)
             response[:enquiries] = enquiries
           else
             response[:enquiries] = []
           end
 
-        elsif Trackers::Buyer::EVENTS[:closed_won_stage] == event
+        elsif Event::EVENTS[:closed_won_stage] == event
 
           service = SoldPropertyEventService.new(udprn: property_id, buyer_id: buyer_id, final_price: message[:final_price], agent_id: agent_id)
           response[:enquiries] = service.close_enquiry(completion_date: message[:completion_date])
+          Event.where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false).update_all(offer_price: message[:offer_price]) if message[:offer_price]
 
         else
 
           original_enquiries = Event.where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false)
           original_enquiries.update_all(stage: event)
-          enquiries = Trackers::Buyer.new.process_enquiries_result(original_enquiries)
+          enquiries = Enquiries::PropertyService.process_enquiries_result(original_enquiries)
           response[:enquiries] = enquiries
 
         end
 
-      elsif Trackers::Buyer::HOTNESS_EVENTS.include?(Trackers::Buyer::REVERSE_EVENTS[event])
+      elsif Event::HOTNESS_EVENTS.include?(Event::REVERSE_EVENTS[event])
 
         original_enquiries = Event.where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false)
         original_enquiries.update_all(rating: event)
-        enquiries = Trackers::Buyer.new.process_enquiries_result(original_enquiries)
+        enquiries = Enquiries::PropertyService.process_enquiries_result(original_enquiries)
         response[:enquiries] = enquiries
         ### Update hotness of a property
 
-      elsif event == Trackers::Buyer::EVENTS[:viewed]
+      elsif event == Event::EVENTS[:viewed]
 
         Events::EnquiryStatProperty.new(udprn: property_id).update_views
         #Events::EnquiryStatBuyer.new(buyer_id: buyer_id).update_views if !buyer_id.nil?
@@ -169,7 +175,7 @@ module EventsHelper
         ardb_client = Rails.configuration.ardb_client
         ardb_client.del("cache_#{property_id}_interest_info")
 
-      elsif event == Trackers::Buyer::EVENTS[:deleted]
+      elsif event == Event::EVENTS[:deleted]
         Events::IsDeleted.create!(udprn: property_id, buyer_id: buyer_id, vendor_id: vendor_id, agent_id: agent_id)  
       end
         

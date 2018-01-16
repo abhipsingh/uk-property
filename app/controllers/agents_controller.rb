@@ -43,34 +43,6 @@ class AgentsController < ApplicationController
     end
   end
 
-  ### Gets the last valuation info done for a udprn
-  ### curl -XGET 'http://localhost/10966183/valuations/last/details'
-  def last_valuation_details
-    udprn = params[:udprn].to_i
-    fields = [:agent_name, :agent_name, :agent_id, :agent_mobile]
-    event = Event.where(event: Trackers::Buyer::EVENTS[:valuation_change])
-                .where.not(property_status_type: Trackers::Buyer::PROPERTY_STATUS_TYPES['Rent'])
-                .where(udprn: udprn)
-                .order('created_at DESC')
-                .select(fields)
-                .select("message ->> 'current_valuation' as last_valuation")
-                .select('created_at as last_valuation_date')
-                .last
-    if event
-      render json: event, status: 200
-    else
-      details = PropertyDetails.details(udprn)['_source']
-      response = {
-        agent_name: details['assigned_agent_employee_name'],
-        agent_id: details['agent_id'],
-        last_valuation: details['current_valuation'],
-        last_valuation_date: details['status_last_updated']
-      }
-
-      render json: response, status: 200
-    end
-  end
-
   def quotes_per_property
     quotes = AgentApi.new(params[:udprn].to_i, params[:agent_id].to_i).calculate_quotes
     render json: quotes, status: 200
@@ -367,6 +339,7 @@ class AgentsController < ApplicationController
         claimed_on: Time.now.to_s,
         claimed_by: 'Agent'
       }
+      
       vendor_email = params[:vendor_email]
       assigned_agent_email = params[:assigned_agent_email]
       response, status = agent_service.verify_manual_property_from_agent(property_attrs, vendor_email, assigned_agent_email)

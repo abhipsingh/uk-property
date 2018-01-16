@@ -29,7 +29,6 @@ class MatrixViewCount
     result = nil
     if @constraint_key == :county
       ardb_client = Rails.configuration.ardb_client
-      p @hash_str
       response = Oj.load(ardb_client.hget('mvc_cache_county', @hash_str+'_@'))
       if @scoping_parameter == :county
         result = {

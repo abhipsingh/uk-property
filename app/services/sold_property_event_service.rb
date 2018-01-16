@@ -22,8 +22,8 @@ class SoldPropertyEventService
 
         ### Update the enquiry to closed won if already solf but updating the enquiry
         original_enquiries = Event.where(buyer_id: @buyer_id).where(udprn: @udprn.to_i).where(is_archived: false)
-        original_enquiries.update_all(stage: Trackers::Buyer::EVENTS[:closed_won_stage])
-        enquiries = Trackers::Buyer.new.process_enquiries_result(original_enquiries)
+        original_enquiries.update_all(stage: Event::EVENTS[:closed_won_stage])
+        enquiries = Enquiries::PropertyService.process_enquiries_result(original_enquiries)
         enquiries
       else
         ### Charge credits required from the agent if the property status is Red/Amber
@@ -40,20 +40,20 @@ class SoldPropertyEventService
 
             ### Update the enquiry to closed won if property status is not green
             original_enquiries = Event.where(buyer_id: @buyer_id).where(udprn: @udprn.to_i).where(is_archived: false)
-            original_enquiries.update_all(stage: Trackers::Buyer::EVENTS[:closed_won_stage])
-            enquiries = Trackers::Buyer.new.process_enquiries_result(original_enquiries)
+            original_enquiries.update_all(stage: Event::EVENTS[:closed_won_stage])
+            enquiries = Enquiries::PropertyService.process_enquiries_result(original_enquiries)
             enquiries
           else
             original_enquiries = Event.where(buyer_id: @buyer_id).where(udprn: @udprn.to_i).where(is_archived: false)
-            enquiries = Trackers::Buyer.new.process_enquiries_result(original_enquiries)
+            enquiries =  Enquiries::PropertyService.process_enquiries_result(original_enquiries)
             enquiries
           end
         else
           
           ### Update the enquiry to closed won if property status is Green
           original_enquiries = Event.where(buyer_id: @buyer_id).where(udprn: @udprn.to_i).where(is_archived: false)
-          original_enquiries.update_all(stage: Trackers::Buyer::EVENTS[:closed_won_stage])
-          enquiries = Trackers::Buyer.new.process_enquiries_result(original_enquiries)
+          original_enquiries.update_all(stage: Event::EVENTS[:closed_won_stage])
+          enquiries = Enquiries::PropertyService.process_enquiries_result(original_enquiries)
           enquiries
         end
 

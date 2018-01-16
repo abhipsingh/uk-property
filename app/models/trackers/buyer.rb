@@ -160,17 +160,6 @@ class Trackers::Buyer
     end
   end
 
-  #### Agent enquiries latest implementation
-  #### Trackers::Buyer.new.search_latest_enquiries(1234)
-  ### Per property
-  def search_latest_enquiries(agent_id, property_status_type=nil, verification_status=nil, ads=nil, search_str=nil, property_for='Sale', last_time=nil, is_premium=false, buyer_id=nil, page_number=0, is_archived=nil, old_stats_flag=false)
-    query = filtered_agent_query agent_id: agent_id, search_str: search_str, last_time: last_time, is_premium: is_premium, buyer_id: buyer_id, archived: is_archived
-    ### property_ids = query.order('created_at DESC').limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE).select(:udprn).pluck(:udprn).uniq
-    ### Implementing search on the frontend
-    property_ids = query.order('created_at DESC').select(:udprn).pluck(:udprn).uniq
-    response = property_ids.map { |e| Trackers::Buyer.new.property_and_enquiry_details(agent_id.to_i, e, property_status_type, verification_status, ads, is_premium, old_stats_flag) }.compact
-  end
-
   def filtered_agent_query(agent_id: id, search_str: str=nil, last_time: time=nil, is_premium: premium=false, buyer_id: buyer=nil, type_of_match: match=nil, is_archived: archived=nil, closed: is_closed=nil)
     query = Event.where(agent_id: agent_id)
     parsed_last_time = Time.parse(last_time) if last_time
@@ -190,30 +179,6 @@ class Trackers::Buyer
     query
   end
 
-  ###############################################################
-  ###############################################################
-  ###############################################################
-  ###############################################################
-  ###############################################################
-  ########## Property level enquiries ###########################
-
-  ##### To mock this in the console try 
-  ##### Trackers::Buyer.new.property_and_enquiry_details(1234, '10966139')
-  def property_and_enquiry_details(agent_id, property_id, property_status_type=nil, verification_status=nil, ads=nil, is_premium=false, old_stats_flag=false)
-    details = PropertyDetails.details(property_id)['_source']
-    new_row = {}
-
-    property_enquiry_details(new_row, property_id, details, is_premium, old_stats_flag)
-
-    return nil if property_status_type && property_status_type != new_row[:property_status_type]
-    return nil if !verification_status.nil? && verification_status.to_s != new_row[:verification_status].to_s
-    return nil if !ads.nil? && ads.to_s != new_row[:advertised].to_s
-
-    push_agent_details(new_row, agent_id)
-
-    new_row
-  end
-
   #### Push event based additional details to each property details
   ### Trackers::Buyer.new.push_events_details(PropertyDetails.details(10966139))
   def push_events_details(details, is_premium=false, old_stats_flag=false)
@@ -228,20 +193,17 @@ class Trackers::Buyer
     new_row[:status_last_updated] = details[:_source][:status_last_updated]
     new_row[:status_last_updated] = Time.parse(new_row[:status_last_updated]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:status_last_updated] 
     add_details_to_enquiry_row(new_row, details['_source'], is_premium, old_stats_flag)
+    vendor_id = details[:_source][:vendor_id]
+
+    lead = Agents::Branches::AssignedAgents::Lead.where(property_id: details[:_source][:udprn].to_i, vendor_id: vendor_id.to_i).last
+    if lead
+      new_row[:lead_expiry_time] = (lead.created_at + Agents::Branches::AssignedAgents::Lead::VERIFICATION_DAY_LIMIT).strftime("%Y-%m-%dT%H:%M:%SZ")
+    else
+      new_row[:lead_expiry_time] = nil
+    end
+
     details['_source'].merge!(new_row)
     details['_source']
-  end
-
-  #### Push agent specific details
-  def push_agent_details(new_row, agent_id)
-    keys = [:name, :email, :mobile, :office_phone_number, :image_url]
-    agents = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(id: agent_id).select(keys).as_json
-    agents.each { |e| keys.each { |k| new_row[k] = e[k.to_s] } }
-  end
-
-  def property_enquiry_details(new_row, property_id, details, is_premium=false, old_stats_flag=false)
-    push_property_details(new_row, details)
-    add_details_to_enquiry_row(new_row, details, is_premium, old_stats_flag)
   end
 
   ### For every enquiry row, extract the info from details hash and merge it

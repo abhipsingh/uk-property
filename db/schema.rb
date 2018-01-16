@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180109094719) do
+ActiveRecord::Schema.define(version: 20180116105017) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -21,6 +21,7 @@ ActiveRecord::Schema.define(version: 20180109094719) do
   enable_extension "pageinspect"
   enable_extension "pg_buffercache"
   enable_extension "unaccent"
+  enable_extension "pg_stat_statements"
 
   create_table "ad_payment_histories", force: :cascade do |t|
     t.string   "hash_str",   null: false
@@ -161,6 +162,7 @@ ActiveRecord::Schema.define(version: 20180109094719) do
     t.boolean  "expired",              default: false
     t.integer  "parent_quote_id"
     t.integer  "amount"
+    t.integer  "existing_agent_id"
   end
 
   add_index "agents_branches_assigned_agents_quotes", ["agent_id", "property_id", "expired"], name: "quotes_unique_property_agents_idx", unique: true, where: "((agent_id IS NOT NULL) AND (expired = false))", using: :btree
@@ -287,17 +289,7 @@ ActiveRecord::Schema.define(version: 20180109094719) do
     t.datetime "updated_at",   null: false
   end
 
-  create_table "ccgs", id: false, force: :cascade do |t|
-    t.string "code", limit: 32,  null: false
-    t.string "name", limit: 255
-  end
-
   create_table "constituencies", id: false, force: :cascade do |t|
-    t.string "code", limit: 32,  null: false
-    t.string "name", limit: 255
-  end
-
-  create_table "counties", id: false, force: :cascade do |t|
     t.string "code", limit: 32,  null: false
     t.string "name", limit: 255
   end
@@ -353,11 +345,6 @@ ActiveRecord::Schema.define(version: 20180109094719) do
     t.string   "address"
     t.datetime "created_at",   null: false
     t.string   "email"
-  end
-
-  create_table "districts", id: false, force: :cascade do |t|
-    t.string "code", limit: 32,  null: false
-    t.string "name", limit: 255
   end
 
   create_table "events", force: :cascade do |t|
@@ -495,21 +482,10 @@ ActiveRecord::Schema.define(version: 20180109094719) do
   add_index "new_property_upload_histories", ["udprn", "developer_id"], name: "index_new_property_upload_histories_on_udprn_and_developer_id", unique: true, using: :btree
   add_index "new_property_upload_histories", ["udprn"], name: "index_new_property_upload_histories_on_udprn", unique: true, using: :btree
 
-  create_table "parishes", id: false, force: :cascade do |t|
-    t.string "code", limit: 32,  null: false
-    t.string "name", limit: 255
-  end
-
   create_table "pb_details", force: :cascade do |t|
     t.jsonb    "details"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-  end
-
-  create_table "post_codes", force: :cascade do |t|
-    t.float  "lat"
-    t.float  "long"
-    t.string "postcode"
   end
 
   create_table "property_ads", force: :cascade do |t|
@@ -623,29 +599,6 @@ ActiveRecord::Schema.define(version: 20180109094719) do
 
 # Could not dump table "test_ukps" because of following StandardError
 #   Unknown type 'uint1' for column 'county'
-
-  create_table "uk_properties", primary_key: "udprn", force: :cascade do |t|
-    t.string  "postcode",          limit: 8
-    t.string  "td"
-    t.string  "dtd"
-    t.string  "building_name"
-    t.string  "building_number",   limit: 10
-    t.string  "sub_building_name"
-    t.string  "department_name"
-    t.string  "organisation_name"
-    t.boolean "indexed",                      default: false
-    t.string  "dl"
-    t.string  "district",          limit: 5
-    t.string  "post_town",                    default: "0"
-    t.string  "county",                       default: "0"
-    t.string  "sector",            limit: 8
-    t.string  "parsed_sector",     limit: 6
-  end
-
-  add_index "uk_properties", ["district"], name: "index_uk_properties_on_district", using: :btree
-  add_index "uk_properties", ["district"], name: "test_index", using: :btree
-  add_index "uk_properties", ["post_town", "dl", "td", "dtd", "district"], name: "ukp_search_idx", using: :btree
-  add_index "uk_properties", ["postcode"], name: "index_uk_properties_on_postcode", using: :btree
 
   create_table "vendors", force: :cascade do |t|
     t.string   "full_name"

@@ -13,16 +13,16 @@ class EventsController < ApplicationController
   ### An example of property getting sold
   ### curl -XPOST -H "Content-Type: application/json" 'http://localhost/events/new' -d '{"agent_id" : 1234, "udprn" : '10966183', "event" : "sold", "message" : "\{\"final_price\" : 300000, \"exchange_of_contracts\" : \"2016-11-23\" \}" , "type_of_match" : "perfect", "buyer_id" : 1, "property_status_type" : "Green" }'
   def process_event
-    property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[params[:property_status_type]]
+    property_status_type = Event::PROPERTY_STATUS_TYPES[params[:property_status_type]]
     buyer_id = params[:buyer_id]
     buyer_id ||= 1
-    event = Trackers::Buyer::EVENTS.with_indifferent_access[params[:event]]
+    event = Event::EVENTS.with_indifferent_access[params[:event]]
     #### Search hash of a message
     message = params[:message]
     type_of_match = params[:type_of_match] || "perfect"
     type_of_match = "perfect" if type_of_match == 'normal'
-    type_of_match = Trackers::Buyer::TYPE_OF_MATCH[type_of_match.downcase.to_sym]
-    # type_of_match = Trackers::Buyer::TYPE_OF_MATCH.with_indifferent_access[params[:type_of_match]]
+    type_of_match = Event::TYPE_OF_MATCH[type_of_match.downcase.to_sym]
+    # type_of_match = Event::TYPE_OF_MATCH.with_indifferent_access[params[:type_of_match]]
     property_id = params[:udprn]
     property_status_type = params[:property_status_type]
     agent_id = params[:agent_id]
@@ -37,30 +37,6 @@ class EventsController < ApplicationController
     end
     Rails.logger.info("COMPLETED")
     render json: { 'message' => 'Successfully processed the request', response: response }, status: 200
-  end
-
-  #### For agents implement filter of agents group wise, company wise, branch wise, location wise,
-  #### and agent_id wise. The agent employee is the last missing layer.
-  ####  curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/enquiries/property/1234'
-  #### Three types of filters i) Verification status and property status type
-  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/enquiries/property/1234?verification_status=true&property_status_type=Green'
-  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/enquiries/property/1234?verification_status=false&property_status_type=Red'
-  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/enquiries/property/1234?verification_status=true&property_status_type=Green'
-  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/enquiries/property/1234?verification_status=true&property_status_type=Rent'
-  def agent_enquiries_by_property
-    property_status_type = params[:property_status_type]
-    verification_status = params[:verification_status]
-    ads = params[:ads]
-    hash_str = params[:hash_str]
-    last_time = params[:latest_time]
-    is_premium = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(id: params[:agent_id].to_i).select(:is_premium).first.is_premium rescue nil
-    buyer_id = params[:buyer_id]
-    archived = params[:archived]
-    old_stats_flag = params[:old_stats_flag].to_s == 'true'
-    response = []
-    response = Trackers::Buyer.new.search_latest_enquiries(params[:agent_id].to_i, property_status_type, verification_status, ads, hash_str, last_time, is_premium, buyer_id, params[:page].to_i, archived, old_stats_flag) if params[:agent_id]
-
-    render json: response, status: 200
   end
 
   #### For agents implement filter of agents group wise, company wise, branch, location wise,
@@ -99,7 +75,7 @@ class EventsController < ApplicationController
       closed = params[:closed]
       count = params[:count].to_s == 'true'
       old_stats_flag = params[:old_stats_flag].to_s == 'true'
-      results = Trackers::Buyer.new.property_enquiry_details_buyer(params[:agent_id].to_i, params[:enquiry_type], params[:type_of_match], 
+      results = Enquiries::AgentService.new(agent_id: params[:agent_id].to_i).new_enquiries(params[:enquiry_type], params[:type_of_match], 
         params[:qualifying_stage], params[:rating],  
         params[:hash_str], 'Sale', last_time,
         is_premium, buyer_id, params[:page], archived, closed, count, old_stats_flag) if params[:agent_id]
@@ -175,15 +151,6 @@ class EventsController < ApplicationController
     #end
   end
 
-  #### When an agent wants to see the property specific statistics(trackings,
-  #### views, etc), this API is called. All enquiries regarding properties he is associated to are returned.
-  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/enquiries/properties?agent_id=1234'
-  def property_enquiries
-    response = []
-    response = Trackers::Buyer.new.property_enquiry_details_buyer(params[:agent_id].to_i) if params[:agent_id]
-    render json: response, status: 200
-  end
-
   #### On demand quicklink for all the properties of agents, or group or branch or company
   #### To get list of properties for the concerned agent
   #### curl -XGET 'http://localhost/agents/properties?agent_id=1234'
@@ -245,7 +212,7 @@ class EventsController < ApplicationController
           if agent.is_premium && count
             results = property_ids.uniq.count
           else
-            results = property_ids.uniq.map { |e| Trackers::Buyer.new.push_events_details(PropertyDetails.details(e), agent.is_premium, old_stats_flag) }
+            results = property_ids.uniq.map { |e| Enquiries::AgentService.push_events_details(PropertyDetails.details(e), agent.is_premium, old_stats_flag) }
             vendor_ids = []
             vendor_id_property_map = {}
             results.each_with_index do |t, index|
@@ -331,9 +298,9 @@ class EventsController < ApplicationController
   def unsubscribe
     buyer_id = params[:buyer_id]
     udprn = params[:udprn]
-    event = Trackers::Buyer::EVENTS[params[:event].to_sym]
+    event = Event::EVENTS[params[:event].to_sym]
     if buyer_id && udprn && event
-      type_of_tracking = Trackers::Buyer::REVERSE_EVENTS[event.to_i]
+      type_of_tracking = Event::REVERSE_EVENTS[event.to_i]
       enum_type_of_tracking = Events::Track::TRACKING_TYPE_MAP[type_of_tracking]
       subscribed_event = Events::Track.where(buyer_id: buyer_id).where(udprn: udprn).where(type_of_tracking: subscribed_event).first
       subscribed_event.active = false

@@ -196,12 +196,14 @@ class MatrixViewService
     @context_hash[:area] = calc_area_value(@context_hash[:district]) if @context_hash[:district]
     @context_hash[:district] = @context_hash[:sector].split(' ')[0] if @context_hash[:sector]
     @context_hash[:sector] = calc_sector_value(@context_hash[:unit]) if @context_hash[:unit]
+    @context_hash[:district] = @context_hash[:sector].split(' ')[0] if @context_hash[:unit]
     values.each do |key, value|
       matrix_view_context = @context_hash.clone
 
       ### To account for London districts(Not properly as counties)
       if matrix_view_context[:district] && matrix_view_context[:post_town] == 'London'
         matrix_view_context[:county] = MatrixViewCount.fetch_county_for_london(matrix_view_context[:district])
+        @context_hash[:county] = matrix_view_context[:county]
       end
 
       ### We know that London doesn't have any dependent locality. Hence skip it if its London and key is dependent
@@ -217,7 +219,7 @@ class MatrixViewService
       matrix_view_count = MatrixViewCount.new(
         scoping_parameter: key.to_sym, 
         constraint_key: value.to_sym, 
-        constraints: matrix_view_context,
+        constraints: matrix_view_context.clone,
         hash_str: self.class.form_hash_str(matrix_view_context, value.to_sym)
       )
       results = matrix_view_count.calculate_count
@@ -237,7 +239,8 @@ class MatrixViewService
           result_context[:post_town] = dist_post_town[1].strip
           result_context[:district] = dist_post_town[0].strip
         end
-        hash[:hash_str] = self.class.form_hash_str(result_context, key.to_sym)
+
+        hash[:hash_str] = self.class.form_hash(result_context, key.to_sym)
         hash
       end
     end

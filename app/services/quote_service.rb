@@ -15,7 +15,7 @@ class QuoteService
     services_required = eval(services_required.to_s)
     details = PropertyDetails.details(@udprn)[:_source]
     vendor = Vendor.find(details[:vendor_id])
-    property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[details['property_status_type']]
+    property_status_type = Event::PROPERTY_STATUS_TYPES[details['property_status_type']]
     if quote_id
       quote_details = Agents::Branches::AssignedAgents::Quote.create!(
         payment_terms: payment_terms,
@@ -32,7 +32,8 @@ class QuoteService
         vendor_mobile: vendor.mobile,
         terms_url: terms_url,
         parent_quote_id: quote_id,
-        amount: quote_amount
+        amount: quote_amount,
+        existing_agent_id: first_quote.existing_agent_id
       )
       @quote = quote_details
     end
@@ -53,7 +54,7 @@ class QuoteService
     return { message: 'Quote successfully submitted', quote: quote_details }, 200
   end
 
-  def new_quote_for_property(services_required, payment_terms, quote_details, assigned_agent)
+  def new_quote_for_property(services_required, payment_terms, quote_details, assigned_agent, existing_agent_id)
     deadline = Agents::Branches::AssignedAgents::Quote::MAX_AGENT_QUOTE_WAIT_TIME.from_now.to_s
     services_required = Agents::Branches::AssignedAgents::Quote::REVERSE_SERVICES_REQUIRED_HASH[services_required]
     services_required = eval(services_required.to_s)
@@ -62,7 +63,7 @@ class QuoteService
     details = PropertyDetails.details(@udprn)[:_source]
     district = details['district']
     vendor = Vendor.find(details[:vendor_id])
-    property_status_type = Trackers::Buyer::PROPERTY_STATUS_TYPES[details['property_status_type']]
+    property_status_type = Event::PROPERTY_STATUS_TYPES[details['property_status_type']]
     quote = Agents::Branches::AssignedAgents::Quote.create!(
       deadline: deadline,
       property_id: @udprn,
@@ -77,7 +78,8 @@ class QuoteService
       vendor_name: vendor.name,
       vendor_email: vendor.email,
       vendor_mobile: vendor.mobile,
-      amount: details[:current_valuation].to_i
+      amount: details[:current_valuation].to_i,
+      existing_agent_id: existing_agent_id.to_i
     )
     quote.update_attributes(parent_quote_id: quote.id)
     return { message: 'Quote successfully created', quote: quote }, 200
