@@ -42,10 +42,10 @@ Rails.application.routes.draw do
   get 'buyers/enquiries/:buyer_id',          to: 'events#buyer_enquiries'
 
   ### Get all recently changed to Green properties for quotes for Agents
-  get 'agents/properties/recent/quotes',     to: 'events#recent_properties_for_quotes'
+  get 'agents/properties/recent/quotes',     to: 'quotes#agents_recent_properties_for_quotes'
 
   ### Get all recently changed to Green properties for quotes for Agents
-  get 'agents/properties/recent/claims',     to: 'events#recent_properties_for_claim'
+  get 'agents/properties/recent/claims',     to: 'leads#agents_recent_properties_for_claim'
 
   ### Get all stats about the properties for the concerned agents
   get 'agents/enquiries/properties',         to: 'events#property_enquiries'
@@ -54,7 +54,7 @@ Rails.application.routes.draw do
   get 'agents/quicklinks/properties',        to: 'events#quicklinks'
 
   ### Get all properties quicklinks for the queried agent_id, or branch or group or company id
-  get 'agents/properties',                   to: 'events#detailed_properties'
+  get 'agents/properties',                   to: 'agents#detailed_properties'
 
   ### Request to unsubscribe a buyer for a particular event for a udprn
   get 'events/unsubscribe',                   to: 'events#unsubscribe'
@@ -75,7 +75,7 @@ Rails.application.routes.draw do
   post 'quotes/submit/:quote_id',          to: 'quotes#submit'
 
   #### For an agent, claim this property
-  post 'events/property/claim/:udprn',     to: 'events#claim_property'
+  post 'events/property/claim/:udprn',     to: 'agents#claim_property'
   #####################################################################
   #####################################################################
   #####################################################################

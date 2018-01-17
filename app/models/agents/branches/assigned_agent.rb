@@ -176,7 +176,7 @@ module Agents
               new_row[:vendor_first_name] = property_details['vendor_first_name']
               new_row[:vendor_last_name] = property_details['vendor_last_name']
               new_row[:vendor_email] = property_details['vendor_email']
-              new_row[:vendor_mobile] = property_details['vendor_mobile']
+              new_row[:vendor_mobile] = property_details['vendor_mobile_number']
               new_row[:vendor_image_url] = property_details['vendor_image_url']
             else
               new_row[:vendor_id] = nil

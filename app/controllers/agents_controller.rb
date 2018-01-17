@@ -2,7 +2,8 @@ class AgentsController < ApplicationController
   around_action :authenticate_agent, only: [ :branch_info_for_location, :invite_vendor, :create_agent_without_password, :add_credits,
                                              :branch_specific_invited_agents, :credit_history, :subscribe_premium_service, :remove_subscription,
                                              :manual_property_leads, :invited_vendor_history, :missing_sale_price_properties_for_agents, 
-                                             :inactive_property_credits, :crawled_property_details ]
+                                             :inactive_property_credits, :crawled_property_details, :verify_manual_property_from_agent,
+																						 :claim_property ]
   ### Details of the branch
   ### curl -XGET 'http://localhost/agents/predictions?str=Dyn'
   def search
@@ -755,6 +756,129 @@ class AgentsController < ApplicationController
       render json: { message: 'Property does not exist' }, status: 400
     end
   end
+
+  #### When an agent click the claim to a property, the agent gets a chance to visit
+  #### the picture. The claim needs to be frozen and the property is no longer available
+  #### for claiming.
+  #### curl -XPOST -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" -H "Content-Type: application/json" 'http://localhost/events/property/claim/4745413' 
+  def claim_property
+    agent = @current_user
+    invited_vendor_emails = InvitedVendor.where(agent_id: agent.id).where(source: Vendor::INVITED_FROM_CONST[:family]).pluck(:email).uniq
+    registered_vendor_count = Vendor.where(email: invited_vendor_emails).count
+    if registered_vendor_count >= Agents::Branches::AssignedAgent::MIN_INVITED_FRIENDS_FAMILY_VALUE
+      if agent.credit >= Agents::Branches::AssignedAgent::LEAD_CREDIT_LIMIT
+      #if true
+        property_service = PropertyService.new(params[:udprn].to_i)
+        message, status = property_service.claim_new_property(params[:agent_id].to_i)
+        render json: { message: message }, status: status
+      else
+        render json: { message: "Credits possessed for leads #{agent.credit},  not more than #{Agents::Branches::AssignedAgent::LEAD_CREDIT_LIMIT} " }, status: 401
+      end
+    else
+      render json: { message: "Invited friends family below the minimum value #{Agents::Branches::AssignedAgent::MIN_INVITED_FRIENDS_FAMILY_VALUE}" }, status: 400
+    end
+  end
+
+  #### On demand quicklink for all the properties of agents, or group or branch or company
+  #### To get list of properties for the concerned agent
+  #### curl -XGET 'http://localhost/agents/properties?agent_id=1234'
+  #### Filters on property_for, ads
+  def detailed_properties
+    cache_parameters = [ :agent_id, :property_status_type, :verification_status, :ads , :count, :old_stats_flag].map{ |t| params[t].to_s }
+    cache_response(params[:agent_id].to_i, cache_parameters) do
+      response = {}
+      results = []
+      count = params[:count].to_s == 'true'
+      old_stats_flag = params[:old_stats_flag].to_s == 'true'
+
+      unless params[:agent_id].nil?
+        #### TODO: Need to fix agents quotes when verified by the vendor
+        agent = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(id: params[:agent_id].to_i).select([:id, :is_premium]).first
+        if agent
+          old_stats_flag = params[:old_stats_flag].to_s == 'true'
+          search_params = { limit: 10000}
+          search_params[:agent_id] = params[:agent_id].to_i
+          property_status_type = params[:property_status_type]
+
+          search_params[:property_status_type] = params[:property_status_type] if params[:property_status_type]
+          search_params[:verification_status] = true if params[:verification_status] == 'true'
+          search_params[:verification_status] = false if params[:verification_status] == 'false'
+
+          #### Buyer filter
+          if params[:buyer_id] && agent.is_premium
+            buyer = PropertyBuyer.where(id: params[:buyer_id]).select(:vendor_id).first
+            vendor_id = buyer.vendor_id if buyer
+            vendor_id ||= nil
+            search_params[:vendor_id] = vendor_id if vendor_id
+          end
+
+          ### Location filter
+          if agent.is_premium && params[:hash_str]
+            search_params[:hash_str] = params[:hash_str]
+            search_params[:hash_type] = 'Text'
+          end
+
+          property_ids = []
+          api = PropertySearchApi.new(filtered_params: search_params)
+          api.modify_filtered_params
+          api.apply_filters
+
+          ### THIS LIMIT IS THE MAXIMUM. CAN BE BREACHED IN AN EXCEPTIONAL CASE
+          api.query[:size] = 10000
+          udprns, status = api.fetch_udprns
+
+          ### Get all properties for whom the agent has won leads
+          property_ids = udprns.map(&:to_i).uniq
+
+          ### If ads filter is applied
+          ad_property_ids = PropertyAd.where(property_id: property_ids).pluck(:property_id) if params[:ads].to_s == 'true' || params[:ads].to_s == 'false'
+
+          property_ids = ad_property_ids if params[:ads].to_s == 'true'
+          property_ids = property_ids - ad_property_ids if params[:ads].to_s == 'false'
+          results = []
+          #Rails.logger.info("property ids found for detailed properties (agent) = #{property_ids}")
+          if agent.is_premium && count
+            results = property_ids.uniq.count
+          else
+            results = property_ids.uniq.map { |e| Enquiries::AgentService.push_events_details(PropertyDetails.details(e), agent.is_premium, old_stats_flag) }
+            vendor_ids = []
+            vendor_id_property_map = {}
+            results.each_with_index do |t, index|
+              results[index][:ads] = (PropertyAd.where(property_id: t[:udprn]).count > 0) 
+              vendor_ids.push(results[index][:vendor_id])
+              vendor_id_property_map[results[index][:vendor_id].to_i] ||= []
+              vendor_id_property_map[results[index][:vendor_id].to_i].push(index)
+            end
+
+            buyers = PropertyBuyer.where(vendor_id: vendor_ids.uniq.compact).select([:status, :buying_status, :vendor_id])
+
+            buyers.each do |buyer|
+              indices = vendor_id_property_map[buyer.vendor_id]
+              indices.each do |index|
+                results[index][:buyer_status] = PropertyBuyer::REVERSE_STATUS_HASH[buyer.status]
+                results[index][:buying_status] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[buyer.buying_status]
+              end
+
+            end
+
+            vendor_id_property_map = {}
+
+          end
+
+          response = (!results.is_a?(Fixnum) && results.empty?) ? {"properties" => results, "message" => "No properties to show"} : {"properties" => results}
+        else
+          render json: { message: 'Agent id not found in the db'}, status: 400
+        end
+        #Rails.logger.info "Sending results for detailed properties (agent) => #{results.inspect}"
+      else
+        response = { message: 'Agent ID mandatory for getting properties' }
+      end
+      #Rails.logger.info "Sending response for detailed properties (agent) => #{response.inspect}"
+      render json: response, status: 200
+    end
+  end
+
+
 
   private
 

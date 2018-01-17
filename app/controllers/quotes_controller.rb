@@ -179,6 +179,38 @@ class QuotesController < ApplicationController
     render json: results, status: 200
   end
 
+  #### For agents the quotes page has to be shown in which all his recent or the new properties in the area
+  #### Will be published
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent/quotes?agent_id=1234'
+  #### For applying filters i) payment_terms
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent/quotes?agent_id=1234&payment_terms=Pay%20upfront'
+  #### ii) services_required
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent/quotes?agent_id=1234&services_required=Ala%20Carte'
+  #### ii) quote_status
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent/quotes?agent_id=1234&quote_status=Won'
+  #### ii) Rent or Sale
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent/quotes?agent_id=1234&property_for=Rent'
+  def agents_recent_properties_for_quotes
+    cache_parameters = [ :agent_id, :payment_terms, :services_required, :quote_status, :hash_str, :property_for ]
+    #cache_response(params[:agent_id].to_i, cache_parameters) do
+      results = []
+      response = {}
+      status = 200
+      count = params[:count].to_s == 'true'
+      #begin
+        agent = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i)
+        results = agent.recent_properties_for_quotes(params[:payment_terms], params[:services_required], params[:quote_status], params[:hash_str], 'Sale', params[:buyer_id], agent.is_premium, params[:page], count, params[:latest_time])
+        response = (!results.is_a?(Fixnum) && results.empty?) ? {"quotes" => results, "message" => "No claims to show"} : {"quotes" => results}
+      #rescue => e
+      #  Rails.logger.error "Error with agent quotes => #{e}"
+      #  response = { quotes: results, message: 'Error in showing quotes', details: e.message}
+      #  status = 500
+      #end
+      
+      render json: response, status: status
+    #end
+  end
+
   #### Shows all the properties available for quoting
   private
   def user_valid_for_viewing?(klass)

@@ -18,6 +18,41 @@ class LeadsController < ApplicationController
     end
   end
 
+  #### For agents the leads page has to be shown in which the recent properties have been claimed
+  #### Those properties have just been claimed recently in the area
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent/claims?agent_id=1234'
+  #### For rent properties
+  #### curl -XGET -H "Content-Type: application/json" 'http://localhost/agents/properties/recent/claims?agent_id=1234&property_for=Rent'
+  def agents_recent_properties_for_claim
+    cache_parameters = []
+    #cache_response(params[:agent_id].to_i, cache_parameters) do
+      response = {}
+      status = 200
+      #begin
+        results = []
+        agent_status = params[:status]
+        if params[:agent_id].nil?
+          response = { message: 'Agent ID missing' }
+        else
+          agent = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i)
+          owned_property = params[:manually_added] == 'true' ? true : nil
+          owned_property = params[:manually_added] == 'false' ? false : owned_property
+          count = params[:count].to_s == 'true'
+          results = agent.recent_properties_for_claim(agent_status, 'Sale', params[:buyer_id], params[:hash_str], agent.is_premium, params[:page], owned_property, count, params[:latest_time])
+          response = (!results.is_a?(Fixnum) && results.empty?) ? {"leads" => results, "message" => "No leads to show"} : {"leads" => results}
+        end
+#      rescue ActiveRecord::RecordNotFound
+#        response = { message: 'Agent not found in database' }
+#        status = 404
+#      rescue => e
+#        response = { leads: results, message: 'Error in showing leads', details: e.message}
+#        status = 500
+#      end
+      #Rails.logger.info "sending response for recent claims property #{response.inspect}"
+      render json: response, status: status
+    #end
+  end
+
   private
   def user_valid_for_viewing?(klass)
     AuthorizeApiRequest.call(request.headers, klass).result

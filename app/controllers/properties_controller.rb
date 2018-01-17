@@ -379,7 +379,7 @@ class PropertiesController < ActionController::Base
     params.permit(:agent, :branch, :property_status, :receptions, :beds, :baths, :property_type, :dream_price, :udprn)
   end
 
-  def user_valid_for_viewing?(user_types, udprn)
+  def user_valid_for_viewing?(user_types)
     user_types.any? do |user_type|
       @current_user = authenticate_request(user_type).result
       !@current_user.nil?

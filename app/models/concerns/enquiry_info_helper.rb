@@ -282,8 +282,8 @@ module EnquiryInfoHelper
         new_row['requested_message'] = property_stat.specific_enquiry_count(:requested_message)
         new_row['requested_callback'] = property_stat.specific_enquiry_count(:requested_callback)
         new_row['interested_in_making_an_offer'] = property_stat.specific_enquiry_count(:interested_in_making_an_offer)
-        new_row['interested_in_viewing'] = Event.where(udprn: property_id).where(stage: EVENTS[:interested_in_viewing]).count
-        new_row['offer_made_stage'] = Event.where(udprn: property_id).where(stage: EVENTS[:offer_made_stage]).count
+        new_row['interested_in_viewing'] = Event.where(udprn: property_id).where(stage: Event::EVENTS[:interested_in_viewing]).count
+        new_row['offer_made_stage'] = Event.where(udprn: property_id).where(stage: Event::EVENTS[:offer_made_stage]).count
 
         ### Last sold property date
         sold_property = SoldProperty.where(udprn: property_id).select([:completion_date]).last
