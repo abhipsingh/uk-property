@@ -1,31 +1,31 @@
 class PropertiesController < ActionController::Base
   include CacheHelper
   before_filter :set_headers
+  around_action :authenticate_agent_and_vendor, only: [ :edit_property_details, :pricing_history, :interest_info, :supply_info_aggregate ]
+  around_action :authenticate_buyer_and_vendor, only: [ :invite_friends_and_family ]
+  around_action :authenticate_all, only: [ :enquiries, :predict_tags, :add_new_tags, :show_tags ]
+  around_action :authenticate_vendor, only: [ :attach_vendor_to_udprn_manual_for_manually_added_properties ]
+  around_action :authenticate_buyer, only: [ :upload_property_details_from_a_renter ]
 
   #### Edit property url
   #### curl -XPOST -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/properties/10966139/edit/details' -d '{ "details" : { "property_type" : "Terraced House", "beds" : 3, "baths" : 2, "receptions" : 2, "property_status_type" : "Green", "property_style" : "Period", "tenure" : "Freehold", "floors" : 2, "listed_status" : "Grade 1", "year_built" : "2011-01-01", "central_heating" : "Partial", "parking_type" : "Single garage", "outside_space_type" : "Private garden", "additional_features" : ["Attractive views", "Fireplace"], "decorative_condition" : "Newly refurbished", "council_tax_band" : "A", "lighting_cost" : 120, "lighting_cost_unit_type" : "month", "heating_cost": 100, "heating_cost_unit_type" : "month", "hot_water_cost" : 200, "hot_water_cost_unit_type" : "month", "annual_ground_water_cost" : 1100, "annual_service_charge" : 200, "resident_parking_cost" : 1200, "other_costs" : [{ "name" : "Cost 1", "value" : 200, "unit_type" : "month" } ], "improvement_types" : [ { "name" : "Total refurbishment", "value" : 200, "date": "2016-06-01" }  ], "current_valuation" : 32000, "dream_price" : 42000, "rental_price" : 1000, "floorplan_url" : "some random url", "pictures" : [{"category" : "Front", "url" : "random url" }, { "category" : "Garden", "url" : "Some random url" } ], "property_brochure_url" : "some random url", "video_walkthrough_url" : "some random url", "property_sold_status" : "Under offer", "agreed_sale_value" : 37000, "expected_completion_date" : "2017-03-13", "actual_completion_date" : "2017-04-01", "new_owner_email_id" : "a@b.com" , "vendor_address" : "Some address" } }'
   #### TODO: Validations
   def edit_property_details
-    #if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
-    if true
-      udprn = params[:udprn].to_i
-      details = params[:details]
-      details.each do |key, value|
-        if PropertyService::ARRAY_HASH_ATTRS.include?(key.to_sym) && value.nil?
-          details[key] = []
-        end
+    udprn = params[:udprn].to_i
+    details = params[:details]
+    details.each do |key, value|
+      if PropertyService::ARRAY_HASH_ATTRS.include?(key.to_sym) && value.nil?
+        details[key] = []
       end
-      details = details.with_indifferent_access
-      #@current_user = Agents::Branches::AssignedAgent.find(225)
-      updated_details = PropertyService.new(udprn).edit_details(details, @current_user)
-      property_status_type = updated_details[:property_status_type]
-      mandatory_attrs = PropertyService::STATUS_MANDATORY_ATTRS_MAP[property_status_type]
-      mandatory_attrs ||= PropertyService::STATUS_MANDATORY_ATTRS_MAP['Green']
-      missing_fields = mandatory_attrs.select{ |t| updated_details[t].nil? }
-      render json: { message: 'Property details edited', response: updated_details, missing_fields: missing_fields, mandatory_fields: mandatory_attrs }, status: 200
-    else
-      render json: { message: 'Authorization failed' }, status: 401
     end
+    details = details.with_indifferent_access
+    #@current_user = Agents::Branches::AssignedAgent.find(225)
+    updated_details = PropertyService.new(udprn).edit_details(details, @current_user)
+    property_status_type = updated_details[:property_status_type]
+    mandatory_attrs = PropertyService::STATUS_MANDATORY_ATTRS_MAP[property_status_type]
+    mandatory_attrs ||= PropertyService::STATUS_MANDATORY_ATTRS_MAP['Green']
+    missing_fields = mandatory_attrs.select{ |t| updated_details[t].nil? }
+    render json: { message: 'Property details edited', response: updated_details, missing_fields: missing_fields, mandatory_fields: mandatory_attrs }, status: 200
   end
 
   ### Fetches details of a property from its vanity url
@@ -39,49 +39,39 @@ class PropertiesController < ActionController::Base
   ### When a request is made to fetch the historic pricing details for a udprn
   ### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/prices/10966139'
   def historic_pricing
-      details = PropertyDetails.historic_pricing_details(params[:udprn].to_i)
-      render json: details, status: 200
+    details = PropertyDetails.historic_pricing_details(params[:udprn].to_i)
+    render json: details, status: 200
   end
 
   ### When a request is made to fetch the updated historic pricing details for a udprn(sale price, current valuation, dream price etc)
   ### curl -XGET -H "Content-Type: application/json" -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c"  'http://localhost/property/pricing/history/10966139'
   def pricing_history
-    #if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
-    if true
-      history_data = PropertyService.new(params[:udprn].to_i).calculate_pricing_history
-      render json: history_data, status: 200
-    else
-      render json: { message: 'Authorization failed' }, status: 401
-    end
+    history_data = PropertyService.new(params[:udprn].to_i).calculate_pricing_history
+    render json: history_data, status: 200
   end
 
   ### This route provides all the details of the recent enquiries made by the users on this property
   ### curl -XGET -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/enquiries/property/10966139'
   def enquiries
-    if user_valid_for_viewing?(['Agent', 'Vendor', 'Developer'], params[:udprn].to_i)
-    #if true
-      cache_response(params[:udprn].to_i, [params[:page], params[:buyer_id], params[:qualifying_stage], params[:rating], params[:archived], params[:closed], params[:count]]) do
-        page = params[:page]
-        page ||= 0
-        page = page.to_i
-        udprn = params[:udprn].to_i
-        count = params[:count].to_s == 'true'
-        is_premium = @current_user.is_premium rescue false
-        old_stats_flag = params[:old_stats_flag].to_s == 'true' ? true : false
-        profile = @current_user.class.to_s
-        event_service = EventService.new(udprn: udprn, buyer_id: params[:buyer_id], 
-                                     last_time: params[:latest_time], qualifying_stage: params[:qualifying_stage],
-                                     rating: params[:rating], archived: params[:archived], is_premium: is_premium, 
-                                     closed: params[:closed], count: count, profile: profile, old_stats_flag: old_stats_flag)
-        if @current_user.is_a?(Agents::Branches::AssignedAgent) && event_service.details[:agent_id].to_i != @current_user.id
-          render json: { message: 'The agent does not belong to the property' }, status: 400
-        else
-          enquiries = event_service.property_specific_enquiry_details(page)
-          render json: enquiries, status: 200
-        end
+    cache_response(params[:udprn].to_i, [params[:page], params[:buyer_id], params[:qualifying_stage], params[:rating], params[:archived], params[:closed], params[:count]]) do
+      page = params[:page]
+      page ||= 0
+      page = page.to_i
+      udprn = params[:udprn].to_i
+      count = params[:count].to_s == 'true'
+      is_premium = @current_user.is_premium rescue false
+      old_stats_flag = params[:old_stats_flag].to_s == 'true' ? true : false
+      profile = @current_user.class.to_s
+      event_service = EventService.new(udprn: udprn, buyer_id: params[:buyer_id], 
+                                   last_time: params[:latest_time], qualifying_stage: params[:qualifying_stage],
+                                   rating: params[:rating], archived: params[:archived], is_premium: is_premium, 
+                                   closed: params[:closed], count: count, profile: profile, old_stats_flag: old_stats_flag)
+      if @current_user.is_a?(Agents::Branches::AssignedAgent) && event_service.details[:agent_id].to_i != @current_user.id
+        render json: { message: 'The agent does not belong to the property' }, status: 400
+      else
+        enquiries = event_service.property_specific_enquiry_details(page)
+        render json: enquiries, status: 200
       end
-    else
-      render json: { message: 'Authorization failed' }, status: 401
     end
   end
 
@@ -90,15 +80,8 @@ class PropertiesController < ActionController::Base
   #### the property.
   #### curl -XGET -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/property/interest/10966139'
   def interest_info
-    if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
-    #if true
-    #  cache_response(params[:udprn].to_i, []) do
-        interest_info = Enquiries::PropertyService.new(udprn: params[:udprn].to_i).interest_info
-        render json: interest_info, status: 200
-    #  end
-    else
-      render json: { message: 'Authorization failed' }, status: 401
-    end
+    interest_info = Enquiries::PropertyService.new(udprn: params[:udprn].to_i).interest_info
+    render json: interest_info, status: 200
   end
 
   #### From supply table, this action gives the data regarding how many properties are similar to their property.
@@ -110,21 +93,16 @@ class PropertiesController < ActionController::Base
 
   #### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIi MOtADL0o5NadFJi2Xs4c" 'http://localhost/property/aggregate/supply/10966139'
   def supply_info_aggregate
-    #if user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
-    if true
-      supply_info = Enquiries::PropertyService.new(udprn: params[:udprn].to_i).supply_info
-      #{"locality":{"Green":0,"Amber":0,"Red":0},"street":{"Green":0,"Amber":0,"Red":0}} 
-      supply_info_aggregate = {}
-      supply_info[:locality] ||= {"Green"=>0,"Amber"=>0,"Red"=>0}
-      supply_info_aggregate[:locality] = supply_info[:locality].map{|k,v| v}.reduce(:+)
-      supply_info[:street] ||= {"Green"=>0,"Amber"=>0,"Red"=>0}
-      supply_info_aggregate[:street] = supply_info[:street].map{|k,v| v}.reduce(:+)
-      supply_info_aggregate[:locality_query_param] = supply_info[:locality_query_param]
-      supply_info_aggregate[:street_query_param] = supply_info[:street_query_param]
-      render json: supply_info_aggregate, status: 200
-    else
-      render json: { message: 'Authorization failed' }, status: 401
-    end
+    supply_info = Enquiries::PropertyService.new(udprn: params[:udprn].to_i).supply_info
+    #{"locality":{"Green":0,"Amber":0,"Red":0},"street":{"Green":0,"Amber":0,"Red":0}} 
+    supply_info_aggregate = {}
+    supply_info[:locality] ||= {"Green"=>0,"Amber"=>0,"Red"=>0}
+    supply_info_aggregate[:locality] = supply_info[:locality].map{|k,v| v}.reduce(:+)
+    supply_info[:street] ||= {"Green"=>0,"Amber"=>0,"Red"=>0}
+    supply_info_aggregate[:street] = supply_info[:street].map{|k,v| v}.reduce(:+)
+    supply_info_aggregate[:locality_query_param] = supply_info[:locality_query_param]
+    supply_info_aggregate[:street_query_param] = supply_info[:street_query_param]
+    render json: supply_info_aggregate, status: 200
   end
 
   #### From supply table, this action gives the data regarding how many buyers are searching for properties
@@ -252,18 +230,14 @@ class PropertiesController < ActionController::Base
   #### Attach the vendor to a manually added property without making the vendor force the attributes
   #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/properties/manually/added/claim/vendor' -d '{ "vendor_id" : 1235, "udprn" : 12649776 }'
   def attach_vendor_to_udprn_manual_for_manually_added_properties
-    if user_valid_for_viewing?(['Vendor'], params[:udprn].to_i)
-      udprn = params[:udprn].to_i
-      vendor_id = @current_user.id
-      #### Attach the lead to the agent
-      details = PropertyDetails.details(udprn)[:_source]
-      Agents::Branches::AssignedAgents::Lead.where(property_id: udprn).where(vendor_id: nil).last.update_attributes(district: details[:district])
-      details = { udprn: udprn, vendor_id: vendor_id }
-      response, status = PropertyService.new(udprn).update_details(details)
-      render json: response, status: status
-    else
-      render json: { message: 'Authorization failed' }, status: 401
-    end
+    udprn = params[:udprn].to_i
+    vendor_id = @current_user.id
+    #### Attach the lead to the agent
+    details = PropertyDetails.details(udprn)[:_source]
+    Agents::Branches::AssignedAgents::Lead.where(property_id: udprn).where(vendor_id: nil).last.update_attributes(district: details[:district])
+    details = { udprn: udprn, vendor_id: vendor_id }
+    response, status = PropertyService.new(udprn).update_details(details)
+    render json: response, status: status
   end
 
   ### Update basic details of a property by a vendor. Part of vendor verification workflow process
@@ -335,91 +309,68 @@ class PropertiesController < ActionController::Base
   ### This api allows a renter to tag these attribute
   ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo3LCJleHAiOjE0ODUxODUwMTl9.7drkfFR5AUFZoPxzumLZ5TyEod_dLm8YoZZM0yqwq6U"   'http://localhost/property/claim/renter' -d ' { "udprn" : 4322959, "beds":3, "baths" : 2, "receptions" : 1, "property_type" : "bungalow", "vendor_email" : "renter@prophety.co.uk", "otp":342131 }'
   def upload_property_details_from_a_renter
-    if user_valid_for_viewing?(['Buyer'], params[:udprn].to_i)
-      validate_rent_property_upload_params
-      update_hash = {}
-      udprn = params[:udprn].to_i
-      update_hash[:beds] = params[:beds] if params[:beds].is_a?(Integer)
-      update_hash[:baths] = params[:baths] if params[:baths].is_a?(Integer)
-      update_hash[:receptions] = params[:receptions] if params[:receptions].is_a?(Integer)
-      update_hash[:property_type] = params[:property_type] if params[:property_type].is_a?(String)
-      update_hash[:verification_status] = false
-      update_hash[:renter_id] = @current_user.id
-      PropertyService.new(udprn).update_details(update_hash)
-      @current_user.send_vendor_email(params[:vendor_email], udprn)
-      render json: { message: 'Property details have been updated successfully' }, status: 200
-    else
-      render json: { message: 'Authorization failed' }, status: 401
-    end
-
+    validate_rent_property_upload_params
+    update_hash = {}
+    udprn = params[:udprn].to_i
+    update_hash[:beds] = params[:beds] if params[:beds].is_a?(Integer)
+    update_hash[:baths] = params[:baths] if params[:baths].is_a?(Integer)
+    update_hash[:receptions] = params[:receptions] if params[:receptions].is_a?(Integer)
+    update_hash[:property_type] = params[:property_type] if params[:property_type].is_a?(String)
+    update_hash[:verification_status] = false
+    update_hash[:renter_id] = @current_user.id
+    PropertyService.new(udprn).update_details(update_hash)
+    @current_user.send_vendor_email(params[:vendor_email], udprn)
+    render json: { message: 'Property details have been updated successfully' }, status: 200
   end
 
   ### New tags for a particular field can be added using this api
   ### curl -XPOST   -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo3LCJleHAiOjE0ODUxODUwMTl9.7drkfFR5AUFZoPxzumLZ5TyEod_dLm8YoZZM0yqwq6U" 'http://localhost/tags/property_style' 
   def add_new_tags
-    if user_valid_for_viewing?(['Agent', 'Developer', 'Vendor'], params[:udprn].to_i)
-      tags = params[:tags]
-      field = params[:field]
-      field_type = FieldValueStore::FIELD_TYPE_ARR.index(field.to_sym)
-      tags ||= [] if !tags.is_a?(Array)
-      tags.each{ |tag| FieldValueStore.create!(field_type: field_type, name: tag) }
-      render json: { message: "Tags have been added successfully to the #{field}", tags: tags }, status: 201
-    else
-      render json: { message: 'Authorization failed' }, status: 401
-    end
+    tags = params[:tags]
+    field = params[:field]
+    field_type = FieldValueStore::FIELD_TYPE_ARR.index(field.to_sym)
+    tags ||= [] if !tags.is_a?(Array)
+    tags.each{ |tag| FieldValueStore.create!(field_type: field_type, name: tag) }
+    render json: { message: "Tags have been added successfully to the #{field}", tags: tags }, status: 201
   end
 
   ### Show all tags for a particular field
   ### curl -XGET   -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo3LCJleHAiOjE0ODUxODUwMTl9.7drkfFR5AUFZoPxzumLZ5TyEod_dLm8YoZZM0yqwq6U" 'http://localhost/tags/property_style' 
   def show_tags
-    if user_valid_for_viewing?(['Agent', 'Developer', 'Vendor'], params[:udprn].to_i)
-      field = params[:field]
-      field_type = FieldValueStore::FIELD_TYPE_ARR.index(field.to_sym)
-      tags = FieldValueStore.where(field_type: field_type).pluck(:name)
-      render json: tags, status: 200
-    else
-      render json: { message: 'Authorization failed' }, status: 401
-    end
+    field = params[:field]
+    field_type = FieldValueStore::FIELD_TYPE_ARR.index(field.to_sym)
+    tags = FieldValueStore.where(field_type: field_type).pluck(:name)
+    render json: tags, status: 200
   end
 
   ### Invite friends/family for signing up as a vendor/property owner of a property
   ### curl -XPOST  -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9." 'http://localhost/invite/friends/family/' -d '{ "email" : "johnt@yt.com", "udprn":123456789, "otp":432321  }'
   def invite_friends_and_family
-    if user_valid_for_viewing?(['Buyer', 'Vendor'], params[:udprn].to_i)
-    #if true
-      udprn = params[:udprn].to_i
-      email = params[:email]
-      buyer_id = @current_user.class.to_s == 'PropertyBuyer' ? @current_user.id : @current_user.buyer_id
+    udprn = params[:udprn].to_i
+    email = params[:email]
+    buyer_id = @current_user.class.to_s == 'PropertyBuyer' ? @current_user.id : @current_user.buyer_id
 
-      ### Verify OTP within one hour
-      totp = ROTP::TOTP.new("base32secret3232", interval: 1)
-      user_otp = params['otp']
-      otp_verified = totp.verify_with_drift(user_otp, 3600, Time.now+3600)
+    ### Verify OTP within one hour
+    totp = ROTP::TOTP.new("base32secret3232", interval: 1)
+    user_otp = params['otp']
+    otp_verified = totp.verify_with_drift(user_otp, 3600, Time.now+3600)
 
-      if otp_verified
-        PropertyBuyer.find(buyer_id).send_vendor_email(email, udprn, false)
-        render json: { message: 'Invited the friend/family of yours with email ' + email }, status: 200
-      else
-        render json: { message: 'OTP Failure' }, status: 400
-      end
-
+    if otp_verified
+      PropertyBuyer.find(buyer_id).send_vendor_email(email, udprn, false)
+      render json: { message: 'Invited the friend/family of yours with email ' + email }, status: 200
     else
-      render json: { message: 'Authorization failed' }, status: 401
+      render json: { message: 'OTP Failure' }, status: 400
     end
   end
 
   ### Predictions for the tags
   ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo3LCJleHAiOjE0ODUxODUwMTl9.7drkfFR5AUFZoPxzumLZ5TyEod_dLm8YoZZM0yqwq6U" " 'http://localhost/predict/tags?field=property_style&str=Exampl' 
   def predict_tags
-    if user_valid_for_viewing?(['Agent', 'Developer', 'Vendor'], params[:udprn].to_i)
-      field = params[:field]
-      field_type = FieldValueStore::FIELD_TYPE_ARR.index(field.to_sym)
-      search_str = params[:str]
-      tags = FieldValueStore.where(field_type: field_type).where(" name LIKE '#{search_str}%'").pluck(:name)
-      render json: tags, status: 200
-    else
-      render json: { message: 'Authorization failed' }, status: 401
-    end
+    field = params[:field]
+    field_type = FieldValueStore::FIELD_TYPE_ARR.index(field.to_sym)
+    search_str = params[:str]
+    tags = FieldValueStore.where(field_type: field_type).where(" name LIKE '#{search_str}%'").pluck(:name)
+    render json: tags, status: 200
   end
   
   private
@@ -432,6 +383,46 @@ class PropertiesController < ActionController::Base
     user_types.any? do |user_type|
       @current_user = authenticate_request(user_type).result
       !@current_user.nil?
+    end
+  end
+
+  def authenticate_vendor
+    if user_valid_for_viewing?(['Vendor'])
+      yield
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  def authenticate_all
+    if user_valid_for_viewing?(['Vendor', 'Agent', 'Developer'])
+      yield
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+   
+  def authenticate_agent_and_vendor
+    if user_valid_for_viewing?(['Agent', 'Vendor'])
+      yield
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+   
+  def authenticate_buyer_and_vendor
+    if user_valid_for_viewing?(['Buyer', 'Vendor'])
+      yield
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+   
+  def authenticate_buyer
+    if user_valid_for_viewing?(['Buyer'])
+      yield
+    else
+      render json: { message: 'Authorization failed' }, status: 401
     end
   end
 

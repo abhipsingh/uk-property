@@ -28,7 +28,7 @@ module Enquiries
       elsif is_premium
         query = query.order('created_at DESC')
         total_rows = query.to_a
-        result = process_enquiries_result(total_rows, @agent_id, is_premium, old_stats_flag)
+        result = self.class.process_enquiries_result(total_rows, @agent_id, is_premium, old_stats_flag)
       else
         query = query.order('created_at DESC')
         total_rows = query.limit(Event::PAGE_SIZE).offset(page_number.to_i*Event::PAGE_SIZE)

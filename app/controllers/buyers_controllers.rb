@@ -1,5 +1,6 @@
 ### Base controller
 class BuyersController < ActionController::Base
+  around_action :authenticate_buyer, only: [ :tracking_history, :process_premium_payment, :tracking_stats, :tracking_details, :edit_tracking ]
 
 	#### When basic details of the buyer is saved
   #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/buyers/7/edit' -d '{ "status" : "Green", "buying_status" : "First time buyer", "budget_from" : 5000, "budget_to": 100000, "chain_free" : false, "funding_status" : "Mortgage approved", "biggest_problem" : "Money" , "rent_requirement": { "min_beds" :3, "max_beds":4, "min_baths" : 1, "max_baths" : 2, "min_receptions":1, "max_receptions":3, "locations" : "bla bla bla"}  }'
@@ -92,99 +93,82 @@ class BuyersController < ActionController::Base
   # curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 
   ### -H "Content-Type: application/json"  "http://localhost/buyers/premium/access" -d  '{ "stripeEmail" : "abhiuec@gmail.com", "stripeToken":"tok_19WlE9AKL3KAwfPBkWwgTpqt", "buyer_id":211}'
   def process_premium_payment
-    buyer = user_valid_for_viewing?('Buyer')
-    if !buyer.nil?
-      # Create the customer in Stripe
-      customer = Stripe::Customer.create(
-        email: params[:stripeEmail],
-        card: params[:stripeToken]
+    buyer = @current_user
+    # Create the customer in Stripe
+    customer = Stripe::Customer.create(
+      email: params[:stripeEmail],
+      card: params[:stripeToken]
+    )
+    chargeable_amount = (PropertyBuyer::PREMIUM_AMOUNT)*100.0
+    begin
+      charge = Stripe::Charge.create(
+        customer: customer.id,
+        amount: chargeable_amount,
+        description: "Ads amount charged for premium access for buyer id, #{params[:buyer_id]} on #{Time.now.to_s}",
+        currency: 'GBP'
       )
-      chargeable_amount = (PropertyBuyer::PREMIUM_AMOUNT)*100.0
-      begin
-        charge = Stripe::Charge.create(
-          customer: customer.id,
-          amount: chargeable_amount,
-          description: "Ads amount charged for premium access for buyer id, #{params[:buyer_id]} on #{Time.now.to_s}",
-          currency: 'GBP'
-        )
-        PropertyBuyer.find(buyer.id).update_attributes(is_premium: true)
-        message = 'Premium access for trackings enabled'
-      rescue Stripe::CardError => e
-        Rails.logger.info("STRIPE_CARD_ERROR_#{buyer_id}: #{e.message}")
-        message = "Stripe card error with message #{e.message}"
-      ensure
-        render json: { message: message, status: 200 }
-      end
-
-    else
-      render json: { message: 'Authorization failed' }, status: 401
+      PropertyBuyer.find(buyer.id).update_attributes(is_premium: true)
+      message = 'Premium access for trackings enabled'
+    rescue Stripe::CardError => e
+      Rails.logger.info("STRIPE_CARD_ERROR_#{buyer_id}: #{e.message}")
+      message = "Stripe card error with message #{e.message}"
+    ensure
+      render json: { message: message, status: 200 }
     end
   end
 
   ### Get tracking stats for a buyer
   # curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c"   "http://localhost/buyers/tracking/stats"  
   def tracking_stats
-    buyer = user_valid_for_viewing?('Buyer')
-    if !buyer.nil?
-      property_tracking_count = Events::Track.where(buyer_id: buyer.id).where(type_of_tracking: Events::Track::TRACKING_TYPE_MAP[:property_tracking]).count
-      street_tracking_count = Events::Track.where(buyer_id: buyer.id).where(type_of_tracking: Events::Track::TRACKING_TYPE_MAP[:street_tracking]).count
-      locality_tracking_count = Events::Track.where(buyer_id: buyer.id).where(type_of_tracking: Events::Track::TRACKING_TYPE_MAP[:locality_tracking]).count
-      stats = {
-        type: (buyer.is_premium? ? 'Premium' : 'Standard'),
-        locality_tracking_count_limit: Events::Track::BUYER_LOCALITY_PREMIUM_LIMIT[buyer.is_premium.to_s],
-        street_tracking_count_limit: Events::Track::BUYER_STREET_PREMIUM_LIMIT[buyer.is_premium.to_s],
-        property_tracking_count_limit: Events::Track::BUYER_PROPERTY_PREMIUM_LIMIT[buyer.is_premium.to_s],
-        locality_tracking_count: locality_tracking_count,
-        property_tracking_count: property_tracking_count,
-        street_tracking_count: street_tracking_count
-      }
-      render json: stats, status: 200
-    else
-      render json: { message: 'Authorization failed' }, status: 401
-    end
+    buyer = @current_user
+    property_tracking_count = Events::Track.where(buyer_id: buyer.id).where(type_of_tracking: Events::Track::TRACKING_TYPE_MAP[:property_tracking]).count
+    street_tracking_count = Events::Track.where(buyer_id: buyer.id).where(type_of_tracking: Events::Track::TRACKING_TYPE_MAP[:street_tracking]).count
+    locality_tracking_count = Events::Track.where(buyer_id: buyer.id).where(type_of_tracking: Events::Track::TRACKING_TYPE_MAP[:locality_tracking]).count
+    stats = {
+      type: (buyer.is_premium? ? 'Premium' : 'Standard'),
+      locality_tracking_count_limit: Events::Track::BUYER_LOCALITY_PREMIUM_LIMIT[buyer.is_premium.to_s],
+      street_tracking_count_limit: Events::Track::BUYER_STREET_PREMIUM_LIMIT[buyer.is_premium.to_s],
+      property_tracking_count_limit: Events::Track::BUYER_PROPERTY_PREMIUM_LIMIT[buyer.is_premium.to_s],
+      locality_tracking_count: locality_tracking_count,
+      property_tracking_count: property_tracking_count,
+      street_tracking_count: street_tracking_count
+    }
+    render json: stats, status: 200
   end
 
   ### Get tracking filters and find details of properties in type of tracking
   ### TODO: Net HTTP calls made with hardcoded hostnames to be removed
   ### TODO: tracking id should be returned or not?
   def tracking_details
-    buyer = user_valid_for_viewing?('Buyer')
-    if !buyer.nil?
-      type_of_tracking = (params[:type_of_tracking] || "property_tracking").to_sym
-      if type_of_tracking == :property_tracking
-        udprns = Events::Track.where(buyer_id: buyer.id).where(type_of_tracking: Events::Track::TRACKING_TYPE_MAP[:property_tracking]).pluck(:udprn)
-        api = PropertySearchApi.new(filtered_params: {})
-        body = api.fetch_details_from_udprns(udprns)
+    buyer = @current_user
+    type_of_tracking = (params[:type_of_tracking] || "property_tracking").to_sym
+    if type_of_tracking == :property_tracking
+      udprns = Events::Track.where(buyer_id: buyer.id).where(type_of_tracking: Events::Track::TRACKING_TYPE_MAP[:property_tracking]).pluck(:udprn)
+      api = PropertySearchApi.new(filtered_params: {})
+      body = api.fetch_details_from_udprns(udprns)
+      render json: {property_details: body}, status: 200
+    else
+      if params["hash_str"].present?
+        body = Oj.load(Net::HTTP.get(URI.parse(URI.encode("http://52.66.124.42/api/v0/properties/search?hash_str=#{params['hash_str']}"))))
         render json: {property_details: body}, status: 200
       else
-        if params["hash_str"].present?
-          body = Oj.load(Net::HTTP.get(URI.parse(URI.encode("http://52.66.124.42/api/v0/properties/search?hash_str=#{params['hash_str']}"))))
-          render json: {property_details: body}, status: 200
-        else
-          body = []
-          search_hashes = Events::Track.where(buyer_id: buyer.id).where(type_of_tracking: Events::Track::TRACKING_TYPE_MAP[type_of_tracking]).pluck(:hash_str).compact
-          search_hashes.each do |search_hash|
-            ### TODO: Fix this. Use internal methods rather than calling the api
-            body = Oj.load(Net::HTTP.get(URI.parse(URI.encode("http://52.66.124.42/api/v0/properties/search?hash_str=#{search_hash}")))) + body
-          end
-          render json: {search_hashes: search_hashes, property_details: body}
+        body = []
+        search_hashes = Events::Track.where(buyer_id: buyer.id).where(type_of_tracking: Events::Track::TRACKING_TYPE_MAP[type_of_tracking]).pluck(:hash_str).compact
+        search_hashes.each do |search_hash|
+          ### TODO: Fix this. Use internal methods rather than calling the api
+          body = Oj.load(Net::HTTP.get(URI.parse(URI.encode("http://52.66.124.42/api/v0/properties/search?hash_str=#{search_hash}")))) + body
         end
+        render json: {search_hashes: search_hashes, property_details: body}
       end
-    else
-      render json: { message: 'Authorization failed' }, status: 401
     end
   end
 
   ### Edit tracking details
   # curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c"   "http://localhost/buyers/tracking/remove/:tracking_id"  
   def edit_tracking
-    buyer = user_valid_for_viewing?('Buyer')
-    if !buyer.nil?
-      destroyed = Events::Track.where(id: params[:tracking_id].to_i).last.destroy
-      render json: { message: 'Destroyed tracking request' }, status: 200
-    else
-      render json: { message: 'Authorization failed' }, status: 401
-    end
+    buyer = @current_user
+    destroyed = Events::Track.where(id: params[:tracking_id].to_i).last.destroy
+    render json: { message: 'Destroyed tracking request' }, status: 200
   end
 
   def test_view
@@ -192,8 +176,18 @@ class BuyersController < ActionController::Base
   end
 
   private
+
   def user_valid_for_viewing?(klass)
     AuthorizeApiRequest.call(request.headers, klass).result
+  end
+
+  def authenticate_buyer
+    @current_user = user_valid_for_viewing?('Buyer')
+    if @current_user
+      yield
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
   end
 end
 
