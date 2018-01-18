@@ -1,7 +1,7 @@
 class PropertiesController < ActionController::Base
   include CacheHelper
   before_filter :set_headers
-  around_action :authenticate_agent_and_vendor, only: [  :pricing_history, :interest_info, :supply_info_aggregate ]
+  around_action :authenticate_agent_and_vendor, only: [ :edit_property_details,  :pricing_history, :interest_info, :supply_info_aggregate ]
   around_action :authenticate_buyer_and_vendor, only: [ :invite_friends_and_family ]
   around_action :authenticate_all, only: [ :enquiries, :predict_tags, :add_new_tags, :show_tags ]
   around_action :authenticate_vendor, only: [ :attach_vendor_to_udprn_manual_for_manually_added_properties ]
@@ -32,7 +32,7 @@ class PropertiesController < ActionController::Base
   ### curl -XGET  'http://localhost/property/details/98-mostyn-avenue-old-roan-liverpool-merseyside-l10-2jq'
   def details_from_vanity_url
     details = PropertyService.fetch_details_from_vanity_url(params[:vanity_url])
-    details[:percent_completed] = nil if !user_valid_for_viewing?(['Agent', 'Vendor'], params[:udprn].to_i)
+    details[:percent_completed] = nil if !user_valid_for_viewing?(['Agent', 'Vendor'])
     render json: details, status: 200
   end
 
