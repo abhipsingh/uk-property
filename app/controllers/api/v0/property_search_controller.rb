@@ -101,7 +101,7 @@ module Api
 
         result = resp_hash.clone
         resp_hash.each do |key, value|
-          hash = MatrixViewService.form_hash_str(resp_hash, key)
+          hash = MatrixViewService.form_hash(resp_hash, key)
           result[(key.to_s + "_hash").to_sym] = hash
         end
         render json: result, status: 200

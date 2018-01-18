@@ -93,11 +93,11 @@ class MatrixViewController < ActionController::Base
         location_hash = { post_town: post_town, county: county }
         output = nil
         if text.start_with?('post_town')
-          hash = MatrixViewService.form_hash_str(location_hash, :post_town)
+          hash = MatrixViewService.form_hash(location_hash, :post_town)
           output = post_town + ' (' + county + ')'
         else
           location_hash[:county] = post_town
-          hash = MatrixViewService.form_hash_str(location_hash, :county)
+          hash = MatrixViewService.form_hash(location_hash, :county)
           output = post_town
         end
         final_predictions.push({ hash: hash, output: output, type: text.split('|')[0] })

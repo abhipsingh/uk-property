@@ -57,15 +57,15 @@ class Events::Track < ActiveRecord::Base
   end
 
   def self.locality_hash(details)
-    MatrixViewService.form_hash_str(details, :dependent_locality)
+    MatrixViewService.form_hash(details, :dependent_locality)
   end
 
   def self.td_hash(details)
-    MatrixViewService.form_hash_str(details, :thoroughfare_description)
+    MatrixViewService.form_hash(details, :thoroughfare_description)
   end
 
   def self.dtd_hash(details)
-    MatrixViewService.form_hash_str(details, :dependent_thoroughfare_description)
+    MatrixViewService.form_hash(details, :dependent_thoroughfare_description)
   end
 
   def self.street_hash(details)

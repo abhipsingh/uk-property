@@ -106,12 +106,7 @@ module MatrixViewHelper
             new_context_map[each_agg_field[0].to_sym] = value[:key]
             new_context_map[each_agg_field[1].to_sym] = context
             new_context_map[:scoping_type] = each_agg_field[1].to_sym
-            hash_str = nil
-            if PropertySearchApi::ADDRESS_LOCALITY_LEVELS.include?(each_agg_field[1].to_sym)
-              hash_str = MatrixViewService.form_hash_str(new_context_map, each_agg_field[0].to_sym)
-            else
-              hash_str = MatrixViewService.form_hash(new_context_map, each_agg_field[0].to_sym)
-            end
+            hash_str = MatrixViewService.form_hash(new_context_map, each_agg_field[0].to_sym)
             response_hash[each_agg_field[0].pluralize].push({ each_agg_field[0] => value[:key], flat_count: value[:doc_count], scoped_postcode: context, hash_str: hash_str })
           end
         end
@@ -142,51 +137,8 @@ module MatrixViewHelper
     hash[:type] = type
   end
 
-  def form_hash_str(context_hash, type)
-    if type == :county
-      "#{context_hash[:county]}_@_@_@_@_@_@_@_@"
-    elsif type == :post_town
-      county = context_hash[:county]
-      county = '@' if county.nil?
-      "#{county}_#{context_hash[:post_town]}_@_@_@_@_@_@_@"
-    elsif type == :dependent_locality
-      pt = context_hash[:post_town]
-      pt = '@' if pt.blank?
-      district = context_hash[:district]
-      district = '@' if district.nil?
-      "@_#{pt}_#{context_hash[:dependent_locality]}_@_@_@_@_@_@|@_@_#{district}"
-    elsif type == :dependent_thoroughfare_description
-      pt = context_hash[:post_town]
-      pt = '@' if pt.blank?
-      dl = "#{context_hash[:dependent_locality]}"
-      dl = "@" if dl == ''
-      sector = context_hash[:sector]
-      sector = '@' if sector.blank?
-      "@_#{pt}_#{dl}_@_#{context_hash[:dependent_thoroughfare_description]}_@_@_@_@|@_#{sector}_#{context_hash[:district]}"
-    elsif type == :thoroughfare_description
-      pt = context_hash[:post_town]
-      pt = '@' if pt.blank?
-      dl = "#{context_hash[:dependent_locality]}"
-      dl = "@" if dl == ''
-      sector = context_hash[:sector]
-      sector = '@' if sector.blank?
-      "@_#{pt}_#{dl}_#{context_hash[:thoroughfare_description]}_@_@_@_@_@|@_#{sector}_#{context_hash[:district]}"
-    elsif type == :district
-      area = context_hash[:area]
-      pt = context_hash[:post_town]
-      !area.nil? ? pt = '@' : pt = pt
-      pt = '@' if pt.blank?
-      "@_#{pt}_@_@_@_@_@_@_@|@_@_#{context_hash[:district]}"
-    elsif type == :sector
-      dl = "#{context_hash[:dependent_locality]}"
-      dl = "@" if dl == ''
-      "@_@_#{dl}_@_@_@_@_@_@|@_#{context_hash[:sector]}_@"
-    elsif type == :unit
-      "@_@_@_@_@_@_@_@_@|#{context_hash[:unit]}_@_@"
-    end
-  end
-
   def calculate_postcode_units(hash)
 
   end
 end
+

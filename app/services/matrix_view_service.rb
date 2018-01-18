@@ -117,47 +117,13 @@ class MatrixViewService
       value = '@' if index > postcode_stop_index
       postcode_strs.push(value)
     end
-    result = address_strs.join('_') + '|' + postcode_strs.reverse.join('_')
+    postcode_strs = [] if postcode_strs.all?{ |t| t == '@' }
+    postcode_str = postcode_strs.reverse.join('_')
+    postcode_str = nil if postcode_str.blank?
+    location_strs = [ address_strs.join('_'), postcode_str ].compact
+    result = location_strs.join('|')
     result = nil if context_hash[type].nil?
     result
-  end
-
-  def self.form_hash_str(context_hash, type)
-    if type == :county
-      "#{context_hash[:county]}_@_@_@_@_@_@_@_@"
-    elsif type == :post_town
-      county = context_hash[:county]
-      county = '@' if county.nil?
-      pt = context_hash[:post_town]
-      pt ||= '@'
-      "#{county}_#{pt}_@_@_@_@_@_@_@"
-    elsif type == :dependent_locality
-      pt = context_hash[:post_town]
-      pt = '@' if pt.blank?
-      district = context_hash[:district]
-      district = '@' if district.nil?
-      "@_#{pt}_#{context_hash[:dependent_locality]}_@_@_@_@_@_@|@_@_#{district}"
-    elsif type == :dependent_thoroughfare_description
-      pt = context_hash[:post_town]
-      pt = '@' if pt.blank?
-      dl = "#{context_hash[:dependent_locality]}"
-      dl = "@" if dl == ''
-      sector = '@'
-      "@_#{pt}_#{dl}_@_#{context_hash[:dependent_thoroughfare_description]}_@_@_@_@|@_#{sector}_#{context_hash[:district]}"
-    elsif type == :thoroughfare_description
-      pt = context_hash[:post_town]
-      pt = '@' if pt.blank?
-      dl = "#{context_hash[:dependent_locality]}"
-      dl = "@" if dl == ''
-      sector = '@'
-      "@_#{pt}_#{dl}_#{context_hash[:thoroughfare_description]}_@_@_@_@_@|@_#{sector}_#{context_hash[:district]}"
-    elsif type == :district
-      form_hash(context_hash, :district)
-    elsif type == :sector
-      form_hash(context_hash, :sector)
-    elsif type == :unit
-      form_hash(context_hash, :unit)
-    end
   end
 
   def self.val(hash, key)
@@ -244,7 +210,7 @@ class MatrixViewService
       scoping_parameter: attribute.to_sym, 
       constraint_key: level.to_sym, 
       constraints: matrix_view_context.clone,
-      hash_str: self.class.form_hash_str(matrix_view_context, level.to_sym)
+      hash_str: self.class.form_hash(matrix_view_context, level.to_sym)
     )
     results = matrix_view_count.calculate_count
     final_results[attribute.to_s.pluralize] = results.map do |result_key, result_value|

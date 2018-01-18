@@ -575,7 +575,7 @@ class Trackers::Buyer
       results = []
 
       if details[region_type] && default_search_params.keys.count > 0
-        hash_str = MatrixViewService.form_hash_str(details, region_type)      
+        hash_str = MatrixViewService.form_hash(details, region_type)      
         search_params = default_search_params.clone
         search_params[:hash_str] = hash_str
         search_params[:hash_type] = region_type
