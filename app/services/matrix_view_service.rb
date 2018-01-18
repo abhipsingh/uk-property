@@ -199,7 +199,7 @@ class MatrixViewService
     @context_hash[:district] = @context_hash[:sector].split(' ')[0] if @context_hash[:unit]
     values.each do |key, value|
       next if @context_hash[:post_town] == 'London' && key.to_sym == :dependent_locality
-      calculate_count_for_level(key, level, final_results)
+      calculate_count_for_level(key, value, final_results)
     end
     final_results
   end
