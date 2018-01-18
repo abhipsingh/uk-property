@@ -106,41 +106,53 @@ module EventsHelper
         ### Update stage of the enquiry
         if Event::EVENTS[:offer_made_stage] == event
 
-          if message[:offer_price] || message[:offer_date]
+          if message && (message[:offer_price] || message[:offer_date])
             original_enquiries = Event.where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false)
-            update_hash = { stage: event }
-            update_hash[:offer_price] = message[:offer_price] if message[:offer_price]
-            update_hash[:offer_date] = message[:offer_date] if message[:offer_date]
-            original_enquiries.update_all(update_hash) 
-            enquiries = Enquiries::PropertyService.process_enquiries_result(original_enquiries)
-            response[:enquiries] = enquiries
-          else
-            response[:enquiries] = []
+            present_stage = original_enquiries.last.stage
+            present_index = Event::QUALIFYING_STAGE_EVENTS.index(Trackers::Buyer::REVERSE_EVENTS[present_stage])
+            event_index = Event::QUALIFYING_STAGE_EVENTS.index(:offer_made_stage)
+            if event_index >= present_index
+              update_hash = { stage: event }
+              update_hash[:offer_price] = message[:offer_price] if message[:offer_price]
+              update_hash[:offer_date] = message[:offer_date] if message[:offer_date]
+              original_enquiries.update_all(update_hash) 
+              enquiries = Enquiries::PropertyService.process_enquiries_result(original_enquiries)
+              response[:enquiries] = enquiries
+            end
           end
+          response[:enquiries] ||= []
   
         elsif Event::EVENTS[:viewing_stage] == event
 
-          if message[:scheduled_viewing_time]
+          if message && message[:scheduled_viewing_time]
             original_enquiries = Event.where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false)
-            original_enquiries.update_all(stage: event, scheduled_visit_time: Time.parse(message[:scheduled_viewing_time])) 
-            enquiries = Enquiries::PropertyService.process_enquiries_result(original_enquiries)
-            response[:enquiries] = enquiries
-          else
-            response[:enquiries] = []
+            present_stage = original_enquiries.last.stage
+            present_index = Event::QUALIFYING_STAGE_EVENTS.index(Trackers::Buyer::REVERSE_EVENTS[present_stage])
+            event_index = Event::QUALIFYING_STAGE_EVENTS.index(:viewing_stage)
+            if event_index >= present_index
+              original_enquiries.update_all(stage: event, scheduled_visit_time: Time.parse(message[:scheduled_viewing_time])) 
+              enquiries = Enquiries::PropertyService.process_enquiries_result(original_enquiries)
+              response[:enquiries] = enquiries
+            end
           end
+          response[:enquiries] ||= []
   
         elsif Event::EVENTS[:completion_stage] == event
 
-          if message[:expected_completion_date]
+          if message && message[:expected_completion_date]
             original_enquiries = Event.where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false)
-            update_hash = { stage: event, expected_completion_date: Date.parse(message[:expected_completion_date]) }
-            update_hash[:offer_price] = message[:offer_price] if message[:offer_price]
-            original_enquiries.update_all(update_hash)
-            enquiries = Enquiries::PropertyService.process_enquiries_result(original_enquiries)
-            response[:enquiries] = enquiries
-          else
-            response[:enquiries] = []
+            present_stage = original_enquiries.last.stage
+            present_index = Event::QUALIFYING_STAGE_EVENTS.index(Trackers::Buyer::REVERSE_EVENTS[present_stage])
+            event_index = Event::QUALIFYING_STAGE_EVENTS.index(:completion_stage)
+            if event_index >= present_index
+              update_hash = { stage: event, expected_completion_date: Date.parse(message[:expected_completion_date]) }
+              update_hash[:offer_price] = message[:offer_price] if message[:offer_price]
+              original_enquiries.update_all(update_hash)
+              enquiries = Enquiries::PropertyService.process_enquiries_result(original_enquiries)
+              response[:enquiries] = enquiries
+            end
           end
+          response[:enquiries] ||= []
 
         elsif Event::EVENTS[:closed_won_stage] == event
 
@@ -148,12 +160,21 @@ module EventsHelper
           response[:enquiries] = service.close_enquiry(completion_date: message[:completion_date])
           Event.where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false).update_all(offer_price: message[:offer_price]) if message[:offer_price]
 
+          response[:enquiries] ||= []
         else
 
           original_enquiries = Event.where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false)
-          original_enquiries.update_all(stage: event)
-          enquiries = Enquiries::PropertyService.process_enquiries_result(original_enquiries)
-          response[:enquiries] = enquiries
+          present_stage = original_enquiries.last.stage
+          present_index = Event::QUALIFYING_STAGE_EVENTS.index(Trackers::Buyer::REVERSE_EVENTS[present_stage])
+          event_index = Event::QUALIFYING_STAGE_EVENTS.index(Trackers::Buyer::REVERSE_EVENTS[event])
+          if event_index >= present_index
+            update_hash = { stage: event }
+            update_hash[:offer_price] = message[:offer_price] if message && message[:offer_price]
+            original_enquiries.update_all(update_hash)
+            enquiries = Enquiries::PropertyService.process_enquiries_result(original_enquiries)
+            response[:enquiries] = enquiries
+          end
+          response[:enquiries] ||= []
 
         end
 

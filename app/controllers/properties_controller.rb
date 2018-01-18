@@ -1,7 +1,7 @@
 class PropertiesController < ActionController::Base
   include CacheHelper
   before_filter :set_headers
-  around_action :authenticate_agent_and_vendor, only: [ :edit_property_details, :pricing_history, :interest_info, :supply_info_aggregate ]
+  around_action :authenticate_agent_and_vendor, only: [  :pricing_history, :interest_info, :supply_info_aggregate ]
   around_action :authenticate_buyer_and_vendor, only: [ :invite_friends_and_family ]
   around_action :authenticate_all, only: [ :enquiries, :predict_tags, :add_new_tags, :show_tags ]
   around_action :authenticate_vendor, only: [ :attach_vendor_to_udprn_manual_for_manually_added_properties ]
@@ -166,7 +166,7 @@ class PropertiesController < ActionController::Base
     cache_parameters = [:enquiry_type, :type_of_match, :hash_str, :property_status_type, :verification_status, :last_time, :page, :count].map{ |t| params[t].to_s }
     count = params[:count].to_s == 'true'
     cache_response(params[:buyer_id].to_i, cache_parameters) do
-      ranking_info = Enquiries::BuyerService.new(buyer_id: params[:buyer_id]).history_enquiries(buyer_id: params[:buyer_id].to_i, enquiry_type: enquiry_type, type_of_match: type_of_match, property_status_type:  property_status_type, hash_str: search_str, verification_status: verification_status, last_time: params[:latest_time], page_number: params[:page], count: count)
+      ranking_info = Enquiries::BuyerService.new(buyer_id: params[:buyer_id]).historical_enquiries(enquiry_type: enquiry_type, type_of_match: type_of_match, property_status_type:  property_status_type, hash_str: search_str, verification_status: verification_status, last_time: params[:latest_time], page_number: params[:page], count: count)
       render json: ranking_info, status: status
     end
   end

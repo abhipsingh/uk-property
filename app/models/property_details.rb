@@ -54,6 +54,7 @@ class PropertyDetails
     details[:vanity_url] = vanity_url(details['address'])
     details[:udprn] = udprn.to_i
     PropertyService::INT_ATTRS.each { |t| details[t] = details[t].to_i if details[t] }
+    PropertyService::BOOL_ATTRS.each { |t| details[t] = (details[t].to_s == 'true') if details[t] }
     { '_source' => details }.with_indifferent_access
   end
 
@@ -202,11 +203,13 @@ class PropertyDetails
         abs_price = details[:price] || details[:sale_price]
         details[:price] = details[:sale_price] = abs_price.to_i
       end
-
+      
       PropertySearchApi::ES_ATTRS.each { |key| es_hash[key] = details[key] if details[key] }
       PropertySearchApi::ADDRESS_LOCALITY_LEVELS.each { |key| es_hash[key] = details[key] if details[key] }
       PropertyService.update_udprn(udprn, details)
-      
+     
+      es_hash[:status_last_updated] = Time.parse(es_hash[:status_last_updated]).to_s if es_hash[:status_last_updated]
+      p es_hash
       client.delete index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn rescue nil
       client.index index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn , body: es_hash
       PropertyService.update_description(udprn, update_hash[:description]) if update_hash[:description]

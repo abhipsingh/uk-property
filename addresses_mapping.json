@@ -58,8 +58,8 @@
       "is_retirement_home":{"type":"boolean"},
       "last_sale_price":{"type":"integer"},
       "lettings":{"type":"boolean"},
-      "rent_available_from":{"type":"date","format":"yyyy-MM-dd HH:mm:ss Z"},
-      "rent_available_to":{"type":"date","format":"yyyy-MM-dd HH:mm:ss Z"},
+      "rent_available_from":{"type":"date","format":"yyyy-MM-dd"},
+      "rent_available_to":{"type":"date","format":"yyyy-MM-dd"},
       "rent_price":{"type":"integer"},
       "rent_price_type":{"type":"string", "index":"not_analyzed"},
       "rent_furnishing_type":{"type":"string", "index":"not_analyzed"}

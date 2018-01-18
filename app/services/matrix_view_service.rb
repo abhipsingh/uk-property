@@ -198,57 +198,95 @@ class MatrixViewService
     @context_hash[:sector] = calc_sector_value(@context_hash[:unit]) if @context_hash[:unit]
     @context_hash[:district] = @context_hash[:sector].split(' ')[0] if @context_hash[:unit]
     values.each do |key, value|
-      matrix_view_context = @context_hash.clone
-
-      ### To account for London districts(Not properly as counties)
-      if matrix_view_context[:district] && matrix_view_context[:post_town] == 'London'
-        matrix_view_context[:county] = MatrixViewCount.fetch_county_for_london(matrix_view_context[:district])
-        @context_hash[:county] = matrix_view_context[:county]
-      end
-
-      ### We know that London doesn't have any dependent locality. Hence skip it if its London and key is dependent
-      next if matrix_view_context[:post_town] == 'London' && key.to_sym == :dependent_locality
-
-      ### Counties can constraint and scope themselves
-      matrix_view_context.delete(key.to_sym) if key.to_sym == @level && @level != :county
-
-      #### throughfare and dependent are complimentary
-      matrix_view_context.delete(:dependent_thoroughfare_description) if key.to_sym == :thoroughfare_description
-      matrix_view_context.delete(:thoroughfare_description) if key.to_sym == :dependent_thoroughfare_description
-
-      matrix_view_count = MatrixViewCount.new(
-        scoping_parameter: key.to_sym, 
-        constraint_key: value.to_sym, 
-        constraints: matrix_view_context.clone,
-        hash_str: self.class.form_hash_str(matrix_view_context, value.to_sym)
-      )
-      results = matrix_view_count.calculate_count
-      final_results[key.to_s.pluralize] = results.map do |result_key, result_value|
-        result_context = matrix_view_context
-        result_context[key.to_sym] = result_key
-        hash = {
-          key.to_sym => result_key,
-          flat_count: result_value,
-          scoped_postcode: @context_hash[value.to_sym]
-        }
-
-        ### For districts having multiple post_tows, districts are by default scoped by post_town and seperated 
-        ### in this step
-        if key.to_sym == :district && value.to_sym == :county
-          dist_post_town = hash[:district].split(', ')
-          result_context[:post_town] = dist_post_town[1].strip
-          result_context[:district] = dist_post_town[0].strip
-        end
-
-        hash[:hash_str] = self.class.form_hash(result_context, key.to_sym)
-        hash
-      end
+      next if @context_hash[:post_town] == 'London' && key.to_sym == :dependent_locality
+      calculate_count_for_level(key, level, final_results)
     end
     final_results
   end
 
+  def calculate_counts_for_level(attribute)
+    values = POSTCODE_MATCH_MAP[@level.to_s]
+    values ||= ADDRESS_UNIT_MATCH_MAP[@level.to_s]
+    attrs = values.map{ |t| t[0] }
+
+    final_results = {}
+
+    if attrs.include?(attribute.to_s)
+      @context_hash[:area] = calc_area_value(@context_hash[:district]) if @context_hash[:district]
+      @context_hash[:district] = @context_hash[:sector].split(' ')[0] if @context_hash[:sector]
+      @context_hash[:sector] = calc_sector_value(@context_hash[:unit]) if @context_hash[:unit]
+      @context_hash[:district] = @context_hash[:sector].split(' ')[0] if @context_hash[:unit]
+      level = values[attrs.index(attribute.to_s)][1]
+      calculate_count_for_level(attribute, level, final_results)
+    end
+    final_results
+  end
+
+  def calculate_count_for_level(attribute, level, final_results)
+    matrix_view_context = @context_hash.clone
+
+    ### To account for London districts(Not properly as counties)
+    if matrix_view_context[:district] && matrix_view_context[:post_town] == 'London'
+      matrix_view_context[:county] = MatrixViewCount.fetch_county_for_london(matrix_view_context[:district])
+      @context_hash[:county] = matrix_view_context[:county]
+    end
+
+    ### We know that London doesn't have any dependent locality. Hence skip it if its London and key is dependent
+
+    ### Counties can constraint and scope themselves
+    matrix_view_context.delete(attribute.to_sym) if attribute.to_sym == @level && @level != :county
+
+    #### throughfare and dependent are complimentary
+    matrix_view_context.delete(:dependent_thoroughfare_description) if attribute.to_sym == :thoroughfare_description
+    matrix_view_context.delete(:thoroughfare_description) if attribute.to_sym == :dependent_thoroughfare_description
+
+    matrix_view_count = MatrixViewCount.new(
+      scoping_parameter: attribute.to_sym, 
+      constraint_key: level.to_sym, 
+      constraints: matrix_view_context.clone,
+      hash_str: self.class.form_hash_str(matrix_view_context, level.to_sym)
+    )
+    results = matrix_view_count.calculate_count
+    final_results[attribute.to_s.pluralize] = results.map do |result_key, result_value|
+      result_context = matrix_view_context
+      result_context[attribute.to_sym] = result_key
+      hash = {
+        attribute.to_sym => result_key,
+        flat_count: result_value,
+        scoped_postcode: @context_hash[level.to_sym]
+      }
+
+      ### For districts having multiple post_tows, districts are by default scoped by post_town and seperated 
+      ### in this step
+      if attribute.to_sym == :district && level.to_sym == :county
+        dist_post_town = hash[:district].split(', ')
+        result_context[:post_town] = dist_post_town[1].strip
+        result_context[:district] = dist_post_town[0].strip
+      end
+
+      hash[:hash_str] = self.class.form_hash(result_context, attribute.to_sym)
+      hash
+    end
+  end
+
   def process_result
     count_hash = calculate_counts
+    (PropertySearchApi::ADDRESS_LOCALITY_LEVELS-[:building_name, :building_number, :sub_building_name, :udprn]).each do |locality_level|
+      count_hash[locality_level.to_s.pluralize] ||= []
+      count_hash[locality_level] = @context_hash[locality_level]
+      count_hash[locality_level] ||= nil
+    end
+    PropertySearchApi::POSTCODE_LEVELS.each do |postcode_level|
+      count_hash[postcode_level.to_s.pluralize] ||= []
+      count_hash[postcode_level] = @context_hash[postcode_level]
+      count_hash[postcode_level] ||= nil
+    end
+    count_hash[:type] = @level
+    count_hash
+  end
+
+  def process_result_for_level(attribute)
+    count_hash = calculate_counts_for_level(attribute)
     (PropertySearchApi::ADDRESS_LOCALITY_LEVELS-[:building_name, :building_number, :sub_building_name, :udprn]).each do |locality_level|
       count_hash[locality_level.to_s.pluralize] ||= []
       count_hash[locality_level] = @context_hash[locality_level]

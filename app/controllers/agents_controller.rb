@@ -1,5 +1,6 @@
 class AgentsController < ApplicationController
-  around_action :authenticate_agent, only: [ :branch_info_for_location, :invite_vendor, :create_agent_without_password, :add_credits,
+  include CacheHelper
+  around_action :authenticate_agent, only: [ :invite_vendor, :create_agent_without_password, :add_credits,
                                              :branch_specific_invited_agents, :credit_history, :subscribe_premium_service, :remove_subscription,
                                              :manual_property_leads, :invited_vendor_history, :missing_sale_price_properties_for_agents, 
                                              :inactive_property_credits, :crawled_property_details, :verify_manual_property_from_agent,
@@ -803,6 +804,8 @@ class AgentsController < ApplicationController
           search_params[:property_status_type] = params[:property_status_type] if params[:property_status_type]
           search_params[:verification_status] = true if params[:verification_status] == 'true'
           search_params[:verification_status] = false if params[:verification_status] == 'false'
+          search_params[:sort_key] = 'status_last_updated'
+          search_params[:sort_order] = 'desc'
 
           #### Buyer filter
           if params[:buyer_id] && agent.is_premium

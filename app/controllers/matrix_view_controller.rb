@@ -47,25 +47,22 @@ class MatrixViewController < ActionController::Base
         counter += 1
       elsif text.end_with?('dl') 
         output = "#{details[counter]['dependent_locality']} (#{details[counter]['post_town']}, #{details[counter]['county']}, #{details[counter]['district']})"
-        hash = "@_#{details[counter]['post_town']}_#{details[counter]['dependent_locality']}_@_@_@_@_@_@|@_@_#{details[counter]['district']}"
+        hash = MatrixViewService.form_hash(details[counter], :dependent_locality)
         final_predictions.push({ hash: hash, output: output , type: 'dependent_locality'})
         counter += 1
       elsif  text.end_with?('dtd')
         loc = ''
         hash_loc = '@'
-        hash_loc = details[counter]['dependent_locality'] if details[counter]['dependent_locality']
         details[counter]['dependent_locality'].nil? ? loc = '' : loc = "#{details[counter]['dependent_locality']}, "
         output = "#{details[counter]['dependent_thoroughfare_description']} (#{loc}#{details[counter]['post_town']}, #{details[counter]['county']}, #{details[counter]['district']})"
-        hash = "@_#{details[counter]['post_town']}_#{hash_loc}_@_#{details[counter]['dependent_thoroughfare_description']}_@_@_@_@|@_@_#{details[counter]['district']}"
+        hash = MatrixViewService.form_hash(details[counter], :dependent_thoroughfare_description)
         final_predictions.push({ hash: hash, output: output, type: 'dependent_thoroughfare_description' })
         counter += 1
       elsif text.end_with?('td')
         loc = ''
-        hash_loc = '@'
-        hash_loc = details[counter]['dependent_locality'] if details[counter]['dependent_locality']
         details[counter]['dependent_locality'].nil? ? loc = '' : loc = "#{details[counter]['dependent_locality']}, "
         output = "#{details[counter]['thoroughfare_description']} (#{loc}#{details[counter]['post_town']}, #{details[counter]['county']}, #{details[counter]['district']})"
-        hash = "@_#{details[counter]['post_town']}_#{hash_loc}_#{details[counter]['thoroughfare_description']}_@_@_@_@_@|@_@_#{details[counter]['district']}"
+        hash = MatrixViewService.form_hash(details[counter], :thoroughfare_description)
         final_predictions.push({ hash: hash, output: output, type: 'thoroughfare_description' })
         counter += 1
       elsif text.start_with?('district') 
@@ -143,6 +140,50 @@ class MatrixViewController < ActionController::Base
 #    end
 #    render json: res, status: code
 #  end
+
+  def matrix_view_level
+    response = nil
+    attribute = params[:count_attr].to_s
+    matrix_view_service = MatrixViewService.new(hash_str: params[:str])
+    range_params = PropertySearchApi::FIELDS[:range].map{|t| ["min_#{t.to_s}", "max_#{t.to_s}"]}.flatten.map{|t| t.to_sym}
+    #if false
+    if (((PropertySearchApi::FIELDS[:terms] + PropertySearchApi::FIELDS[:term] + range_params) - PropertySearchApi::ADDRESS_LOCALITY_LEVELS - PropertySearchApi::POSTCODE_LEVELS) & params.keys.map(&:to_sym)).empty?
+      response = matrix_view_service.process_result_for_level(attribute)
+    else
+      values = POSTCODE_MATCH_MAP[matrix_view_service.level.to_s]
+      values ||= ADDRESS_UNIT_MATCH_MAP[matrix_view_service.level.to_s]
+      attrs = values.map{ |t| t[0] }
+      response = {}
+      if attrs.include?(attribute.to_s)
+        hash = { hash_str: params[:str] }
+        PropertySearchApi.construct_hash_from_hash_str(hash)
+        params.delete(:str)
+        hash.delete(:hash_str)
+        type_of_str(hash)
+        area, district, sector, unit = nil
+        if [:district, :sector, :unit].include?(hash[:type])
+          type = hash[:type]
+        else
+          type = PropertySearchApi::POSTCODE_LEVELS.reverse.select { |e| hash[e] }.first
+        end
+        new_params = params.merge!(hash)
+        new_params.delete(hash[:type])
+        api = ::PropertySearchApi.new(filtered_params: new_params)
+        api.modify_range_params
+        api.apply_filters
+        api.modify_query
+        area, district, sector, unit = compute_postcode_units(hash[type]) if hash[type]
+        hash[:area] = area
+        hash[:district] = district
+        hash[:sector] = sector
+        hash[:unit] = unit
+        code = 200
+        Rails.logger.info(hash[:type])
+        response, code = find_results(hash, api.query[:filter], Rails.configuration.address_index_name, [values[attrs.index(attribute.to_s)]] )
+      end
+    end
+    render json: response, status: 200
+  end
   
   def matrix_view
     response = nil
@@ -310,7 +351,7 @@ class MatrixViewController < ActionController::Base
     parsed_json['postcode_suggest'][0]['options'][0]['payload']['hash'] rescue nil
   end
 
-  def find_results(hash, filter_hash, index_name=Rails.configuration.address_index_name)
+  def find_results(hash, filter_hash, index_name=Rails.configuration.address_index_name, agg_fields=nil)
     aggs = {}
     query = {}
 
@@ -334,22 +375,22 @@ class MatrixViewController < ActionController::Base
     filter_index = 0
     # Rails.logger.info("QUERY___#{query}__#{context_map}__#{first_type}")
     if first_type == :county
-      construct_aggs_query_from_fields(area, district, sector, unit, 'county', first_type, query, filter_index, context_map, :address)
+      construct_aggs_query_from_fields(area, district, sector, unit, 'county', first_type, query, filter_index, context_map, :address, agg_fields)
     elsif first_type == :post_town
-      construct_aggs_query_from_fields(area, district, sector, unit, 'area', first_type, query, filter_index, context_map, :address)
+      construct_aggs_query_from_fields(area, district, sector, unit, 'area', first_type, query, filter_index, context_map, :address, agg_fields)
     elsif first_type == :dependent_locality
       first_type = :dependent_locality
-      construct_aggs_query_from_fields(area, district, sector, unit, 'district', first_type, query, filter_index, context_map, :address)
+      construct_aggs_query_from_fields(area, district, sector, unit, 'district', first_type, query, filter_index, context_map, :address, agg_fields)
     elsif first_type == :dependent_thoroughfare_description || first_type == :thoroughfare_description
       ##first_type = 'dependent_thoroughfare_description'
-      construct_aggs_query_from_fields(area, district, sector, unit, 'sector', first_type, query, filter_index, context_map, :address)
+      construct_aggs_query_from_fields(area, district, sector, unit, 'sector', first_type, query, filter_index, context_map, :address, agg_fields)
     elsif first_type == :building_type
-      construct_aggs_query_from_fields(area, district, sector, unit, 'unit', first_type, query, filter_index, context_map, :address)
+      construct_aggs_query_from_fields(area, district, sector, unit, 'unit', first_type, query, filter_index, context_map, :address, agg_fields)
     end
     Rails.logger.info(query)
     body, status = post_url(index_name, query, '_search', ES_EC2_URL)
     response = Oj.load(body).with_indifferent_access
-    response_hash = construct_response_body_postcode(area, district, sector, unit, response, first_type, :address, context_map, hash)
+    response_hash = construct_response_body_postcode(area, district, sector, unit, response, first_type, :address, context_map, hash, agg_fields)
     return response_hash, status
   end
 

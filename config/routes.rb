@@ -422,6 +422,9 @@ Rails.application.routes.draw do
   ### Properties for an agent which have missing sale price
   get '/agents/properties/quotes/missing/price',                to: 'agents#missing_sale_price_properties_for_agents'
 
+  ### Level specific matrix view search
+  get 'matrix/view/level',                                      to: 'matrix_view#matrix_view_level'
+
   ### Count of matching properties(aggregate) not divided by property_status_type
   #####################################################################
   #####################################################################

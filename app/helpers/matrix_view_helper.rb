@@ -62,12 +62,13 @@ module MatrixViewHelper
 
 
 
-  def construct_aggs_query_from_fields(area, district, sector, unit, postcode_context, postcode_type, query, filter_index, context_hash={}, search_type=:postcode)
+  def construct_aggs_query_from_fields(area, district, sector, unit, postcode_context, postcode_type, query, filter_index, context_hash={}, search_type=:postcode, agg_fields=nil)
     aggs = {}
     fields = ['area', 'county', 'post_town', 'district', 'dependent_locality', 'sector', 'thoroughfare_description', 'dependent_thoroughfare_description', 'unit'].map(&:pluralize)
     search_type == :postcode ? match_map = POSTCODE_MATCH_MAP : match_map = ADDRESS_UNIT_MATCH_MAP
     context_hash = context_hash.with_indifferent_access
-    match_map[postcode_type.to_s].each do |field_type|
+    agg_fields ||= match_map[postcode_type.to_s]
+    agg_fields.each do |field_type|
       field = field_type[0]
       context = field_type[1]
       context_value = context_hash[context] || binding.local_variable_get(context)
@@ -87,14 +88,14 @@ module MatrixViewHelper
     end
   end
 
-  def construct_response_body_postcode(area, district, sector, unit, es_response, postcode_type, search_type=:postcode, context_hash={}, address_map={})
+  def construct_response_body_postcode(area, district, sector, unit, es_response, postcode_type, search_type=:postcode, context_hash={}, address_map={}, agg_fields=nil)
     es_response = es_response.with_indifferent_access
     response_hash = {}
     response_hash[:type] = postcode_type
     fields = ['area', 'county', 'post_town', 'district', 'dependent_locality', 'sector', 'thoroughfare_description', 'dependent_thoroughfare_description', 'unit']
     fields.map { |e| response_hash[e.pluralize] = [] }
     search_type == :postcode ? match_map = POSTCODE_MATCH_MAP : match_map = ADDRESS_UNIT_MATCH_MAP
-    agg_fields = match_map[postcode_type.to_s]
+    agg_fields ||= match_map[postcode_type.to_s]
     if es_response[:aggregations]
       agg_fields.each do |each_agg_field|
         context = context_hash[each_agg_field[1]] || binding.local_variable_get(each_agg_field[1])
@@ -123,11 +124,11 @@ module MatrixViewHelper
   def construct_main_fields(response_hash, es_response, address_map)
     fields = ['area', 'county', 'post_town', 'district', 'dependent_locality', 'sector',  'thoroughfare_description','dependent_thoroughfare_description', 'unit']
     fields.map { |e| response_hash[e] = nil }
-      first_doc = address_map
-      first_doc = first_doc.with_indifferent_access
-      fields.each do |field|
-        response_hash[field] = first_doc[field]
-      end
+    first_doc = address_map
+    first_doc = first_doc.with_indifferent_access
+    fields.each do |field|
+      response_hash[field] = first_doc[field]
+    end
   end
 
   def type_of_str(hash)

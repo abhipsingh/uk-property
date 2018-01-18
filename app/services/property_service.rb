@@ -64,7 +64,9 @@ class PropertyService
     assigned: 2
   }
 
-  INT_ATTRS = [ :council_tax_band_cost, :ground_rent_cost, :annual_ground_water_cost, :annual_service_charge, :lighting_cost, :heating_cost, :hot_water_cost, :resident_parking_cost ]
+  INT_ATTRS = [ :council_tax_band_cost, :ground_rent_cost, :annual_ground_water_cost, :annual_service_charge, :lighting_cost, :heating_cost, :hot_water_cost, :resident_parking_cost, :rent_price ]
+
+  BOOL_ATTRS = [:lettings]
 
   ARRAY_HASH_ATTRS = [:outside_space_type, :additional_features, :pictures, :sale_prices, :other_costs, :improvement_types, :floorplan_urls, :outside_space_types]
 
@@ -232,7 +234,7 @@ class PropertyService
 
     ### Send the report to the vendor if the agent has submitted the attributes after winning the lead
 		attributes.each do |attribute|
-      update_hash[attribute] = details[attribute] if details[attribute]
+      update_hash[attribute] = details[attribute] if details.has_key?(attribute)
     end
     ### Update pictures only when it is in the correct format
     pictures = update_hash[:pictures]

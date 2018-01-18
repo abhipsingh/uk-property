@@ -11,7 +11,8 @@ class PropertySearchApi
     term:  [ :tenure, :epc, :property_style, :listed_status, :decorative_condition, :central_heating, :floorplan, :chain_free, :council_tax_band, :verification_status, 
              :agent_id, :district, :udprn, :vendor_id, :postcode, :sector, :unit, :building_name, :building_number, :sub_building_name, :property_status_type, 
              :postcode, :post_town, :thoroughfare_description, :dependent_thoroughfare_description, :dependent_locality, :double_dependent_locality,
-             :county, :udprn, :not_yet_built , :is_new_home, :is_retirement_home, :is_shared_ownership, :area, :property_type, :lettings, :rent_available_from, :rent_available_to, :rent_price, :rent_price_type, :rent_furnishing_type ],
+             :county, :udprn, :not_yet_built , :is_new_home, :is_retirement_home, :is_shared_ownership, :area, :property_type, :lettings, :rent_price_type,
+             :rent_furnishing_type ],
     range: [ :cost_per_month, :date_added, :floors, :year_built, :inner_area, :outer_area, :total_area, :improvement_spend, :beds, :baths, :receptions, :current_valuation, :dream_price, :last_sale_price, :rent_available_from, :rent_available_to, :rent_price ],
     exists: [ :vendor_id, :agent_id, :property_status_type, :udprn, :postcode, :property_style, :sale_price ],
     not_exists: [ :vendor_id, :agent_id, :property_status_type, :udprn, :postcode, :property_style, :sale_price ]
@@ -25,7 +26,8 @@ class PropertySearchApi
               :building_number, :sub_building_name, :cost_per_month, :date_added, :floors, :year_built, 
               :internal_property_size, :external_property_size, :total_property_size, :improvement_spend, 
               :beds, :baths, :receptions, :current_valuation, :dream_price, :not_yet_built, :is_new_home, :is_retirement_home,
-              :is_shared_ownership, :sale_price, :area, :last_sale_price, :renter_id
+              :is_shared_ownership, :sale_price, :area, :last_sale_price, :renter_id, :status_last_updated,
+              :rent_available_from, :rent_available_to, :lettings, :rent_price, :rent_price_type, :rent_furnishing_type
             ]
 
   ADDRESS_LOCALITY_LEVELS = [:county, :post_town, :dependent_locality, :thoroughfare_description, :dependent_thoroughfare_description,
