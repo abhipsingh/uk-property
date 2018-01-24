@@ -39,5 +39,7 @@ Rails.application.configure do
 
   # Use default logging formatter so that PID and timestamp are not suppressed.
   config.log_formatter = ::Logger::Formatter.new
-  config.cache_store = :dalli_store, '172.31.15.155:11211', { :namespace => 'uk-property', :expires_in => 1.day, :compress => true } 
+  config.middleware.use Rack::Attack
+
 end
+

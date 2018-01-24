@@ -47,7 +47,7 @@ class MatrixViewCount
         final_result = {}
         post_towns_hash_strs = response['post_towns'].map do |post_town|
           context_map =  { post_town: post_town['pt'], county: @constraints[:county] }
-          MatrixViewService.form_hash_str(context_map, :post_town)
+          MatrixViewService.form_hash(context_map, :post_town)
         end
 
         #### Get responses for all possible post_town cache keys
@@ -71,7 +71,7 @@ class MatrixViewCount
       ardb_client = Rails.configuration.ardb_client
       pt_context = { county: COUNTY_MAP[@constraints[:post_town].upcase], post_town:  @constraints[:post_town]}
       pt_context[:county] = @constraints[:county] if @constraints[:county]
-      pt_hash_key = MatrixViewService.form_hash_str(pt_context, :post_town)
+      pt_hash_key = MatrixViewService.form_hash(pt_context, :post_town)
       response = Oj.load(ardb_client.hget('mvc_cache_pt', pt_hash_key))
       final_result = {}
       response['districts'].map do |post_town|
@@ -82,7 +82,7 @@ class MatrixViewCount
       ardb_client = Rails.configuration.ardb_client
       pt_context = { county: COUNTY_MAP[@constraints[:post_town].upcase], post_town:  @constraints[:post_town]}
       pt_context[:county] = self.class.fetch_county_for_london(@constraints[@constraint_key]) if @constraints[:post_town] == 'London'
-      pt_hash_key = MatrixViewService.form_hash_str(pt_context, :post_town)
+      pt_hash_key = MatrixViewService.form_hash(pt_context, :post_town)
       response = Oj.load(ardb_client.hget('mvc_cache_pt', pt_hash_key))
       final_result = { @constraints[:post_town] => response['cnt'] }
       result = final_result

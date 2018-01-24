@@ -425,6 +425,11 @@ Rails.application.routes.draw do
   ### Level specific matrix view search
   get 'matrix/view/level',                                      to: 'matrix_view#matrix_view_level'
 
+  ### Credits chargeable info for an agent for an enquiry
+  get '/agents/inactive/property/credits/:udprn',               to: 'agents#inactive_property_credits'
+
+  ### redirect to 
+  get '/agents/inactive/property/credits/:udprn',               to: 'agents#inactive_property_credits'
   ### Count of matching properties(aggregate) not divided by property_status_type
   #####################################################################
   #####################################################################

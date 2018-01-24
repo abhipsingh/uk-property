@@ -4,6 +4,7 @@ ruby '2.3.0'
 
 gem 'redisearch-rb'
 gem 'activemodel', '4.2.0'
+gem 'activesupport', '4.2.0'
 gem 'actionmailer', '4.2.0'
 gem 'railties', '4.2.0'
 gem 'aws-sdk'
@@ -85,4 +86,16 @@ gem 'rotp'
 ### Tracking postgres stats
 gem 'pghero'
 gem 'pg_query', '>= 0.9.0'
+
+### Rate limiting rack middleware
+gem 'rack-attack'
+
+### Use redis as rails cache store
+gem "redis-store"
+gem 'redis-rails'
+gem "redis-rack-cache"
+
+### Prometheus metrics store
+gem 'prometheus-client'
+gem 'prometheus_exporter'
 

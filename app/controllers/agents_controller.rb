@@ -50,6 +50,7 @@ class AgentsController < ApplicationController
                                           :password, :provider, :uid, :oauth_token, :oauth_expires_at, :invited_agents])
     agent_details[:company_id] = assigned_agent.branch.agent_id
     agent_details[:group_id] = assigned_agent.branch.agent.group_id
+    agent_details[:company_name] = assigned_agent.branch.agent.name
     agent_details[:domain_name] = assigned_agent.branch.domain_name
     render json: agent_details, status: 200
   end
@@ -64,6 +65,11 @@ class AgentsController < ApplicationController
                                     except: [:verification_hash, :invited_agents])
     branch_details[:company_id] = branch.agent_id
     branch_details[:group_id] = branch.agent.group.id
+    branch_details[:invited_agents] = InvitedAgent.where(branch_id: branch_id).select([:email, :created_at]).as_json
+    branch_details[:invited_agents].each do |invited_agent|
+      invited_agent['branch_id'] = branch_id.to_i 
+      invited_agent['group_id'] = branch_details[:group_id].to_i
+    end
     render json: branch_details, status: 200
   end
 
@@ -400,7 +406,7 @@ class AgentsController < ApplicationController
           each_crawled_property_data['vendor_email'] = invited_vendor.email if invited_vendor
           each_crawled_property_data['is_vendor_registered'] = Vendor.where(email: invited_vendor.email).last.nil? if invited_vendor
         end
-        each_crawled_property_data['udprn'] = each_crawled_property_data['udprn'].to_i
+        each_crawled_property_data['udprn'] = each_crawled_property_data['udprn'].to_f
       end
       render json: { response: response, property_count: property_count }, status: 200
     else
@@ -716,7 +722,7 @@ class AgentsController < ApplicationController
     udprn = params[:udprn].to_i
     details = PropertyDetails.details(udprn)[:_source]
     buyer_id = params[:buyer_id].to_i
-    offer_price = Evemt.where(buyer_id: buyer_id, udprn: udprn).last.offer_price
+    offer_price = Event.where(buyer_id: buyer_id, udprn: udprn).order('created_at DESC').select([:offer_price]).first.offer_price
     credits = ((Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(offer_price.to_f)).to_i/Agents::Branches::AssignedAgent::PER_CREDIT_COST)
     has_required_credits = (agent.credit >= credits)
     render json: { credits: credits, has_required_credits: has_required_credits, agent_credits: agent.credit }, status: 200
@@ -832,6 +838,7 @@ class AgentsController < ApplicationController
 
           ### Get all properties for whom the agent has won leads
           property_ids = udprns.map(&:to_i).uniq
+          Rails.logger.info("hello2_#{Time.now.to_f}")
 
           ### If ads filter is applied
           ad_property_ids = PropertyAd.where(property_id: property_ids).pluck(:property_id) if params[:ads].to_s == 'true' || params[:ads].to_s == 'false'
@@ -843,7 +850,10 @@ class AgentsController < ApplicationController
           if agent.is_premium && count
             results = property_ids.uniq.count
           else
-            results = property_ids.uniq.map { |e| Enquiries::AgentService.push_events_details(PropertyDetails.details(e), agent.is_premium, old_stats_flag) }
+            udprns = property_ids.uniq.map(&:to_i)
+            bulk_details = PropertyService.bulk_details(udprns)
+            results = property_ids.uniq.each_with_index.map { |e, index| Enquiries::AgentService.push_events_details( { '_source' => bulk_details[index] }.with_indifferent_access, agent.is_premium, old_stats_flag) }
+            Rails.logger.info("hello5_#{Time.now.to_f}")
             vendor_ids = []
             vendor_id_property_map = {}
             results.each_with_index do |t, index|
@@ -863,6 +873,7 @@ class AgentsController < ApplicationController
               end
 
             end
+            Rails.logger.info("hello6_#{Time.now.to_f}")
 
             vendor_id_property_map = {}
 

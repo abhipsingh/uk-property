@@ -51,13 +51,13 @@ class PropertyService
                       :vendor_email, :vendor_image_url, :vendor_mobile_number, :description_snapshot, :street_view_image_url, :last_sale_price,
                       :is_developer, :floorplan_urls, :latitude, :longitude, :renter_id, :council_tax_band_cost, :council_tax_band_cost_unit,
                       :resident_parking_cost_unit, :outside_space_types, :ground_rent_cost, :ground_rent_type, :sale_price_type, :percent_completed, 
-                      :lettings, :rent_available_from, :rent_available_to, :rent_price, :rent_price_type, :rent_furnishing_type]
+                      :lettings, :rent_available_from, :rent_available_to, :rent_price, :rent_price_type, :rent_furnishing_type, :student_accommodation]
 
   COUNTIES = ["Aberdeenshire", "Kincardineshire", "Lincolnshire", "Banffshire", "Hertfordshire", "West Midlands", "Warwickshire", "Worcestershire", "Staffordshire", "Avon", "Somerset", "Wiltshire", "Lancashire", "West Yorkshire", "North Yorkshire", "ZZZZ", "Dorset", "Hampshire", "East Sussex", "West Sussex", "Kent", "County Antrim", "County Down", "Gwynedd", "County Londonderry", "County Armagh", "County Tyrone", "County Fermanagh", "Cumbria", "Cambridgeshire", "Suffolk", "Essex", "South Glamorgan", "Mid Glamorgan", "Cheshire", "Clwyd", "Merseyside", "Surrey", "Angus", "Fife", "Derbyshire", "Dumfriesshire", "Kirkcudbrightshire", "Wigtownshire", "County Durham", "Tyne and Wear", "South Yorkshire", "North Humberside", "South Humberside", "Nottinghamshire", "Midlothian", "West Lothian", "East Lothian", "Peeblesshire", "Middlesex", "Devon", "Cornwall", "Stirlingshire", "Clackmannanshire", "Perthshire", "Lanarkshire", "Dunbartonshire", "Gloucestershire", "Berkshire", "not", "Buckinghamshire", "Herefordshire", "Isle of Lewis", "Isle of Harris", "Isle of Scalpay", "Isle of North Uist", "Isle of Benbecula", "Inverness-shire", "Isle of Barra", "Norfolk", "Ross-shire", "Nairnshire", "Sutherland", "Morayshire", "Isle of Skye", "Ayrshire", "Isle of Arran", "Isle of Cumbrae", "Caithness", "Orkney", "Kinross-shire", "Powys", "Leicestershire", "Leicestershire / ", "Leicestershire / Rutland", "Dyfed", "Bedfordshire", "Northumberland", "Northamptonshire", "Gwent", "Shropshire", "Oxfordshire", "Renfrewshire", "Isle of Bute", "Argyll", "Isle of Gigha", "Isle of Islay", "Isle of Jura", "Isle of Colonsay", "Isle of Mull", "Isle of Iona", "Isle of Tiree", "Isle of Coll", "Isle of Eigg", "Isle of Rum", "Isle of Canna", "Isle of Wight", "West Glamorgan", "Selkirkshire", "Berwickshire", "Roxburghshire", "Isles of Scilly", "Cleveland", "Shetland Islands", "Central London", "East London", "North West London", "North London", "South East London", "South West London","Dummy", "West London"] 
        
   DETAIL_ATTRS = LOCALITY_ATTRS + AGENT_ATTRS + VENDOR_ATTRS + EXTRA_ATTRS + POSTCODE_ATTRS + EDIT_ATTRS + ADDITIONAL_ATTRS
 
-  ADDITIONAL_EDIT_ATTRS = [ :property_status_type, :description, :agent_id, :council_tax_band_cost, :council_tax_band_cost_unit, :annual_ground_water_cost_unit, :resident_parking_cost_unit, :outside_space_types, :lettings, :rent_available_from, :rent_available_to, :rent_price, :rent_price_type, :rent_furnishing_type ]
+  ADDITIONAL_EDIT_ATTRS = [ :property_status_type, :description, :agent_id, :council_tax_band_cost, :council_tax_band_cost_unit, :annual_ground_water_cost_unit, :resident_parking_cost_unit, :outside_space_types, :lettings, :rent_available_from, :rent_available_to, :rent_price, :rent_price_type, :rent_furnishing_type, :student_accommodation ]
 
   AGENT_STATUS = {
     lead: 1,
@@ -66,7 +66,7 @@ class PropertyService
 
   INT_ATTRS = [ :council_tax_band_cost, :ground_rent_cost, :annual_ground_water_cost, :annual_service_charge, :lighting_cost, :heating_cost, :hot_water_cost, :resident_parking_cost, :rent_price ]
 
-  BOOL_ATTRS = [:lettings]
+  BOOL_ATTRS = [ :lettings, :student_accommodation ]
 
   ARRAY_HASH_ATTRS = [:outside_space_type, :additional_features, :pictures, :sale_prices, :other_costs, :improvement_types, :floorplan_urls, :outside_space_types]
 
@@ -145,7 +145,7 @@ class PropertyService
     details_completed = mandatory_attrs.all?{ |attr| details.has_key?(attr) && !details[attr].nil? }
     update_hash[:details_completed] = true if details_completed
     total_mandatory_attrs = mandatory_attrs.select{ |t| !t.to_s.end_with?('_unit') }
-    attrs_completed = total_mandatory_attrs.select{ |attr| details.has_key?(attr) && !details[attr].nil? }.count
+    attrs_completed = total_mandatory_attrs.select{ |attr| details_hash[attr] }.count
     ((attrs_completed.to_f/total_mandatory_attrs.length.to_f)*100.0).round(2)
   end
 
@@ -311,6 +311,13 @@ class PropertyService
     results
   end
 
+  def self.details_with_only_locality_attrs(udprns=[])
+    details = []
+    details = Rails.configuration.ardb_client.mget(*udprns) if udprns.length > 0
+    results = details.map{ |detail| process_locality_attr(detail) }
+    results
+  end
+
   def self.bulk_set(details_arr)
     mset_arr = []
     details_arr.each do |each_elem|
@@ -319,6 +326,25 @@ class PropertyService
       mset_arr.push(value_str)
     end
     Rails.configuration.ardb_client.mset(*mset_arr) if mset_arr.length > 0
+  end
+
+  def self.process_locality_attr(detail_str)
+    result_hash = {}
+    if detail_str
+      values = detail_str.split('|')
+      size = 0
+      prev_size = 0
+      LOCALITY_ATTRS.each_with_index do |each_attr, index|
+        form_value(result_hash, values, index+prev_size, each_attr)
+        size += 1
+      end
+
+      POSTCODE_ATTRS.each_with_index do |each_attr, index|
+        form_value(result_hash, values, index+prev_size, each_attr)
+        size += 1
+      end
+    end
+    result_hash
   end
 
   def self.process_each_detail(detail_str)
@@ -418,7 +444,7 @@ class PropertyService
     ardb_client.get(key_name)
   end
 
-  def self.fetch_details_from_vanity_url(url)
+  def self.fetch_details_from_vanity_url(url, user=nil)
     url = url.gsub(/[_]/,"/")
     str_parts = url.split('-')[0..-3]
     str = ''
@@ -427,9 +453,15 @@ class PropertyService
     prediction_str = str_parts[0..county_index-1].join(' ')
     results, code = get_results_from_es_suggest(prediction_str, 1)
     udprn = Oj.load(results)['postcode_suggest'][0]['options'][0]['text'].split('_')[0]
-    details = PropertyDetails.details(udprn)[:_source]
-    details[:photo_urls] = [ Api::V0::PropertySearchController.helpers.process_image(details) ] 
-    details[:description] = get_description(udprn)
+    details = bulk_details([udprn]).first
+    if user
+      details[:photo_urls] = [ Api::V0::PropertySearchController.helpers.process_image(details) ] 
+      details[:description] = get_description(udprn)
+    else
+      details.keys.each do |each_key|
+        details.delete(each_key) if !(LOCALITY_ATTRS.include?(each_key) || POSTCODE_ATTRS.include?(each_key))
+      end
+    end
     details
   end
 
@@ -445,7 +477,8 @@ class PropertyService
 #    sold_price_history = SoldProperty.where(udprn: @udprn).select([:sale_price, 'completion_date as created_at']).order('created_at DESC').to_a
     
     sale_price_history = PropertyEvent.where(udprn: @udprn).where("(attr_hash ? 'price') OR (attr_hash ? 'sale_price')").order('created_at asc')
-                                     .select([:created_at]).select("CASE WHEN (attr_hash ? 'price') THEN attr_hash ->> 'price'  ELSE  attr_hash ->> 'sale_price' END as sale_price")
+                                      .select([:created_at])
+                                      .select("CASE WHEN (attr_hash ? 'price') THEN attr_hash ->> 'price'  ELSE  attr_hash ->> 'sale_price' END as sale_price")
     {
       valuation_history: valuation_history,
       dream_price_history: dream_price_history,

@@ -124,7 +124,7 @@ class SessionsController < ApplicationController
             agent_details['group_id'] = agent.branch && agent.branch.agent ? agent.branch.agent.group_id : nil
             agent_details['company_id'] = agent.branch && agent.branch.agent ? agent.branch.agent.id : nil
             response = {"auth_token" => command.result, "details" => agent_details, "status" => "SUCCESS"}
-            render json: {}, status: 200
+            render json: response, status: 200
           else
             response = {"message" => "Error in saving agent. Please check username and password.", "status" => "FAILURE"}
             status = 500

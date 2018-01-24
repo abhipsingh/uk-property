@@ -4,6 +4,8 @@ require 'action_controller/railtie'
 require 'active_model/railtie'
 require 'active_record/railtie'
 require 'rails/test_unit/railtie'
+require 'prometheus/middleware/collector'
+require 'prometheus/middleware/exporter'
 
 require 'rack/cors'
 # Require the gems listed in Gemfile, including any gems

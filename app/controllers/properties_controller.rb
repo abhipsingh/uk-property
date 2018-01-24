@@ -2,8 +2,8 @@ class PropertiesController < ActionController::Base
   include CacheHelper
   before_filter :set_headers
   around_action :authenticate_agent_and_vendor, only: [ :edit_property_details,  :pricing_history, :interest_info, :supply_info_aggregate ]
-  around_action :authenticate_buyer_and_vendor, only: [ :invite_friends_and_family ]
-  around_action :authenticate_all, only: [ :enquiries, :predict_tags, :add_new_tags, :show_tags ]
+  around_action :authenticate_buyer_and_vendor, only: [ :invite_friends_and_family, :enquiries ]
+  around_action :authenticate_all, only: [ :predict_tags, :add_new_tags, :show_tags ]
   around_action :authenticate_vendor, only: [ :attach_vendor_to_udprn_manual_for_manually_added_properties ]
   around_action :authenticate_buyer, only: [ :upload_property_details_from_a_renter ]
 
@@ -31,8 +31,10 @@ class PropertiesController < ActionController::Base
   ### Fetches details of a property from its vanity url
   ### curl -XGET  'http://localhost/property/details/98-mostyn-avenue-old-roan-liverpool-merseyside-l10-2jq'
   def details_from_vanity_url
-    details = PropertyService.fetch_details_from_vanity_url(params[:vanity_url])
-    details[:percent_completed] = nil if !user_valid_for_viewing?(['Agent', 'Vendor'])
+    user_valid_for_viewing?(['Vendor', 'Agent', 'Buyer'])
+    user = @current_user
+    details = PropertyService.fetch_details_from_vanity_url(params[:vanity_url], user)
+    details[:percent_completed] = nil if user.nil?
     render json: details, status: 200
   end
 
@@ -216,10 +218,22 @@ class PropertiesController < ActionController::Base
     udprn = params[:udprn].to_i
     vendor_id = params[:vendor_id]
     params[:property_for] != 'Sale' ? params[:property_for] = 'Rent' : params[:property_for] = 'Sale'
+  
+    ### Get the count of properties that the vendor has claimed
+    search_params = { vendor_id: 208 }
+    api = PropertySearchApi.new(filtered_params: search_params)
+    results, code = api.fetch_udprns
 
-    property_service = PropertyService.new(udprn)
-    property_service.attach_vendor_to_property(vendor_id, {}, params[:property_for])
-    render json: { message: 'You have claimed this property Successfully. All the agents in this district will be notified' }, status: 200
+    vendor = Vendor.where(id: vendor_id).last
+    
+    if (vendor && ((results.count < Vendor::PROPERTY_CLAIM_LIMIT) || vendor.is_premium ))
+      ### Attach vendor to property's attributes
+      property_service = PropertyService.new(udprn)
+      property_service.attach_vendor_to_property(vendor_id, {}, params[:property_for])
+      render json: { message: 'You have claimed this property Successfully. All the agents in this district will be notified' }, status: 200
+    else
+      render json: { message: "You have exceeded your maximum limit of #{Vendor::PROPERTY_CLAIM_LIMIT} properties" }, status: 400
+    end
   #rescue ActiveRecord::RecordNotUnique
   #  render json: { message: 'Sorry, this udprn has already been claimed' }, status: 400
   #rescue Exception

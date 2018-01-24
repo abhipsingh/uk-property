@@ -62,7 +62,8 @@
       "rent_available_to":{"type":"date","format":"yyyy-MM-dd"},
       "rent_price":{"type":"integer"},
       "rent_price_type":{"type":"string", "index":"not_analyzed"},
-      "rent_furnishing_type":{"type":"string", "index":"not_analyzed"}
+      "rent_furnishing_type":{"type":"string", "index":"not_analyzed"},
+      "student_accommodation":{"type":"string", "index":"not_analyzed"}
     }
   }
 }}

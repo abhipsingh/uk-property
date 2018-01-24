@@ -146,4 +146,7 @@ class Event < ActiveRecord::Base
   ]
 
   PAGE_SIZE = 10
+
+  BUYER_ENQUIRY_LIMIT = 10
 end
+

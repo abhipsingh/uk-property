@@ -22,7 +22,7 @@ module Enquiries
       query = query.where(event: events) if enquiry_type
       query = query.where(stage: Event::EVENTS[qualifying_stage.to_sym]) if qualifying_stage
       query = query.where(rating: Event::EVENTS[rating.to_sym]) if rating
-      
+ 
       if count && is_premium
         result = query.count
       elsif is_premium
@@ -50,15 +50,15 @@ module Enquiries
       new_row[:street_view_image_url] = image_url
       new_row[:status_last_updated] = details[:_source][:status_last_updated]
       new_row[:status_last_updated] = Time.parse(new_row[:status_last_updated]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:status_last_updated] 
-      add_enquiry_stats(new_row, details['_source'], is_premium, old_stats_flag)
+      #add_enquiry_stats(new_row, details['_source'], is_premium, old_stats_flag)
       vendor_id = details[:_source][:vendor_id]
   
-      lead = Agents::Branches::AssignedAgents::Lead.where(property_id: details[:_source][:udprn].to_i, vendor_id: vendor_id.to_i).last
-      if lead
-        new_row[:lead_expiry_time] = (lead.created_at + Agents::Branches::AssignedAgents::Lead::VERIFICATION_DAY_LIMIT).strftime("%Y-%m-%dT%H:%M:%SZ")
-      else
-        new_row[:lead_expiry_time] = nil
-      end
+      #lead = Agents::Branches::AssignedAgents::Lead.where(property_id: details[:_source][:udprn].to_i, vendor_id: vendor_id.to_i).last
+      #if lead
+      #  new_row[:lead_expiry_time] = (lead.created_at + Agents::Branches::AssignedAgents::Lead::VERIFICATION_DAY_LIMIT).strftime("%Y-%m-%dT%H:%M:%SZ")
+      #else
+      #  new_row[:lead_expiry_time] = nil
+      #end
   
       details['_source'].merge!(new_row)
       details['_source']

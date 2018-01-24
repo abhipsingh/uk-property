@@ -14,6 +14,8 @@ class Vendor < ActiveRecord::Base
     family: 2
   }
 
+  PROPERTY_CLAIM_LIMIT = 10
+
    def self.from_omniauth(auth)
      new_params = auth.as_json.with_indifferent_access
      where(new_params.slice(:provider, :uid)).first_or_initialize.tap do |user|

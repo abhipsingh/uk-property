@@ -15,6 +15,8 @@ class MatrixViewController < ActionController::Base
       str = params[:str].upcase.strip
     else
       str = params[:str].gsub(',',' ').strip.downcase
+      str = str.gsub('.','')
+      str = str.gsub('-','')
     end
     results, code = PropertyService.get_results_from_es_suggest(str, 100)
     #Rails.logger.info(results)
@@ -187,38 +189,42 @@ class MatrixViewController < ActionController::Base
   
   def matrix_view
     response = nil
-    range_params = PropertySearchApi::FIELDS[:range].map{|t| ["min_#{t.to_s}", "max_#{t.to_s}"]}.flatten.map{|t| t.to_sym}
-    if (((PropertySearchApi::FIELDS[:terms] + PropertySearchApi::FIELDS[:term] + range_params) - PropertySearchApi::ADDRESS_LOCALITY_LEVELS - PropertySearchApi::POSTCODE_LEVELS) & params.keys.map(&:to_sym)).empty?
-      matrix_view_service = MatrixViewService.new(hash_str: params[:str])
-      response = matrix_view_service.process_result
-    else
-      hash = { hash_str: params[:str] }
-      PropertySearchApi.construct_hash_from_hash_str(hash)
-      params.delete(:str)
-      hash.delete(:hash_str)
-      type_of_str(hash)
-      area, district, sector, unit = nil
-      if [:district, :sector, :unit].include?(hash[:type])
-        type = hash[:type]
+    if params[:str] && params[:hash_type] != 'building_type'
+      range_params = PropertySearchApi::FIELDS[:range].map{|t| ["min_#{t.to_s}", "max_#{t.to_s}"]}.flatten.map{|t| t.to_sym}
+      if (((PropertySearchApi::FIELDS[:terms] + PropertySearchApi::FIELDS[:term] + range_params) - PropertySearchApi::ADDRESS_LOCALITY_LEVELS - PropertySearchApi::POSTCODE_LEVELS) & params.keys.map(&:to_sym)).empty?
+        matrix_view_service = MatrixViewService.new(hash_str: params[:str])
+        response = matrix_view_service.process_result
       else
-        type = PropertySearchApi::POSTCODE_LEVELS.reverse.select { |e| hash[e] }.first
+        hash = { hash_str: params[:str] }
+        PropertySearchApi.construct_hash_from_hash_str(hash)
+        params.delete(:str)
+        hash.delete(:hash_str)
+        type_of_str(hash)
+        area, district, sector, unit = nil
+        if [:district, :sector, :unit].include?(hash[:type])
+          type = hash[:type]
+        else
+          type = PropertySearchApi::POSTCODE_LEVELS.reverse.select { |e| hash[e] }.first
+        end
+        new_params = params.merge!(hash)
+        new_params.delete(hash[:type])
+        api = ::PropertySearchApi.new(filtered_params: new_params)
+        api.modify_range_params
+        api.apply_filters
+        api.modify_query
+        area, district, sector, unit = compute_postcode_units(hash[type]) if hash[type]
+        hash[:area] = area
+        hash[:district] = district
+        hash[:sector] = sector
+        hash[:unit] = unit
+        code = 200
+        Rails.logger.info(hash[:type])
+        response, code = find_results(hash, api.query[:filter]) 
       end
-      new_params = params.merge!(hash)
-      new_params.delete(hash[:type])
-      api = ::PropertySearchApi.new(filtered_params: new_params)
-      api.modify_range_params
-      api.apply_filters
-      api.modify_query
-      area, district, sector, unit = compute_postcode_units(hash[type]) if hash[type]
-      hash[:area] = area
-      hash[:district] = district
-      hash[:sector] = sector
-      hash[:unit] = unit
-      code = 200
-      Rails.logger.info(hash[:type])
-      response, code = find_results(hash, api.query[:filter]) 
+      render json: response, status: 200
+    else
+      render json: { message: 'Incorrect parameters value' }, status: 400
     end
-    render json: response, status: 200
   end
 
   def matrix_view_load_testing

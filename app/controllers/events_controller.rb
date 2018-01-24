@@ -28,15 +28,19 @@ class EventsController < ApplicationController
     agent_id = params[:agent_id]
     agent_id ||= 0
     message ||= nil
-    response = insert_events(agent_id, property_id, buyer_id, message, type_of_match, property_status_type, event)
+    daily_enquiry_count = Event.where(buyer_id: buyer_id).where('created_at > ?', 24.hours.ago).count
+    if daily_enquiry_count > Event::BUYER_ENQUIRY_LIMIT
+      response = insert_events(agent_id, property_id, buyer_id, message, type_of_match, property_status_type, event)
+      render json: { 'message' => 'Successfully processed the request', response: response }, status: 200
+    else
+      render json: { 'message' => 'Buyer enquiry limit exceeded' }, status: 400
+    end
     
     ### TODO: Offload to Sidekiq
     if params[:event] == "offer_made_stage"
       #property_buyers = Event.where(event: event).where(udprn: property_id).select("buyer_name, buyer_email").as_json
       #BuyerMailer.offer_made_stage_emails(property_buyers, details['address']).deliver_now
     end
-    Rails.logger.info("COMPLETED")
-    render json: { 'message' => 'Successfully processed the request', response: response }, status: 200
   end
 
   #### For agents implement filter of agents group wise, company wise, branch, location wise,
