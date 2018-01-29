@@ -6,66 +6,57 @@ class SessionsController < ApplicationController
     # Rails.logger.info(params[:facebook])
     req_params = params[:facebook]
     user_type = params[:user_type]
-    user_otp = params['otp']
 
-    ### Verify OTP within one hour
-    totp = ROTP::TOTP.new("base32secret3232", interval: 1)
-    otp_verified = totp.verify_with_drift(user_otp, 3600, Time.now)
-
-    if otp_verified
-      if params[:token].nil? || params[:token].length < 10
-        render json: { message: 'Please pass valid oauth token credentials' } , status: 400
-      elsif user_type && ['Vendor', 'Buyer', 'Agent', 'Developer'].include?(user_type)
-        user_type_map = {
-          'Agent' => 'Agents::Branches::AssignedAgent',
-          'Vendor' => 'Vendor',
-          'Buyer' => 'PropertyBuyer',
-          'Developer' => 'Agents::Branches::AssignedAgent'
-        }
-        req_params[:token] = params[:token]
-        user = user_type_map[user_type].constantize.from_omniauth(req_params)
-        
-        if user_type == 'Vendor' 
-          buyer = PropertyBuyer.from_omniauth(req_params)
-          buyer.vendor_id = user.id
-          user.buyer_id = buyer.id
-          user.save! && buyer.save!
-        elsif user_type == 'Buyer'
-          vendor = Vendor.from_omniauth(req_params)
-          vendor.buyer_id = user.id
-          user.vendor_id = vendor.id
-          user.save! && vendor.save!
-        end
-  
-        if user_type == 'Agent'
-          user.is_first_agent = user.calculate_is_first_agent
-          user.save!
-          agent_id = user.id
-          udprns = InvitedAgent.where(email: user.email).pluck(:udprn)
-          client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
-          udprns.compact.map { |udprn|  PropertyDetails.update_details(client, udprn, { agent_id: agent_id, agent_status: 2 }) }
-        elsif user_type == 'Developer'
-          user.is_first_agent = user.calculate_is_first_agent
-          user.save!
-          developer_id = user.id
-          udprns = InvitedDeveloper.where(email: user.email).pluck(:udprn)
-          udprns.compact.map { |t| PropertyService.new(t).update_details({ developer_id: developer_id, developer_status: 2 })}
-        end
-  
-        session[:user_id] = user.id
-        session[:user_type] = user_type
-        user_details = user.as_json
-        # user_details['uid'] = '1173320732780684'
-        user_details.delete('password')
-        user_details.delete('password_digest')
-        #Rails.logger.info(req_params)
-        command = AuthenticateUser.call(req_params['email'], "12345678", user_type_map[user_type].constantize)
-        render json: { message: 'Successfully created a session', auth_token: command.result, details: user.as_json }, status: 200
-      else
-        render json: { message: 'Not able to find user' }, status: 400
+    if params[:token].nil? || params[:token].length < 10
+      render json: { message: 'Please pass valid oauth token credentials' } , status: 400
+    elsif user_type && ['Vendor', 'Buyer', 'Agent', 'Developer'].include?(user_type)
+      user_type_map = {
+        'Agent' => 'Agents::Branches::AssignedAgent',
+        'Vendor' => 'Vendor',
+        'Buyer' => 'PropertyBuyer',
+        'Developer' => 'Agents::Branches::AssignedAgent'
+      }
+      req_params[:token] = params[:token]
+      user = user_type_map[user_type].constantize.from_omniauth(req_params)
+      
+      if user_type == 'Vendor' 
+        buyer = PropertyBuyer.from_omniauth(req_params)
+        buyer.vendor_id = user.id
+        user.buyer_id = buyer.id
+        user.save! && buyer.save!
+      elsif user_type == 'Buyer'
+        vendor = Vendor.from_omniauth(req_params)
+        vendor.buyer_id = user.id
+        user.vendor_id = vendor.id
+        user.save! && vendor.save!
       end
+
+      if user_type == 'Agent'
+        user.is_first_agent = user.calculate_is_first_agent
+        user.save!
+        agent_id = user.id
+        udprns = InvitedAgent.where(email: user.email).pluck(:udprn)
+        client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
+        udprns.compact.map { |udprn|  PropertyDetails.update_details(client, udprn, { agent_id: agent_id, agent_status: 2 }) }
+      elsif user_type == 'Developer'
+        user.is_first_agent = user.calculate_is_first_agent
+        user.save!
+        developer_id = user.id
+        udprns = InvitedDeveloper.where(email: user.email).pluck(:udprn)
+        udprns.compact.map { |t| PropertyService.new(t).update_details({ developer_id: developer_id, developer_status: 2 })}
+      end
+
+      session[:user_id] = user.id
+      session[:user_type] = user_type
+      user_details = user.as_json
+      # user_details['uid'] = '1173320732780684'
+      user_details.delete('password')
+      user_details.delete('password_digest')
+      #Rails.logger.info(req_params)
+      command = AuthenticateUser.call(req_params['email'], "#{ENV['OAUTH_PASSWORD']}", user_type_map[user_type].constantize)
+      render json: { message: 'Successfully created a session', auth_token: command.result, details: user.as_json }, status: 200
     else
-      render json: { message: 'OTP Failure' }, status: 400
+      render json: { message: 'Not able to find user' }, status: 400
     end
   end
 
@@ -489,7 +480,7 @@ class SessionsController < ApplicationController
   end
 
   private
-
+  
   def authenticate_request(klass='Agent', klasses=[])
     if !klasses.empty?
       klasses.each {|klass| @current_user ||= AuthorizeApiRequest.call(request.headers, klass).result }

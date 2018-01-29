@@ -443,7 +443,8 @@ class PropertySearchApi
   ### def append_premium_or_featured_filter
 
   def append_sort_filters
-    sort_keys = [:budget, :popularity, :rent, :date_added, :current_valuation, :dream_price, :status_last_updated, :building_number, :last_sale_price]
+    sort_keys = [ :budget, :popularity, :rent, :date_added, :current_valuation, :dream_price, :status_last_updated, :building_number, :last_sale_price, 
+                  :status_last_updated ]
     inst = self
     sort_key = @filtered_params[:sort_key].to_sym rescue nil
     if sort_keys.include? sort_key

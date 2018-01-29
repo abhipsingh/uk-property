@@ -1,6 +1,7 @@
 ### Base controller
 class BuyersController < ActionController::Base
-  around_action :authenticate_buyer, only: [ :tracking_history, :process_premium_payment, :tracking_stats, :tracking_details, :edit_tracking ]
+  around_action :authenticate_buyer, only: [ :tracking_history, :process_premium_payment, :tracking_stats, :tracking_details, :edit_tracking,
+                                             :subscribe_premium_service ]
 
 	#### When basic details of the buyer is saved
   #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/buyers/7/edit' -d '{ "status" : "Green", "buying_status" : "First time buyer", "budget_from" : 5000, "budget_to": 100000, "chain_free" : false, "funding_status" : "Mortgage approved", "biggest_problem" : "Money" , "rent_requirement": { "min_beds" :3, "max_beds":4, "min_baths" : 1, "max_baths" : 2, "min_receptions":1, "max_receptions":3, "locations" : "bla bla bla"}  }'
@@ -169,6 +170,54 @@ class BuyersController < ActionController::Base
     buyer = @current_user
     destroyed = Events::Track.where(id: params[:tracking_id].to_i).last.destroy
     render json: { message: 'Destroyed tracking request' }, status: 200
+  end
+
+  ### Vendors api for submitting user card info when subscribing to a premium service
+  ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" -H "Content-Type: application/json" 'http://localhost/users/subscribe/premium/service' -d '{ "stripeEmail" : "email", "stripeToken" : "token" }'
+  def subscribe_premium_service
+    buyer = @current_user
+    sig_header = request.env['HTTP_STRIPE_SIGNATURE']
+    payload = request.body.read
+    begin
+      # Create the customer in Stripe
+      customer = Stripe::Customer.create(
+        email: params[:stripeEmail],
+        card: params[:stripeToken],
+        plan: 'agent_monthly_premium_package'
+      )
+      stripe_subscription = customer.subscriptions.create(:plan => 'user_premium-monthly')
+      buyer.is_premium = true
+      buyer.stripe_customer_id = customer.id
+      buyer.premium_expires_at = 1.month.from_now.to_date
+      buyer.save!
+      render json: { message: 'Created a monthly subscription for premium service' }, status: 200
+    rescue JSON::ParserError => e
+      # Invalid payload
+      status 400
+      render json: { message: 'JSON parser error' }, status: 400
+    rescue Stripe::SignatureVerificationError => e
+      # Invalid signature
+      render json: { message: 'Invalid Signature' }, status: 400
+    rescue Exception => e
+      Rails.logger.info(e.message)
+      render json: { message: 'Unable to create Stripe customer and charge. Please retry again' }, status: 400
+    end
+  end
+
+  ### Stripe agents subscription recurring payment
+  ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/premium/subscription/remove'
+  def remove_subscription
+    buyer = @current_user
+    customer_id = buyer.stripe_customer_id
+    customer = Stripe::Customer.retrieve(customer_id)
+    subscription.delete
+    render json: { message: 'Unsubscribed succesfully' }, status: 200
+  end
+
+  ### Info about the premium charges monthly
+  ### curl -XGET 'http://localhost/agents/premium/cost'
+  def info_premium
+    render json: { value: PropertyBuyer::PREMIUM_COST }, status: 200
   end
 
   def test_view

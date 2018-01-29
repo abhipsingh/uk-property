@@ -82,7 +82,7 @@ module Enquiries
       
       distribution = {}
       PropertyBuyer::STATUS_HASH.each do |key, value|
-        distribution[key] = result_hash[PropertyBuyer::REVERSE_STATUS_HASH[value]]
+        distribution[key] = result_hash[value]
         distribution[key] ||= 0
       end
       distribution

@@ -147,8 +147,8 @@ class PropertyDetails
       details[:assigned_agent_branch_name] = branch.name
       details[:assigned_agent_branch_number] = branch.phone_number
       details[:assigned_agent_branch_address] = branch.address
+      details[:assigned_agent_branch_website] = branch.website
       details[:assigned_agent_branch_logo] = branch.image_url
-      details[:assigned_agent_branch_email] = branch.email
     else
       details[:assigned_agent_first_name] = nil
       details[:assigned_agent_last_name] = nil
@@ -158,6 +158,7 @@ class PropertyDetails
       details[:assigned_agent_image_url] = nil
       details[:assigned_agent_branch_name] = nil
       details[:assigned_agent_branch_number] = nil
+      details[:assigned_agent_branch_website] = nil
       details[:assigned_agent_branch_address] = nil
       details[:assigned_agent_branch_logo] = nil
     end
@@ -171,6 +172,8 @@ class PropertyDetails
     update_hash[:status_last_updated] = Time.now.to_s[0..Time.now.to_s.rindex(" ")-1]
     update_hash[:description_set] = true if update_hash[:description]
     details = PropertyService.bulk_details([udprn]).first
+
+    update_hash[:is_new_home] = update_hash[:not_yet_built] if update_hash[:not_yet_built]
     last_property_status_type = details[:property_status_type]
 
     ### Track previous agent id

@@ -391,7 +391,7 @@ module Agents
           user.name = new_params['first_name'] + ' ' + new_params['last_name']
           user.email = new_params['email']
           user.image_url = "http://graph.facebook.com/#{new_params['uid']}/picture?type=large"
-          user.password = "12345678"
+          user.password = "#{ENV['OAUTH_PASSWORD']}"
           user.oauth_token = new_params['token']
           user.oauth_expires_at = Time.at(new_params['expires_at']) rescue  Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME.from_now
           user_details = user

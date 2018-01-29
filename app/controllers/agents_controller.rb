@@ -133,9 +133,9 @@ class AgentsController < ApplicationController
       new_agent_emails = new_agents.map{ |t| t['email'] }
       existing_emails = Agents::Branches::AssignedAgent.where(email: new_agent_emails).pluck(:email).uniq
       missing_emails = new_agent_emails - existing_emails
-      branch.invited_agents = new_agents.select{ |t| missing_emails.include?(t['email']) }
+      branch.invited_agents = new_agent_emails
       branch.send_emails
-      branch.invited_agents = branch.invited_agents + invited_agents
+      branch.invited_agents = (branch.invited_agents + invited_agents).uniq
       if branch.save
         render json: { message: 'Branch with given emails invited' }, status: 200
       else
@@ -398,9 +398,12 @@ class AgentsController < ApplicationController
           each_crawled_property_data['is_vendor_registered'] = false
         else
           matching_udprns = each_crawled_property_data['udprn']
-          details = PropertyDetails.details(matching_udprns)[:_source]
-          each_crawled_property_data['matching_properties'] = [ matching_udprns ]
-          each_crawled_property_data['address'] = details[:address]
+          matching_result = bulk_results.select{ |t| t[:udprn].to_i == matching_udprns.to_i }.first
+          attrs = (nullable_attrs + PropertySearchApi::ADDRESS_LOCALITY_LEVELS + PropertySearchApi::POSTCODE_LEVELS).uniq
+          modified_details = matching_result.slice(*attrs)
+          attrs.each{|t| modified_details[t] ||= nil }
+          each_crawled_property_data['matching_properties'] = [ modified_details ]
+          each_crawled_property_data['address'] = PropertyDetails.address(modified_details)
           invited_vendor = InvitedVendor.where(agent_id: agent.id).where(udprn: matching_udprns).last
           each_crawled_property_data['last_email_sent'] = invited_vendor.created_at if invited_vendor
           each_crawled_property_data['vendor_email'] = invited_vendor.email if invited_vendor
@@ -604,10 +607,11 @@ class AgentsController < ApplicationController
     event = Stripe::Event.retrieve(params['id'])
     case event.type
       when "invoice.payment_succeeded" #renew subscription
-        agent = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(stripe_customer_id: event.data.object.customer).last
-        if agent
-          agent.premium_expires_at = 1.month.from_now.to_date
-          agent.save!
+        user = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(stripe_customer_id: event.data.object.customer).last
+        user ||= Vendor.where(stripe_customer_id: event.data.object.customer).last
+        if user
+          user.premium_expires_at = 1.month.from_now.to_date
+          user.save!
         end
     end
     render status: :ok, json: 'success'
@@ -838,7 +842,6 @@ class AgentsController < ApplicationController
 
           ### Get all properties for whom the agent has won leads
           property_ids = udprns.map(&:to_i).uniq
-          Rails.logger.info("hello2_#{Time.now.to_f}")
 
           ### If ads filter is applied
           ad_property_ids = PropertyAd.where(property_id: property_ids).pluck(:property_id) if params[:ads].to_s == 'true' || params[:ads].to_s == 'false'
@@ -852,6 +855,7 @@ class AgentsController < ApplicationController
           else
             udprns = property_ids.uniq.map(&:to_i)
             bulk_details = PropertyService.bulk_details(udprns)
+            bulk_details.each {|t| t[:address] = PropertyDetails.address(t) }
             results = property_ids.uniq.each_with_index.map { |e, index| Enquiries::AgentService.push_events_details( { '_source' => bulk_details[index] }.with_indifferent_access, agent.is_premium, old_stats_flag) }
             Rails.logger.info("hello5_#{Time.now.to_f}")
             vendor_ids = []
@@ -873,7 +877,6 @@ class AgentsController < ApplicationController
               end
 
             end
-            Rails.logger.info("hello6_#{Time.now.to_f}")
 
             vendor_id_property_map = {}
 

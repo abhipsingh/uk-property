@@ -142,6 +142,7 @@ class DevelopersController < ApplicationController
       district = branch.district
       filtered_params = {}
       filtered_params[:district] = district
+      filtered_params[:not_yet_built] = true
       filtered_params[:property_status_type] = 'Green'
       filtered_params[:verification_status] = false
       search_api = PropertySearchApi.new(filtered_params: filtered_params)
@@ -282,6 +283,8 @@ class DevelopersController < ApplicationController
             claimed_on: Time.now.to_s,
             claimed_by: 'Agent',
             is_developer: true,
+            not_yet_built: true,
+            is_new_home: true,
             udprn: each_property[:udprn],
             additional_features: each_property[:features],
             description: each_property[:description],

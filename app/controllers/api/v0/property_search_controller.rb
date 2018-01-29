@@ -14,7 +14,10 @@
 module Api
   module V0
     class PropertySearchController < ActionController::Base
+
       include EventsHelper
+      include MatrixViewHelper
+
       def search
         api = ::PropertySearchApi.new(filtered_params: params)
         result, status = api.filter
@@ -98,6 +101,9 @@ module Api
         if params[:hash_str]
           if params[:hash_type].to_s != 'building_type'
             PropertySearchApi.construct_hash_from_hash_str(resp_hash)
+            mvs = MatrixViewService.new(hash_str: params[:hash_str])
+            resp_hash[:type] = mvs.level
+            output_str = calculate_formatted_string(resp_hash, resp_hash[:type].to_sym)
             resp_hash.delete(:hash_str)
             breadcrumbs = []
             resp_hash[:county] = MatrixViewCount::COUNTY_MAP[resp_hash[:post_town].upcase] if resp_hash[:county].nil?
@@ -123,6 +129,7 @@ module Api
                 resp_hash[:county] = 'West London'
               end
             end
+            resp_hash[:output_str] = output_str
           else
             PropertySearchApi.construct_hash_from_hash_str(resp_hash)
             udprn = resp_hash[:udprn]
@@ -133,7 +140,8 @@ module Api
               dependent_locality: details[:dependent_locality],
               dependent_thoroughfare_description: details[:dependent_thoroughfare_description],
               thoroughfare_description: details[:thoroughfare_description],
-              udprn: details[:udprn]
+              udprn: details[:udprn],
+              output_str: details[:address]
             }
   
             resp_hash[:dependent_locality] = details[:dependent_locality] if details[:dependent_locality]
@@ -144,8 +152,10 @@ module Api
   
           result = resp_hash.clone
           resp_hash.each do |key, value|
-            hash = MatrixViewService.form_hash(resp_hash, key)
-            result[(key.to_s + "_hash").to_sym] = hash
+            if key != :output_str && key != :type
+              hash = MatrixViewService.form_hash(resp_hash, key)
+              result[(key.to_s + "_hash").to_sym] = hash
+            end
           end
           render json: result, status: 200
         else

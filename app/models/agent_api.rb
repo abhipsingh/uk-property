@@ -1,28 +1,25 @@
 class AgentApi
-  attr_accessor :branch_id, :udprn, :details, :vendor_quote
+  attr_accessor :branch_id, :udprn, :details, :vendor_quote, :agent
 
   def initialize(udprn, agent_id)
-    @details = PropertyDetails.details(udprn)['_source']
-    
-    @branch_id ||= Agents::Branches::AssignedAgent.where(id: agent_id).first.branch_id
     @udprn ||= udprn
     @agent_id ||= agent_id
-    @vendor_quote = Agents::Branches::AssignedAgents::Quote.where.not(vendor_id: nil).where(agent_id: nil).where(property_id: @udprn.to_i).where(expired: false).last
   end
 
   #### To calculate the detailed quotes for each of the agent, we can call this function
   #### Below is an example of how it can be tested in the irb
   ####  AgentApi.new(10966139).calculate_quotes
-  def calculate_quotes
+  def calculate_quotes(vendor_quote, agent_quote)
     aggregate_stats = {}
     property_quotes = {}
-    branch = Agents::Branch.find(@branch_id)
     agent = Agents::Branches::AssignedAgent.find(@agent_id)
+    branch = agent.branch
+    branch_id = branch.id
     branch_name = branch.name
     result = { id: @agent_id  }
     result[:branch_id] = branch.id
     result[:branch_logo] = branch.image_url
-    calculate_aggregate_stats(result)
+    calculate_aggregate_stats(result, branch_id, vendor_quote, agent_quote)
 
     result[:assigned_agent_first_name] = agent.first_name
     result[:assigned_agent_last_name] = agent.last_name
@@ -34,18 +31,18 @@ class AgentApi
 
   #### This function computes the aggregate quote stats for the agent.
   #### AgentApi.new(10966139, 1234).calculate_aggregate_stats({})
-  def calculate_aggregate_stats(aggregate_stats)
-    all_agents_in_branch = Agents::Branches::AssignedAgent.where(branch_id: @branch_id).pluck(:id).uniq
+  def calculate_aggregate_stats(aggregate_stats, branch_id, vendor_quote, agent_quote)
+    all_agents_in_branch = Agents::Branches::AssignedAgent.where(branch_id: branch_id).pluck(:id).uniq
     populate_aggregate_stats(aggregate_stats)
     aggregate_stats[:pay_link] = 'Random link'
     aggregate_stats[:quote_price] = quote_price
-    quote = Agents::Branches::AssignedAgents::Quote.where(property_id: @udprn, agent_id: @agent_id).last
+    quote = agent_quote
     aggregate_stats[:payment_terms] = nil
     aggregate_stats[:payment_terms] = quote.payment_terms if quote
     aggregate_stats[:quote_details] = quote.quote_details if quote
-    aggregate_stats[:deadline_start] = Time.parse((@vendor_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_AGENT_QUOTE_WAIT_TIME).to_s).strftime("%Y-%m-%dT%H:%M:%SZ") if quote
-    aggregate_stats[:deadline_end] = Time.parse((@vendor_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME).to_s).strftime("%Y-%m-%dT%H:%M:%SZ") if quote
-    aggregate_stats[:deadline] = Time.parse((@vendor_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME).to_s).strftime("%Y-%m-%dT%H:%M:%SZ") if quote
+    aggregate_stats[:deadline_start] = Time.parse((vendor_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_AGENT_QUOTE_WAIT_TIME).to_s).strftime("%Y-%m-%dT%H:%M:%SZ") if quote
+    aggregate_stats[:deadline_end] = Time.parse((vendor_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME).to_s).strftime("%Y-%m-%dT%H:%M:%SZ") if quote
+    aggregate_stats[:deadline] = Time.parse((vendor_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME).to_s).strftime("%Y-%m-%dT%H:%M:%SZ") if quote
     aggregate_stats[:terms_url] = quote.terms_url if quote
     aggregate_stats[:services_required] = Agents::Branches::AssignedAgents::Quote::SERVICES_REQUIRED_HASH[quote.service_required.to_s.to_sym] if quote
     aggregate_stats

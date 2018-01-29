@@ -13,7 +13,16 @@ class Vendor < ActiveRecord::Base
     crawled: 1,
     family: 2
   }
+  
+  PROPERTY_CLAIM_LIMIT_MAP = {
+    'true' => 10,
+    'false' => 5
+  }
 
+  QUOTE_LIMIT_MAP = {
+    'true' => 4,
+    'false' => 2
+  }
   PROPERTY_CLAIM_LIMIT = 10
 
    def self.from_omniauth(auth)
@@ -28,7 +37,7 @@ class Vendor < ActiveRecord::Base
        user.image_url = "http://graph.facebook.com/#{new_params['uid']}/picture?type=large"
        user.oauth_token = new_params['token']
        #user.oauth_expires_at = Time.at(new_params['expires_at']) rescue 1.hours.from_now
-       user.password = "12345678"
+       user.password = "#{ENV['OAUTH_PASSWORD']}"
        user.save!
      end
   end

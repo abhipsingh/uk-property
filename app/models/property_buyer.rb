@@ -40,6 +40,26 @@ class PropertyBuyer < ActiveRecord::Base
 
   PREMIUM_AMOUNT = 2
 
+  BUYER_ENQUIRY_LIMIT = {
+    'true' => 20,
+    'false' => 10
+  }
+
+  BUYER_TRACKING_LIMIT = {
+    'locality_tracking' => {
+      'true' => 2,
+      'false' => 1
+    },
+    'street_tracking' => {
+      'true' => 5,
+      'false' => 3
+    },
+    'property_tracking' => {
+      'true' => 10,
+      'false' => 5
+    }
+  }
+
   REVERSE_BIGGEST_PROBLEM_HASH = BIGGEST_PROBLEM_HASH.invert
   def self.from_omniauth(auth)
     new_params = auth.as_json.with_indifferent_access
@@ -53,7 +73,7 @@ class PropertyBuyer < ActiveRecord::Base
       user.image_url = "http://graph.facebook.com/#{new_params['uid']}/picture?type=large"
       user.oauth_token = new_params['token']
       #user.oauth_expires_at = Time.at(new_params['expires_at'])
-      user.password = "12345678"
+      user.password = "#{ENV['OAUTH_PASSWORD']}"
       user.email = user.email_id
       user.account_type = "a"
       user.save!

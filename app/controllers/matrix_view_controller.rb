@@ -73,17 +73,12 @@ class MatrixViewController < ActionController::Base
         final_predictions.push({ hash: hash, output: output, type: 'district' })
         counter += 1
       elsif text.start_with?('sector') 
-        loc = ''
-        dl = nil
-        details[counter]['dependent_locality'].nil? ? loc = '' : loc = " (#{details[counter]['dependent_locality']})"
-        output = "#{details[counter]['sector']}#{loc}"
+        output = calculate_formatted_string(details[counter], :sector)
         hash = MatrixViewService.form_hash(details[counter], :sector)
         final_predictions.push({ hash: hash, output: output, type: 'sector' })
         counter += 1
       elsif text.start_with?('unit')
-        street = nil
-        details[counter]['dependent_thoroughfare_description'].nil? ? street = "(#{details[counter]['thoroughfare_description']})" : street = "(#{details[counter]['dependent_thoroughfare_description']})"
-        output = "#{details[counter]['unit']} #{street}"
+        output = calculate_formatted_string(details[counter], :unit)
         hash = MatrixViewService.form_hash(details[counter], :unit)
         final_predictions.push({ hash: hash, output: output, type: 'unit' })
         counter += 1
@@ -188,15 +183,16 @@ class MatrixViewController < ActionController::Base
   end
   
   def matrix_view
-    response = nil
     if params[:str] && params[:hash_type] != 'building_type'
+      response = nil
+      hash = { hash_str: params[:str] }
+      PropertySearchApi.construct_hash_from_hash_str(hash)
+      type_of_str(hash)
       range_params = PropertySearchApi::FIELDS[:range].map{|t| ["min_#{t.to_s}", "max_#{t.to_s}"]}.flatten.map{|t| t.to_sym}
       if (((PropertySearchApi::FIELDS[:terms] + PropertySearchApi::FIELDS[:term] + range_params) - PropertySearchApi::ADDRESS_LOCALITY_LEVELS - PropertySearchApi::POSTCODE_LEVELS) & params.keys.map(&:to_sym)).empty?
         matrix_view_service = MatrixViewService.new(hash_str: params[:str])
         response = matrix_view_service.process_result
       else
-        hash = { hash_str: params[:str] }
-        PropertySearchApi.construct_hash_from_hash_str(hash)
         params.delete(:str)
         hash.delete(:hash_str)
         type_of_str(hash)
@@ -220,6 +216,27 @@ class MatrixViewController < ActionController::Base
         code = 200
         Rails.logger.info(hash[:type])
         response, code = find_results(hash, api.query[:filter]) 
+      end
+      if hash[:type] == :post_town
+        dependent_localities = response['dependent_localities'] || response[:dependent_localities]
+        dependent_localities ||= []
+        dependent_localities.each do |dependent_locality|
+          dl = dependent_locality[:dependent_locality] || dependent_locality['dependent_locality']
+          pt = hash[:post_town]
+          str = dl + ' ' + pt
+          str = str.gsub(',',' ').strip.downcase
+          str = str.gsub('.','')
+          str = str.gsub('-','')
+          results, code = PropertyService.get_results_from_es_suggest(str, 100)
+          if code.to_i == 200
+            udprn = Oj.load(results)['postcode_suggest'].first['options'].first['text'].split('_').first.to_i rescue nil
+            if udprn
+              basic_details = PropertyService.bulk_details([udprn]).first
+              new_hash = MatrixViewService.form_hash(basic_details, :dependent_locality)
+              dependent_locality[:hash_str] = new_hash
+            end
+          end
+        end
       end
       render json: response, status: 200
     else
@@ -393,7 +410,6 @@ class MatrixViewController < ActionController::Base
     elsif first_type == :building_type
       construct_aggs_query_from_fields(area, district, sector, unit, 'unit', first_type, query, filter_index, context_map, :address, agg_fields)
     end
-    Rails.logger.info(query)
     body, status = post_url(index_name, query, '_search', ES_EC2_URL)
     response = Oj.load(body).with_indifferent_access
     response_hash = construct_response_body_postcode(area, district, sector, unit, response, first_type, :address, context_map, hash, agg_fields)

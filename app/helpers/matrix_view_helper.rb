@@ -137,8 +137,41 @@ module MatrixViewHelper
     hash[:type] = type
   end
 
-  def calculate_postcode_units(hash)
-
+  def calculate_formatted_string(hash, type)
+    address_levels = PropertySearchApi::ADDRESS_LOCALITY_LEVELS.take_while{|t| t!= type }
+    if type == :building_type
+      PropertyDetails.address(hash)
+    elsif type == :thoroughfare_description
+      address_levels = address_levels.take_while{|t| t != type }.select{|t| hash[t] }.reverse
+      address_levels = address_levels + [:district]
+      address = address_levels.map{|t| hash[t] }.join(', ')
+      address_str = hash[type] + ' (' + address + ')'
+    elsif type == :dependent_thoroughfare_description
+      address_levels = address_levels.take_while{|t| t != type }.select{|t| hash[t] }.reverse
+      address_levels = address_levels - [:dependent_thoroughfare_description] + [:district]
+      address = address_levels.map{|t| hash[t] }.join(', ')
+      address_str = hash[type] + ' (' + address + ')'
+    elsif type == :dependent_locality
+      address_levels = address_levels.take_while{|t| t != type }.select{|t| hash[t] }.reverse
+      address_levels = address_levels + [:district]
+      address = address_levels.map{|t| hash[t] }.join(', ')
+      address_str = hash[type] + ' (' + address + ')'
+    elsif type == :post_town
+      address_levels = address_levels.take_while{|t| t != type }.select{|t| hash[t] }.reverse
+      address_levels = address_levels
+      address = address_levels.map{|t| hash[t] }.join(', ')
+      address_str = hash[type] + ' (' + address + ')'
+    elsif type == :county
+      address_str = hash[type]
+    elsif type == :district
+      hash[type] + ' (' + hash[:post_town] + ')' 
+    elsif type == :sector
+      dl = hash[:dependent_locality] || hash[:post_town]
+      hash[type] + ' (' + dl + ')' 
+    elsif type == :unit
+      street = hash[:dependent_thoroughfare_description] || hash[:thoroughfare_description] || hash[:dependent_locality] || hash[:post_town]
+      hash[type] + ' (' + street + ')' 
+    end
   end
 end
 

@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180123153924) do
+ActiveRecord::Schema.define(version: 20180128195223) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -136,7 +136,6 @@ ActiveRecord::Schema.define(version: 20180123153924) do
   add_index "agents_branches_assigned_agents_leads", ["agent_id"], name: "index_agents_branches_assigned_agents_leads_on_agent_id", using: :btree
   add_index "agents_branches_assigned_agents_leads", ["district"], name: "index_agents_branches_assigned_agents_leads_on_district", using: :btree
   add_index "agents_branches_assigned_agents_leads", ["property_id", "agent_id", "vendor_id"], name: "prop_agent", unique: true, using: :btree
-  add_index "agents_branches_assigned_agents_leads", ["property_id"], name: "index_agents_branches_assigned_agents_leads_on_property_id", using: :btree
   add_index "agents_branches_assigned_agents_leads", ["property_id"], name: "unique_vendor_property_claims", unique: true, using: :btree
 
   create_table "agents_branches_assigned_agents_quotes", force: :cascade do |t|
@@ -502,13 +501,13 @@ ActiveRecord::Schema.define(version: 20180123153924) do
   add_index "property_ads", ["property_id", "ad_type", "hash_str"], name: "index_property_ads_on_property_id_and_ad_type_and_hash_str", unique: true, using: :btree
 
   create_table "property_buyers", force: :cascade do |t|
-    t.jsonb    "searches",          default: [],    null: false
+    t.jsonb    "searches",           default: [],    null: false
     t.string   "name"
-    t.string   "email_id",                          null: false
-    t.string   "account_type",                      null: false
-    t.jsonb    "visited_udprns",    default: [],    null: false
-    t.datetime "created_at",                        null: false
-    t.datetime "updated_at",                        null: false
+    t.string   "email_id",                           null: false
+    t.string   "account_type",                       null: false
+    t.jsonb    "visited_udprns",     default: [],    null: false
+    t.datetime "created_at",                         null: false
+    t.datetime "updated_at",                         null: false
     t.integer  "status_id"
     t.boolean  "chain_free"
     t.string   "full_name"
@@ -531,7 +530,7 @@ ActiveRecord::Schema.define(version: 20180123153924) do
     t.integer  "vendor_id"
     t.string   "first_name"
     t.string   "last_name"
-    t.string   "property_types",    default: [],                 array: true
+    t.string   "property_types",     default: [],                 array: true
     t.integer  "min_beds"
     t.integer  "max_beds"
     t.integer  "min_baths"
@@ -542,7 +541,9 @@ ActiveRecord::Schema.define(version: 20180123153924) do
     t.jsonb    "biggest_problems"
     t.integer  "viewings"
     t.integer  "enquiries"
-    t.boolean  "is_premium",        default: false
+    t.boolean  "is_premium",         default: false
+    t.string   "stripe_customer_id"
+    t.datetime "premium_expires_at"
   end
 
   add_index "property_buyers", ["email"], name: "property_buyers_email_idx", using: :btree
@@ -564,6 +565,22 @@ ActiveRecord::Schema.define(version: 20180123153924) do
     t.string  "property_type"
     t.string  "age"
     t.string  "duration"
+  end
+
+  create_table "rent_quotes", force: :cascade do |t|
+    t.integer  "agent_id"
+    t.integer  "udprn",                             null: false
+    t.integer  "vendor_id",                         null: false
+    t.integer  "price",                             null: false
+    t.integer  "payment_terms",                     null: false
+    t.boolean  "expired",           default: false
+    t.integer  "parent_quote_id"
+    t.string   "district",                          null: false
+    t.integer  "status",                            null: false
+    t.integer  "existing_agent_id"
+    t.boolean  "is_assigned_agent", default: false
+    t.datetime "created_at",                        null: false
+    t.datetime "updated_at",                        null: false
   end
 
   create_table "rent_requirements", force: :cascade do |t|
@@ -607,8 +624,8 @@ ActiveRecord::Schema.define(version: 20180123153924) do
     t.string   "email"
     t.string   "mobile"
     t.integer  "status"
-    t.datetime "created_at",       null: false
-    t.datetime "updated_at",       null: false
+    t.datetime "created_at",                       null: false
+    t.datetime "updated_at",                       null: false
     t.string   "image_url"
     t.string   "password"
     t.string   "password_digest"
@@ -620,6 +637,7 @@ ActiveRecord::Schema.define(version: 20180123153924) do
     t.integer  "buyer_id"
     t.string   "first_name"
     t.string   "last_name"
+    t.boolean  "is_premium",       default: false
   end
 
   add_index "vendors", ["email"], name: "index_vendors_on_email", unique: true, using: :btree

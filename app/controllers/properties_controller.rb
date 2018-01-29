@@ -3,6 +3,7 @@ class PropertiesController < ActionController::Base
   before_filter :set_headers
   around_action :authenticate_agent_and_vendor, only: [ :edit_property_details,  :pricing_history, :interest_info, :supply_info_aggregate ]
   around_action :authenticate_buyer_and_vendor, only: [ :invite_friends_and_family, :enquiries ]
+  around_action :authenticate_premium_agent_vendor, only: [ :supply_info, :demand_info, :enquiries, :agent_stage_and_rating_stats, :ranking_stats, :buyer_profile_stats ]
   around_action :authenticate_all, only: [ :predict_tags, :add_new_tags, :show_tags ]
   around_action :authenticate_vendor, only: [ :attach_vendor_to_udprn_manual_for_manually_added_properties ]
   around_action :authenticate_buyer, only: [ :upload_property_details_from_a_renter ]
@@ -220,13 +221,13 @@ class PropertiesController < ActionController::Base
     params[:property_for] != 'Sale' ? params[:property_for] = 'Rent' : params[:property_for] = 'Sale'
   
     ### Get the count of properties that the vendor has claimed
-    search_params = { vendor_id: 208 }
+    search_params = { vendor_id: vendor_id.to_i }
     api = PropertySearchApi.new(filtered_params: search_params)
+    api.filter_query
     results, code = api.fetch_udprns
 
     vendor = Vendor.where(id: vendor_id).last
-    
-    if (vendor && ((results.count < Vendor::PROPERTY_CLAIM_LIMIT) || vendor.is_premium ))
+    if (vendor && (results.count < Vendor::PROPERTY_CLAIM_LIMIT_MAP[vendor.buyer.is_premium.to_s]))
       ### Attach vendor to property's attributes
       property_service = PropertyService.new(udprn)
       property_service.attach_vendor_to_property(vendor_id, {}, params[:property_for])
@@ -413,6 +414,29 @@ class PropertiesController < ActionController::Base
       yield
     else
       render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  def authenticate_premium_agent_vendor
+    user_valid_for_viewing?(['Agent', 'Vendor'])
+    premium_agent = (@current_user && @current_user.class.to_s == 'Agents::Branches::AssignedAgent' && @current_user.is_premium)
+    premium_vendor = (@current_user && @current_user.class.to_s == 'Vendor' && @current_user.buyer.is_premium)
+    Rails.logger.info("agent #{@current_user.class.to_s} #{@current_user.buyer.as_json}")
+    if (premium_agent || premium_vendor) && is_related_to_the_property?
+      yield
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  def is_related_to_the_property?
+    details = PropertyDetails.details(params[:udprn])[:_source]
+    if @current_user && @current_user.class.to_s == 'Agents::Branches::AssignedAgent'
+      details[:agent_id].to_i == @current_user.id
+    elsif @current_user && @current_user.class.to_s == 'Vendor' 
+      details[:vendor_id].to_i == @current_user.id
+    else
+      false
     end
   end
    

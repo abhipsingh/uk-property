@@ -29,7 +29,8 @@ class EventsController < ApplicationController
     agent_id ||= 0
     message ||= nil
     daily_enquiry_count = Event.where(buyer_id: buyer_id).where('created_at > ?', 24.hours.ago).count
-    if daily_enquiry_count > Event::BUYER_ENQUIRY_LIMIT
+    buyer = PropertyBuyer.where(id: buyer_id).last
+    if daily_enquiry_count <= PropertyBuyer::BUYER_ENQUIRY_LIMIT[buyer.is_premium.to_s]
       response = insert_events(agent_id, property_id, buyer_id, message, type_of_match, property_status_type, event)
       render json: { 'message' => 'Successfully processed the request', response: response }, status: 200
     else
@@ -67,7 +68,7 @@ class EventsController < ApplicationController
 #      status = 500
 #    end
     #params_key = "#{params[:agent_id].to_i}_#{params[:enquiry_type]}_#{params[:type_of_match]}_#{params[:qualifying_stage]}_#{params[:rating]}_#{params[:buyer_status]}_#{params[:buyer_funding]}_#{params[:buyer_biggest_problem]}_#{params[:buyer_chain_free]}_#{params[:search_str]}_#{params[:budget_from]}_#{params[:budget_to]}"
-    param_list = [ :enquiry_type, :type_of_match, :qualifying_stage, :rating, :buyer_status, :buyer_funding, 
+    param_list = [ :enquiry_type, :type_of_match, :stage, :rating, :buyer_status, :buyer_funding, 
                    :buyer_biggest_problem, :buyer_chain_free, :hash_str, :budget_from, :budget_to, 
                    :property_for, :archived, :closed, :count ]
     cache_parameters = param_list.map{ |t| params[t].to_s }
@@ -80,7 +81,7 @@ class EventsController < ApplicationController
       count = params[:count].to_s == 'true'
       old_stats_flag = params[:old_stats_flag].to_s == 'true'
       results = Enquiries::AgentService.new(agent_id: params[:agent_id].to_i).new_enquiries(params[:enquiry_type], params[:type_of_match], 
-        params[:qualifying_stage], params[:rating],  
+        params[:stage], params[:rating],  
         params[:hash_str], 'Sale', last_time,
         is_premium, buyer_id, params[:page], archived, closed, count, old_stats_flag) if params[:agent_id]
       final_response = (!results.is_a?(Fixnum) && results.empty?) ? {"enquiries" => results, "message" => "No enquiries to show"} : {"enquiries" => results}

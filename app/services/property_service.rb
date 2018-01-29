@@ -10,8 +10,9 @@ class PropertyService
   MANDATORY_ATTRS = [ :property_type, :beds, :baths, :receptions, :pictures, :floorplan_url, :current_valuation, :inner_area, :outer_area, :additional_features,
                       :description, :property_style, :tenure, :floors, :listed_status, :year_built, :parking_type, :outside_space_types, :decorative_condition,
                       :council_tax_band, :council_tax_band_cost, :council_tax_band_cost_unit, :lighting_cost, :lighting_cost_unit, :heating_cost,
-                      :heating_cost_unit, :hot_water_cost, :hot_water_cost_unit, :annual_service_charge, :ground_rent_cost, :ground_rent_unit, :sale_price,
-                      :sale_price_type, :latitude, :longitude ]
+                      :heating_cost_unit, :hot_water_cost, :hot_water_cost_unit, :annual_service_charge, :ground_rent_cost, :ground_rent_unit,
+                      :latitude, :longitude, :assigned_agent_branch_logo, :assigned_agent_image_url, :assigned_agent_branch_name, :assigned_agent_branch_address,
+                      :assigned_agent_branch_website ]
 
   EDIT_ATTRS = [
                   :property_type, :beds, :baths, :receptions, :property_style, :tenure, :floors, :listed_status,
@@ -51,7 +52,8 @@ class PropertyService
                       :vendor_email, :vendor_image_url, :vendor_mobile_number, :description_snapshot, :street_view_image_url, :last_sale_price,
                       :is_developer, :floorplan_urls, :latitude, :longitude, :renter_id, :council_tax_band_cost, :council_tax_band_cost_unit,
                       :resident_parking_cost_unit, :outside_space_types, :ground_rent_cost, :ground_rent_type, :sale_price_type, :percent_completed, 
-                      :lettings, :rent_available_from, :rent_available_to, :rent_price, :rent_price_type, :rent_furnishing_type, :student_accommodation]
+                      :lettings, :rent_available_from, :rent_available_to, :rent_price, :rent_price_type, :rent_furnishing_type, :student_accommodation,
+                      :assigned_agent_branch_website ]
 
   COUNTIES = ["Aberdeenshire", "Kincardineshire", "Lincolnshire", "Banffshire", "Hertfordshire", "West Midlands", "Warwickshire", "Worcestershire", "Staffordshire", "Avon", "Somerset", "Wiltshire", "Lancashire", "West Yorkshire", "North Yorkshire", "ZZZZ", "Dorset", "Hampshire", "East Sussex", "West Sussex", "Kent", "County Antrim", "County Down", "Gwynedd", "County Londonderry", "County Armagh", "County Tyrone", "County Fermanagh", "Cumbria", "Cambridgeshire", "Suffolk", "Essex", "South Glamorgan", "Mid Glamorgan", "Cheshire", "Clwyd", "Merseyside", "Surrey", "Angus", "Fife", "Derbyshire", "Dumfriesshire", "Kirkcudbrightshire", "Wigtownshire", "County Durham", "Tyne and Wear", "South Yorkshire", "North Humberside", "South Humberside", "Nottinghamshire", "Midlothian", "West Lothian", "East Lothian", "Peeblesshire", "Middlesex", "Devon", "Cornwall", "Stirlingshire", "Clackmannanshire", "Perthshire", "Lanarkshire", "Dunbartonshire", "Gloucestershire", "Berkshire", "not", "Buckinghamshire", "Herefordshire", "Isle of Lewis", "Isle of Harris", "Isle of Scalpay", "Isle of North Uist", "Isle of Benbecula", "Inverness-shire", "Isle of Barra", "Norfolk", "Ross-shire", "Nairnshire", "Sutherland", "Morayshire", "Isle of Skye", "Ayrshire", "Isle of Arran", "Isle of Cumbrae", "Caithness", "Orkney", "Kinross-shire", "Powys", "Leicestershire", "Leicestershire / ", "Leicestershire / Rutland", "Dyfed", "Bedfordshire", "Northumberland", "Northamptonshire", "Gwent", "Shropshire", "Oxfordshire", "Renfrewshire", "Isle of Bute", "Argyll", "Isle of Gigha", "Isle of Islay", "Isle of Jura", "Isle of Colonsay", "Isle of Mull", "Isle of Iona", "Isle of Tiree", "Isle of Coll", "Isle of Eigg", "Isle of Rum", "Isle of Canna", "Isle of Wight", "West Glamorgan", "Selkirkshire", "Berwickshire", "Roxburghshire", "Isles of Scilly", "Cleveland", "Shetland Islands", "Central London", "East London", "North West London", "North London", "South East London", "South West London","Dummy", "West London"] 
        
@@ -270,7 +272,16 @@ class PropertyService
     lead.submitted = true
     lead.save!
     details = {}
-		details['assigned_agent_name'] = agent.name
+    populate_agent_details(agent, details)
+    #details['details_completed'] = true
+    details[:is_developer] = agent.is_developer
+    details['agent_status'] = AGENT_STATUS[:assigned]
+    PropertyDetails.update_details(client, udprn, details)
+  end
+
+  def populate_agent_details(agent, details)
+		details['assigned_agent_first_name'] = agent.first_name
+		details['assigned_agent_last_name'] = agent.last_name
     details['assigned_agent_email'] = agent.email
     details['assigned_agent_mobile'] = agent.mobile
     details['assigned_agent_office_number'] = agent.office_phone_number
@@ -278,12 +289,8 @@ class PropertyService
     details['assigned_agent_branch_name'] = branch.name
 		details['assigned_agent_branch_number'] = branch.phone_number
     details['assigned_agent_branch_address'] = branch.address
+    details['assigned_agent_branch_website'] = branch.website
     details['assigned_agent_branch_logo'] = branch.image_url
-    details['assigned_agent_branch_email'] = branch.email
-    #details['details_completed'] = true
-    details[:is_developer] = agent.is_developer
-    details['agent_status'] = AGENT_STATUS[:assigned]
-    PropertyDetails.update_details(client, udprn, details)
   end
   
   def is_property_is_in_lead_stage?(details)

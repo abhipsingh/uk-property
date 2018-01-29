@@ -123,7 +123,7 @@ class VendorsController < ApplicationController
 
   def user_valid_for_viewing?(user_types, udprn)
     user_types.any? do |user_type|
-      @current_user = authenticate_request(user_type).result
+      @current_user ||= authenticate_request(user_type).result
       !@current_user.nil?
     end
   end

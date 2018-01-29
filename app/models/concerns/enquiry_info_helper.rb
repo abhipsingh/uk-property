@@ -258,7 +258,7 @@ module EnquiryInfoHelper
       table = ''
       #Rails.logger.info(details)
       property_id = details['udprn']
-
+      Rails.logger.info("hello start #{Time.now.to_f}") 
       if old_stats_flag && is_premium
         unarchived_property_stat = Events::EnquiryStatProperty.new(udprn: property_id)
         archived_property_stat = Events::ArchivedStat.new(udprn: property_id)
@@ -282,8 +282,9 @@ module EnquiryInfoHelper
         new_row['requested_message'] = property_stat.specific_enquiry_count(:requested_message)
         new_row['requested_callback'] = property_stat.specific_enquiry_count(:requested_callback)
         new_row['interested_in_making_an_offer'] = property_stat.specific_enquiry_count(:interested_in_making_an_offer)
-        new_row['interested_in_viewing'] = Event.where(udprn: property_id).where(stage: Event::EVENTS[:interested_in_viewing]).count
-        new_row['offer_made_stage'] = Event.where(udprn: property_id).where(stage: Event::EVENTS[:offer_made_stage]).count
+        new_row['interested_in_viewing'] = property_stat.specific_enquiry_count(:interested_in_viewing) 
+        #new_row['offer_made_stage'] = Event.where(udprn: property_id).where(stage: Event::EVENTS[:offer_made_stage]).count
+        Rails.logger.info("hello end #{Time.now.to_f}") 
 
         ### Last sold property date
         sold_property = SoldProperty.where(udprn: property_id).select([:completion_date]).last

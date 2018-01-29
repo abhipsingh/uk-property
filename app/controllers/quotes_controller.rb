@@ -16,8 +16,9 @@ class QuotesController < ApplicationController
     details = PropertyDetails.details(params[:udprn].to_i)[:_source]
     existing_agent_id = details[:agent_id]
     vendor_id = details[:vendor_id]
+    buyer = PropertyBuyer.where(vendor_id: vendor_id).last
     yearly_quote_count = Agents::Branches::AssignedAgents::Quote.where(vendor_id: vendor_id).where("created_at > ?", 1.year.ago).group(:property_id).select("count(id)").to_a.count
-    if yearly_quote_count <= Agents::Branches::AssignedAgents::Quote::VENDOR_LIMIT
+    if yearly_quote_count <= Vendor::QUOTE_LIMIT_MAP[buyer.is_premium.to_s]
       response, status = service.new_quote_for_property(params[:services_required], params[:payment_terms],
                                               params[:quote_details], params[:assigned_agent], existing_agent_id)
       render json: response, status: status
@@ -114,7 +115,8 @@ class QuotesController < ApplicationController
       if vendor_quote
         agents_for_quotes = Agents::Branches::AssignedAgents::Quote.where(status: status).where.not(agent_id: nil).where.not(agent_id: 0).where.not(agent_id: 1).where(property_id: property_id).where(expired: false).where('created_at >= ?', vendor_quote.created_at).where('created_at < ?', vendor_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME)
         agents_for_quotes.each do |each_agent_id|
-          quotes = AgentApi.new(property_id.to_i, each_agent_id.agent_id.to_i).calculate_quotes
+          each_agent_quote = each_agent_id
+          quotes = AgentApi.new(property_id.to_i, each_agent_id.agent_id.to_i).calculate_quotes(vendor_quote, each_agent_quote)
           quotes[:quote_id] = each_agent_id.id
           final_result.push(quotes)
         end
