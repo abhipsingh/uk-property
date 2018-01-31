@@ -429,13 +429,13 @@ Rails.application.routes.draw do
   get '/agents/inactive/property/credits/:udprn',               to: 'agents#inactive_property_credits'
 
   ### Process premium subscription for users through Stripe
-  post '/users/subscribe/premium/service',                      to: 'property_buyers#subscribe_premium_service'
+  post '/users/subscribe/premium/service',                      to: 'buyers#subscribe_premium_service'
 
   ### Info about the premium charges monthly
-  get '/users/premium/cost',                                    to: 'property_buyers#info_premium'
+  get '/users/premium/cost',                                    to: 'buyers#info_premium'
 
   ### Remove user subscription
-  post '/agents/premium/subscription/remove',                   to: 'property_buyers#remove_subscription'
+  post '/agents/premium/subscription/remove',                   to: 'buyers#remove_subscription'
   ### Count of matching properties(aggregate) not divided by property_status_type
   #####################################################################
   #####################################################################

@@ -10,18 +10,18 @@ class Events::Track < ActiveRecord::Base
   }
 
   BUYER_PROPERTY_PREMIUM_LIMIT = {
-    'true' => 20,
-    'false' => 10
-  }
-
-  BUYER_STREET_PREMIUM_LIMIT = {
     'true' => 10,
     'false' => 5
   }
 
-  BUYER_LOCALITY_PREMIUM_LIMIT = {
-    'true' => 5,
+  BUYER_STREET_PREMIUM_LIMIT = {
+    'true' => 4,
     'false' => 2
+  }
+
+  BUYER_LOCALITY_PREMIUM_LIMIT = {
+    'true' => 2,
+    'false' => 1
   }
 
   REVERSE_TRACKING_TYPE_MAP = TRACKING_TYPE_MAP.invert

@@ -13,8 +13,10 @@ class AgentUpdateWorker
     if status.to_i == 200
       udprns.each do |udprn|
         update_hash = {}
-        PropertyDetails.add_agent_details(update_hash, agent_id)
-        PropertyService.new(udprn).update_details(update_hash)
+        agent = Agents::Branches::AssignedAgent.find(agent_id)
+        service = PropertyService.new(udprn)
+        service.populate_agent_details(agent, update_hash)
+        service.update_details(update_hash)
       end
     end
   end

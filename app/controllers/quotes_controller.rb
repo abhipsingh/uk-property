@@ -1,8 +1,8 @@
 #### Emulation of a request for each action is given
 class QuotesController < ApplicationController
   include CacheHelper
-  around_action :authenticate_agent, only: [ :new, :edit_agent_quote ]
-  around_action :authenticate_vendor, only: [ :submit, :quote_details, :historical_vendor_quotes ]
+  around_action :authenticate_agent, only: [ :new, :edit_agent_quote, :agents_recent_properties_for_quotes ]
+  around_action :authenticate_vendor, only: [ :submit, :quote_details, :historical_vendor_quotes, :quotes_per_property, :new_quote_for_property ]
 
   #### When a vendor changes the status to Green or when a vendor selects a Fixed or Ala Carte option,
   #### He/She submits his preferences about the type of quotes he would want to receieve, Fixed or Ala carte
@@ -23,7 +23,7 @@ class QuotesController < ApplicationController
                                               params[:quote_details], params[:assigned_agent], existing_agent_id)
       render json: response, status: status
     else
-      render json: { message: "Yearly quota limit for vendor has exceeded #{Agents::Branches::AssignedAgents::Quote::VENDOR_LIMIT}. You have claimed #{yearly_quote_count} quotes till now in this year ", quotes_count: yearly_quote_count, quote_limit: Agents::Branches::AssignedAgents::Quote::VENDOR_LIMIT }, status: 400
+      render json: { message: "Yearly quota limit for vendor has exceeded #{Vendor::QUOTE_LIMIT_MAP[buyer.is_premium.to_s]}. You have claimed #{yearly_quote_count} quotes till now in this year ", quotes_count: yearly_quote_count, quote_limit: Vendor::QUOTE_LIMIT_MAP[buyer.is_premium.to_s] }, status: 400
     end
   #rescue Exception => e
   #  render json: e, status: 400

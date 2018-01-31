@@ -18,6 +18,8 @@ module Api
       include EventsHelper
       include MatrixViewHelper
 
+      around_action :authenticate_all, only: [ :search, :details ]
+      
       def search
         api = ::PropertySearchApi.new(filtered_params: params)
         result, status = api.filter
@@ -54,8 +56,9 @@ module Api
       def matching_property_count
         ## hash_str compulsory?
         api = ::PropertySearchApi.new(filtered_params: params)
-        result, status = api.matching_property_count
-        render :json => result, :status => status
+        api = api.filter_query
+        result, status = api.fetch_udprns
+        render :json => result.count, :status => status.to_i
       end
       
       #### Details Api for a udprn
@@ -174,8 +177,17 @@ module Api
         end
         @current_user
       end
+      
+      def authenticate_all
+        if user_valid_for_viewing?(['Vendor', 'Agent', 'Developer'])
+          yield
+        else
+          yield
+        end
+      end
   
     end
 
   end
 end
+

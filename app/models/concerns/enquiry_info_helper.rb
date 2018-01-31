@@ -232,6 +232,7 @@ module EnquiryInfoHelper
         # image_url = process_image(details) if Rails.env != 'test'
         image_url ||= "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details['udprn']}/fov_120_#{details['udprn']}.jpg"
         new_row[:street_view_image_url] = image_url
+        new_row[:image_url] = image_url
       end
       new_row[:status] = new_row[:property_status_type]
       new_row[:percent_completed] ||= PropertyService.new(details[:udprn]).compute_percent_completed({}, details)
@@ -272,7 +273,7 @@ module EnquiryInfoHelper
         new_row['interested_in_making_an_offer'] = archived_property_stat.specific_enquiry_count(:interested_in_making_an_offer) + unarchived_property_stat.specific_enquiry_count(:interested_in_making_an_offer)
         new_row['interested_in_viewing'] = archived_property_stat.specific_enquiry_count(:interested_in_viewing) + unarchived_property_stat.specific_enquiry_count(:interested_in_viewing)
         new_row['deleted'] = Events::IsDeleted.where(udprn: property_id).count
-        new_row['offer_made_stage'] = Event.unscope(where: :is_developer).where(udprn: property_id).where(stage: EVENTS[:offer_made_stage]).count
+        #new_row['offer_made_stage'] = Event.unscope(where: :is_developer).where(udprn: property_id).where(stage: EVENTS[:offer_made_stage]).count
         new_row['trackings'] = Events::Track.where(udprn: property_id).count 
       else
         property_stat = Events::EnquiryStatProperty.new(udprn: property_id)

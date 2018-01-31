@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180128195223) do
+ActiveRecord::Schema.define(version: 20180131183356) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -433,7 +433,7 @@ ActiveRecord::Schema.define(version: 20180128195223) do
   add_index "field_value_stores", ["name"], name: "field_value_stores_names_idx", using: :btree
 
   create_table "invited_agents", force: :cascade do |t|
-    t.string   "email"
+    t.string   "email",      null: false
     t.integer  "udprn"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
@@ -460,7 +460,7 @@ ActiveRecord::Schema.define(version: 20180128195223) do
 
   create_table "mobile_otp_verifies", force: :cascade do |t|
     t.string   "mobile"
-    t.integer  "otp"
+    t.string   "otp"
     t.boolean  "verified",   default: false
     t.datetime "created_at",                 null: false
   end
@@ -571,7 +571,7 @@ ActiveRecord::Schema.define(version: 20180128195223) do
     t.integer  "agent_id"
     t.integer  "udprn",                             null: false
     t.integer  "vendor_id",                         null: false
-    t.integer  "price",                             null: false
+    t.integer  "price"
     t.integer  "payment_terms",                     null: false
     t.boolean  "expired",           default: false
     t.integer  "parent_quote_id"
@@ -579,6 +579,7 @@ ActiveRecord::Schema.define(version: 20180128195223) do
     t.integer  "status",                            null: false
     t.integer  "existing_agent_id"
     t.boolean  "is_assigned_agent", default: false
+    t.string   "terms_url"
     t.datetime "created_at",                        null: false
     t.datetime "updated_at",                        null: false
   end

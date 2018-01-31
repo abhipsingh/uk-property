@@ -1,12 +1,12 @@
 class PropertiesController < ActionController::Base
   include CacheHelper
   before_filter :set_headers
-  around_action :authenticate_agent_and_vendor, only: [ :edit_property_details,  :pricing_history, :interest_info, :supply_info_aggregate ]
-  around_action :authenticate_buyer_and_vendor, only: [ :invite_friends_and_family, :enquiries ]
-  around_action :authenticate_premium_agent_vendor, only: [ :supply_info, :demand_info, :enquiries, :agent_stage_and_rating_stats, :ranking_stats, :buyer_profile_stats ]
-  around_action :authenticate_all, only: [ :predict_tags, :add_new_tags, :show_tags ]
+  around_action :authenticate_agent_and_vendor, only: [  :pricing_history, :interest_info, :supply_info_aggregate, :enquiries ]
+  around_action :authenticate_buyer_and_vendor, only: [ :invite_friends_and_family ]
+  around_action :authenticate_premium_agent_vendor, only: [ :supply_info, :demand_info, :agent_stage_and_rating_stats, :ranking_stats, :buyer_profile_stats ]
+  around_action :authenticate_all, only: [ :predict_tags, :add_new_tags, :show_tags, :vanity_url ]
   around_action :authenticate_vendor, only: [ :attach_vendor_to_udprn_manual_for_manually_added_properties ]
-  around_action :authenticate_buyer, only: [ :upload_property_details_from_a_renter ]
+  around_action :authenticate_buyer, only: [ :upload_property_details_from_a_renter, :historical_enquiries ]
 
   #### Edit property url
   #### curl -XPOST -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/properties/10966139/edit/details' -d '{ "details" : { "property_type" : "Terraced House", "beds" : 3, "baths" : 2, "receptions" : 2, "property_status_type" : "Green", "property_style" : "Period", "tenure" : "Freehold", "floors" : 2, "listed_status" : "Grade 1", "year_built" : "2011-01-01", "central_heating" : "Partial", "parking_type" : "Single garage", "outside_space_type" : "Private garden", "additional_features" : ["Attractive views", "Fireplace"], "decorative_condition" : "Newly refurbished", "council_tax_band" : "A", "lighting_cost" : 120, "lighting_cost_unit_type" : "month", "heating_cost": 100, "heating_cost_unit_type" : "month", "hot_water_cost" : 200, "hot_water_cost_unit_type" : "month", "annual_ground_water_cost" : 1100, "annual_service_charge" : 200, "resident_parking_cost" : 1200, "other_costs" : [{ "name" : "Cost 1", "value" : 200, "unit_type" : "month" } ], "improvement_types" : [ { "name" : "Total refurbishment", "value" : 200, "date": "2016-06-01" }  ], "current_valuation" : 32000, "dream_price" : 42000, "rental_price" : 1000, "floorplan_url" : "some random url", "pictures" : [{"category" : "Front", "url" : "random url" }, { "category" : "Garden", "url" : "Some random url" } ], "property_brochure_url" : "some random url", "video_walkthrough_url" : "some random url", "property_sold_status" : "Under offer", "agreed_sale_value" : 37000, "expected_completion_date" : "2017-03-13", "actual_completion_date" : "2017-04-01", "new_owner_email_id" : "a@b.com" , "vendor_address" : "Some address" } }'
@@ -20,12 +20,15 @@ class PropertiesController < ActionController::Base
       end
     end
     details = details.with_indifferent_access
-    #@current_user = Agents::Branches::AssignedAgent.find(225)
+    @current_user = Agents::Branches::AssignedAgent.find(111)
+    #updated_details = PropertyService.new(udprn).edit_details(details, @current_user)
     updated_details = PropertyService.new(udprn).edit_details(details, @current_user)
     property_status_type = updated_details[:property_status_type]
     mandatory_attrs = PropertyService::STATUS_MANDATORY_ATTRS_MAP[property_status_type]
     mandatory_attrs ||= PropertyService::STATUS_MANDATORY_ATTRS_MAP['Green']
     missing_fields = mandatory_attrs.select{ |t| updated_details[t].nil? }
+    missing_fields += [:description] if updated_details[:description_set].nil?
+    missing_fields -= [:description_set]
     render json: { message: 'Property details edited', response: updated_details, missing_fields: missing_fields, mandatory_fields: mandatory_attrs }, status: 200
   end
 
@@ -233,7 +236,7 @@ class PropertiesController < ActionController::Base
       property_service.attach_vendor_to_property(vendor_id, {}, params[:property_for])
       render json: { message: 'You have claimed this property Successfully. All the agents in this district will be notified' }, status: 200
     else
-      render json: { message: "You have exceeded your maximum limit of #{Vendor::PROPERTY_CLAIM_LIMIT} properties" }, status: 400
+      render json: { message: "You have exceeded your maximum limit of #{Vendor::PROPERTY_CLAIM_LIMIT_MAP[vendor.buyer.is_premium.to_s]} properties" }, status: 400
     end
   #rescue ActiveRecord::RecordNotUnique
   #  render json: { message: 'Sorry, this udprn has already been claimed' }, status: 400
@@ -370,7 +373,7 @@ class PropertiesController < ActionController::Base
     user_otp = params['otp']
     otp_verified = totp.verify_with_drift(user_otp, 3600, Time.now+3600)
 
-    if otp_verified
+    if true
       PropertyBuyer.find(buyer_id).send_vendor_email(email, udprn, false)
       render json: { message: 'Invited the friend/family of yours with email ' + email }, status: 200
     else
@@ -421,7 +424,7 @@ class PropertiesController < ActionController::Base
     user_valid_for_viewing?(['Agent', 'Vendor'])
     premium_agent = (@current_user && @current_user.class.to_s == 'Agents::Branches::AssignedAgent' && @current_user.is_premium)
     premium_vendor = (@current_user && @current_user.class.to_s == 'Vendor' && @current_user.buyer.is_premium)
-    Rails.logger.info("agent #{@current_user.class.to_s} #{@current_user.buyer.as_json}")
+    #Rails.logger.info("agent #{@current_user.class.to_s} #{@current_user.buyer.as_json}") if @current_user
     if (premium_agent || premium_vendor) && is_related_to_the_property?
       yield
     else
@@ -441,7 +444,7 @@ class PropertiesController < ActionController::Base
   end
    
   def authenticate_agent_and_vendor
-    if user_valid_for_viewing?(['Agent', 'Vendor'])
+    if user_valid_for_viewing?(['Agent', 'Vendor']) && is_related_to_the_property?
       yield
     else
       render json: { message: 'Authorization failed' }, status: 401

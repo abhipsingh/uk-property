@@ -185,6 +185,7 @@ module Agents
               new_row[:vendor_email] = nil
               new_row[:vendor_mobile] = nil
               new_row[:vendor_image_url] = nil
+              new_row['address'] = PropertyDetails.street_address(property_details)
             end
 
             ### Branch and logo
@@ -310,6 +311,9 @@ module Agents
           new_row[:vendor_image_url] = nil
         end
 
+        new_row[:percent_completed] = details['percent_completed']
+        new_row[:percent_completed] ||= PropertyService.new(details[:udprn]).compute_percent_completed({}, details)
+
         ### Deadline
         new_row[:deadline] = (lead.created_at.to_time + 7.days).to_s
         if lead.agent_id.nil?
@@ -336,8 +340,10 @@ module Agents
             new_row[:status] = 'Won'
           elsif lead.agent_id.nil?
             new_row[:status] = 'New'
+            new_row['address'] = PropertyDetails.street_address(details)
           else
             new_row[:status] = 'Lost'
+            new_row['address'] = PropertyDetails.street_address(details)
           end
         else
           new_row[:status] = status

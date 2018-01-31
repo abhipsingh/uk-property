@@ -1,11 +1,12 @@
 module Rent
   class AgentQuoteService
+    S3_BASE_URL = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/"
     
     attr_accessor :agent_id, :agent
   
-    def initialize(agent_id: agent)
-      @agent_id = agent
-      @agent = Agents::Branches::AssignedAgent.where(id: @agent_id).last
+    def initialize(agent: agent_details)
+      @agent_id = agent.id
+      @agent = agent
     end
 
     PAGE_SIZE = 20
@@ -24,6 +25,7 @@ module Rent
 
       ### District of that branch
       branch = @agent.branch
+      query = klass
       query = query.where(district: branch.district)
       query = query.where('created_at > ?', Time.parse(latest_time)) if latest_time
       max_hours_for_expiry = klass::MAX_VENDOR_QUOTE_WAIT_TIME
@@ -81,11 +83,11 @@ module Rent
           new_row[:percent_completed] = property_details[:percent_completed]
           new_row[:percent_completed] ||= PropertyService.new(property_details[:udprn]).compute_percent_completed({}, property_details)
 
-          attrs = [ :property_type, :baths, :beds, :receptions, :floor_plan_url, :verification_status, :dream_price, :pictures. 
+          attrs = [ :property_type, :baths, :beds, :receptions, :floor_plan_url, :verification_status, :dream_price, :pictures, 
                     :claimed_on, :address, :vanity_url, :vendor_first_name, :vendor_last_name, :vendor_email, :vendor_mobile_number, 
-                    :vendor_image_url, :assigned_agent_branch_name, :assigned_agent_branch_logo, :assigned_agent_first_name, :agent_id
+                    :vendor_image_url, :assigned_agent_branch_name, :assigned_agent_branch_logo, :assigned_agent_first_name, :agent_id,
                     :assigned_agent_last_name, :property_status_type, :current_valuation, :sale_prices ]
-          new_row = new_row.merge(attrs).reduce({}) {|h, k| h[k] = property_details[k]; h })
+          attrs.each {|key| new_row[key] = property_details[key] }
 
           new_row[:payment_terms] = nil
           new_row[:payment_terms] ||=  klass::REVERSE_PAYMENT_TERMS_HASH[agent_quote.payment_terms] if agent_quote

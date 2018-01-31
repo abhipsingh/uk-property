@@ -3,6 +3,7 @@ class PropertyBuyer < ActiveRecord::Base
   attr_accessor :renter_address, :verification_hash, :email_udprn, :vendor_email
   has_secure_password
   has_one :rent_requirement, class_name: 'RentRequirement', foreign_key: :buyer_id
+  PREMIUM_COST = 25
 
   STATUS_HASH = {
     green: 1,
@@ -41,7 +42,7 @@ class PropertyBuyer < ActiveRecord::Base
   PREMIUM_AMOUNT = 2
 
   BUYER_ENQUIRY_LIMIT = {
-    'true' => 20,
+    'true' => 15,
     'false' => 10
   }
 

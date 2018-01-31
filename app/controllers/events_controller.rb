@@ -2,6 +2,8 @@ class EventsController < ApplicationController
   include EventsHelper
   include CacheHelper
   before_filter :set_headers
+  around_action :authenticate_agent_and_buyer, only: [ :process_event ]
+  around_action :authenticate_agent_and_developer, only: [ :agent_new_enquiries ]
 
   ### List of params
   ### :udprn, :event, :message, :type_of_match, :buyer_id, :agent_id
@@ -129,11 +131,6 @@ class EventsController < ApplicationController
 
   private
 
-  def user_valid_for_viewing?(klass)
-    #Rails.logger.info(request.headers)
-    AuthorizeApiRequest.call(request.headers, klass).result
-  end
-
   def set_headers
     headers['Access-Control-Allow-Origin'] = '*'
     headers['Access-Control-Expose-Header'] = 'latest_time'
@@ -141,5 +138,40 @@ class EventsController < ApplicationController
     headers['Access-Control-Allow-Headers'] = '*,x-requested-with,Content-Type,If-Modified-Since,If-None-Match,latest_time'
     headers['Access-Control-Max-Age'] = '86400'
   end
+
+  def authenticate_agent_and_developer
+    if user_valid_for_viewing?(['Agent', 'Developer'])
+      yield
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  def authenticate_agent_and_buyer
+    if user_valid_for_viewing?(['Agent','Buyer', 'Developer'])
+      yield
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  def authenticate_agent
+    if user_valid_for_viewing?(['Agent'])
+      yield
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  def user_valid_for_viewing?(klasses=[])
+    if !klasses.empty?
+      result = nil
+      klasses.each do |klass|
+        @current_user ||= AuthorizeApiRequest.call(request.headers, klass).result
+      end
+      @current_user
+    end
+  end
+
 end
 

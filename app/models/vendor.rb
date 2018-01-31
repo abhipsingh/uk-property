@@ -15,13 +15,13 @@ class Vendor < ActiveRecord::Base
   }
   
   PROPERTY_CLAIM_LIMIT_MAP = {
-    'true' => 10,
-    'false' => 5
+    'true' => 5,
+    'false' => 2
   }
 
   QUOTE_LIMIT_MAP = {
     'true' => 4,
-    'false' => 2
+    'false' => 3
   }
   PROPERTY_CLAIM_LIMIT = 10
 

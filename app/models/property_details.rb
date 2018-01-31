@@ -33,6 +33,13 @@ class PropertyDetails
     published_address[1, published_address.length-1]
   end
 
+  def self.street_address(details)
+    address_parts = [:dependent_thoroughfare_description, :thoroughfare_description, :dependent_locality, :post_town, :county, :postcode].map do |t|
+      details[t]
+    end
+    address_parts.compact.join(', ')
+  end
+
   def self.get_signed_url(udprn)
     s3 = Aws::S3::Resource.new
     object = s3.bucket('propertyuk').object("#{udprn}_street_view.jpg")
@@ -150,17 +157,10 @@ class PropertyDetails
       details[:assigned_agent_branch_website] = branch.website
       details[:assigned_agent_branch_logo] = branch.image_url
     else
-      details[:assigned_agent_first_name] = nil
-      details[:assigned_agent_last_name] = nil
-      details[:assigned_agent_email] = nil
-      details[:assigned_agent_mobile] = nil
-      details[:assigned_agent_title] = nil
-      details[:assigned_agent_image_url] = nil
-      details[:assigned_agent_branch_name] = nil
-      details[:assigned_agent_branch_number] = nil
-      details[:assigned_agent_branch_website] = nil
-      details[:assigned_agent_branch_address] = nil
-      details[:assigned_agent_branch_logo] = nil
+      attrs = [ :assigned_agent_first_name, :assigned_agent_last_name, :assigned_agent_email, :assigned_agent_mobile, :assigned_agent_title,
+                :assigned_agent_image_url, :assigned_agent_branch_name, :assigned_agent_branch_number, :assigned_agent_branch_website, 
+                :assigned_agent_branch_address, :assigned_agent_branch_logo ]
+      attrs.each { |attr| details[attr] = nil }
     end
   end
 
@@ -169,7 +169,12 @@ class PropertyDetails
     status = 200
     es_hash = {}
     update_hash[:pictures] = update_hash['pictures'].sort_by{|x| x['priority']} if update_hash.key?('pictures')
-    update_hash[:status_last_updated] = Time.now.to_s[0..Time.now.to_s.rindex(" ")-1]
+
+    property_attrs = PropertyService::DETAIL_ATTRS - (PropertyService::LOCALITY_ATTRS + PropertyService::AGENT_ATTRS + PropertyService::VENDOR_ATTRS + PropertyService::POSTCODE_ATTRS)
+    property_updated_cond = nil
+    property_updated_cond = property_attrs.any? { |attr| update_hash.has_key?(attr) }
+
+    update_hash[:status_last_updated] = Time.now.to_s[0..Time.now.to_s.rindex(" ")-1] if property_updated_cond
     update_hash[:description_set] = true if update_hash[:description]
     details = PropertyService.bulk_details([udprn]).first
 

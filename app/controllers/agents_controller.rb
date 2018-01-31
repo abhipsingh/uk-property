@@ -1,5 +1,6 @@
 class AgentsController < ApplicationController
   include CacheHelper
+
   around_action :authenticate_agent, only: [ :invite_vendor, :create_agent_without_password, :add_credits,
                                              :branch_specific_invited_agents, :credit_history, :subscribe_premium_service, :remove_subscription,
                                              :manual_property_leads, :invited_vendor_history, :missing_sale_price_properties_for_agents, 
@@ -133,7 +134,7 @@ class AgentsController < ApplicationController
       new_agent_emails = new_agents.map{ |t| t['email'] }
       existing_emails = Agents::Branches::AssignedAgent.where(email: new_agent_emails).pluck(:email).uniq
       missing_emails = new_agent_emails - existing_emails
-      branch.invited_agents = new_agent_emails
+      branch.invited_agents = new_agents
       branch.send_emails
       branch.invited_agents = (branch.invited_agents + invited_agents).uniq
       if branch.save
@@ -608,7 +609,7 @@ class AgentsController < ApplicationController
     case event.type
       when "invoice.payment_succeeded" #renew subscription
         user = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(stripe_customer_id: event.data.object.customer).last
-        user ||= Vendor.where(stripe_customer_id: event.data.object.customer).last
+        user ||= PropertyBuyer.where(stripe_customer_id: event.data.object.customer).last
         if user
           user.premium_expires_at = 1.month.from_now.to_date
           user.save!
@@ -899,18 +900,6 @@ class AgentsController < ApplicationController
 
   private
 
-  def user_valid_for_viewing?(klass, klasses=[])
-    if !klasses.empty?
-      result = nil
-      klasses.each do |klass|
-        result ||= AuthorizeApiRequest.call(request.headers, klass).result
-      end
-      result
-    else
-      AuthorizeApiRequest.call(request.headers, klass).result
-    end
-  end
-
   def authenticate_agent
     if user_valid_for_viewing?('Agent')
       yield
@@ -918,8 +907,6 @@ class AgentsController < ApplicationController
       render json: { message: 'Authorization failed' }, status: 401
     end
   end
-
-  private
 
   def user_valid_for_viewing?(klass, klasses=[])
     if !klasses.empty?

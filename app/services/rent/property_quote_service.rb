@@ -9,7 +9,7 @@ module Rent
     end
 
     def submit_price_for_quote(agent_id, payment_terms, quote_price, terms_url)
-      first_quote = Rent::Quote.where(udprn: @udprn.to_i, expired: false).order('created_at asc').select([:id, :amount]).first
+      first_quote = Rent::Quote.where(udprn: @udprn.to_i, expired: false).order('created_at asc').select([:id]).first
       price = quote_price
       quote_id = first_quote.id
       new_status = Rent::Quote::STATUS_HASH['New']
@@ -33,34 +33,28 @@ module Rent
       return { message: 'Quote successfully submitted', quote: quote_details }, 200
     end
 
-    def edit_quote_details(agent_id, payment_terms, quote_price, terms_url)
+    def edit_quote_details(agent_id, payment_terms=nil, quote_price=nil, terms_url=nil)
       quote = Rent::Quote.where(agent_id: agent_id, udprn: @udprn.to_i, expired: false)
                          .order('created_at DESC')
                          .limit(1).first
       payment_terms = Rent::Quote::PAYMENT_TERMS_HASH[payment_terms] if payment_terms
       if quote
         quote.payment_terms = payment_terms
-        quote.quote_price = quote_price if quote_price
+        quote.price = quote_price if quote_price
         quote.terms_url = terms_url if terms_url
       end
       quote.save!
-      return { message: 'Quote successfully submitted', quote: quote_details }, 200
+      return { message: 'Quote successfully submitted', quote: quote }, 200
     end
 
-    def new_quote_for_property(payment_terms, quote_price, assigned_agent)
-      status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
-      details = PropertyDetails.details(@udprn)[:_source]
-      agent_id = details[:agent_id].to_i
-      district = details[:district]
-      payment_terms = Rent::Quote::PAYMENT_TERMS_HASH[payment_terms]
-      vendor_id = details[:vendor_id].to_i if details[:vendor_id]
+    def new_quote_for_property(assigned_agent, agent_id, district, vendor_id)
+      status = Rent::Quote::STATUS_HASH['New']
       is_assigned_agent = (assigned_agent.to_s == 'true')
       quote = Rent::Quote.create!(
         status: status,
-        udprn: @udprn.to_i
-        payment_terms: payment_terms,
+        udprn: @udprn.to_i,
         is_assigned_agent: is_assigned_agent,
-        service_required: payment_terms,
+        payment_terms: payment_terms,
         district: district,
         vendor_id: vendor_id,
         existing_agent_id: agent_id
@@ -105,6 +99,7 @@ module Rent
 
       new_status = klass::STATUS_HASH['New']
 
+      all_agent_quotes = []
       vendor_quote = klass.where(expired: false).where(agent_id: nil).where(udprn: @udprn.to_i).where.not(vendor_id: nil).last
       if vendor_quote
         quotes_from_agents = klass.where(status: new_status)
@@ -117,9 +112,9 @@ module Rent
 
         ### Fetch in bulk both agents and branch details
         agent_ids = quotes_from_agents.map(&:agent_id)
-        agent_details = Agents::Branches::AssignedAgent.where(id: agent_ids).select([:id, :image_url, :first_name, :last_name, :branch_id])
+        agent_details = Agents::Branches::AssignedAgent.where(id: agent_ids).select([:id, :image_url, :first_name, :last_name, :branch_id, :email])
         branch_ids = agent_details.map(&:branch_id)
-        agent_details = Agents::Branch.where(id: branch_ids).select([:id, :image_url])
+        branch_details = Agents::Branch.where(id: branch_ids).select([:id, :image_url])
 
         agent_details_hash = agent_details.reduce({}) { |acc_hash, hash| acc_hash.merge(hash.id => hash)}
         branch_details_hash = branch_details.reduce({}) { |acc_hash, hash| acc_hash.merge(hash.id => hash)}
@@ -144,12 +139,14 @@ module Rent
           aggregate_stats[:assigned_agent_email] = agent_detail.email
           aggregate_stats[:branch_id] = agent_detail.branch_id
           aggregate_stats[:branch_logo] = branch_detail.image_url
+          all_agent_quotes.push(aggregate_stats)
 
         end
         #### End of do bloack
 
       end
       ### End of if bloack
+      all_agent_quotes
 
     end
 
