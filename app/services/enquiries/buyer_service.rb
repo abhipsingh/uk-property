@@ -47,3 +47,4 @@ module Enquiries
   end
 
 end
+

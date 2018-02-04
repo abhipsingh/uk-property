@@ -174,6 +174,7 @@ class QuotesController < ApplicationController
       hash[:agent_last_name] = agent.last_name
       hash[:agent_name] = agent.first_name + ' ' + agent.last_name
       hash[:agent_image_url] = agent.image_url
+      hash[:assigned_agent_branch_logo] = agent.branch.image_url
       hash[:branch_id] = agent.branch_id
       hash[:status] = 'Pending' if (hash[:status] == 'New' && !hash[:expired])
       hash

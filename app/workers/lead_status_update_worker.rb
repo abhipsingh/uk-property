@@ -5,24 +5,24 @@ class LeadStatusUpdateWorker
   def perform
     ### All leads which were created 7 days ago and which have to be inspected for if the agent completed the mandatory attributes
     ### or not
-    leads = Agents::Branches::AssignedAgents::Lead.where.not(agent_id: nil).where('date(updated_at) = ?', 7.days.ago.to_date.to_s)
+    leads = Agents::Branches::AssignedAgents::Lead.where.not(agent_id: nil).where('date(updated_at) < ?', 7.days.ago.to_date.to_s).where(expired: false)
   
     leads.each do |lead|
       udprn = lead.property_id
-      details = PropertyDetails.details[:_source]
-      details_completed = details[:details_completed]
+      details = PropertyDetails.details(udprn)[:_source]
+      percent_completed = details[:percent_completed]
      
       ### Check the flag for mandatory details being completed or not
-      if details_completed.to_s != 'true'
+      if percent_completed.to_i < 100
 
         ### Disassociate the agent from its properties and enquiries
         update_hash = { agent_id: nil }
         property_service = PropertyService.new(udprn)
-        property_service.update_details(update_hash)
+        property_service.update_details(update_hash) rescue nil
         Event.unscope(where: :is_archived).where(udprn: udprn).update_all(agent_id: nil)
 
         ### Lock the branch so that new leads and quotes are not accessible for 30 days
-        branch = lead.agent.branch
+        branch = lead.agent.branch 
         branch.update_attributes(locked: true, locked_date: Date.today)
 
         ### Create a new lead for local branches
@@ -35,6 +35,8 @@ class LeadStatusUpdateWorker
       end
 
     end
+
+    leads.update_all(expired: true)
 
   end
 end

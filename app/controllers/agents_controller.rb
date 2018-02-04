@@ -332,7 +332,8 @@ class AgentsController < ApplicationController
       details_completed: false,
       property_id: udprn,
       claimed_on: Time.now.to_s,
-      claimed_by: 'Agent'
+      claimed_by: 'Agent',
+      agent_id: agent_id.to_i
     }
     
     vendor_email = params[:vendor_email]
@@ -408,7 +409,7 @@ class AgentsController < ApplicationController
           invited_vendor = InvitedVendor.where(agent_id: agent.id).where(udprn: matching_udprns).last
           each_crawled_property_data['last_email_sent'] = invited_vendor.created_at if invited_vendor
           each_crawled_property_data['vendor_email'] = invited_vendor.email if invited_vendor
-          each_crawled_property_data['is_vendor_registered'] = Vendor.where(email: invited_vendor.email).last.nil? if invited_vendor
+          each_crawled_property_data['is_vendor_registered'] = !Vendor.where(email: invited_vendor.email).last.nil? if invited_vendor
         end
         each_crawled_property_data['udprn'] = each_crawled_property_data['udprn'].to_f
       end
@@ -696,7 +697,7 @@ class AgentsController < ApplicationController
         property_type: details[:property_type],
         address: details[:address],
         last_email_sent: invited_vendor.created_at,
-        is_vendor_registered: Vendor.where(email: invited_vendor.email).last.nil?
+        is_vendor_registered: !Vendor.where(email: invited_vendor.email).last.nil?
       }
       results.push(result)
     end
@@ -797,7 +798,7 @@ class AgentsController < ApplicationController
   #### Filters on property_for, ads
   def detailed_properties
     cache_parameters = [ :agent_id, :property_status_type, :verification_status, :ads , :count, :old_stats_flag].map{ |t| params[t].to_s }
-    cache_response(params[:agent_id].to_i, cache_parameters) do
+    #cache_response(params[:agent_id].to_i, cache_parameters) do
       response = {}
       results = []
       count = params[:count].to_s == 'true'
@@ -891,9 +892,10 @@ class AgentsController < ApplicationController
       else
         response = { message: 'Agent ID mandatory for getting properties' }
       end
+      @current_response = response
       #Rails.logger.info "Sending response for detailed properties (agent) => #{response.inspect}"
-      render json: response, status: 200
-    end
+    #end
+    render json: @current_response, status: 200
   end
 
 

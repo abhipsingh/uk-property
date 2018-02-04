@@ -93,6 +93,8 @@ module EnquiryInfoHelper
     def process_enquiries_result(arr_rows=[], agent_id=nil, is_premium=false, old_stats_flag=false)
       buyer_ids = []
       result = []
+      udprns = arr_rows.map(&:udprn)
+      details_arr = PropertyService.bulk_details(udprns)
       arr_rows.each_with_index do |each_row, index|
         new_row = {}
         new_row[:id] = each_row.id
@@ -104,8 +106,8 @@ module EnquiryInfoHelper
         new_row[:type_of_match] = Event::REVERSE_TYPE_OF_MATCH[each_row.type_of_match]
         new_row[:scheduled_visit_time] = each_row.scheduled_visit_time
         property_id = each_row.udprn
-        push_property_details_row(new_row, property_id)
-        add_tracking_details_to_enquiry_row(new_row, property_id, each_row, agent_id, 'Sale')
+        push_property_details_row(new_row, property_id, details_arr[index])
+        #add_tracking_details_to_enquiry_row(new_row, property_id, each_row, agent_id, 'Sale')
         new_row[:stage] = Event::REVERSE_EVENTS[each_row.stage]
         new_row[:hotness] = Event::REVERSE_EVENTS[each_row.rating]
         new_row[:offer_date] = each_row.offer_date
@@ -225,7 +227,7 @@ module EnquiryInfoHelper
       attrs = [:address, :price, :dream_price, :current_valuation, :pictures, :street_view_image_url, :sale_prices, :property_status_type, 
                :verification_status, :vanity_url, :assigned_agent_id, :assigned_agent_image_url, :assigned_agent_mobile,
                :assigned_agent_email, :assigned_agent_title, :dependent_locality, :thoroughfare_description, :post_town, :agent_id,
-               :beds, :baths, :receptions, :assigned_agent_first_name, :assigned_agent_last_name, :percent_completed]
+               :beds, :baths, :receptions, :assigned_agent_first_name, :assigned_agent_last_name, :percent_completed, :assigned_agent_branch_logo ]
       new_row.merge!(details.slice(*attrs))
       new_row[:image_url] = new_row[:street_view_image_url] || details[:pictures].first rescue nil
       if new_row[:image_url].nil?
@@ -238,8 +240,8 @@ module EnquiryInfoHelper
       new_row[:percent_completed] ||= PropertyService.new(details[:udprn]).compute_percent_completed({}, details)
     end
 
-    def push_property_details_row(new_row, property_id)
-      details =  PropertyDetails.details(property_id)['_source']
+    def push_property_details_row(new_row, property_id, details)
+      #details =  PropertyDetails.details(property_id)['_source']
       push_property_enquiry_details_buyer(new_row, details)
     end
 

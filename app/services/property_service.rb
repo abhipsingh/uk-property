@@ -464,9 +464,10 @@ class PropertyService
     prediction_str = str_parts[0..county_index-1].join(' ')
     results, code = get_results_from_es_suggest(prediction_str, 1)
     udprn = Oj.load(results)['postcode_suggest'][0]['options'][0]['text'].split('_')[0]
-    details = bulk_details([udprn]).first
-    if user
-      details[:photo_urls] = [ Api::V0::PropertySearchController.helpers.process_image(details) ] 
+    details = PropertyDetails.details(udprn.to_i)[:_source]
+    details[:percent_completed] = PropertyService.new(udprn.to_i).compute_percent_completed({}, details)
+    if true
+      details[:photo_urls] =  Api::V0::PropertySearchController.helpers.process_image(details)
       details[:description] = get_description(udprn)
     else
       details.keys.each do |each_key|

@@ -3,7 +3,7 @@ class EventsController < ApplicationController
   include CacheHelper
   before_filter :set_headers
   around_action :authenticate_agent_and_buyer, only: [ :process_event ]
-  around_action :authenticate_agent_and_developer, only: [ :agent_new_enquiries ]
+  around_action :authenticate_agent_and_developer, only: [ ]
 
   ### List of params
   ### :udprn, :event, :message, :type_of_match, :buyer_id, :agent_id
@@ -87,6 +87,7 @@ class EventsController < ApplicationController
         params[:hash_str], 'Sale', last_time,
         is_premium, buyer_id, params[:page], archived, closed, count, old_stats_flag) if params[:agent_id]
       final_response = (!results.is_a?(Fixnum) && results.empty?) ? {"enquiries" => results, "message" => "No enquiries to show"} : {"enquiries" => results}
+     # @current_response = final_response
       render json: final_response, status: status
     end
   end

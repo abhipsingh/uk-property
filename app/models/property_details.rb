@@ -66,7 +66,7 @@ class PropertyDetails
   end
 
   def self.vanity_url(address)
-    address = address.gsub(/[\/]/,"_")
+    address = address.gsub(/[\/]/,"_").gsub(".","")
     address.split(',').map{|t| t.strip.split(' ').map{|k| k.downcase}.join('-') }.join('-')
   end
 

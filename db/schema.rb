@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180131183356) do
+ActiveRecord::Schema.define(version: 20180204141755) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -131,12 +131,13 @@ ActiveRecord::Schema.define(version: 20180131183356) do
     t.integer  "property_status_type"
     t.boolean  "owned_property",       default: false
     t.datetime "visit_time"
+    t.boolean  "expired",              default: false
   end
 
   add_index "agents_branches_assigned_agents_leads", ["agent_id"], name: "index_agents_branches_assigned_agents_leads_on_agent_id", using: :btree
   add_index "agents_branches_assigned_agents_leads", ["district"], name: "index_agents_branches_assigned_agents_leads_on_district", using: :btree
   add_index "agents_branches_assigned_agents_leads", ["property_id", "agent_id", "vendor_id"], name: "prop_agent", unique: true, using: :btree
-  add_index "agents_branches_assigned_agents_leads", ["property_id"], name: "unique_vendor_property_claims", unique: true, using: :btree
+  add_index "agents_branches_assigned_agents_leads", ["property_id"], name: "unique_vendor_property_claims_non_expired", where: "(expired = false)", using: :btree
 
   create_table "agents_branches_assigned_agents_quotes", force: :cascade do |t|
     t.datetime "deadline"
@@ -345,6 +346,22 @@ ActiveRecord::Schema.define(version: 20180131183356) do
     t.string   "address"
     t.datetime "created_at",   null: false
     t.string   "email"
+  end
+
+  create_table "event_clones", force: :cascade do |t|
+    t.integer  "agent_id"
+    t.integer  "udprn"
+    t.integer  "type_of_match",            limit: 2
+    t.integer  "event",                    limit: 2
+    t.integer  "buyer_id"
+    t.boolean  "is_archived"
+    t.integer  "rating",                   limit: 2
+    t.datetime "scheduled_visit_time"
+    t.integer  "offer_price"
+    t.date     "offer_date"
+    t.date     "expected_completion_date"
+    t.datetime "created_at",                         null: false
+    t.datetime "updated_at",                         null: false
   end
 
   create_table "events", force: :cascade do |t|

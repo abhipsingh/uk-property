@@ -38,7 +38,7 @@ class PropertiesController < ActionController::Base
     user_valid_for_viewing?(['Vendor', 'Agent', 'Buyer'])
     user = @current_user
     details = PropertyService.fetch_details_from_vanity_url(params[:vanity_url], user)
-    details[:percent_completed] = nil if user.nil?
+    #details[:percent_completed] = nil if user.nil?
     render json: details, status: 200
   end
 
