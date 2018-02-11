@@ -236,6 +236,7 @@ module EnquiryInfoHelper
         new_row[:street_view_image_url] = image_url
         new_row[:image_url] = image_url
       end
+      new_row[:address] = PropertyDetails.address(details)
       new_row[:status] = new_row[:property_status_type]
       new_row[:percent_completed] ||= PropertyService.new(details[:udprn]).compute_percent_completed({}, details)
     end

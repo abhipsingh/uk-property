@@ -87,9 +87,11 @@ class MatrixViewCount
       final_result = { @constraints[:post_town] => response['cnt'] }
       result = final_result
     else
-      query = TestUkp
+      query = PropertyAddress
       @constraints.delete(:county)
       @constraints.delete(:area) if @constraints[:district]
+      @constraints.delete(:district) if @constraints[:sector]
+      @constraints.delete(:sector) if @constraints[:unit]
       @constraints.each do |key, value|
         column_name = COLUMN_MAP[key]
         if key == :post_town
@@ -100,11 +102,21 @@ class MatrixViewCount
           c_index = COUNTIES.index(value)
           query = query.where("#{column_name} = ?", c_index)
         elsif key == :district
-          query = query.where("to_tsvector('simple'::regconfig, postcode)  @@ to_tsquery('simple', '#{value}:*')")
+          district = value
+          district = district + 'Z' if district.length < 4
+          query = query.where("to_tsvector('simple'::regconfig, test_postcode)  @@ to_tsquery('simple', '#{district}:*')")
         elsif key == :sector
-          query = query.where("to_tsvector('simple'::regconfig, postcode)  @@ to_tsquery('simple', '#{value.split(' ').join('')}:*')")
+          parts = value.split(' ')
+          district = parts[0]
+          district = district + 'Z' if district.length < 4
+          district = district + parts[1]
+          query = query.where("to_tsvector('simple'::regconfig, test_postcode)  @@ to_tsquery('simple', '#{district}:*')")
         elsif key == :unit
-          query = query.where("to_tsvector('simple'::regconfig, postcode)  @@ to_tsquery('simple', '#{value.split(' ').join('')}:*')")
+          parts = value.split(' ')
+          district = parts[0]
+          district = district + 'Z' if district.length < 4
+          district = district + parts[1]
+          query = query.where("to_tsvector('simple'::regconfig, test_postcode)  @@ to_tsquery('simple', '#{district}:*')")
         elsif key == :area
           query = query.where("to_tsvector('simple'::regconfig, postcode)  @@ to_tsquery('simple', '#{value}:*')")
         elsif key == :dependent_thoroughfare_description
@@ -117,15 +129,36 @@ class MatrixViewCount
           query = query.where("#{column_name} = ?", value)
         end
       end
+
+      ###TODO: Adjust the following code to just use value of sector, unit, postcode and district 
+      ### just by using the modified postcode
       scope_column = COLUMN_MAP[@scoping_parameter.to_sym]
-      query = query.select("#{scope_column}")
-      p query.to_sql
-      result = query.group("#{scope_column}").count.select{ |h,k| h }
+      if scope_column == 'sector' || scope_column == 'district'
+        if @constraints[:district].length < 4
+          expr = nil
+          if scope_column == 'sector'
+            expr = "SUBSTRING ( test_postcode ,0 , #{@constraints[:district].length + 3} )" ### 'Z' + sector number
+          else
+            expr = "SUBSTRING ( test_postcode ,0 , #{@constraints[:district].length + 2} )" ### 'Z'
+          end
+          query = query.select("#{expr}")
+          query = query.group("#{expr}")
+        end
+      else
+        query = query.select("#{scope_column}")
+        query = query.group("#{scope_column}")
+      end
+      result = query.count.select{ |h,k| h }
+      Rails.logger.info("MATRIX_VIEW_QUERY #{query.to_sql}")
       if scope_column.to_sym == :postcode
         unit_result = {}
         result.each do |key, value|
           rindex = key.rindex /[0-9]/
-          unit_result[(key[0..rindex-1] + ' ' + key[rindex..-1])] = value
+          if key[rindex - 1] == 'Z'
+            unit_result[(key[0..rindex-2] + ' ' + key[rindex..-1])] = value
+          else
+            unit_result[(key[0..rindex-1] + ' ' + key[rindex..-1])] = value
+          end
         end
         result = unit_result
       end
@@ -155,3 +188,4 @@ class MatrixViewCount
   end
 
 end
+

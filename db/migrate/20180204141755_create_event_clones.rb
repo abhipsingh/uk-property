@@ -12,8 +12,7 @@ class CreateEventClones < ActiveRecord::Migration
       t.integer :offer_price
       t.date :offer_date
       t.date :expected_completion_date
-
-      t.timestamps null: false
+      t.timestamp :created_at, null: false
     end
   end
 end

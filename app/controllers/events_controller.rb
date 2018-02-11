@@ -32,7 +32,7 @@ class EventsController < ApplicationController
     message ||= nil
     daily_enquiry_count = Event.where(buyer_id: buyer_id).where('created_at > ?', 24.hours.ago).count
     buyer = PropertyBuyer.where(id: buyer_id).last
-    if daily_enquiry_count <= PropertyBuyer::BUYER_ENQUIRY_LIMIT[buyer.is_premium.to_s]
+    if daily_enquiry_count <= PropertyBuyer::BUYER_ENQUIRY_LIMIT[buyer.is_premium.to_s] || @current_user.class.to_s != 'PropertyBuyer'
       response = insert_events(agent_id, property_id, buyer_id, message, type_of_match, property_status_type, event)
       render json: { 'message' => 'Successfully processed the request', response: response }, status: 200
     else

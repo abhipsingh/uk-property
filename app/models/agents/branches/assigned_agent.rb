@@ -17,7 +17,7 @@ module Agents
       LEAD_CREDIT_LIMIT = 1
       PAGE_SIZE = 30
       PREMIUM_COST = 25
-      MIN_INVITED_FRIENDS_FAMILY_VALUE = 0
+      MIN_INVITED_FRIENDS_FAMILY_VALUE = 1
 
       ### Percent of current valuation charged as commission for quotes submission
       CURRENT_VALUATION_PERCENT = 0.01
@@ -126,6 +126,7 @@ module Agents
             new_row[:udprn] = property_id
             new_row[:terms_url] = agent_quote.terms_url if agent_quote
             new_row[:terms_url] ||= each_quote.terms_url
+            new_row[:created_at] = each_quote.created_at
             new_row[:submitted_on] = agent_quote.created_at.to_s if agent_quote
             new_row[:submitted_on] ||= each_quote.created_at.to_s
             new_row[:status] = quote_status
@@ -239,35 +240,40 @@ module Agents
         vendor = PropertyBuyer.where(id: buyer_id).select(:vendor_id).first if buyer_id
         vendor_id = vendor.vendor_id if vendor
         vendor_id ||= nil
-        
-        query = query.where('created_at > ?', Time.parse(latest_time)) if latest_time
-        query = query.where(vendor_id: vendor_id) if buyer_id
-        query = query.where(district: district)
-        query = query.where(owned_property: owned_property) if owned_property
 
-        if search_str && is_premium
-          udprns = Enquiries::PropertyService.fetch_udprns(search_str)
-          udprns = udprns.map(&:to_i)
-          query = query.where(property_id: udprns)
-        end
-
-        if status == 'New'
-          query = query.where(agent_id: nil)
-        elsif status == 'Won'
-          query = query.where(agent_id: self.id)
-        elsif status == 'Lost'
-          query = query.where.not(agent_id: self.id).where.not(agent_id: nil)
-        end
-        
-        if count && is_premium
-          query.count
-        elsif is_premium
-          leads = query.order('created_at DESC')
-          leads.map{|lead| populate_lead_details(lead, status) }
+        if !self.locked
+          query = query.where('created_at > ?', Time.parse(latest_time)) if latest_time
+          query = query.where(vendor_id: vendor_id) if buyer_id
+          query = query.where(district: district)
+          query = query.where(owned_property: owned_property) if !owned_property.nil?
+  
+          if search_str && is_premium
+            udprns = Enquiries::PropertyService.fetch_udprns(search_str)
+            udprns = udprns.map(&:to_i)
+            query = query.where(property_id: udprns)
+          end
+  
+          if status == 'New'
+            query = query.where(agent_id: nil)
+          elsif status == 'Won'
+            query = query.where(agent_id: self.id)
+          elsif status == 'Lost'
+            query = query.where.not(agent_id: self.id).where.not(agent_id: nil)
+          end
+          
+          if count && is_premium
+            query.count
+          elsif is_premium
+            leads = query.order('created_at DESC')
+            leads.map{|lead| populate_lead_details(lead, status) }
+          else
+            leads = query.order('created_at DESC').limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE)
+            leads.map{|lead| populate_lead_details(lead, status) }
+          end
         else
-          leads = query.order('created_at DESC').limit(PAGE_SIZE).offset(page_number.to_i*PAGE_SIZE)
-          leads.map{|lead| populate_lead_details(lead, status) }
+          []
         end
+
       end
 
       def personal_claimed_properties
@@ -315,7 +321,7 @@ module Agents
         new_row[:percent_completed] ||= PropertyService.new(details[:udprn]).compute_percent_completed({}, details)
 
         ### Deadline
-        new_row[:deadline] = (lead.created_at.to_time + 7.days).to_s
+        new_row[:deadline] = (lead.created_at.to_time +  Agents::Branches::AssignedAgents::Lead::VERIFICATION_DAY_LIMIT).to_s
         if lead.agent_id.nil?
           new_row[:claimed] = false
         else

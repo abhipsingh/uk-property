@@ -62,7 +62,7 @@ class PropertyService
   ADDITIONAL_EDIT_ATTRS = [ :property_status_type, :description, :agent_id, :council_tax_band_cost, :council_tax_band_cost_unit,
                             :annual_ground_water_cost_unit, :resident_parking_cost_unit, :outside_space_types, :lettings,
                             :rent_available_from, :rent_available_to, :rent_price, :rent_price_type, :rent_furnishing_type,
-                            :student_accommodation, :ground_rent_unit ]
+                            :student_accommodation, :ground_rent_unit, :sale_price, :sale_price_type ]
 
   AGENT_STATUS = {
     lead: 1,
@@ -188,6 +188,7 @@ class PropertyService
       VendorService.new(vendor_id).send_email_following_agent_lead(agent_id, address)
       status = 200
       ### Update the agents credits
+    Rails.logger.info("PROPERTY_CLAIM_#{agent.id}_#{udprn.to_i}  with credit #{agent.credit} and email #{agent.email}")
       agent.credit = agent.credit - 1
       agent.save!
     else
@@ -319,6 +320,7 @@ class PropertyService
     details = []
     details = Rails.configuration.ardb_client.mget(*udprns) if udprns.length > 0
     results = details.map{ |detail| process_each_detail(detail) }
+    results = results.each{ |t| t[:verification_status] = (t[:details_completed].to_s == "true") }
     results
   end
 
@@ -524,8 +526,8 @@ class PropertyService
 
       ### Update branch's opening hours
       branch = crawled_property_detail.branch
-      branch.opening_hours = crawled_property_detail.additional_details['opening_hours']
-      branch.image_url = details['assigned_agent_branch_logo']
+      branch.opening_hours = crawled_property_detail.additional_details['opening_hours'] if branch.opening_hours.nil?
+      branch.image_url = details['assigned_agent_branch_logo'] if branch.image_url.nil?
       branch.save!
 
       ### From stored response

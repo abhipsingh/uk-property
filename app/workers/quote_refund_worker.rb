@@ -8,7 +8,7 @@ class QuoteRefundWorker
     lost_status = klass::STATUS_HASH['Lost']
     entity_class = AgentCreditVerifier::KLASSES.index(klass.to_s)
     Agents::Branches::AssignedAgents::Quote.where(property_id: udprn.to_i).where.not(agent_id: nil).where("status = ?", lost_status).each do |quote|
-      ### Get the stripe charge & refund each of the charges
+##     Get the stripe charge & refund each of the charges
 #      charge_id = Stripe::Payment.where(udprn: udprn.to_i).where(entity_type: Stripe::Payment::USER_TYPES['Agent'], entity_id: quote.agent_id)
 #                                 .order('created_at desc').last.charge_id
 #      if charge_id

@@ -284,10 +284,6 @@ class MatrixViewController < ActionController::Base
     str.match(/[A-Z]{0,3}[0-9]{0,3}[0-9]{0,3}[A-Z]{0,3}/).captures.any?{|t| !t.empty?}
   end
 
-  def search_postcode
-    render json: count_stats(get_results_from_es("postcodes", params[:str], 'text'))
-  end
-
   def check_if_postcode?(str, regexes)
     parts = str.split(" ")
     first_match = false
@@ -322,30 +318,6 @@ class MatrixViewController < ActionController::Base
     body = result.body
     status = result.code
     return body, status
-  end
-
-  def count_stats(res)
-    result = {
-      areas: Hash.new { 0 },
-      districts: Hash.new { 0 },
-      sectors: Hash.new { 0 },
-      units: 0,
-      sectors_list: [],
-      result_list: []
-    }
-
-    res.each do |t|
-      area_sector, dist_unit = t.split(' ')
-      area_matches = area_sector.match(/([A-Z]+)([0-9]+)/)
-      dist_matches = dist_unit.match(/([0-9]+)([A-Z]+)/)
-      result[:areas][area_matches[1]] = result[:areas][area_matches[1]] + 1
-      result[:districts]["#{area_matches[1]}#{area_matches[2]}"] = result[:districts]["#{area_matches[1]}#{area_matches[2]}"] + 1
-      result[:sectors]["#{area_matches[1]}#{area_matches[2]}#{dist_matches[1]}"] = result[:sectors]["#{area_matches[1]}#{area_matches[2]}#{dist_matches[1]}"] + 1
-      result[:units] = result[:units] + 1
-      result[:sectors_list] |= ["#{area_matches[1]}#{area_matches[2]}#{dist_matches[1]}"]
-      result[:result_list].push([t])
-    end
-    result
   end
 
   def append_term_query(filters, term, value)

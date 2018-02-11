@@ -4,7 +4,7 @@ module Agents
     belongs_to :agent, class_name: '::Agent'
     has_many :properties, class_name: 'Agents::Branches::CrawledProperty'
     has_many :assigned_agents, class_name: '::Agents::Branches::AssignedAgent'
-    attr_accessor :agent_email
+    attr_accessor :agent_email, :invited_agents
 
     def self.table_name
       'agents_branches'
@@ -29,13 +29,13 @@ module Agents
       klass ||= 'Agents::Branches::AssignedAgent'
       invited_klass = InvitedDeveloper  if is_developer
       invited_klass ||= InvitedAgent
-      all_invited_agents = invited_agents
-      all_invited_agents ||= []
-      invited_agents.each do |invited_agent|
+      @invited_agents ||= []
+      first_agent_flag = (Agents::Branches::AssignedAgent.where(branch_id: self.id).count == 0)
+      @invited_agents.each do |invited_agent|
+        invited_agent = invited_agent.with_indifferent_access
         self.agent_email = invited_agent['email']
         salt_str = "#{self.name}_#{self.address}_#{self.district}"
       	self.verification_hash = BCrypt::Password.create salt_str
-        first_agent_flag = (Agents::Branches::AssignedAgent.where(branch_id: self.id).count == 0)
         invited_klass.create!(email: self.agent_email, udprn: invited_agent['udprn'], entity_id: invited_agent['entity_id'], branch_id: self.id) if !first_agent_flag
       	VerificationHash.create(hash_value: self.verification_hash, email: self.agent_email, entity_type: klass)
         AgentMailer.welcome_email(self).deliver_now

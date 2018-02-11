@@ -18,7 +18,7 @@ class QuotesController < ApplicationController
     vendor_id = details[:vendor_id]
     buyer = PropertyBuyer.where(vendor_id: vendor_id).last
     yearly_quote_count = Agents::Branches::AssignedAgents::Quote.where(vendor_id: vendor_id).where("created_at > ?", 1.year.ago).group(:property_id).select("count(id)").to_a.count
-    if yearly_quote_count <= Vendor::QUOTE_LIMIT_MAP[buyer.is_premium.to_s]
+    if yearly_quote_count < Vendor::QUOTE_LIMIT_MAP[buyer.is_premium.to_s]
       response, status = service.new_quote_for_property(params[:services_required], params[:payment_terms],
                                               params[:quote_details], params[:assigned_agent], existing_agent_id)
       render json: response, status: status

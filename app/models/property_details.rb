@@ -16,6 +16,8 @@ class PropertyDetails
   def self.address(details)
     details = details.with_indifferent_access
     published_address = ''
+    published_address += ', ' + details[:organization_name] if details[:organization_name]
+    published_address += ', ' + details[:department_name] if details[:department_name]
     published_address += ', ' + details[:sub_building_name] if details[:sub_building_name]
     published_address += ', ' + details[:building_name] if details[:building_name]
     published_address += ', ' + details[:building_number].to_s if details[:building_number]
@@ -60,6 +62,8 @@ class PropertyDetails
     details['address'] = address(details)
     details[:vanity_url] = vanity_url(details['address'])
     details[:udprn] = udprn.to_i
+    details[:latitude] = details[:latitude].to_f
+    details[:longitude] = details[:longitude].to_f
     PropertyService::INT_ATTRS.each { |t| details[t] = details[t].to_i if details[t] }
     PropertyService::BOOL_ATTRS.each { |t| details[t] = (details[t].to_s == 'true') if details[t] }
     { '_source' => details }.with_indifferent_access

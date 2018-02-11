@@ -16,7 +16,7 @@ namespace :one_timers do
     counter = 0
     areas.each do |postcode_area|
       sql = "select udprn from test_ukps where (to_tsvector('simple'::regconfig, postcode)  @@ to_tsquery('simple', '" + postcode_area + ":*'));"
-      result = TestUkp.connection.execute(sql).map{ |t| t['udprn'] }
+      result = PropertyAddress.connection.execute(sql).map{ |t| t['udprn'] }
       result.in_groups_of(batch_size) do |batched_udprns|
         udprns = batched_udprns.sample(batch_size/6)
         sample_properties = PropertyService.bulk_details(udprns)

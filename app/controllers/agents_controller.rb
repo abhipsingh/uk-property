@@ -130,6 +130,7 @@ class AgentsController < ApplicationController
     if branch
       other_agents = params[:invited_agents]
       invited_agents = branch.invited_agents
+      invited_agents ||= []
       new_agents = (JSON.parse(other_agents) rescue [])
       new_agent_emails = new_agents.map{ |t| t['email'] }
       existing_emails = Agents::Branches::AssignedAgent.where(email: new_agent_emails).pluck(:email).uniq
@@ -261,8 +262,8 @@ class AgentsController < ApplicationController
     details[:property_type] = params[:property_type] if params[:property_type]
     details[:dream_price] = params[:dream_price].to_i if params[:dream_price]
     details[:claimed_on] = Time.now.to_s
-    details[:vendor_id] = params[:vendor_id].to_i
-    details[:verification_status] = true
+    details[:vendor_id] = params[:vendor_id].to_i if params[:vendor_id]
+    details[:verification_status] = false
     response, status = PropertyDetails.update_details(client, udprn, details)
     response['message'] = "Property verification successful." unless status.nil? || status!=200
     render json: response, status: status
@@ -362,7 +363,7 @@ class AgentsController < ApplicationController
       properties = Agents::Branches::CrawledProperty.where(branch_id: branch_id).select([:id, :postcode, :image_urls, :stored_response, :additional_details, :udprn]).where.not(postcode: nil).limit(page_size).offset(page_no*page_size).order('created_at asc')
       property_count = Agents::Branches::CrawledProperty.where(branch_id: branch_id).where.not(postcode: nil).where(udprn: nil).count
       assigned_agent_emails = Agents::Branches::AssignedAgent.where(branch_id: branch_id).pluck(:email)
-      properties.each do |property|
+      properties.select{ |t| t.udprn.nil? }.each do |property|
         new_row = {}
         new_row['property_id'] = property.id
         new_row['beds'] = property.stored_response['beds']
@@ -379,10 +380,11 @@ class AgentsController < ApplicationController
         response.push(new_row)
         postcodes = postcodes + "," + postcode
       end
+      present_udprns = properties.map(&:udprn).compact
 
-      query = TestUkp
+      query = PropertyAddress
       where_query = postcodes.split(',').map{ |t| t.split(' ').join('') }.map{ |t| "(to_tsvector('simple'::regconfig, postcode)  @@ to_tsquery('simple', '#{t}'))" }.join(' OR ')
-      results = TestUkp.connection.execute(query.where(where_query).select([:udprn, :postcode]).limit(1000).to_sql).to_a
+      results = PropertyAddress.connection.execute(query.where(where_query).select([:udprn, :postcode]).limit(1000).to_sql).to_a
       udprns = results.map{ |t| t['udprn'] }
       ### TODO: USE OF BULK DETAILS API HERE
       bulk_results = PropertyService.bulk_details(udprns)
@@ -393,23 +395,11 @@ class AgentsController < ApplicationController
       #Rails.logger.info(results.as_json)
       response.each do |each_crawled_property_data|
         if !each_crawled_property_data['udprn'] 
-          matching_udprns = bulk_results.select{ |t| t[:postcode] == each_crawled_property_data['post_code'] && t[:property_status_type].nil?  }
+          matching_udprns = bulk_results.select{ |t| t[:postcode] == each_crawled_property_data['post_code'] && t[:property_status_type].nil? && !present_udprns.include?(t[:udprn].to_i)  }
           each_crawled_property_data['matching_properties'] = matching_udprns
           each_crawled_property_data['last_email_sent'] = nil
           each_crawled_property_data['vendor_email'] = nil
           each_crawled_property_data['is_vendor_registered'] = false
-        else
-          matching_udprns = each_crawled_property_data['udprn']
-          matching_result = bulk_results.select{ |t| t[:udprn].to_i == matching_udprns.to_i }.first
-          attrs = (nullable_attrs + PropertySearchApi::ADDRESS_LOCALITY_LEVELS + PropertySearchApi::POSTCODE_LEVELS).uniq
-          modified_details = matching_result.slice(*attrs)
-          attrs.each{|t| modified_details[t] ||= nil }
-          each_crawled_property_data['matching_properties'] = [ modified_details ]
-          each_crawled_property_data['address'] = PropertyDetails.address(modified_details)
-          invited_vendor = InvitedVendor.where(agent_id: agent.id).where(udprn: matching_udprns).last
-          each_crawled_property_data['last_email_sent'] = invited_vendor.created_at if invited_vendor
-          each_crawled_property_data['vendor_email'] = invited_vendor.email if invited_vendor
-          each_crawled_property_data['is_vendor_registered'] = !Vendor.where(email: invited_vendor.email).last.nil? if invited_vendor
         end
         each_crawled_property_data['udprn'] = each_crawled_property_data['udprn'].to_f
       end
@@ -778,6 +768,7 @@ class AgentsController < ApplicationController
     agent = @current_user
     invited_vendor_emails = InvitedVendor.where(agent_id: agent.id).where(source: Vendor::INVITED_FROM_CONST[:family]).pluck(:email).uniq
     registered_vendor_count = Vendor.where(email: invited_vendor_emails).count
+    Rails.logger.info("Claiming a property request #{agent.id}  with credit #{agent.credit} and email #{agent.email} and vendor count #{registered_vendor_count} ")
     if registered_vendor_count >= Agents::Branches::AssignedAgent::MIN_INVITED_FRIENDS_FAMILY_VALUE
       if agent.credit >= Agents::Branches::AssignedAgent::LEAD_CREDIT_LIMIT
       #if true
@@ -785,10 +776,14 @@ class AgentsController < ApplicationController
         message, status = property_service.claim_new_property(params[:agent_id].to_i)
         render json: { message: message }, status: status
       else
-        render json: { message: "Credits possessed for leads #{agent.credit},  not more than #{Agents::Branches::AssignedAgent::LEAD_CREDIT_LIMIT} " }, status: 401
+        render json: { message: "Credits possessed for leads #{agent.credit}, not more than #{Agents::Branches::AssignedAgent::LEAD_CREDIT_LIMIT} " }, status: 401
       end
     else
-      render json: { message: "Invited friends family below the minimum value #{Agents::Branches::AssignedAgent::MIN_INVITED_FRIENDS_FAMILY_VALUE}" }, status: 400
+      if invited_vendor_emails.count == 0
+        render json: { message: "No friends and family invited yet" }, status: 400
+      else
+        render json: { message: "Registered friends family count #{registered_vendor_count} is below than minimum value of #{Agents::Branches::AssignedAgent::MIN_INVITED_FRIENDS_FAMILY_VALUE}" }, status: 400
+      end
     end
   end
 
@@ -798,7 +793,7 @@ class AgentsController < ApplicationController
   #### Filters on property_for, ads
   def detailed_properties
     cache_parameters = [ :agent_id, :property_status_type, :verification_status, :ads , :count, :old_stats_flag].map{ |t| params[t].to_s }
-    #cache_response(params[:agent_id].to_i, cache_parameters) do
+    #cache_response_and_value(params[:agent_id].to_i, []) do
       response = {}
       results = []
       count = params[:count].to_s == 'true'
@@ -859,7 +854,6 @@ class AgentsController < ApplicationController
             bulk_details = PropertyService.bulk_details(udprns)
             bulk_details.each {|t| t[:address] = PropertyDetails.address(t) }
             results = property_ids.uniq.each_with_index.map { |e, index| Enquiries::AgentService.push_events_details( { '_source' => bulk_details[index] }.with_indifferent_access, agent.is_premium, old_stats_flag) }
-            Rails.logger.info("hello5_#{Time.now.to_f}")
             vendor_ids = []
             vendor_id_property_map = {}
             results.each_with_index do |t, index|
@@ -895,6 +889,16 @@ class AgentsController < ApplicationController
       @current_response = response
       #Rails.logger.info "Sending response for detailed properties (agent) => #{response.inspect}"
     #end
+
+    if @current_response['properties'] && @current_response['properties'].is_a?(Array)
+      udprns = @current_response['properties'].map{|t| t['udprn'].to_i }
+      bulk_details = PropertyService.bulk_details(udprns)
+      bulk_details.each_with_index do |detail_hash, index|
+        property_hash = { '_source' => detail_hash }
+        property_hash = property_hash.with_indifferent_access
+        Enquiries::AgentService.merge_property_details(property_hash, @current_response['properties'][index])
+      end
+    end
     render json: @current_response, status: 200
   end
 

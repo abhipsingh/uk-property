@@ -22,7 +22,7 @@ class User
       queries['verified_draft_properties'] = "SELECT count(*) FROM agents_branches_crawled_properties WHERE udprn is not null AND district ~ '^" + postcode_area + "[0-9]+'"
       queries['vendor_claimed_property'] = "SELECT count(*) from agents_branches_assigned_agents_leads where  agents_branches_assigned_agents_leads.owned_property = 'f' AND agents_branches_assigned_agents_leads.district ~ '^" +  postcode_area + "[0-9]+'"
       queries['manual_properties'] = "SELECT count(*) from agents_branches_assigned_agents_leads where  agents_branches_assigned_agents_leads.owned_property = 't' AND agents_branches_assigned_agents_leads.district ~ '^" +  postcode_area + "[0-9]+'"
-      queries['total_listings'] = "SELECT  count(udprn) FROM test_ukps WHERE  (to_tsvector('simple'::regconfig, postcode)  @@ to_tsquery('simple', '" + postcode_area + ":*')) "
+      queries['total_listings'] = "SELECT  count(udprn) FROM property_addresses WHERE  (to_tsvector('simple'::regconfig, postcode)  @@ to_tsquery('simple', '" + postcode_area + ":*')) "
       queries.each do |key, query|
         area_details[key] = ActiveRecord::Base.connection.execute(query).as_json.first["count"].to_i 
       end

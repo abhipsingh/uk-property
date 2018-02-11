@@ -326,7 +326,7 @@ class EventService
 
   def qualifying_stage_detail_for_enquiry(buyer_id, new_row, each_row)
     raise StandardError, 'Udprn is not present ' if @udprn.nil?
-    new_row[:scheduled_viewing_time] = each_row.scheduled_visit_time
+    new_row[:scheduled_visit_time] = each_row.scheduled_visit_time
     new_row[:offer_price] = each_row.offer_price
     new_row[:offer_date] = each_row.offer_date
     new_row[:expected_completion_date] = each_row.expected_completion_date

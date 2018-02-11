@@ -147,7 +147,6 @@ class PropertySearchApi
   end
 
   def fetch_udprns
-    Rails.logger.info("quert start #{Time.now.to_f}")
     inst = self
     udprns = []
     range_fields = FIELDS[:range].map{|t| ["max_#{t.to_s}".to_sym, "min_#{t.to_s}".to_sym] }.flatten
@@ -158,59 +157,33 @@ class PropertySearchApi
     not_exists_filtered_keys = @filtered_params[:not_exists].split(',').map(&:to_sym) if @filtered_params[:not_exists].is_a?(String)
     not_exists_filtered_keys ||= []
 
-    Rails.logger.info("quert end #{Time.now.to_f}")
     if @filtered_params[:listing_type] && @filtered_params[:udprns]
       udprns = @filtered_params[:udprns].split(',')
       status = 200
     elsif @filtered_params[:udprn]
       udprns = [ @filtered_params[:udprn] ]
     elsif ((((FIELDS[:terms] + FIELDS[:term] +range_fields + FIELDS[:not_exists] + FIELDS[:exists]) - ADDRESS_LOCALITY_LEVELS - POSTCODE_LEVELS) & ( @filtered_params.keys + exists_filtered_keys + not_exists_filtered_keys )).empty?) &&  @filtered_params[:sort_key].nil?
-      query = TestUkp
-      ADDRESS_LOCALITY_LEVELS.each do |level|
-        column = MatrixViewCount::COLUMN_MAP[level]
-        pt_index = MatrixViewCount::POST_TOWNS.index(@filtered_params[level].upcase) + 1  if level == :post_town && @filtered_params[level]
-        pt_index = pt_index - 1 if pt_index && pt_index < 76 && pt_index ### British Air force post town
-        value = pt_index if level == :post_town && @filtered_params[level]
-        value = MatrixViewCount::COUNTIES.index(@filtered_params[level]) if level == :county && @filtered_params[level]
-#        value ||= @filtered_params[level]
-        value ||= @filtered_params[level]
-        query = query.where("#{column} = ?", value) if @filtered_params[level]
-      end
-
-      #### Add an extra layer of filter if we don't have dependent locality
-      if (@filtered_params[:dependent_thoroughfare_description] || @filtered_params[:thoroughfare_description]) && @filtered_params[:dependent_locality].nil?
-        column = MatrixViewCount::COLUMN_MAP[:dependent_locality]
-        query.where("#{column} is NULL")
-      end
-
-      if @filtered_params[:dependent_thoroughfare_description] && @filtered_params[:thoroughfare_description].nil?
-        column = MatrixViewCount::COLUMN_MAP[:thoroughfare_description]
-        query.where("#{column} is NULL")
-      end
-
-      POSTCODE_LEVELS.each do |level|
-        value = @filtered_params[level].gsub(/[A-Z0-9]+/).to_a.join('') if @filtered_params[level]
-        if value && @filtered_params[:district]
-          query = query.where("to_tsvector('simple'::regconfig, district)  @@ to_tsquery('simple', '#{value}')") if value
-        else
-          query = query.where("to_tsvector('simple'::regconfig, postcode)  @@ to_tsquery('simple', '#{value}:*')") if value
-        end
-      end
-
-      #### Paginate
-      query = query.limit(@query[:size].to_i) if @query[:size]
-      query = query.offset(@query[:from].to_i)
-      TestUkp.connection.execute("set enable_seqscan to off;")
-      query = query.select(:udprn)
-      udprns = query.pluck(:udprn)
-      TestUkp.connection.execute("set enable_seqscan to on;")
-      Rails.logger.info("POSTGRES_QUERY_#{query.to_sql}")
-      status = 200
+      udprns, status = search_from_primary_db
     else
       Rails.logger.info("ES_QUERY_#{inst.query}")
       body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name)
       parsed_body = Oj.load(body)['hits']['hits']
       udprns = parsed_body.map { |e|  e['_id'] }
+
+      ### If count of udprns is zero and no filters have been selected(only sort by)
+      ### then first get the results and the intended page number and adjust limit 
+      ### offset accordingly
+      if udprns.count == 0 && ((((FIELDS[:terms] + FIELDS[:term] +range_fields + FIELDS[:not_exists] + FIELDS[:exists]) - ADDRESS_LOCALITY_LEVELS - POSTCODE_LEVELS) & ( @filtered_params.keys + exists_filtered_keys + not_exists_filtered_keys )).empty?) && @filtered_params[:sort_key] == 'status_last_updated'
+        ### Only get the count of results in es
+        body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name, '_search?search_type=count')
+        total_count = Oj.load(body)['hits']['total']
+        primary_db_page_number = @filtered_params[:p].to_i - ((total_count/RESULTS_PER_PAGE).to_i)
+        Rails.logger.info("Primary db page number: #{primary_db_page_number} #{total_count}")
+        @filtered_params[:p] = primary_db_page_number
+        inst = self
+        inst = inst.append_pagination_filter
+        udprns, status = search_from_primary_db
+      end
     end
     return udprns, status
   end
@@ -220,7 +193,6 @@ class PropertySearchApi
     body = PropertyService.bulk_details(udprns)    
     body.each{|t| t['address'] = PropertyDetails.address(t)}
     body.each{|t| t['vanity_url'] = PropertyDetails.vanity_url(t['address'])}
-
     return body
   end
 
@@ -261,6 +233,56 @@ class PropertySearchApi
         end
       end
     end
+  end
+
+  def search_from_primary_db
+    query = PropertyAddress
+    ADDRESS_LOCALITY_LEVELS.each do |level|
+      column = MatrixViewCount::COLUMN_MAP[level]
+      pt_index = MatrixViewCount::POST_TOWNS.index(@filtered_params[level].upcase) + 1  if level == :post_town && @filtered_params[level]
+      pt_index = pt_index - 1 if pt_index && pt_index < 76 && pt_index ### British Air force post town
+      value = pt_index if level == :post_town && @filtered_params[level]
+      value = MatrixViewCount::COUNTIES.index(@filtered_params[level]) if level == :county && @filtered_params[level]
+#        value ||= @filtered_params[level]
+      value ||= @filtered_params[level]
+      query = query.where("#{column} = ?", value) if @filtered_params[level]
+    end
+
+    #### Add an extra layer of filter if we don't have dependent locality
+    if (@filtered_params[:dependent_thoroughfare_description] || @filtered_params[:thoroughfare_description]) && @filtered_params[:dependent_locality].nil?
+      column = MatrixViewCount::COLUMN_MAP[:dependent_locality]
+      query.where("#{column} is NULL")
+    end
+
+    if @filtered_params[:dependent_thoroughfare_description] && @filtered_params[:thoroughfare_description].nil?
+      column = MatrixViewCount::COLUMN_MAP[:thoroughfare_description]
+      query.where("#{column} is NULL")
+    end
+
+    POSTCODE_LEVELS.each do |level|
+      if  @filtered_params[level]
+        parts = @filtered_params[level].split(' ')
+        if parts[0].length < 4
+          parts[0] = parts[0] + 'Z'
+          value = parts.join('')
+          query = query.where("to_tsvector('simple'::regconfig, test_postcode)  @@ to_tsquery('simple', '#{value}:*')") if value
+        else
+          value = parts.join('')
+          query = query.where("to_tsvector('simple'::regconfig, test_postcode)  @@ to_tsquery('simple', '#{value}:*')") if value
+        end
+      end
+    end
+
+    #### Paginate
+    query = query.limit(@query[:size].to_i) if @query[:size]
+    query = query.offset(@query[:from].to_i)
+    PropertyAddress.connection.execute("set enable_seqscan to off;")
+    query = query.select(:udprn)
+    udprns = query.pluck(:udprn)
+    PropertyAddress.connection.execute("set enable_seqscan to on;")
+    Rails.logger.info("POSTGRES_QUERY_#{query.to_sql}")
+    status = 200
+    return udprns, status
   end
 
   def modify_filtered_params_hash_str

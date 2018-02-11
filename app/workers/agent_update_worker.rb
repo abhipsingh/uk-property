@@ -10,10 +10,10 @@ class AgentUpdateWorker
     ### TODO: TEMP HARD LIMIT OF 1000. Need to handle exceed maybe for some agent
     api.query[:size] = 1000
     udprns, status = api.fetch_udprns
+    agent = Agents::Branches::AssignedAgent.find(agent_id)
     if status.to_i == 200
       udprns.each do |udprn|
         update_hash = {}
-        agent = Agents::Branches::AssignedAgent.find(agent_id)
         service = PropertyService.new(udprn)
         service.populate_agent_details(agent, update_hash)
         service.update_details(update_hash)

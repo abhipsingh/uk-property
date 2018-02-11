@@ -99,3 +99,6 @@ gem "redis-rack-cache"
 gem 'prometheus-client'
 gem 'prometheus_exporter'
 
+### Generating fake data
+gem 'faker'
+

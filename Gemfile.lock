@@ -526,6 +526,8 @@ GEM
     equalizer (0.0.11)
     erubis (2.7.0)
     execjs (2.7.0)
+    faker (1.8.7)
+      i18n (>= 0.7)
     faraday (0.12.2)
       multipart-post (>= 1.2, < 3)
     figaro (1.1.1)
@@ -759,6 +761,7 @@ DEPENDENCIES
   dalli
   elasticsearch-persistence
   elasticsearch-rails
+  faker
   figaro
   haml-rails
   httparty

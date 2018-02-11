@@ -68,6 +68,17 @@ class MatrixViewService
     dependent_thoroughfare_description: :district
   }
 
+  TYPE_HIERARCHY = [
+    :unit,
+    :dependent_thoroughfare_description,
+    :thoroughfare_description,
+    :sector,
+    :dependent_locality,
+    :district,
+    :post_town,
+    :county
+  ]
+
   def initialize(hash_str: str)
     @hash_str = hash_str
     @context_hash = self.class.construct_hash_from_hash_str(@hash_str)
@@ -77,7 +88,9 @@ class MatrixViewService
   def type_of_str(hash)
     type = PropertySearchApi::ADDRESS_LOCALITY_LEVELS.reverse.select{ |t| hash[t] }.first
     postcode_locality_type ||= PropertySearchApi::POSTCODE_LEVELS.reverse.select { |e| hash[e] }.first
-    if type == :post_town && ([:district, :sector, :unit].include?(postcode_locality_type))
+    if postcode_locality_type == :unit
+      type = postcode_locality_type
+    elsif type == :post_town && ([:district, :sector, :unit].include?(postcode_locality_type))
       type = postcode_locality_type
     else
       type ||= postcode_locality_type
@@ -176,7 +189,6 @@ class MatrixViewService
     attrs = values.map{ |t| t[0] }
 
     final_results = {}
-
     if attrs.include?(attribute.to_s)
       @context_hash[:area] = calc_area_value(@context_hash[:district]) if @context_hash[:district]
       @context_hash[:district] = @context_hash[:sector].split(' ')[0] if @context_hash[:sector]
@@ -212,6 +224,7 @@ class MatrixViewService
       constraints: matrix_view_context.clone,
       hash_str: self.class.form_hash(matrix_view_context, level.to_sym)
     )
+ 
     results = matrix_view_count.calculate_count
     final_results[attribute.to_s.pluralize] = results.map do |result_key, result_value|
       result_context = matrix_view_context

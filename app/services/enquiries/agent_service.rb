@@ -37,19 +37,23 @@ module Enquiries
       result
     end
 
-    #### Push event based additional details to each property details
-    ### Trackers::Buyer.new.push_events_details(PropertyDetails.details(10966139))
-    def self.push_events_details(details, is_premium=false, old_stats_flag=false)
-      new_row = {}
+    def self.merge_property_details(details, new_row)
       new_row[:percent_completed] = ::PropertyService.new(details[:_source][:udprn]).compute_percent_completed({}, details[:_source] )
       new_row[:percent_completed] ||= nil
-  
+      new_row[:address] = PropertyDetails.address(details[:_source])
       new_row[:pictures] = details[:_source][:pictures]
       new_row[:pictures] = [] if details[:_source][:pictures].nil?
       image_url ||= "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details[:_source][:udprn]}/fov_120_#{details[:_source][:udprn]}.jpg"
       new_row[:street_view_image_url] = image_url
       new_row[:status_last_updated] = details[:_source][:status_last_updated]
       new_row[:status_last_updated] = Time.parse(new_row[:status_last_updated]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:status_last_updated] 
+    end
+
+    #### Push event based additional details to each property details
+    ### Trackers::Buyer.new.push_events_details(PropertyDetails.details(10966139))
+    def self.push_events_details(details, is_premium=false, old_stats_flag=false)
+      new_row = {}
+      merge_property_details(details, new_row)
       add_enquiry_stats(new_row, details['_source'], is_premium, old_stats_flag)
       vendor_id = details[:_source][:vendor_id]
   

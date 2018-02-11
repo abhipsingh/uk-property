@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180204141755) do
+ActiveRecord::Schema.define(version: 20180209144248) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -115,6 +115,8 @@ ActiveRecord::Schema.define(version: 20180204141755) do
     t.boolean  "is_developer",        default: false
     t.boolean  "is_first_agent"
     t.datetime "created_at"
+    t.boolean  "locked",              default: false
+    t.date     "locked_date"
   end
 
   add_index "agents_branches_assigned_agents", ["branch_id"], name: "index_agents_branches_assigned_agents_on_branch_id", using: :btree
@@ -348,22 +350,6 @@ ActiveRecord::Schema.define(version: 20180204141755) do
     t.string   "email"
   end
 
-  create_table "event_clones", force: :cascade do |t|
-    t.integer  "agent_id"
-    t.integer  "udprn"
-    t.integer  "type_of_match",            limit: 2
-    t.integer  "event",                    limit: 2
-    t.integer  "buyer_id"
-    t.boolean  "is_archived"
-    t.integer  "rating",                   limit: 2
-    t.datetime "scheduled_visit_time"
-    t.integer  "offer_price"
-    t.date     "offer_date"
-    t.date     "expected_completion_date"
-    t.datetime "created_at",                         null: false
-    t.datetime "updated_at",                         null: false
-  end
-
   create_table "events", force: :cascade do |t|
     t.integer  "agent_id"
     t.integer  "udprn"
@@ -505,6 +491,9 @@ ActiveRecord::Schema.define(version: 20180204141755) do
     t.datetime "updated_at", null: false
   end
 
+# Could not dump table "property_addresses" because of following StandardError
+#   Unknown type 'uint1' for column 'county'
+
   create_table "property_ads", force: :cascade do |t|
     t.integer  "property_id"
     t.string   "hash_str"
@@ -633,7 +622,7 @@ ActiveRecord::Schema.define(version: 20180204141755) do
     t.integer  "entity_type"
   end
 
-# Could not dump table "test_ukps" because of following StandardError
+# Could not dump table "test_property_addresses" because of following StandardError
 #   Unknown type 'uint1' for column 'county'
 
   create_table "vendors", force: :cascade do |t|
