@@ -1,0 +1,61 @@
+version: '2' 
+
+services:
+  postgres94:
+    image: app_db:latest
+    expose:
+      - 5432
+    ports:
+      - 5432:5432
+    volumes:
+      - /home/ec2-user/postgres_data/postgres_data/data/:/postgres_data/data/postgres_data/data
+    environment:
+      POSTGRES_PASSWORD: property_services
+      POSTGRES_USER: ec2_user
+      PGDATA:  /postgres_data/data/postgres_data/data
+  ardb_cache:
+    image: app_ardb:latest
+    expose:
+      - 16379
+    ports:
+      - 16379:16379
+    volumes:
+      - /home/ec2-user/ardb_data/rocksdb/:/var/lib/ardb/data/rocksdb/
+  es24:
+    image: es:latest
+    expose:
+      - 9200
+    ports:
+      - 9200:9200
+    volumes:
+      - /home/ec2-user/elasticsearch/:/usr/share/elasticsearch/data
+    cap_add:
+      - IPC_LOCK
+    environment:
+      ES_HEAP_SIZE: 2g
+    build:
+      context: .
+      args:
+        -Des.bootstrap.mlockall: "true"
+        -Des.network.host: _eth0_
+        -Des.discovery.zen.ping.multicast.enabled: "false" 
+
+  main_app:
+    image: app_rails:latest
+    expose:
+      - 3001
+    ports:
+     - 3001:3001
+    links:
+      - es24
+      - ardb_cache
+      - postgres94
+    depends_on:
+      - es24
+      - ardb_cache
+      - postgres94
+
+volumes:
+  data: {}
+
+ 
