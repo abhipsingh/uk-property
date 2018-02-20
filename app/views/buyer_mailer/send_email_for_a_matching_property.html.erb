@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta content='text/html; charset=UTF-8' http-equiv='Content-Type' />
+  </head>
+  <body>
+    <h5>Hi <%= @first_name %> <%= @last_name %></h5>
+    <h7>The list of attrs for this property are</h7>
+      <ul>
+        <li>
+          <p>
+           Address <%= @details[:address] %>
+          </p>  
+        </li>
+        <li>
+          <p>
+            Beds: <%= @details[:beds] %>
+          </p>
+        </li> 
+        <li>
+          <p>
+            Baths: <%= @details[:baths] %>
+          </p>
+        </li> 
+        <li>
+          <p>
+            Receptions: <%= @details[:receptions] %>
+          </p>
+        </li> 
+        <% if @details[:price] || @details[:sale_price] %>
+          <li>
+            <p>
+              Price: <%= (@details[:price] || @details[:sale_price]) %>
+            </p>
+          </li> 
+        <% end %>
+        <li>
+          <p>
+            Assigned agent name: <%= @details[:assigned_agent_first_name].to_s + ' ' + @details[:assigned_agent_last_name].to_s %>
+          </p>
+        </li>
+        <li>
+          <p>
+            Assigned agent email: <%= @details[:assigned_agent_email] %>
+          </p>
+        </li>
+        <li>
+          <p>
+            Assigned agent mobile: <%= @details[:assigned_agent_mobile] %>
+          </p>
+        </li>
+        <li>
+          <p>
+            Assigned agent title: <%= @details[:assigned_agent_title] %>
+          </p>
+        </li>
+        <li>
+          <p>
+            Assigned agent branch name: <%= @details[:assigned_agent_branch_name] %>
+          </p>
+        </li>
+        <li>
+          <p>
+            Tracking date: <%= @tracking_date %>
+          </p>
+        </li>
+      </ul>
+    <a href= <%= @unsubscribe_link =%>>Unsubscribe</a>
+  </body>
+</html>
+

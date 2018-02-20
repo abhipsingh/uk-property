@@ -1,6 +1,11 @@
+require 'sidekiq/web'
+
 Rails.application.routes.draw do
   ### Pg hero route
   mount PgHero::Engine, at: "pghero"
+
+  ### Sidekiq
+  mount Sidekiq::Web => '/sidekiq'
 
   get 'welcome/index'
   # The priority is based upon order of creation: first created -> highest priority.
@@ -436,7 +441,19 @@ Rails.application.routes.draw do
 
   ### Remove user subscription
   post '/agents/premium/subscription/remove',                   to: 'buyers#remove_subscription'
-  ### Count of matching properties(aggregate) not divided by property_status_type
+
+  ### Provide matching udprns for a crawled property id
+  get 'agents/matching/udprns/property/:property_id',           to: 'agents#matching_udprns'
+
+  ### Get the list of properties the agent has been attached to
+  get '/agents/list/properties',                                to: 'agents#list_of_properties'
+
+  ### Get buyer stats for enquiry
+  get '/agents/buyer/enquiry/stats/:enquiry_id',                to: 'events#buyer_stats_for_enquiry'
+
+  ### Get the top level stats for a vendor/agent for a property
+  get '/property/stats/:udprn',                                 to: 'properties#property_stats'
+  
   #####################################################################
   #####################################################################
   #####################################################################
@@ -444,7 +461,6 @@ Rails.application.routes.draw do
   #####################################################################
   
   post '/auth/:provider/callback', to: 'sessions#create'
-  get 'properties/new/:udprn/short', to: 'properties#short_form'
   get 'postcodes/search', to: 'matrix_view#search_postcode'
   get 'addresses/search', to: 'matrix_view#search_address'
   get 'properties/:udprn/edit', to: 'properties#edit'
@@ -453,14 +469,6 @@ Rails.application.routes.draw do
   get 'crawled_properties/search_results', to: 'crawled_properties#search_results'
   get 'addresses/matrix_view', to: 'matrix_view#matrix_view'
   get 'addresses/predictions', to: 'matrix_view#predictive_search'
-  get 'addresses/predictions/results', to: 'matrix_view#get_results_from_hashes'
-  get 'properties/claim/short/callback', to: 'properties#claim_property'
-  post 'properties/claim/short', to: 'properties#claim_property'
-  post 'properties/profile/submit', to: 'properties#complete_profile'
-  get 'properties/sign/confirm', to: 'properties#signup_after_confirmation'
-  post 'properties/sign/confirm', to: 'properties#property_status'
-  post 'properties/change/status', to: 'properties#custom_agent_service'
-  post 'properties/agents/services', to: 'properties#final_quotes'
   namespace :api do
     namespace :v0 do
       ### Get breadcrumbs for a hash and a type
@@ -471,16 +479,10 @@ Rails.application.routes.draw do
       post  'properties/search/searches',            to: 'property_search#save_searches'
       get  'agents/search',                          to: 'agent_search#search'
       get  'ads/availability',                       to: 'vendor_ad#ads_availablity'
-      get  'locations/:id/version',                  to: 'vendor_ad#correct_version'
-      post 'ads/payments/new',                       to: 'vendor_ad#new_payment'
       post 'ads/availability/update',                to: 'vendor_ad#update_availability'
-      post 'properties',                             to: 'property_search#new_property'
-      post 'property_users/update/udprns',           to: 'property_search#update_viewed_flats'
-      post 'property_users/update/udprns/shortlist', to: 'property_search#update_shortlisted_udprns'
-      post 'vendors/update/property_users',          to: 'property_search#notify_vendor_of_users'
+
       ### Get matching property count
       get  'properties/matching/count',              to: 'property_search#matching_property_count'
-
 
       ### verify info about the properties which invited the vendor who is registering to verify
       get 'properties/details/:property_id',         to: 'property_search#details'
@@ -492,7 +494,7 @@ Rails.application.routes.draw do
 
   ### Facebook login routes
   get 'auth/:provider/callback',                  to: 'sessions#create'
-  get 'signout',                                  to: 'sessions#destroy', as: 'signout'
+  get 'signout',                                  to: 'sessions#destroy',   as: 'signout'
   resources 'sessions',                           only: [:create, :destroy]
 
 end

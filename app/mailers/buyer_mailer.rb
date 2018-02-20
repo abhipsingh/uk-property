@@ -59,4 +59,19 @@ class BuyerMailer < ApplicationMailer
     mail(to: property_buyer["buyer_email"], subject: "Offer Made")
   end
 
+  def send_email_for_a_matching_property(first_name, last_name, email, details, tracking_date, type_of_tracking)
+    @first_name = first_name
+    @last_name = last_name
+    @details = details
+    @tracking_date = tracking_date
+    if "#{type_of_tracking}" == 'property_tracking'
+      subject = "An update has occured in the property you were tracking"
+    else
+      tag = nil
+      ("#{type_of_tracking}" == 'locality_tracking') ? tag = 'locality' : tag = 'street'
+      subject = "An update has occured in the #{tag} you were tracking"
+    end
+    mail(to: email, subject: subject)
+  end
+
 end

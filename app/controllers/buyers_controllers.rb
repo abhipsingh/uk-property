@@ -62,6 +62,7 @@ class BuyersController < ActionController::Base
 		render json: { message: 'Saved buyer successfully', details: details }, status: 200
 	end
 
+  #### Serves predictions for the buyers
   #### curl -XGET  'http://localhost/buyers/predict?str=test10@pr'
   def predictions
     buyer_suggestions = PropertyBuyer.suggest_buyers(params[:str]).select([:id, :name, :image_url]).limit(20)
@@ -91,7 +92,7 @@ class BuyersController < ActionController::Base
 
 
   ### Premium access for buyers for tracking localities, streets and property
-  # curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 
+  ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 
   ### -H "Content-Type: application/json"  "http://localhost/buyers/premium/access" -d  '{ "stripeEmail" : "abhiuec@gmail.com", "stripeToken":"tok_19WlE9AKL3KAwfPBkWwgTpqt", "buyer_id":211}'
   def process_premium_payment
     buyer = @current_user

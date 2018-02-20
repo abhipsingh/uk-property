@@ -107,7 +107,6 @@ module EnquiryInfoHelper
         new_row[:scheduled_visit_time] = each_row.scheduled_visit_time
         property_id = each_row.udprn
         push_property_details_row(new_row, property_id, details_arr[index])
-        #add_tracking_details_to_enquiry_row(new_row, property_id, each_row, agent_id, 'Sale')
         new_row[:stage] = Event::REVERSE_EVENTS[each_row.stage]
         new_row[:hotness] = Event::REVERSE_EVENTS[each_row.rating]
         new_row[:offer_date] = each_row.offer_date
@@ -173,8 +172,14 @@ module EnquiryInfoHelper
         details[:buyer_buying_status] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[buyer_hash[buyer_id].buying_status] rescue nil
         details[:buyer_budget_from] = buyer_hash[buyer_id].budget_from
         details[:buyer_budget_to] = buyer_hash[buyer_id].budget_to
-        details[:views] = buyer_view_ratio(buyer_id, details[:udprn], is_premium, old_stats_flag)
-        details[:enquiries] = buyer_enquiry_ratio(buyer_id, details[:udprn], is_premium, old_stats_flag)
+
+        if is_premium
+          details[:views] = buyer_view_ratio(buyer_id, details[:udprn], is_premium, old_stats_flag)
+          details[:enquiries] = buyer_enquiry_ratio(buyer_id, details[:udprn], is_premium, old_stats_flag)
+        else
+          details[:views] = nil
+          details[:enquiries] = nil
+        end
       else
         keys = [ :buyer_status, :buyer_full_name, :buyer_image, :buyer_email, :buyer_mobile, :chain_free, :buyer_funding, 
                  :buyer_biggest_problems, :buyer_buying_status, :buyer_budget_from, :buyer_budget_to, :buyer_property_types,

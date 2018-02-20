@@ -5,6 +5,15 @@ class PropertyBuyer < ActiveRecord::Base
   has_one :rent_requirement, class_name: 'RentRequirement', foreign_key: :buyer_id
   PREMIUM_COST = 25
 
+  trigger.before(:update).of(:email) do
+    "NEW.email = LOWER(NEW.email); RETURN NEW;"
+  end
+
+  trigger.before(:insert) do
+    "NEW.email = LOWER(NEW.email); RETURN NEW;"
+  end
+
+
   STATUS_HASH = {
     green: 1,
     amber: 2,
@@ -53,7 +62,7 @@ class PropertyBuyer < ActiveRecord::Base
     },
     'street_tracking' => {
       'true' => 5,
-      'false' => 3
+      'false' => 2
     },
     'property_tracking' => {
       'true' => 10,
@@ -133,9 +142,7 @@ class PropertyBuyer < ActiveRecord::Base
     query = query.where("max_baths >= ? AND min_baths <= ? ", details[:baths].to_i, details[:baths].to_i) if details[:baths]
     query = query.where("max_receptions >= ? AND min_receptions <= ? ", details[:receptions].to_i, details[:receptions].to_i) if details[:receptions]
     buyer_ids = query.pluck(:id)
-
     buyer_ids = buyer_ids + property_tracking_buyer_ids
-
     where(id: buyer_ids)
   end
 
@@ -145,6 +152,14 @@ class PropertyBuyer < ActiveRecord::Base
 
   def as_json option = {}
     super(:except => [:password, :password_digest])
+  end
+
+  def send_email_for_a_matching_property(details, tracking_date, type_of_tracking)
+    first_name = self.first_name
+    last_name = self.last_name
+    email = self.email
+    details[:address] = PropertyDetails.address(details)
+    BuyerMailer.send_email_for_a_matching_property(first_name, last_name, email, details, tracking_date, type_of_tracking).deliver_now
   end
 end
 

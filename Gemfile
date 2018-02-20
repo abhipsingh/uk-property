@@ -3,10 +3,10 @@ source 'https://rubygems.org'
 ruby '2.3.0'
 
 gem 'redisearch-rb'
-gem 'activemodel', '4.2.0'
-gem 'activesupport', '4.2.0'
-gem 'actionmailer', '4.2.0'
-gem 'railties', '4.2.0'
+gem 'activemodel', '4.2.2'
+gem 'activesupport', '4.2.2'
+gem 'actionmailer', '4.2.2'
+gem 'railties', '4.2.2'
 gem 'aws-sdk'
 
 # Use SCSS for stylesheets
@@ -30,7 +30,7 @@ gem 'jquery-rails', '4.0.4'
 gem 'sdoc', '~> 0.4.0', group: :doc
 gem 'rack-cors'
 gem 'redis'
-gem 'pg'
+gem 'pg', '0.21.0'
 gem 'figaro'
 gem 'stripe', '~> 3.8.0'
 
@@ -61,7 +61,7 @@ group :test do
   gem "minitest-rails", "~> 2.0"
   gem 'minitest-reporters'
 end
-gem 'activerecord', '4.2.0'
+gem 'activerecord', '4.2.2'
 gem 'unicorn'
 
 
@@ -99,6 +99,10 @@ gem "redis-rack-cache"
 gem 'prometheus-client'
 gem 'prometheus_exporter'
 
-### Generating fake data
-gem 'faker'
+
+### Sidekiq scheduler
+gem 'sidekiq-scheduler'
+
+### Postgres library for triggers lower case all emails
+gem 'hairtrigger'
 

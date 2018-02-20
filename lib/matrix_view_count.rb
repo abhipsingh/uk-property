@@ -122,9 +122,10 @@ class MatrixViewCount
         elsif key == :dependent_thoroughfare_description
           query = query.where("#{column_name} = ?", value)
           query = query.where("#{COLUMN_MAP[:dependent_locality]} IS NULL") if @constraints[:dependent_locality].nil?
+          query = query.where("#{COLUMN_MAP[:thoroughfare_description]} IS NULL") if @constraints[:thoroughfare_description].nil?
         elsif key == :thoroughfare_description
           query = query.where("#{column_name} = ?", value)
-          query = query.where("#{COLUMN_MAP[:dependent_locality]} IS NULL") if @constraints[:dependent_thoroughfare_description].nil?
+          query = query.where("#{COLUMN_MAP[:dependent_locality]} IS NULL") if @constraints[:dependent_locality].nil?
         elsif key == :dependent_locality
           query = query.where("#{column_name} = ?", value)
         end
@@ -133,32 +134,14 @@ class MatrixViewCount
       ###TODO: Adjust the following code to just use value of sector, unit, postcode and district 
       ### just by using the modified postcode
       scope_column = COLUMN_MAP[@scoping_parameter.to_sym]
-      if scope_column == 'sector' || scope_column == 'district'
-        if @constraints[:district].length < 4
-          expr = nil
-          if scope_column == 'sector'
-            expr = "SUBSTRING ( test_postcode ,0 , #{@constraints[:district].length + 3} )" ### 'Z' + sector number
-          else
-            expr = "SUBSTRING ( test_postcode ,0 , #{@constraints[:district].length + 2} )" ### 'Z'
-          end
-          query = query.select("#{expr}")
-          query = query.group("#{expr}")
-        end
-      else
-        query = query.select("#{scope_column}")
-        query = query.group("#{scope_column}")
-      end
-      result = query.count.select{ |h,k| h }
+      query = query.select("#{scope_column}")
+      result = query.group("#{scope_column}").count.select{ |h,k| h }
       Rails.logger.info("MATRIX_VIEW_QUERY #{query.to_sql}")
       if scope_column.to_sym == :postcode
         unit_result = {}
         result.each do |key, value|
           rindex = key.rindex /[0-9]/
-          if key[rindex - 1] == 'Z'
-            unit_result[(key[0..rindex-2] + ' ' + key[rindex..-1])] = value
-          else
-            unit_result[(key[0..rindex-1] + ' ' + key[rindex..-1])] = value
-          end
+          unit_result[(key[0..rindex-1] + ' ' + key[rindex..-1])] = value
         end
         result = unit_result
       end

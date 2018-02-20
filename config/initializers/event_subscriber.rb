@@ -12,6 +12,7 @@ if Rails.env == 'production'
     duration_in_ms = event.duration
     status = event.payload[:status]
   	Rails.configuration.request_latencies.observe(duration_in_ms.to_f, { route: route, status: status }) if status != 500
+  	Rails.configuration.api_server_response_time.observe(duration_in_ms.to_f, { route: route, status: status }) if status != 500
   	Rails.configuration.failed_request_counter.observe(1, { route: route, exception: event.payload[:exception].map{ |t| t.downcase }.join(' ').gsub(/[^a-zA-Z0-9 ]/, '') }) if event.payload[:exception]
   end
 end

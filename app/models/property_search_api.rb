@@ -1,5 +1,6 @@
 require 'base64'
 class PropertySearchApi
+  attr_accessor :hash_key, :total_count
   include Elasticsearch::Search
   NEARBY_MAX_RADIUS = 5000
   RESULTS_PER_PAGE = 20
@@ -63,6 +64,17 @@ class PropertySearchApi
     'Potential_Green' => [:sale_price, :dream_price, :property_type],
     'Potential_Red' => [:dream_price, :sale_price, :property_type],
     'Potential_Amber' => [:dream_price, :sale_price, :property_type],
+  }
+
+  SEARCH_CONSTRAINTS_MAP = {
+    unit: [:unit],
+    sector: [:sector],
+    district: [:district, :post_town],
+    county: [:county],
+    post_town: [:post_town],
+    dependent_locality: [:post_town, :district, :dependent_locality],
+    dependent_thoroughfare_description: [:post_town, :district, :dependent_locality, :thoroughfare_description, :dependent_thoroughfare_description],
+    thoroughfare_description: [:post_town, :district, :dependent_locality, :thoroughfare_description],
   }
 
   def initialize(options={})
@@ -169,6 +181,7 @@ class PropertySearchApi
       body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name)
       parsed_body = Oj.load(body)['hits']['hits']
       udprns = parsed_body.map { |e|  e['_id'] }
+      @total_count = Oj.load(body)['hits']['total']
 
       ### If count of udprns is zero and no filters have been selected(only sort by)
       ### then first get the results and the intended page number and adjust limit 
@@ -177,8 +190,8 @@ class PropertySearchApi
         ### Only get the count of results in es
         body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name, '_search?search_type=count')
         total_count = Oj.load(body)['hits']['total']
+
         primary_db_page_number = @filtered_params[:p].to_i - ((total_count/RESULTS_PER_PAGE).to_i)
-        Rails.logger.info("Primary db page number: #{primary_db_page_number} #{total_count}")
         @filtered_params[:p] = primary_db_page_number
         inst = self
         inst = inst.append_pagination_filter
@@ -237,31 +250,14 @@ class PropertySearchApi
 
   def search_from_primary_db
     query = PropertyAddress
-    ADDRESS_LOCALITY_LEVELS.each do |level|
-      column = MatrixViewCount::COLUMN_MAP[level]
-      pt_index = MatrixViewCount::POST_TOWNS.index(@filtered_params[level].upcase) + 1  if level == :post_town && @filtered_params[level]
-      pt_index = pt_index - 1 if pt_index && pt_index < 76 && pt_index ### British Air force post town
-      value = pt_index if level == :post_town && @filtered_params[level]
-      value = MatrixViewCount::COUNTIES.index(@filtered_params[level]) if level == :county && @filtered_params[level]
-#        value ||= @filtered_params[level]
-      value ||= @filtered_params[level]
-      query = query.where("#{column} = ?", value) if @filtered_params[level]
-    end
-
-    #### Add an extra layer of filter if we don't have dependent locality
-    if (@filtered_params[:dependent_thoroughfare_description] || @filtered_params[:thoroughfare_description]) && @filtered_params[:dependent_locality].nil?
-      column = MatrixViewCount::COLUMN_MAP[:dependent_locality]
-      query.where("#{column} is NULL")
-    end
-
-    if @filtered_params[:dependent_thoroughfare_description] && @filtered_params[:thoroughfare_description].nil?
-      column = MatrixViewCount::COLUMN_MAP[:thoroughfare_description]
-      query.where("#{column} is NULL")
-    end
-
-    POSTCODE_LEVELS.each do |level|
-      if  @filtered_params[level]
-        parts = @filtered_params[level].split(' ')
+    mvc = MatrixViewService.new(hash_str: @hash_key)
+    search_columns = SEARCH_CONSTRAINTS_MAP[mvc.level]
+    
+    if !search_columns.empty?
+      postcode = nil
+      if !([:district, :unit, :sector] & search_columns).empty?
+        postcode_val = @filtered_params[:unit] || @filtered_params[:sector] || @filtered_params[:district]
+        parts = postcode_val.split(' ')
         if parts[0].length < 4
           parts[0] = parts[0] + 'Z'
           value = parts.join('')
@@ -271,6 +267,21 @@ class PropertySearchApi
           query = query.where("to_tsvector('simple'::regconfig, test_postcode)  @@ to_tsquery('simple', '#{value}:*')") if value
         end
       end
+
+      address_columns = search_columns - [:district, :unit, :sector]
+      address_columns.each do |addr_col|
+        value = nil
+        column = MatrixViewCount::COLUMN_MAP[addr_col]
+        pt_index = MatrixViewCount::POST_TOWNS.index(@filtered_params[addr_col].upcase) + 1  if addr_col == :post_town && @filtered_params[addr_col]
+        pt_index = pt_index - 1 if pt_index && pt_index < 76 && pt_index ### British Air force post town
+        value = pt_index if addr_col == :post_town && @filtered_params[addr_col]
+        value = MatrixViewCount::COUNTIES.index(@filtered_params[addr_col]) if addr_col == :county && @filtered_params[addr_col]
+        value ||= @filtered_params[addr_col]
+        query = query.where("#{column} = ?", value) if value
+        query = query.where("#{column} IS ?", value) if !value
+      end
+    else
+      return [], 200
     end
 
     #### Paginate
@@ -291,6 +302,8 @@ class PropertySearchApi
     if @filtered_params.has_key?(:hash_str) && @filtered_params.has_key?(:hash_type)
       self.class.construct_hash_from_hash_str(@filtered_params)
     end
+    
+    @hash_key ||= @filtered_params[:hash_str]
 
     if @filtered_params.has_key?(:listing_type) && !@filtered_params[:listing_type].nil?
       ad_type = PropertyAd::TYPE_HASH[@filtered_params[:listing_type]]

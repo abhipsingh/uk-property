@@ -10,8 +10,9 @@ module Enquiries
       @buyer_id ||= buyer_id
     end
 
-    def new_enquiries(enquiry_type=nil, type_of_match=nil, qualifying_stage=nil, rating=nil, hash_str=nil, property_for='Sale', last_time=nil, is_premium=nil, buyer_id=nil, page_number=0, is_archived=nil, closed=nil, count=false, old_stats_flag=false)
+    def new_enquiries(enquiry_type=nil, type_of_match=nil, qualifying_stage=nil, rating=nil, hash_str=nil, property_for='Sale', last_time=nil, is_premium=nil, buyer_id=nil, page_number=1, is_archived=nil, closed=nil, count=false, old_stats_flag=false)
       result = []
+      count = nil
       events = Event::ENQUIRY_EVENTS.map { |e| Event::EVENTS[e] }
       ### Process filtered buyer_id only
       ### FIlter only the enquiries which are asked by the caller
@@ -23,18 +24,22 @@ module Enquiries
       query = query.where(stage: Event::EVENTS[qualifying_stage.to_sym]) if qualifying_stage
       query = query.where(rating: Event::EVENTS[rating.to_sym]) if rating
  
-      if count && is_premium
-        result = query.count
-      elsif is_premium
+      if is_premium
         query = query.order('created_at DESC')
         total_rows = query.to_a
+        count = total_rows.count
         result = self.class.process_enquiries_result(total_rows, @agent_id, is_premium, old_stats_flag)
       else
         query = query.order('created_at DESC')
+        count = query.count
+        page_number ||= 1
+        page_number = page_number.to_i
+        page_number -= 1
         total_rows = query.limit(Event::PAGE_SIZE).offset(page_number.to_i*Event::PAGE_SIZE)
         result = self.class.process_enquiries_result(total_rows, @agent_id)
       end
-      result
+
+      return result, count
     end
 
     def self.merge_property_details(details, new_row)

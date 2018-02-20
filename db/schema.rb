@@ -11,17 +11,17 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180209144248) do
+ActiveRecord::Schema.define(version: 20180220010616) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
-  enable_extension "pg_trgm"
   enable_extension "btree_gin"
-  enable_extension "uint"
   enable_extension "pageinspect"
   enable_extension "pg_buffercache"
-  enable_extension "unaccent"
   enable_extension "pg_stat_statements"
+  enable_extension "pg_trgm"
+  enable_extension "uint"
+  enable_extension "unaccent"
 
   create_table "ad_payment_histories", force: :cascade do |t|
     t.string   "hash_str",   null: false
@@ -139,7 +139,7 @@ ActiveRecord::Schema.define(version: 20180209144248) do
   add_index "agents_branches_assigned_agents_leads", ["agent_id"], name: "index_agents_branches_assigned_agents_leads_on_agent_id", using: :btree
   add_index "agents_branches_assigned_agents_leads", ["district"], name: "index_agents_branches_assigned_agents_leads_on_district", using: :btree
   add_index "agents_branches_assigned_agents_leads", ["property_id", "agent_id", "vendor_id"], name: "prop_agent", unique: true, using: :btree
-  add_index "agents_branches_assigned_agents_leads", ["property_id"], name: "unique_vendor_property_claims_non_expired", where: "(expired = false)", using: :btree
+  add_index "agents_branches_assigned_agents_leads", ["property_id"], name: "unique_vendor_property_claims_non_expired", unique: true, where: "(expired = false)", using: :btree
 
   create_table "agents_branches_assigned_agents_quotes", force: :cascade do |t|
     t.datetime "deadline"
@@ -168,8 +168,10 @@ ActiveRecord::Schema.define(version: 20180209144248) do
   end
 
   add_index "agents_branches_assigned_agents_quotes", ["agent_id", "property_id", "expired"], name: "quotes_unique_property_agents_idx", unique: true, where: "((agent_id IS NOT NULL) AND (expired = false))", using: :btree
+  add_index "agents_branches_assigned_agents_quotes", ["agent_id", "property_id"], name: "agent_unique_quotes_active_property_idx", unique: true, where: "((parent_quote_id IS NOT NULL) AND (status = 1) AND (expired = false))", using: :btree
   add_index "agents_branches_assigned_agents_quotes", ["district"], name: "index_agents_branches_assigned_agents_quotes_on_district", using: :btree
   add_index "agents_branches_assigned_agents_quotes", ["property_id", "expired"], name: "quotes_unique_property_idx", unique: true, where: "((agent_id IS NULL) AND (expired = false))", using: :btree
+  add_index "agents_branches_assigned_agents_quotes", ["property_id"], name: "vendor_quote_active_property_idx", unique: true, where: "((parent_quote_id IS NULL) AND (status = 1) AND (expired = false))", using: :btree
 
   create_table "agents_branches_crawled_properties", force: :cascade do |t|
     t.text     "html"
@@ -290,11 +292,6 @@ ActiveRecord::Schema.define(version: 20180209144248) do
     t.integer  "listing_type"
     t.datetime "created_at",   null: false
     t.datetime "updated_at",   null: false
-  end
-
-  create_table "constituencies", id: false, force: :cascade do |t|
-    t.string "code", limit: 32,  null: false
-    t.string "name", limit: 255
   end
 
   create_table "developers_branches", force: :cascade do |t|
@@ -491,6 +488,18 @@ ActiveRecord::Schema.define(version: 20180209144248) do
     t.datetime "updated_at", null: false
   end
 
+  create_table "pghero_query_stats", force: :cascade do |t|
+    t.text     "database"
+    t.text     "user"
+    t.text     "query"
+    t.integer  "query_hash",  limit: 8
+    t.float    "total_time"
+    t.integer  "calls",       limit: 8
+    t.datetime "captured_at"
+  end
+
+  add_index "pghero_query_stats", ["database", "captured_at"], name: "index_pghero_query_stats_on_database_and_captured_at", using: :btree
+
 # Could not dump table "property_addresses" because of following StandardError
 #   Unknown type 'uint1' for column 'county'
 
@@ -678,5 +687,44 @@ ActiveRecord::Schema.define(version: 20180209144248) do
   end
 
   add_index "visited_urls", ["url"], name: "index_visited_urls_on_url", using: :btree
+
+  create_trigger("agents_branches_assigned_agents_before_update_of_email_row_tr", :generated => true, :compatibility => 1).
+      on("agents_branches_assigned_agents").
+      before(:update).
+      of(:email) do
+    "NEW.email = LOWER(NEW.email); RETURN NEW;"
+  end
+
+  create_trigger("agents_branches_assigned_agents_before_insert_row_tr", :generated => true, :compatibility => 1).
+      on("agents_branches_assigned_agents").
+      before(:insert) do
+    "NEW.email = LOWER(NEW.email); RETURN NEW;"
+  end
+
+  create_trigger("property_buyers_before_update_of_email_row_tr", :generated => true, :compatibility => 1).
+      on("property_buyers").
+      before(:update).
+      of(:email) do
+    "NEW.email = LOWER(NEW.email); RETURN NEW;"
+  end
+
+  create_trigger("property_buyers_before_insert_row_tr", :generated => true, :compatibility => 1).
+      on("property_buyers").
+      before(:insert) do
+    "NEW.email = LOWER(NEW.email); RETURN NEW;"
+  end
+
+  create_trigger("vendors_before_update_of_email_row_tr", :generated => true, :compatibility => 1).
+      on("vendors").
+      before(:update).
+      of(:email) do
+    "NEW.email = LOWER(NEW.email); RETURN NEW;"
+  end
+
+  create_trigger("vendors_before_insert_row_tr", :generated => true, :compatibility => 1).
+      on("vendors").
+      before(:insert) do
+    "NEW.email = LOWER(NEW.email); RETURN NEW;"
+  end
 
 end

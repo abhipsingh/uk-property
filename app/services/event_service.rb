@@ -136,7 +136,7 @@ class EventService
     :warm_property
   ]
 
-  ENQUIRY_PAGE_SIZE = 20
+  ENQUIRY_PAGE_SIZE = 10
 
 
   def initialize(udprn: udprn=nil, agent_id: agent_id=nil, vendor_id: vendor_id=nil, buyer_id: buyer_id=nil, last_time: time=nil, qualifying_stage: stage=nil, rating: enquiry_rating=nil, archived: is_archived=nil, is_premium: premium=nil, closed: is_closed=nil, count: count_flag=false, profile: profile_type=nil, old_stats_flag: old_flag=false)
@@ -177,18 +177,20 @@ class EventService
 
     ### Archived filter
     query = query.unscope(where: :is_archived).where(is_archived: true) if @archived == true && @is_premium
-    
+
     query
 
   end
 
   def order_and_paginate(query, page)
     if @is_premium
-      query = query.order('created_at DESC')
+      query = query.order('created_at DESC').limit(ENQUIRY_PAGE_SIZE)
+                   .offset(ENQUIRY_PAGE_SIZE*page)
     else
       query = query.order('created_at DESC').limit(ENQUIRY_PAGE_SIZE)
                    .offset(ENQUIRY_PAGE_SIZE*page)
     end
+    query
   end
 
 
@@ -198,7 +200,8 @@ class EventService
     if @count && @is_premium
       enquiries.count  
     else
-      order_and_paginate(enquiries, page)
+      enquiries = order_and_paginate(enquiries, page)
+      Rails.logger.info("Sql query #{enquiries.to_sql}")
       enquiry_details = enquiries.map { |enquiry| construct_enquiry_detail(enquiry) }
 
       if @profile_type == 'Agents::Branches::AssignedAgent'

@@ -232,7 +232,7 @@ class SessionsController < ApplicationController
           vendor.save!
           buyer = PropertyBuyer.new(vendor_params)
           buyer.vendor_id = vendor.id
-          buyer.email_id = buyer.email
+          buyer.email_id = buyer.email.downcase
           buyer.account_type = 'a'
           VerificationHash.where(email: vendor_params['email']).update_all({verified: true})
           buyer.save!

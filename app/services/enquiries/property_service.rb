@@ -156,7 +156,7 @@ module Enquiries
     def buyer_intent_info
       udprn = @udprn.to_i
       details = PropertyDetails.details(udprn.to_i)['_source']
-      
+
       #### Similar properties to the udprn
       default_search_params = {
         min_beds: details['beds'].to_i,
@@ -215,6 +215,14 @@ module Enquiries
         end
       end
       search_stats
+    end
+
+    ### Property stats for the top panel
+    def enquiry_and_view_stats(is_premium=false, old_stats_flag=false)
+      new_row = {}
+      details = PropertyDetails.details(@udprn.to_i)[:_source]
+      self.class.add_enquiry_stats(new_row, details, is_premium, old_stats_flag)
+      new_row
     end
 
     #### Methods for the pie charts have been defined below

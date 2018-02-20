@@ -25,3 +25,7 @@
 *.csv
 *.txt
 bin/*
+postgres/*.control
+postgres/*.so
+postgres/*.sql
+

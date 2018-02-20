@@ -1,5 +1,5 @@
 class LeadsController < ApplicationController
-  around_action :authenticate_agent, only: [ :submit_lead_visit_time]
+  around_action :authenticate_agent, only: [ :submit_lead_visit_time ]#, :agents_recent_properties_for_claim ]
 
   ### Edit lead visit time
   ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/lead/submit/visit/time' -d '{ "udprn" : "any udprn", "visit_time" : "2017-12-03T11:22:00Z" }'
@@ -32,11 +32,22 @@ class LeadsController < ApplicationController
           response = { message: 'Agent ID missing' }
         else
           agent = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i)
-          owned_property = params[:manually_added] == 'true' ? true : nil
-          owned_property = params[:manually_added] == 'false' ? false : owned_property
-          count = params[:count].to_s == 'true'
-          results = agent.recent_properties_for_claim(agent_status, 'Sale', params[:buyer_id], params[:hash_str], agent.is_premium, params[:page], owned_property, count, params[:latest_time])
-          response = (!results.is_a?(Fixnum) && results.empty?) ? {"leads" => results, "message" => "No leads to show"} : {"leads" => results}
+          if !agent.locked
+            owned_property = params[:manually_added] == 'true' ? true : nil
+            owned_property = params[:manually_added] == 'false' ? false : owned_property
+            count = params[:count].to_s == 'true'
+            results, count = agent.recent_properties_for_claim(agent_status, 'Sale', params[:buyer_id], params[:hash_str], agent.is_premium, params[:page], owned_property, count, params[:latest_time])
+            response = (!results.is_a?(Fixnum) && results.empty?) ? {"leads" => results, "message" => "No leads to show", 'count' => count } : {"leads" => results, 'count' => count }
+          else
+            lead = Agents::Branches::AssignedAgents::Lead.where(agent_id: agent.id)
+                                                         .where(expired: true)
+                                                         .order('updated_at DESC')
+                                                         .last
+            address = PropertyDetails.details(lead.property_id)[:_source][:address]
+            deadline = lead.created_at + Agents::Branches::AssignedAgents::Lead::VERIFICATION_DAY_LIMIT
+            response = { leads: [], address: address, locked: true, count: 0 }
+            status = 400
+          end
         end
 #      rescue ActiveRecord::RecordNotFound
 #        response = { message: 'Agent not found in database' }

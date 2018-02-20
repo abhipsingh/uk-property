@@ -20,10 +20,19 @@ class Vendor < ActiveRecord::Base
   }
 
   QUOTE_LIMIT_MAP = {
-    'true' => 4,
+    'true' => 10,
     'false' => 3
   }
   PROPERTY_CLAIM_LIMIT = 10
+
+  trigger.before(:update).of(:email) do
+    "NEW.email = LOWER(NEW.email); RETURN NEW;"
+  end
+
+  trigger.before(:insert) do
+    "NEW.email = LOWER(NEW.email); RETURN NEW;"
+  end
+
 
    def self.from_omniauth(auth)
      new_params = auth.as_json.with_indifferent_access

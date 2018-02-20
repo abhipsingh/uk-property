@@ -64,6 +64,7 @@ class PropertyDetails
     details[:udprn] = udprn.to_i
     details[:latitude] = details[:latitude].to_f
     details[:longitude] = details[:longitude].to_f
+    details[:percent_completed] = PropertyService.new(udprn).compute_percent_completed({}, details)
     PropertyService::INT_ATTRS.each { |t| details[t] = details[t].to_i if details[t] }
     PropertyService::BOOL_ATTRS.each { |t| details[t] = (details[t].to_s == 'true') if details[t] }
     { '_source' => details }.with_indifferent_access
@@ -175,20 +176,22 @@ class PropertyDetails
     update_hash[:pictures] = update_hash['pictures'].sort_by{|x| x['priority']} if update_hash.key?('pictures')
 
     property_attrs = PropertyService::DETAIL_ATTRS - (PropertyService::LOCALITY_ATTRS + PropertyService::AGENT_ATTRS + PropertyService::VENDOR_ATTRS + PropertyService::POSTCODE_ATTRS)
+
+    ### Update description if description is set
+    update_hash[:description_set] = true if update_hash[:description]
+
     property_updated_cond = nil
     property_updated_cond = property_attrs.any? { |attr| update_hash.has_key?(attr) }
-
     update_hash[:status_last_updated] = Time.now.to_s[0..Time.now.to_s.rindex(" ")-1] if property_updated_cond
-    update_hash[:description_set] = true if update_hash[:description]
-    details = PropertyService.bulk_details([udprn]).first
 
+    details = PropertyService.bulk_details([udprn]).first
     update_hash[:is_new_home] = update_hash[:not_yet_built] if update_hash[:not_yet_built]
     last_property_status_type = details[:property_status_type]
 
     ### Track previous agent id
     previous_agent_id = nil
     previous_agent_id = details[:agent_id] if details[:agent_id] && update_hash[:agent_id] && update_hash[:agent_id] != details[:agent_id]
-    
+
     #begin
       ### Update snapshot of description as well
       ### No of characters = 500
@@ -215,6 +218,9 @@ class PropertyDetails
         abs_price = details[:price] || details[:sale_price]
         details[:price] = details[:sale_price] = abs_price.to_i
       end
+
+      ### Send tracking emails for matching buyers aynschronously
+      PropertyService.send_tracking_email_to_tracking_buyers(update_hash, details)
       
       PropertySearchApi::ES_ATTRS.each { |key| es_hash[key] = details[key] if details[key] }
       PropertySearchApi::ADDRESS_LOCALITY_LEVELS.each { |key| es_hash[key] = details[key] if details[key] }

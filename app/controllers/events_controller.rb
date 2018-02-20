@@ -3,7 +3,7 @@ class EventsController < ApplicationController
   include CacheHelper
   before_filter :set_headers
   around_action :authenticate_agent_and_buyer, only: [ :process_event ]
-  around_action :authenticate_agent_and_developer, only: [ ]
+  around_action :authenticate_agent_and_developer, only: [ :buyer_stats_for_enquiry, :agent_new_enquiries ]
 
   ### List of params
   ### :udprn, :event, :message, :type_of_match, :buyer_id, :agent_id
@@ -82,15 +82,35 @@ class EventsController < ApplicationController
       closed = params[:closed]
       count = params[:count].to_s == 'true'
       old_stats_flag = params[:old_stats_flag].to_s == 'true'
-      results = Enquiries::AgentService.new(agent_id: params[:agent_id].to_i).new_enquiries(params[:enquiry_type], params[:type_of_match], 
-        params[:stage], params[:rating],  
-        params[:hash_str], 'Sale', last_time,
-        is_premium, buyer_id, params[:page], archived, closed, count, old_stats_flag) if params[:agent_id]
-      final_response = (!results.is_a?(Fixnum) && results.empty?) ? {"enquiries" => results, "message" => "No enquiries to show"} : {"enquiries" => results}
-     # @current_response = final_response
+      results, count = Enquiries::AgentService.new(agent_id: params[:agent_id].to_i)
+                                              .new_enquiries(params[:enquiry_type], params[:type_of_match], params[:stage],
+                                                             params[:rating], params[:hash_str], 'Sale', last_time, is_premium,
+                                                             buyer_id, params[:page], archived, closed, count, old_stats_flag) 
+         
+      final_response = (!results.is_a?(Fixnum) && results.empty?) ? { enquiries: results, message: 'No enquiries to show', count: count } : { enquiries: results, count: count }
       render json: final_response, status: status
     end
   end
+
+  #### Get buyer stats for an enquiry
+  #### curl -XGET  -H "Authorization: eyJ0eXAi" 'http://localhost/agents/buyer/enquiry/stats/:enquiry_id'
+  def buyer_stats_for_enquiry
+    enquiry_id = params[:enquiry_id].to_i
+    event = Event.unscope(where: :is_developer).where(id: enquiry_id).select([:buyer_id, :udprn]).first
+    if event
+      if event.agent_id == @current_user.id
+        agent_service = Enquiries::AgentService
+        view_ratio = agent_service.buyer_view_ratio(event.buyer_id, event.udprn)
+        enquiry_ratio = agent_service.buyer_enquiry_ratio(event.buyer_id, event.udprn)
+        render json: { views: view_ratio, enquiries: enquiry_ratio }
+      else
+        render json: { message: 'Agent is not attached to the property' }, status: 400
+      end
+    else
+      render json: { message: 'Enquiry not found' }, status: 404
+    end
+  end
+
 
   #### On demand detailed properties for all the properties of agents, or group or branch or company
   #### To get list of properties for the concerned agent

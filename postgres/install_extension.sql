@@ -1,0 +1,6 @@
+CREATE EXTENSION pg_trgm;
+CREATE EXTENSION hstore;
+CREATE EXTENSION pg_stat_statements;
+CREATE EXTENSION btree_gin;
+CREATE EXTENSION uint;
+

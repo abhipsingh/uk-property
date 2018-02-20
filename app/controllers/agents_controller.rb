@@ -5,7 +5,7 @@ class AgentsController < ApplicationController
                                              :branch_specific_invited_agents, :credit_history, :subscribe_premium_service, :remove_subscription,
                                              :manual_property_leads, :invited_vendor_history, :missing_sale_price_properties_for_agents, 
                                              :inactive_property_credits, :crawled_property_details, :verify_manual_property_from_agent,
-																						 :claim_property ]
+																						 :claim_property, :matching_udprns, :detailed_properties, :list_of_properties ]
   ### Details of the branch
   ### curl -XGET 'http://localhost/agents/predictions?str=Dyn'
   def search
@@ -324,7 +324,6 @@ class AgentsController < ApplicationController
     agent_id = agent.id
     agent_service = AgentService.new(agent_id, udprn)
     property_attrs = {
-      property_status_type: 'Green',
       verification_status: false,
       property_type: params[:property_type],
       receptions: params[:receptions].to_i,
@@ -357,21 +356,17 @@ class AgentsController < ApplicationController
     response = []
     postcodes = ""
     page_no = params[:page].to_i rescue 0
-    page_size = 20
+    page_size = 5
     if agent
       branch_id = agent.branch_id
-      properties = Agents::Branches::CrawledProperty.where(branch_id: branch_id).select([:id, :postcode, :image_urls, :stored_response, :additional_details, :udprn]).where.not(postcode: nil).limit(page_size).offset(page_no*page_size).order('created_at asc')
+      properties = Agents::Branches::CrawledProperty.where(branch_id: branch_id).select([:id, :postcode, :image_urls, :stored_response, :additional_details, :udprn]).where.not(postcode: nil).where(udprn: nil).limit(page_size).offset(page_no*page_size).order('created_at asc')
       property_count = Agents::Branches::CrawledProperty.where(branch_id: branch_id).where.not(postcode: nil).where(udprn: nil).count
       assigned_agent_emails = Agents::Branches::AssignedAgent.where(branch_id: branch_id).pluck(:email)
-      properties.select{ |t| t.udprn.nil? }.each do |property|
+      properties.each do |property|
         new_row = {}
         new_row['property_id'] = property.id
-        new_row['beds'] = property.stored_response['beds']
-        new_row['baths'] = property.stored_response['baths']
-        new_row['receptions'] = property.stored_response['receptions']
         new_row['address'] = property.stored_response['address']
         new_row['image_urls'] = property.image_urls.map { |e| base_url + e }
-        new_row['property_type'] = property.additional_details['property_type'] rescue nil
         new_row['post_code'] = property.postcode
         new_row['property_status_type'] = 'Green'
         new_row['assigned_agent_emails'] = assigned_agent_emails
@@ -385,6 +380,7 @@ class AgentsController < ApplicationController
       query = PropertyAddress
       where_query = postcodes.split(',').map{ |t| t.split(' ').join('') }.map{ |t| "(to_tsvector('simple'::regconfig, postcode)  @@ to_tsquery('simple', '#{t}'))" }.join(' OR ')
       results = PropertyAddress.connection.execute(query.where(where_query).select([:udprn, :postcode]).limit(1000).to_sql).to_a
+      #results = []
       udprns = results.map{ |t| t['udprn'] }
       ### TODO: USE OF BULK DETAILS API HERE
       bulk_results = PropertyService.bulk_details(udprns)
@@ -395,8 +391,6 @@ class AgentsController < ApplicationController
       #Rails.logger.info(results.as_json)
       response.each do |each_crawled_property_data|
         if !each_crawled_property_data['udprn'] 
-          matching_udprns = bulk_results.select{ |t| t[:postcode] == each_crawled_property_data['post_code'] && t[:property_status_type].nil? && !present_udprns.include?(t[:udprn].to_i)  }
-          each_crawled_property_data['matching_properties'] = matching_udprns
           each_crawled_property_data['last_email_sent'] = nil
           each_crawled_property_data['vendor_email'] = nil
           each_crawled_property_data['is_vendor_registered'] = false
@@ -629,7 +623,7 @@ class AgentsController < ApplicationController
   end
 
   ### Shows the local branches to the vendor or a developer(pseudo vendor for a new property)
-  ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/branches/list/:location
+  ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/branches/list/:location'
   def branch_info_for_location
     vendor = user_valid_for_viewing?('Vendor', ['Vendor', 'Agent'])
     #vendor = user_valid_for_viewing?('Agent')
@@ -649,7 +643,8 @@ class AgentsController < ApplicationController
           email: branch.email,
           website: branch.website,
           branch_id: branch.id,
-          agent_count: agent_count
+          agent_count: agent_count,
+          branch_stats: branch.branch_specific_stats
         }
       end
       render json: { branches: results, count: count }, status: 200
@@ -698,17 +693,15 @@ class AgentsController < ApplicationController
   ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/properties/quotes/missing/price'
   def missing_sale_price_properties_for_agents
     agent = @current_user
-    #if true
-      won_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']
-      quotes_won = Agents::Branches::AssignedAgents::Quote.where(agent_id: agent.id, status: won_status).pluck(:property_id)
-      api = PropertySearchApi.new(filtered_params: { not_exists: 'sale_price', agent_id: agent.id, results_per_page: 200 })
-      api = api.filter_query
-      result, status = api.filter
-      if status.to_i == 200
-        render json: result, status: status
-      else
-        render json: { message: 'Something wrong happened' }, status: 400
-      end
+    won_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']
+    api = PropertySearchApi.new(filtered_params: { not_exists: 'sale_price', agent_id: agent.id, results_per_page: 200 })
+    api = api.filter_query
+    result, status = api.filter
+    if status.to_i == 200
+      render json: result, status: status
+    else
+      render json: { message: 'Something wrong happened' }, status: 400
+    end
   end
 
   ### Provide the credits which will be charged, if the agent makes an inactive property closed_won
@@ -792,7 +785,7 @@ class AgentsController < ApplicationController
   #### curl -XGET 'http://localhost/agents/properties?agent_id=1234'
   #### Filters on property_for, ads
   def detailed_properties
-    cache_parameters = [ :agent_id, :property_status_type, :verification_status, :ads , :count, :old_stats_flag].map{ |t| params[t].to_s }
+    cache_parameters = [ :agent_id, :property_status_type, :verification_status, :ads ].map{ |t| params[t].to_s }
     #cache_response_and_value(params[:agent_id].to_i, []) do
       response = {}
       results = []
@@ -804,8 +797,11 @@ class AgentsController < ApplicationController
         agent = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(id: params[:agent_id].to_i).select([:id, :is_premium]).first
         if agent
           old_stats_flag = params[:old_stats_flag].to_s == 'true'
-          search_params = { limit: 10000}
+          search_params = {}
           search_params[:agent_id] = params[:agent_id].to_i
+          search_params[:p] = params[:page].to_i
+          search_params[:p] = 1 if search_params[:p] == 0 
+          agent.is_premium ? search_params[:results_per_page] = 200 : search_params[:results_per_page] = 5
           property_status_type = params[:property_status_type]
 
           search_params[:property_status_type] = params[:property_status_type] if params[:property_status_type]
@@ -834,8 +830,9 @@ class AgentsController < ApplicationController
           api.apply_filters
 
           ### THIS LIMIT IS THE MAXIMUM. CAN BE BREACHED IN AN EXCEPTIONAL CASE
-          api.query[:size] = 10000
+          #api.query[:size] = 10000
           udprns, status = api.fetch_udprns
+          total_count = api.total_count
 
           ### Get all properties for whom the agent has won leads
           property_ids = udprns.map(&:to_i).uniq
@@ -878,7 +875,7 @@ class AgentsController < ApplicationController
 
           end
 
-          response = (!results.is_a?(Fixnum) && results.empty?) ? {"properties" => results, "message" => "No properties to show"} : {"properties" => results}
+          response = (!results.is_a?(Fixnum) && results.empty?) ? { "properties" => results, "message" => "No properties to show", 'count' => total_count } : { "properties" => results, 'count' => total_count }
         else
           render json: { message: 'Agent id not found in the db'}, status: 400
         end
@@ -890,19 +887,77 @@ class AgentsController < ApplicationController
       #Rails.logger.info "Sending response for detailed properties (agent) => #{response.inspect}"
     #end
 
-    if @current_response['properties'] && @current_response['properties'].is_a?(Array)
-      udprns = @current_response['properties'].map{|t| t['udprn'].to_i }
-      bulk_details = PropertyService.bulk_details(udprns)
-      bulk_details.each_with_index do |detail_hash, index|
-        property_hash = { '_source' => detail_hash }
-        property_hash = property_hash.with_indifferent_access
-        Enquiries::AgentService.merge_property_details(property_hash, @current_response['properties'][index])
-      end
-    end
+#    if @current_response['properties'] && @current_response['properties'].is_a?(Array)
+#      udprns = @current_response['properties'].map{|t| t['udprn'].to_i }
+#      bulk_details = PropertyService.bulk_details(udprns)
+#      bulk_details.each_with_index do |detail_hash, index|
+#        property_hash = { '_source' => detail_hash }
+#        property_hash = property_hash.with_indifferent_access
+#        Enquiries::AgentService.merge_property_details(property_hash, @current_response['properties'][index])
+#      end
+#    end
+#
     render json: @current_response, status: 200
   end
+  
+  ### Provides a list of udprns for the matching property
+  ### curl -XGET -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9" 'http://localhost/agents/matching/udprns/property/:property_id'
+  def matching_udprns
+    property_id = params[:property_id]
+    property = Agents::Branches::CrawledProperty.where(id: property_id).last
+    if property
+      postcode = property.postcode
+      results, code = PropertyService.get_results_from_es_suggest(postcode.upcase, 1)
+      predictions = Oj.load(results)['postcode_suggest'][0]['options']
 
+      if predictions.length > 0
+        type = predictions.first['text'].split('|')[0]
+        if type == 'unit'
+          udprn = predictions.first['text'].split('|')[1]
+          details = PropertyDetails.details(udprn)[:_source]
+          hash_str = MatrixViewService.form_hash(details, :unit)
+          search_params = { hash_str: hash_str, hash_type: 'unit', results_per_page: 1000 }
+          api = PropertySearchApi.new(filtered_params: search_params)
+          results, code = api.filter
+          results = results[:results]
+          render json: results, status: code.to_i
+        else
+          render json: { message: 'Invalid postcode search' }, status: 400
+        end
+      else
+        render json: { message: 'Invalid postcode search' }, status: 400
+      end
+    else
+      render json: { message: 'The property id was not found' }, status: 404
+    end
+  end
 
+  ### Get the list of properties the agent has been attached to
+  ### curl -XGET 'http://localhost/agents/list/properties?incomplete_details=true'
+  def list_of_properties
+    search_params = { agent_id: @current_user.id, results_per_page: 200 }
+    #search_params = { agent_id: 113, results_per_page: 200 }
+    api = PropertySearchApi.new(filtered_params: search_params)
+    api.modify_filtered_params
+    api.apply_filters
+    udprns, status = api.fetch_udprns
+    total_count = api.total_count
+    bulk_results = PropertyService.bulk_details(udprns)
+    results = bulk_results.map do |result|
+      result[:percent_completed] = PropertyService.new(result[:udprn]).compute_percent_completed({}, result)
+      result = result.slice(:beds, :baths, :property_type, :property_status_type, :receptions, :address, :udprn, :percent_completed)
+      result
+    end
+
+    if params[:incomplete_details].to_s == 'true'
+      results = results.select{ |t| t[:percent_completed].to_f < 100 }
+    elsif  params[:incomplete_details].to_s == 'false'
+      results = results.select{ |t| t[:percent_completed].to_f == 100 }
+    end
+    Rails.logger.info("RESULTS #{results}")
+
+    render json: results, status: 200
+  end
 
   private
 

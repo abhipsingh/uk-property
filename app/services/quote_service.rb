@@ -1,5 +1,4 @@
 class QuoteService
-
   attr_accessor :udprn, :quote
 
   def initialize(udprn)
@@ -7,7 +6,7 @@ class QuoteService
   end
 
   def submit_price_for_quote(agent_id, payment_terms, quote_details, services_required, terms_url)
-    first_quote = Agents::Branches::AssignedAgents::Quote.where(property_id: @udprn.to_i, expired: false).order('created_at asc').select([:id, :amount, :existing_agent_id]).first
+    first_quote = Agents::Branches::AssignedAgents::Quote.where(property_id: @udprn.to_i, expired: false, parent_quote_id: nil).order('created_at desc').select([:id, :amount, :existing_agent_id]).first
     quote_amount = first_quote.amount
     quote_id = first_quote.id
     new_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
@@ -81,7 +80,6 @@ class QuoteService
       amount: details[:current_valuation].to_i,
       existing_agent_id: existing_agent_id.to_i
     )
-    quote.update_attributes(parent_quote_id: quote.id)
     return { message: 'Quote successfully created', quote: quote }, 200
   end
 
@@ -91,14 +89,14 @@ class QuoteService
     new_status = klass::STATUS_HASH['New']
     won_status = klass::STATUS_HASH['Won']
     lost_status = klass::STATUS_HASH['Lost']
-    quote = klass.where(property_id: @udprn.to_i, agent_id: nil).order('created_at DESC').last
-    agent_quote = klass.where(property_id: @udprn.to_i, agent_id: agent_id).order('created_at DESC').last
+    quote = klass.where(property_id: @udprn.to_i, agent_id: nil, parent_quote_id: nil).first
+    agent_quote = klass.where(property_id: @udprn.to_i, agent_id: agent_id, parent_quote_id: quote.id).first if quote
     agent = Agents::Branches::AssignedAgent.where(id: agent_id).last
     response = nil
     if quote && quote.status != won_status && agent_quote && agent
       quote.destroy!
       agent_quote.status = won_status
-      agent_quote.parent_quote_id = agent_quote.id
+      agent_quote.parent_quote_id = nil
       agent_quote.save!
       klass.where(property_id: @udprn.to_i).where.not(agent_id: nil).where.not(agent_id: agent_id).update_all(status: lost_status, parent_quote_id: agent_quote.id)
 
@@ -111,7 +109,7 @@ class QuoteService
       details = PropertyDetails.details(@udprn.to_i)
 
       ### Refund the credits of other agents
-      QuoteRefundWorker.perform_async(@udprn.to_i)
+      QuoteRefundWorker.perform_async(@udprn.to_i, agent_quote.id)
 
       response = { details: details, message: 'The quote is accepted' }
     else

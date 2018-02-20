@@ -3,7 +3,6 @@ class SoldPropertyUpdateWorker
   sidekiq_options :retry => false # job will be discarded immediately if failed
 
   def perform
-    SoldPropertyUpdateWorker.perform_in(1.day.from_now)
     sold_properties = SoldProperty.where('completion_date = ?', Date.yesterday)
     sold_properties.each do |sold_property|
       udprn = sold_property.udprn

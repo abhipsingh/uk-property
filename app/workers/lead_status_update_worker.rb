@@ -6,8 +6,10 @@ class LeadStatusUpdateWorker
     ### All leads which were created 7 days ago and which have to be inspected for if the agent completed the mandatory attributes
     ### or not
     leads = Agents::Branches::AssignedAgents::Lead.where.not(agent_id: nil).where(owned_property: false).where(expired: false).where('updated_at < ?', Agents::Branches::AssignedAgents::Lead::VERIFICATION_DAY_LIMIT.ago)
-    LeadStatusUpdateWorker.perform_in(10.minutes)
-  
+    #LeadStatusUpdateWorker.perform_in(10.minutes)
+
+    ### TODO:
+    leads = [] 
     leads.each do |lead|
       udprn = lead.property_id
       details = PropertyDetails.details(udprn)[:_source]
@@ -26,6 +28,8 @@ class LeadStatusUpdateWorker
         agent = lead.agent
         branch = agent.branch
         agent.update_attributes(locked: true, locked_date: Date.today)
+        lead.expired = true
+        lead.save!
 
         ### Create a new lead for local branches
         property_service.create_lead_for_local_branches(branch.district, udprn, lead.vendor_id)
@@ -38,7 +42,6 @@ class LeadStatusUpdateWorker
 
     end
 
-    leads.update_all(expired: true)
 
   end
 end

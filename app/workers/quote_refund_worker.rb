@@ -1,13 +1,13 @@
 class QuoteRefundWorker
   include Sidekiq::Worker
-  sidekiq_options :retry => true
+  sidekiq_options :retry => false
 
   ### Instantaneous worker
-  def perform(udprn)
+  def perform(udprn, parent_quote_id)
     klass = Agents::Branches::AssignedAgents::Quote
     lost_status = klass::STATUS_HASH['Lost']
     entity_class = AgentCreditVerifier::KLASSES.index(klass.to_s)
-    Agents::Branches::AssignedAgents::Quote.where(property_id: udprn.to_i).where.not(agent_id: nil).where("status = ?", lost_status).each do |quote|
+    Agents::Branches::AssignedAgents::Quote.where(property_id: udprn.to_i, parent_quote_id: parent_quote_id).where.not(agent_id: nil).where("status = ?", lost_status).each do |quote|
 ##     Get the stripe charge & refund each of the charges
 #      charge_id = Stripe::Payment.where(udprn: udprn.to_i).where(entity_type: Stripe::Payment::USER_TYPES['Agent'], entity_id: quote.agent_id)
 #                                 .order('created_at desc').last.charge_id

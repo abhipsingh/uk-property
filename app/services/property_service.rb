@@ -75,6 +75,8 @@ class PropertyService
 
   ARRAY_HASH_ATTRS = [:outside_space_type, :additional_features, :pictures, :sale_prices, :other_costs, :improvement_types, :floorplan_urls, :outside_space_types]
 
+  BUYER_MATCH_ATTRS = [:beds, :baths, :receptions, :property_status_type, :property_type ]
+
   STATUS_MANDATORY_ATTRS_MAP = {
     'Green' => MANDATORY_ATTRS + [:sale_price, :sale_price_type],
     'Amber' => MANDATORY_ATTRS,
@@ -480,17 +482,18 @@ class PropertyService
   end
 
   def calculate_pricing_history
-    valuation_history = PropertyEvent.where(udprn: @udprn).where("attr_hash ? 'current_valuation'").order('created_at asc')
+    valuation_history = PropertyEvent.where(udprn: @udprn).where("attr_hash ? 'current_valuation'").order('current_valuation desc')
                                      .select([:created_at]).select("attr_hash ->> 'current_valuation' as current_valuation ")
-    dream_price_history = PropertyEvent.where(udprn: @udprn).where("attr_hash ? 'dream_price'").order('created_at asc')
-                                     .select([:created_at]).select("attr_hash ->> 'dream_price' as dream_price ")
+    dream_price_history = PropertyEvent.where(udprn: @udprn).where("attr_hash ? 'dream_price'").order('dream_price desc')
+                                       .select([:created_at]).select("attr_hash ->> 'dream_price' as dream_price ")
    # sold_price_history = SoldProperty.where(udprn: @udprn).select([:sale_price, 'completion_date as created_at']).order('created_at DESC').to_a
     last_sale_prices = PropertyService.new(@udprn.to_i).details[:sale_prices]
     last_sale_prices ||= []
-    last_sale_prices = last_sale_prices.sort_by{|t| Date.parse(t['date'])}
+    last_sale_prices = last_sale_prices.each { |t| t[:time] = t[:date] + 'T00:00:00Z' }
+    last_sale_prices = last_sale_prices.sort_by{|t| Time.parse(t['date'] + 'T00:00:00Z')}
 #    sold_price_history = SoldProperty.where(udprn: @udprn).select([:sale_price, 'completion_date as created_at']).order('created_at DESC').to_a
-    
-    sale_price_history = PropertyEvent.where(udprn: @udprn).where("(attr_hash ? 'price') OR (attr_hash ? 'sale_price')").order('created_at asc')
+
+    sale_price_history = PropertyEvent.where(udprn: @udprn).where("(attr_hash ? 'price') OR (attr_hash ? 'sale_price')").order('sale_price DESC')
                                       .select([:created_at])
                                       .select("CASE WHEN (attr_hash ? 'price') THEN attr_hash ->> 'price'  ELSE  attr_hash ->> 'sale_price' END as sale_price")
     {
@@ -500,7 +503,6 @@ class PropertyService
       sale_price_history: sale_price_history
     }
   end
-
 
   def attach_crawled_property_attrs_to_udprn
     Agents::Branches::CrawledProperty.where("udprn = #{@udprn.to_i}").each do |crawled_property_detail|
@@ -548,6 +550,11 @@ class PropertyService
   def update_details(update_hash)
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     PropertyDetails.update_details(client, @udprn, update_hash)
+  end
+
+  def self.send_tracking_email_to_tracking_buyers(update_hash, property_details)
+    matching_keys = PropertyService::BUYER_MATCH_ATTRS && update_hash.keys.map(&:to_sym)
+    TrackingEmailWorker.perform_async(update_hash, property_details, matching_keys) if !matching_keys.empty?
   end
 
   def self.update_full_ardb_db

@@ -2,7 +2,7 @@
 class QuotesController < ApplicationController
   include CacheHelper
   around_action :authenticate_agent, only: [ :new, :edit_agent_quote, :agents_recent_properties_for_quotes ]
-  around_action :authenticate_vendor, only: [ :submit, :quote_details, :historical_vendor_quotes, :quotes_per_property, :new_quote_for_property ]
+  around_action :authenticate_vendor, only: [ :submit, :quote_details,  :new_quote_for_property, :historical_vendor_quotes, :quotes_per_property ]
 
   #### When a vendor changes the status to Green or when a vendor selects a Fixed or Ala Carte option,
   #### He/She submits his preferences about the type of quotes he would want to receieve, Fixed or Ala carte
@@ -17,7 +17,9 @@ class QuotesController < ApplicationController
     existing_agent_id = details[:agent_id]
     vendor_id = details[:vendor_id]
     buyer = PropertyBuyer.where(vendor_id: vendor_id).last
-    yearly_quote_count = Agents::Branches::AssignedAgents::Quote.where(vendor_id: vendor_id).where("created_at > ?", 1.year.ago).group(:property_id).select("count(id)").to_a.count
+    new_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
+    won_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']
+    yearly_quote_count = Agents::Branches::AssignedAgents::Quote.where(vendor_id: vendor_id).where("created_at > ?", 1.year.ago).where("(status = ? AND expired='t' ) OR status = ?", new_status, won_status).count
     if yearly_quote_count < Vendor::QUOTE_LIMIT_MAP[buyer.is_premium.to_s]
       response, status = service.new_quote_for_property(params[:services_required], params[:payment_terms],
                                               params[:quote_details], params[:assigned_agent], existing_agent_id)
@@ -75,8 +77,8 @@ class QuotesController < ApplicationController
   def edit_agent_quote
     agent = @current_user
     service = QuoteService.new(params[:udprn].to_i)
-    response = service.edit_quote_details(params[:agent_id].to_i, params[:payment_terms], 
-                                                params[:quote_details], params[:services_required], params[:terms_url])
+    response = service.edit_quote_details(params[:agent_id].to_i, params[:payment_terms], params[:quote_details],
+                                          params[:services_required], params[:terms_url])
     render json: response, status: 200
   end
 
@@ -90,8 +92,16 @@ class QuotesController < ApplicationController
     quote_id = params[:quote_id]
     #### When the quote is won
     quote = Agents::Branches::AssignedAgents::Quote.find(quote_id)
+    parent_quote = Agents::Branches::AssignedAgents::Quote.find(quote.parent_quote_id)
     new_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
-    if !quote.expired && quote.status == new_status && (Time.now > (quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_AGENT_QUOTE_WAIT_TIME)) && (Time.now < (quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME))
+    Rails.logger.info("QUOTE_SUBMIT_#{quote.id}_#{parent_quote.id}  #{(parent_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_AGENT_QUOTE_WAIT_TIME)} #{(parent_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME)}  #{Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME} Status: #{quote.status}  Expired: #{quote.expired} ")
+    if quote.expired
+      message = 'This quote has already expired'
+      render  json: message, status: 400
+    elsif quote.status != new_status
+      message = "The quote has already been #{Agents::Branches::AssignedAgents::Quote::REVERSE_STATUS_HASH[quote.status].downcase}"
+      render  json: message, status: 400
+    elsif (Time.now > (parent_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_AGENT_QUOTE_WAIT_TIME)) && (Time.now < (parent_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME))
       service = QuoteService.new(quote.property_id)
       agent_id = quote.agent_id
       message = service.accept_quote_from_agent(agent_id)
@@ -111,7 +121,7 @@ class QuotesController < ApplicationController
 
       final_result = []
       ### Last vendor quote submitted for this property
-      vendor_quote = Agents::Branches::AssignedAgents::Quote.where(expired: false).where(agent_id: nil).where(property_id: property_id).where.not(vendor_id: nil).last
+      vendor_quote = Agents::Branches::AssignedAgents::Quote.where(expired: false, parent_quote_id: nil, property_id: property_id).where.not(vendor_id: nil).order('created_at DESC').first
       if vendor_quote
         agents_for_quotes = Agents::Branches::AssignedAgents::Quote.where(status: status).where.not(agent_id: nil).where.not(agent_id: 0).where.not(agent_id: 1).where(property_id: property_id).where(expired: false).where('created_at >= ?', vendor_quote.created_at).where('created_at < ?', vendor_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME)
         agents_for_quotes.each do |each_agent_id|
@@ -202,8 +212,19 @@ class QuotesController < ApplicationController
       count = params[:count].to_s == 'true'
       #begin
         agent = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i)
-        results = agent.recent_properties_for_quotes(params[:payment_terms], params[:services_required], params[:quote_status], params[:hash_str], 'Sale', params[:buyer_id], agent.is_premium, params[:page], count, params[:latest_time])
-        response = (!results.is_a?(Fixnum) && results.empty?) ? {"quotes" => results, "message" => "No claims to show"} : {"quotes" => results}
+        if !agent.locked
+          results, count = agent.recent_properties_for_quotes(params[:payment_terms], params[:services_required], params[:quote_status], params[:hash_str], 'Sale', params[:buyer_id], agent.is_premium, params[:page], count, params[:latest_time])
+          response = (!results.is_a?(Fixnum) && results.empty?) ? { quotes: results, message: 'No claims to show', count: count } : { quotes: results, count: count }
+        else
+          lead = Agents::Branches::AssignedAgents::Lead.where(agent_id: agent.id)
+                                                       .where(expired: true)
+                                                       .order('updated_at DESC')
+                                                       .last
+          address = PropertyDetails.details(lead.property_id)[:_source][:address]
+          deadline = lead.created_at + Agents::Branches::AssignedAgents::Lead::VERIFICATION_DAY_LIMIT
+          response = { quotes: [], address: address, locked: true }
+          status = 400
+        end
       #rescue => e
       #  Rails.logger.error "Error with agent quotes => #{e}"
       #  response = { quotes: results, message: 'Error in showing quotes', details: e.message}

@@ -1,7 +1,7 @@
 class PropertiesController < ActionController::Base
   include CacheHelper
   before_filter :set_headers
-  around_action :authenticate_agent_and_vendor, only: [  :pricing_history, :interest_info, :supply_info_aggregate, :enquiries ]
+  around_action :authenticate_agent_and_vendor, only: [   :interest_info, :supply_info_aggregate, :enquiries, :property_stats ]
   around_action :authenticate_buyer_and_vendor, only: [ :invite_friends_and_family ]
   around_action :authenticate_premium_agent_vendor, only: [ :supply_info, :demand_info, :agent_stage_and_rating_stats, :ranking_stats, :buyer_profile_stats ]
   around_action :authenticate_all, only: [ :predict_tags, :add_new_tags, :show_tags, :vanity_url ]
@@ -24,6 +24,7 @@ class PropertiesController < ActionController::Base
     #updated_details = PropertyService.new(udprn).edit_details(details, @current_user)
     updated_details = PropertyService.new(udprn).edit_details(details, @current_user)
     property_status_type = updated_details[:property_status_type]
+    updated_details[:percent_completed] = PropertyService.new(udprn).compute_percent_completed({}, updated_details)
     mandatory_attrs = PropertyService::STATUS_MANDATORY_ATTRS_MAP[property_status_type]
     mandatory_attrs ||= PropertyService::STATUS_MANDATORY_ATTRS_MAP['Green']
     missing_fields = mandatory_attrs.select{ |t| updated_details[t].nil? }
@@ -194,6 +195,14 @@ class PropertiesController < ActionController::Base
     api.make_or_filters([:sub_building_name, :building_name, :building_number, :postcode])
     body, status = api.fetch_data_from_es
     render json: body, status: status
+  end
+
+  ### Get property stats for a property for a vendor and an agent/developer
+  ### curl -XGET -H  "Authorization: znsa7shajas" 'http://localhost/properties/stats/:udprn'
+  def property_stats
+    include_archived = (params[:include_archived].to_s == 'true')
+    stats = Enquiries::PropertyService.new(udprn: params[:udprn].to_i).enquiry_and_view_stats(@current_user.is_premium, include_archived)
+    render json: { property_stats: stats }, status: 200
   end
 
   ### Edit basic details of a property

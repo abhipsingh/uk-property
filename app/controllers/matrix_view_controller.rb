@@ -18,7 +18,7 @@ class MatrixViewController < ActionController::Base
       str = str.gsub('.','')
       str = str.gsub('-','')
     end
-    results, code = PropertyService.get_results_from_es_suggest(str, 100)
+    results, code = PropertyService.get_results_from_es_suggest(str, 30)
     #Rails.logger.info(results)
     predictions = Oj.load(results)['postcode_suggest'][0]['options']
     #predictions.each { |t| t['score'] = t['score']*100 if t['payload']['hash'] == params[:str].upcase.strip }
@@ -145,7 +145,14 @@ class MatrixViewController < ActionController::Base
     range_params = PropertySearchApi::FIELDS[:range].map{|t| ["min_#{t.to_s}", "max_#{t.to_s}"]}.flatten.map{|t| t.to_sym}
     #if false
     if (((PropertySearchApi::FIELDS[:terms] + PropertySearchApi::FIELDS[:term] + range_params) - PropertySearchApi::ADDRESS_LOCALITY_LEVELS - PropertySearchApi::POSTCODE_LEVELS) & params.keys.map(&:to_sym)).empty?
-      response = matrix_view_service.process_result_for_level(attribute)
+      cache_client = Rails.configuration.ardb_client
+      response = cache_client.get("mvca_#{matrix_view_service.hash_str}")
+      if response.nil?
+        response = matrix_view_service.process_result_for_level(attribute)
+        cache_client.set("mvca_#{matrix_view_service.hash_str}", response.to_json, {ex: 1.month})
+      else
+        response = Oj.load(response)
+      end
     else
       values = POSTCODE_MATCH_MAP[matrix_view_service.level.to_s]
       values ||= ADDRESS_UNIT_MATCH_MAP[matrix_view_service.level.to_s]
@@ -190,8 +197,15 @@ class MatrixViewController < ActionController::Base
       type_of_str(hash)
       range_params = PropertySearchApi::FIELDS[:range].map{|t| ["min_#{t.to_s}", "max_#{t.to_s}"]}.flatten.map{|t| t.to_sym}
       if (((PropertySearchApi::FIELDS[:terms] + PropertySearchApi::FIELDS[:term] + range_params) - PropertySearchApi::ADDRESS_LOCALITY_LEVELS - PropertySearchApi::POSTCODE_LEVELS) & params.keys.map(&:to_sym)).empty?
+        cache_client = Rails.configuration.ardb_client
         matrix_view_service = MatrixViewService.new(hash_str: params[:str])
-        response = matrix_view_service.process_result
+        response = cache_client.get("mvca_#{matrix_view_service.hash_str}")
+        if response.nil?
+          response = matrix_view_service.process_result
+          cache_client.set("mvca_#{matrix_view_service.hash_str}", response.to_json, {ex: 1.month})
+        else
+          response = Oj.load(response)
+        end
       else
         params.delete(:str)
         hash.delete(:hash_str)

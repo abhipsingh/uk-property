@@ -4,7 +4,6 @@ class QuoteExpiryWorker
   sidekiq_options :retry => false
 
   def perform
-    QuoteExpiryWorker.perform_in(1.minute)
     klass = Agents::Branches::AssignedAgents::Quote
     new_status = klass::STATUS_HASH['New']
     entity_class = AgentCreditVerifier::KLASSES.index(klass.to_s)
