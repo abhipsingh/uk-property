@@ -588,6 +588,8 @@ GEM
       autoprefixer-rails (>= 5.0.0.1)
       sass (>= 3.2.19)
     builder (3.2.3)
+    bulk_insert (1.6.0)
+      activerecord (>= 4.1.0)
     coderay (1.1.2)
     coercible (1.0.0)
       descendants_tracker (~> 0.0.1)
@@ -864,6 +866,7 @@ DEPENDENCIES
   aws-sdk
   bcrypt (~> 3.1.7)
   bootstrap-sass (~> 3.3.4.1)
+  bulk_insert
   dalli
   elasticsearch-persistence
   elasticsearch-rails

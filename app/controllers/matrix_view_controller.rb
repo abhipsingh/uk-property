@@ -19,6 +19,7 @@ class MatrixViewController < ActionController::Base
       str = str.gsub('-','')
     end
     results, code = PropertyService.get_results_from_es_suggest(str, 30)
+    Rails.logger.info("Prediction str #{str} #{results}")
     #Rails.logger.info(results)
     predictions = Oj.load(results)['postcode_suggest'][0]['options']
     #predictions.each { |t| t['score'] = t['score']*100 if t['payload']['hash'] == params[:str].upcase.strip }

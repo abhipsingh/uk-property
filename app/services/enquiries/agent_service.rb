@@ -45,6 +45,8 @@ module Enquiries
     def self.merge_property_details(details, new_row)
       new_row[:percent_completed] = ::PropertyService.new(details[:_source][:udprn]).compute_percent_completed({}, details[:_source] )
       new_row[:percent_completed] ||= nil
+      new_row[:verification_status] = (new_row[:percent_completed].to_i == 100)
+      new_row[:details_completed] = (new_row[:percent_completed].to_i == 100)
       new_row[:address] = PropertyDetails.address(details[:_source])
       new_row[:pictures] = details[:_source][:pictures]
       new_row[:pictures] = [] if details[:_source][:pictures].nil?

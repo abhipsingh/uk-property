@@ -106,3 +106,6 @@ gem 'sidekiq-scheduler'
 ### Postgres library for triggers lower case all emails
 gem 'hairtrigger'
 
+### Bulk insert 
+gem 'bulk_insert'
+

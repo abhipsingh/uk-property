@@ -35,6 +35,13 @@ class PropertyDetails
     published_address[1, published_address.length-1]
   end
 
+  def self.google_st_view_address(details)
+    published_address = ''
+    address_fields = [:building_name, :building_number, :dependent_thoroughfare_description, :thoroughfare_description,
+                      :double_dependent_locality, :dependent_locality, :post_town, :postcode]
+    address_fields.select{ |t| details[t] }.map{|t| details[t] }.join(', ')
+  end
+
   def self.street_address(details)
     address_parts = [:dependent_thoroughfare_description, :thoroughfare_description, :dependent_locality, :post_town, :county, :postcode].map do |t|
       details[t]
@@ -59,12 +66,13 @@ class PropertyDetails
 
   def self.details(udprn)
     details = PropertyService.bulk_details([udprn]).first
-    details['address'] = address(details)
-    details[:vanity_url] = vanity_url(details['address'])
+    details[:address] = address(details)
+    details[:vanity_url] = vanity_url(details[:address])
     details[:udprn] = udprn.to_i
     details[:latitude] = details[:latitude].to_f
     details[:longitude] = details[:longitude].to_f
     details[:percent_completed] = PropertyService.new(udprn).compute_percent_completed({}, details)
+    details[:verification_status] = (details[:percent_completed].to_i == 100)
     PropertyService::INT_ATTRS.each { |t| details[t] = details[t].to_i if details[t] }
     PropertyService::BOOL_ATTRS.each { |t| details[t] = (details[t].to_s == 'true') if details[t] }
     { '_source' => details }.with_indifferent_access
@@ -72,6 +80,7 @@ class PropertyDetails
 
   def self.vanity_url(address)
     address = address.gsub(/[\/]/,"_").gsub(".","")
+    address = address.gsub("-","|")
     address.split(',').map{|t| t.strip.split(' ').map{|k| k.downcase}.join('-') }.join('-')
   end
 
@@ -206,6 +215,7 @@ class PropertyDetails
       end
 
       update_hash[:percent_completed] = PropertyService.new(udprn).compute_percent_completed(update_hash, details)
+      update_hash[:verification_status] = (update_hash[:percent_completed].to_i == 100)
       update_hash.delete(:percent_completed) if update_hash[:percent_completed].nan?
 
       ### Add details of an agent
@@ -221,13 +231,12 @@ class PropertyDetails
 
       ### Send tracking emails for matching buyers aynschronously
       PropertyService.send_tracking_email_to_tracking_buyers(update_hash, details)
-      
+
       PropertySearchApi::ES_ATTRS.each { |key| es_hash[key] = details[key] if details[key] }
       PropertySearchApi::ADDRESS_LOCALITY_LEVELS.each { |key| es_hash[key] = details[key] if details[key] }
       PropertyService.update_udprn(udprn, details)
-     
+
       es_hash[:status_last_updated] = Time.parse(es_hash[:status_last_updated]).to_s if es_hash[:status_last_updated]
-      p es_hash
       client.delete index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn rescue nil
       client.index index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn , body: es_hash
       PropertyService.update_description(udprn, update_hash[:description]) if update_hash[:description]

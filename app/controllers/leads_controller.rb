@@ -5,6 +5,7 @@ class LeadsController < ApplicationController
   ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/lead/submit/visit/time' -d '{ "udprn" : "any udprn", "visit_time" : "2017-12-03T11:22:00Z" }'
   def submit_lead_visit_time
     agent = @current_user
+    Rails.logger.info("AGENT_SUBMIT_LEAD_VISIT_#{agent.id}_#{params[:udprn].to_i}_#{params[:visit_time]}")
     lead = Agents::Branches::AssignedAgents::Lead.where(agent_id: agent.id, property_id: params[:udprn].to_i).where.not(vendor_id: nil).last
     if lead
       lead.visit_time = Time.parse(params[:visit_time])

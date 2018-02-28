@@ -5,7 +5,7 @@ class PropertiesController < ActionController::Base
   around_action :authenticate_buyer_and_vendor, only: [ :invite_friends_and_family ]
   around_action :authenticate_premium_agent_vendor, only: [ :supply_info, :demand_info, :agent_stage_and_rating_stats, :ranking_stats, :buyer_profile_stats ]
   around_action :authenticate_all, only: [ :predict_tags, :add_new_tags, :show_tags, :vanity_url ]
-  around_action :authenticate_vendor, only: [ :attach_vendor_to_udprn_manual_for_manually_added_properties ]
+  around_action :authenticate_vendor, only: [ :attach_vendor_to_udprn_manual_for_manually_added_properties, :edit_basic_details_with_an_assigned_agent ]
   around_action :authenticate_buyer, only: [ :upload_property_details_from_a_renter, :historical_enquiries ]
 
   #### Edit property url
@@ -40,6 +40,8 @@ class PropertiesController < ActionController::Base
     user = @current_user
     details = PropertyService.fetch_details_from_vanity_url(params[:vanity_url], user)
     #details[:percent_completed] = nil if user.nil?
+    details[:locality_hash] = Events::Track.locality_hash(details)
+    details[:street_hash] = Events::Track.street_hash(details)
     render json: details, status: 200
   end
 
@@ -221,6 +223,32 @@ class PropertiesController < ActionController::Base
     render json: { message: 'Successfully updated' }, status: 200
   rescue Exception => e
     render json: { message: 'Update failed' }, status: 400
+  end
+
+  ### Edit basic details of a property when the vendor already has an assigned agent
+  #### curl -XPOST -H "Authorization: sjbcdcguw" -H "Content-Type: application/json"  'http://localhost/properties/claim/assigned/basic/10966139/edit' -d '{ "beds" : 2, "baths": 190, "receptions" : 34, "property_status_type" : "Green", "dream_price" : 34000, "assigned_agent_id" : 232 }'
+  def edit_basic_details_with_an_assigned_agent
+    udprn = params[:udprn].to_i
+    client = Elasticsearch::Client.new(host: Rails.configuration.remote_es_host)
+    body = {}
+    body[:dream_price] = params[:dream_price].to_i
+    body[:beds] = params[:beds].to_i
+    body[:baths] = params[:baths].to_i
+    body[:receptions] = params[:receptions].to_i
+    body[:property_status_type] = params[:property_status_type] if params[:property_status_type]
+    body[:verification_status] = false
+    body[:agent_id] = params[:agent_id].to_i if params[:agent_id]
+    response = {}
+    response, status = PropertyDetails.update_details(client, udprn, body) if body[:agent_id] > 0
+
+    ### Transfer the enquiries of this property to the agent
+    Event.where(udprn: udprn).where(is_archived: false).update_all(agent_id: params[:agent_id].to_i) if body[:agent_id] > 0
+    
+    if status.to_i ==  200
+      render json: { message: 'Sucessfully updated', response: response }, status: 200
+    else
+      render json: { message: 'Not able to update'}, status: 400
+    end
   end
 
   #### When a vendor click the claim to a property, the vendor gets a chance to visit

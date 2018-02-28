@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180220010616) do
+ActiveRecord::Schema.define(version: 20180224170713) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -432,6 +432,14 @@ ActiveRecord::Schema.define(version: 20180220010616) do
   add_index "field_value_stores", ["field_type", "name"], name: "index_field_value_stores_on_field_type_and_name", unique: true, using: :btree
   add_index "field_value_stores", ["name"], name: "field_value_stores_names_idx", using: :btree
 
+  create_table "google_st_view_images", id: false, force: :cascade do |t|
+    t.integer "udprn"
+    t.string  "address"
+    t.boolean "crawled"
+  end
+
+  add_index "google_st_view_images", ["udprn"], name: "street_view_udprns", using: :btree
+
   create_table "invited_agents", force: :cascade do |t|
     t.string   "email",      null: false
     t.integer  "udprn"
@@ -611,6 +619,16 @@ ActiveRecord::Schema.define(version: 20180220010616) do
     t.datetime "created_at",     null: false
   end
 
+  create_table "sale_price_uuid_udprn_maps", id: false, force: :cascade do |t|
+    t.integer "udprn"
+    t.string  "uuid"
+    t.integer "property_type", limit: 2
+    t.jsonb   "sale_prices",             default: []
+    t.integer "tenure",        limit: 2
+  end
+
+  add_index "sale_price_uuid_udprn_maps", ["uuid"], name: "index_sale_price_uuid_udprn_maps_on_uuid", unique: true, using: :btree
+
   create_table "sold_properties", force: :cascade do |t|
     t.integer  "udprn",           null: false
     t.integer  "sale_price",      null: false
@@ -630,9 +648,6 @@ ActiveRecord::Schema.define(version: 20180220010616) do
     t.integer  "udprn"
     t.integer  "entity_type"
   end
-
-# Could not dump table "test_property_addresses" because of following StandardError
-#   Unknown type 'uint1' for column 'county'
 
   create_table "vendors", force: :cascade do |t|
     t.string   "full_name"

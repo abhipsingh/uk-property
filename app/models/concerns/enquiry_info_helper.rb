@@ -173,13 +173,8 @@ module EnquiryInfoHelper
         details[:buyer_budget_from] = buyer_hash[buyer_id].budget_from
         details[:buyer_budget_to] = buyer_hash[buyer_id].budget_to
 
-        if is_premium
-          details[:views] = buyer_view_ratio(buyer_id, details[:udprn], is_premium, old_stats_flag)
-          details[:enquiries] = buyer_enquiry_ratio(buyer_id, details[:udprn], is_premium, old_stats_flag)
-        else
-          details[:views] = nil
-          details[:enquiries] = nil
-        end
+        details[:views] = property_views(details[:udprn], is_premium, old_stats_flag)
+        details[:enquiries] = property_enquiries(details[:udprn], is_premium, old_stats_flag)
       else
         keys = [ :buyer_status, :buyer_full_name, :buyer_image, :buyer_email, :buyer_mobile, :chain_free, :buyer_funding, 
                  :buyer_biggest_problems, :buyer_buying_status, :buyer_budget_from, :buyer_budget_to, :buyer_property_types,
@@ -190,40 +185,68 @@ module EnquiryInfoHelper
 
     def buyer_view_ratio(buyer_id, udprn, is_premium=false, old_stats_flag=false)
       property_views = buyer_views = nil
+      buyer_views = buyer_views(buyer_id, udprn, is_premium, old_stats_flag)
+      property_views = property_views(udprn, is_premium, old_stats_flag)
+      buyer_views.to_s + '/' + property_views.to_s
+    end
 
+    def buyer_views(buyer_id, udprn, is_premium=false, old_stats_flag=false)
+      buyer_views = nil
       if !is_premium
         buyer_views = Events::View.where(udprn: udprn).where(buyer_id: buyer_id).count
-        property_views = Events::EnquiryStatProperty.new(udprn: udprn).views
       elsif old_stats_flag
         buyer_views = Events::View.where(udprn: udprn).unscope(where: :is_archived).where(buyer_id: buyer_id).count
+      else
+        buyer_views = Events::View.where(udprn: udprn).where(buyer_id: buyer_id).count
+      end
+      buyer_views
+    end
+
+    def property_views(udprn, is_premium=false, old_stats_flag=false)
+      property_views = nil
+      if !is_premium
+        property_views = Events::EnquiryStatProperty.new(udprn: udprn).views
+      elsif old_stats_flag
         unarchived_property_views = Events::EnquiryStatProperty.new(udprn: udprn).views
         archived_property_views = Events::ArchivedStat.new(udprn: udprn).views
         property_views = unarchived_property_views + archived_property_views
       else
-        buyer_views = Events::View.where(udprn: udprn).where(buyer_id: buyer_id).count
         property_views = Events::EnquiryStatProperty.new(udprn: udprn).views
       end
-
-      buyer_views.to_s + '/' + property_views.to_s
+      property_views
     end
 
     def buyer_enquiry_ratio(buyer_id, udprn, is_premium=false, old_stats_flag=false)
       property_enquiries = buyer_enquiries = nil
+      buyer_enquiries = buyer_enquiries(buyer_id, udprn, is_premium=false, old_stats_flag=false)
+      property_enquiries = property_enquiries(udprn, is_premium=false, old_stats_flag=false)
+      buyer_enquiries.to_s + '/' + property_enquiries.to_s
+    end
 
+    def buyer_enquiries(buyer_id, udprn, is_premium=false, old_stats_flag=false)
+      buyer_enquiries = nil
       if !is_premium
         buyer_enquiries = Event.where(buyer_id: buyer_id).where(udprn: udprn).count
-        property_enquiries = Events::EnquiryStatProperty.new(udprn: udprn).enquiries
       elsif old_stats_flag
         buyer_enquiries = Event.where(buyer_id: buyer_id).unscope(where: :is_archived).where(udprn: udprn).count
+      else
+        buyer_enquiries = Event.where(buyer_id: buyer_id).where(udprn: udprn).count
+      end
+      buyer_enquiries
+    end
+
+    def property_enquiries(udprn, is_premium=false, old_stats_flag=false)
+      property_enquiries = nil
+      if !is_premium
+        property_enquiries = Events::EnquiryStatProperty.new(udprn: udprn).enquiries
+      elsif old_stats_flag
         unarchived_property_enquiries = Events::EnquiryStatProperty.new(udprn: udprn).enquiries
         archived_property_enquiries = Events::ArchivedStat.new(udprn: udprn).enquiries
         property_enquiries = unarchived_property_enquiries + archived_property_enquiries
       else
-        buyer_enquiries = Event.where(buyer_id: buyer_id).where(udprn: udprn).count
         property_enquiries = Events::EnquiryStatProperty.new(udprn: udprn).enquiries
       end
-
-      buyer_enquiries.to_s + '/' + property_enquiries.to_s
+      property_enquiries
     end
 
     ### For every enquiry row, extract the info from details hash and merge it

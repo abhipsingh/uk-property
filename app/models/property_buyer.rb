@@ -80,7 +80,11 @@ class PropertyBuyer < ActiveRecord::Base
       user.last_name = new_params['last_name']
       user.name = new_params['first_name'] + ' ' + new_params['last_name']
       user.email_id = new_params['email']
-      user.image_url = "http://graph.facebook.com/#{new_params['uid']}/picture?type=large"
+      if new_params['provider'] == 'linkedin'
+        user.image_url = new_params['image_url']
+      else
+        user.image_url = "http://graph.facebook.com/#{new_params['uid']}/picture?type=large"
+      end
       user.oauth_token = new_params['token']
       #user.oauth_expires_at = Time.at(new_params['expires_at'])
       user.password = "#{ENV['OAUTH_PASSWORD']}"

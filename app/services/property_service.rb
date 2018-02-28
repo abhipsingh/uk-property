@@ -10,7 +10,7 @@ class PropertyService
   MANDATORY_ATTRS = [ :property_type, :beds, :baths, :receptions, :pictures, :floorplan_url, :current_valuation, :inner_area, :outer_area, :additional_features,
                       :description_set, :property_style, :tenure, :floors, :listed_status, :year_built, :parking_type, :outside_space_types, :decorative_condition,
                       :council_tax_band, :council_tax_band_cost, :council_tax_band_cost_unit, :lighting_cost, :lighting_cost_unit, :heating_cost,
-                      :heating_cost_unit, :hot_water_cost, :hot_water_cost_unit, :annual_service_charge, :ground_rent_cost, :ground_rent_unit,
+                      :heating_cost_unit, :hot_water_cost, :hot_water_cost_unit, :annual_service_charge, :ground_rent_cost,
                       :latitude, :longitude, :assigned_agent_branch_logo, :assigned_agent_image_url, :assigned_agent_branch_name, :assigned_agent_branch_address,
                       :assigned_agent_branch_website ]
 
@@ -62,7 +62,8 @@ class PropertyService
   ADDITIONAL_EDIT_ATTRS = [ :property_status_type, :description, :agent_id, :council_tax_band_cost, :council_tax_band_cost_unit,
                             :annual_ground_water_cost_unit, :resident_parking_cost_unit, :outside_space_types, :lettings,
                             :rent_available_from, :rent_available_to, :rent_price, :rent_price_type, :rent_furnishing_type,
-                            :student_accommodation, :ground_rent_unit, :sale_price, :sale_price_type ]
+                            :student_accommodation, :ground_rent_unit, :sale_price, :sale_price_type, :is_new_home, :is_retirement_home,
+                            :is_shared_ownership, :chain_free ]
 
   AGENT_STATUS = {
     lead: 1,
@@ -145,15 +146,22 @@ class PropertyService
     ### Check if mandatory attrs completed since only agent and vendor attrs are populated after this
     update_hash[:details_completed] = false
     property_status_type = details_hash[:property_status_type] || update_hash[:property_status_type]
-    mandatory_attrs = PropertyService::STATUS_MANDATORY_ATTRS_MAP[property_status_type]
-    mandatory_attrs ||= []
+    property_status_type ||= 'Red'
+    mandatory_attrs = nil
+    begin
+    mandatory_attrs = PropertyService::STATUS_MANDATORY_ATTRS_MAP[property_status_type] + [:address] if property_status_type
+    rescue Exception => e
+      binding.pry
+      p "hello"
+    end
+    mandatory_attrs ||= PropertyService::STATUS_MANDATORY_ATTRS_MAP['Red'] + [:address]
 
     ### Populate details completed and percent of attributes completed
     details_completed = mandatory_attrs.all?{ |attr| details_hash.has_key?(attr) && !details_hash[attr].nil? }
     update_hash[:details_completed] = true if details_completed
     total_mandatory_attrs = mandatory_attrs.select{ |t| !t.to_s.end_with?('_unit') }
-    attrs_completed = total_mandatory_attrs.select{ |attr| details_hash[attr] }.count
-    ((attrs_completed.to_f/total_mandatory_attrs.length.to_f)*100.0).round(2)
+    attrs_completed = mandatory_attrs.select{ |attr| details_hash[attr] }.count
+    ((attrs_completed.to_f/mandatory_attrs.length.to_f)*100.0).round(2)
   end
 
   def attach_vendor_to_property(vendor_id, details={}, property_for='Sale')
@@ -462,11 +470,12 @@ class PropertyService
   def self.fetch_details_from_vanity_url(url, user=nil)
     url = url.gsub(/[_]/,"/")
     str_parts = url.split('-')[0..-3]
+    str_parts = str_parts.map {|t| t.gsub("|","") }
     str = ''
     last_occurence = str_parts.reverse.find_all{|t| str=t+' '+ str;COUNTIES.include?(str.titleize.strip)}.last
     county_index = str_parts.index(last_occurence)
     prediction_str = str_parts[0..county_index-1].join(' ')
-    results, code = get_results_from_es_suggest(prediction_str, 1)
+    results, code = PropertyService.get_results_from_es_suggest(prediction_str, 1)
     udprn = Oj.load(results)['postcode_suggest'][0]['options'][0]['text'].split('_')[0]
     details = PropertyDetails.details(udprn.to_i)[:_source]
     details[:percent_completed] = PropertyService.new(udprn.to_i).compute_percent_completed({}, details)

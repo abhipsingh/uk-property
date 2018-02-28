@@ -453,7 +453,23 @@ Rails.application.routes.draw do
 
   ### Get the top level stats for a vendor/agent for a property
   get '/property/stats/:udprn',                                 to: 'properties#property_stats'
-  
+
+  ### Unverify the agent's property by a invited vendor for a property
+  post 'vendors/unverify/:udprn/:agent_id',                     to: 'vendors#unverify_agent_from_a_property'
+
+  ### Get a list of vendors invited by agents as f&f
+  get '/vendors/verify/inviting/agents',                        to: 'vendors#list_inviting_agent_and_property'
+
+  get 'non/crawled/properties',                                 to: 'vendors#non_crawled_properties'
+
+  post 'non/properties',                                        to: 'vendors#post_non_crawled_properties'
+
+  ### Edit basic details of a property claimed by a vendor having an assigned agent already
+  post 'claimed/assigned/basic/:udprn/edit',                    to: 'vendors#edit_basic_details_with_an_assigned_agent'
+
+  ### Search for agents companies by name
+  get 'agents/search/companies',                                to: 'agents#search_company'
+
   #####################################################################
   #####################################################################
   #####################################################################

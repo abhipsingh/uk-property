@@ -33,7 +33,7 @@ class VendorMailer < ApplicationMailer
     @agent_name = agent.first_name.to_s + ' ' + agent.last_name.to_s
     @agent_email = agent.email
     @agent_mobile = agent.mobile
-    @vendor_name = vendor.name
+    @vendor_name = vendor.first_name + ' ' + vendor.last_name
     subject = 'An agent has claimed the lead of your property located at ' + address.to_s
     mail(to: vendor.email, subject: subject)
   end
@@ -50,11 +50,11 @@ class VendorMailer < ApplicationMailer
     @hash_link = agent_attrs[:hash_link]
     @vendor_email = vendor_email
     @udprn = agent_attrs[:udprn]
-    @hash_url = "http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=#{@hash_link}&udprn=#{@udprn}&email=#{@vendor_email}&user_type=Vendor&vendor_present=true"
+    vendor_present = Vendor.where(email: @vendor_email).empty?
+    @hash_url = "http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=#{@hash_link}&udprn=#{@udprn}&email=#{@vendor_email}&user_type=Vendor&vendor_present=#{vendor_present}"
     subject = 'An agent has claimed the lead of your property located at ' + @address
     mail(to: vendor_email, subject: subject)
   end
-
 
   def prepare_report_after_agent_lead_submit(vendor, agent, property_details)
     @agent_name = agent.name

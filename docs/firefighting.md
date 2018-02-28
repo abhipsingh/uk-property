@@ -249,8 +249,74 @@ There are two indexes in the server
     This index only contains properties which have a property status of either `Green`,`Red` or `Yellow`
 
 
+### Docker testing and environment for easy development workflow
 
+You need to have docker installed on your machine for this. We have four docker images saved in a S3 bucket `prophety-docker-images-dev` and dependent compressed data files all of which need to be downloaded for easy testing.
 
+#### Step 1:
+- Download all the docker images which have been listed below
+  * [ardb-cache](https://s3.eu-west-2.amazonaws.com/prophety-docker-images-dev/ardb_cache) A substitute for Redis on disk.
+  * [Postgres 10](https://s3.eu-west-2.amazonaws.com/prophety-docker-images-dev/app_db) Postgres 10
+  * [Elasticsearch 2.4](https://s3.eu-west-2.amazonaws.com/prophety-docker-images-dev/es) Elastic server engine
+  * [Prophety-app](https://s3.eu-west-2.amazonaws.com/prophety-docker-images-dev/app_rails) Our Rails application 
+ 
+- Download all the dependent data for the above mentioned images
+  * [Ardb Data](https://s3.eu-west-2.amazonaws.com/prophety-docker-images-dev/ardb_data.tar.gz)
+  * [Postgres Data](https://s3.eu-west-2.amazonaws.com/prophety-docker-images-dev/postgres_data.tar.gz)
+  * [Elasticsearch data](https://s3.eu-west-2.amazonaws.com/prophety-docker-images-dev/es.tar.gz)
+- Please ensure that you have disk greater than `15G` in the folder you are downloading.
+- Uncompress the data files for `elastic`, `postgres` and `ardb` by using 
+   ```bash
+   tar xf es.tar.gz
+   tar xf postgres_data.tar.gz
+   tar xf ardb_data.tar.gz
+   ```
+- Load downloaded docker images by using the following commands
+    ```bash
+    docker load -i es
+    docker load -i ardb_cache
+    docker load -i app_db
+    docker load -i app_rails
+    ```
 
-
+- Open [`docker-compose.yml`](https://bitbucket.org/stephenkassi/uk-property/src/c898129c484ac75c7f510aba725640257a42c959/docker-compose.yml?at=master&fileviewer=file-view-default) file present in the root of the application.
+- Configure the line which looks like the following for each service `postgres94`, `ardb_cache`, `es24` and `main_app`
+    ```yaml
+     volumes:
+       - /home/ec2-user/postgres_data/postgres_data/data/:/postgres_data/data/postgres_data/data
+    ```
+    
+    ```yaml
+    volumes:
+        - /home/ec2-user/ardb_data/rocksdb/:/var/lib/ardb/data/rocksdb/
+    ```
+    
+    ```yaml
+    volumes:
+      - /home/ec2-user/elasticsearch/:/usr/share/elasticsearch/data
+    ```
+    For each of the volumes listed above, just change the line in such a way that the folder location before `:` is the location of the downloaded data on your machine.
+    ```bash
+    $CURRENT_FOLDER/elasticsearch/:/usr/share/elasticsearch/data
+    ```
+    
+- Now, you need to configure `config/application.yml` file in the rails application folder to assign the parameters
+  * Key `ELASTICSEARCH_HOST` : Value `es24` for each `development`, `test` and `production` environment.
+  * Key `ARDB_HOST_NAME` : Value `ardb_cache`
+- You also need to change the host the file `config/database.yml` in the rails application folder.
+   * `host: postgres94` in the `yaml` file for each `development`, `test` and `production` environment.
+ 
+- Finally, the server can be started by using
+   ```bash
+   docker-compose up
+   ```
+   
+- Test the api call by executing the following command
+   ```bash
+   curl -XGET 'http://localhost:3001//addresses/predictions?str=Liverpool'
+   ```
+- Also the server can be closed by using
+   ```bash
+   docker-compose down
+   ```
 

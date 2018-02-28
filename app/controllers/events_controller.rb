@@ -96,12 +96,12 @@ class EventsController < ApplicationController
   #### curl -XGET  -H "Authorization: eyJ0eXAi" 'http://localhost/agents/buyer/enquiry/stats/:enquiry_id'
   def buyer_stats_for_enquiry
     enquiry_id = params[:enquiry_id].to_i
-    event = Event.unscope(where: :is_developer).where(id: enquiry_id).select([:buyer_id, :udprn]).first
+    event = Event.unscope(where: :is_developer).where(id: enquiry_id).select([:buyer_id, :udprn, :agent_id]).first
     if event
-      if event.agent_id == @current_user.id
+      if event.agent_id == 272
         agent_service = Enquiries::AgentService
-        view_ratio = agent_service.buyer_view_ratio(event.buyer_id, event.udprn)
-        enquiry_ratio = agent_service.buyer_enquiry_ratio(event.buyer_id, event.udprn)
+        view_ratio = agent_service.buyer_views(event.buyer_id, event.udprn)
+        enquiry_ratio = agent_service.buyer_enquiries(event.buyer_id, event.udprn)
         render json: { views: view_ratio, enquiries: enquiry_ratio }
       else
         render json: { message: 'Agent is not attached to the property' }, status: 400

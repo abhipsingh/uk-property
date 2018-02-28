@@ -67,7 +67,9 @@ module Api
         user_valid_for_viewing?(['Agent', 'Vendor', 'Buyer'])
         user = @current_user
         udprn = params[:property_id].to_i
-        details_json = PropertyDetails.details(udprn)['_source']
+        details_json = PropertyDetails.details(udprn)[:_source]
+        details_json[:locality_hash] = Events::Track.locality_hash(details_json)
+        details_json[:street_hash] = Events::Track.street_hash(details_json)
         if true
           details_json['photo_urls'] =  process_image(details_json)
           details_json['description'] = PropertyService.get_description(udprn)

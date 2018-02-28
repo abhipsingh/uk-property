@@ -96,7 +96,7 @@ class VendorsController < ApplicationController
       render json: { message: 'Vendor not found' }, status: 404
     end
   end
-  
+
   ### After the agent who won the lead, surveyed the property, submitted the property details
   ### and the email which was consequently sent to the vendor. This is the api called by the email
   ### link to judge the vendor's response as affirmative or negative
@@ -117,6 +117,79 @@ class VendorsController < ApplicationController
     else
       render json: { message: 'Authorization failed' }, status: 401
     end
+  end
+
+  ### When a vendor verifies that an agent is the not the true owner of the property
+  ### curl -XPOST -H "Authorization: eyJ0eXAiOiJK" 'http://localhost/vendors/unverify/:udprn/:agent_id'
+  def unverify_agent_from_a_property ### Invited by the vendor
+    if user_valid_for_viewing?(['Vendor'], params[:udprn].to_i)
+      udprn = params[:udprn].to_i
+      agent_id = params[:agent_id].to_i
+      vendor_id = @current_user.id
+  
+      #### Transfer the enquiries
+      Event.where(agent_id: agent_id, udprn: udprn).update_all(agent_id: nil)
+      update_hash = { agent_id: nil, claimed_at: nil, claimed_by: nil, vendor_id: nil, beds: nil, baths: nil, receptions: nil, property_type: nil, property_status_type: nil }
+
+      #### Destroy the f&f lead
+      Agents::Branches::AssignedAgents::Lead.where(property_id: params[:udprn].to_i, agent_id: agent_id, owned_property: true).last.destroy
+      PropertyService.new(udprn).update_details(update_hash)
+
+      render json: { message: "The property has been removed from agents and vendors properties" }, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  ### List the properties and agents for this vendor
+  ### curl -XGET -H "Authorization: eyJ0eXAiOiJK" 'http://localhost/vendors/verify/inviting/agents'
+  def list_inviting_agent_and_property
+    if user_valid_for_viewing?(['Vendor'], params[:udprn].to_i)
+    #if true
+      @current_user = Vendor.find(533)
+      vendor_id = @current_user.id
+      invited_vendors = InvitedVendor.where(email: @current_user.email, source: Vendor::INVITED_FROM_CONST[:family]).select([:agent_id, :udprn])
+      udprns = invited_vendors.map(&:udprn)
+      bulk_details = PropertyService.bulk_details(udprns)
+      response = []
+
+      bulk_details.each_with_index do |detail, index|
+        detail[:address] = PropertyDetails.address(detail)
+        response_hash = {}
+        response_hash[:udprn] = detail[:udprn]
+        response_hash[:address] = detail[:address]
+        agent_fields = [:agent_id, :assigned_agent_first_name, :assigned_agent_last_name, :assigned_agent_email, :assigned_agent_mobile,
+                        :assigned_agent_office_number, :assigned_agent_image_url, :assigned_agent_branch_name, :assigned_agent_branch_number,
+                        :assigned_agent_branch_address, :assigned_agent_branch_website, :assigned_agent_branch_logo]
+        property_attrs = [:beds, :baths, :receptions, :property_type, :property_status_type ]
+        agent_fields.each {|field| response_hash[field] = detail[field] }
+        property_attrs.each {|field| response_hash[field] = detail[field] }
+        response.push(response_hash)
+      end
+
+      render json: response, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  ### curl -XGET  'http://localhost/non/crawled/properties?udprn=1'
+  def non_crawled_properties
+    google_st_view_images = GoogleStViewImage.where(crawled: false)
+                                             .where("udprn > ?", params[:udprn].to_i)
+                                             .select([:udprn, :address])
+                                             .order('udprn')
+                                             .limit(40)
+    Rails.logger.info(google_st_view_images.map(&:udprn))
+    render json: google_st_view_images, status: 200
+  end
+
+  ### curl -XPOST 'http://localhost/non/crawled/properties?udprns=1163949,1163948'
+  def post_non_crawled_properties
+    udprns = params[:udprns].split(',').map(&:to_i) if params[:udprns]
+    udprns ||= params[:udprn].split(',').map(&:to_i)
+    google_st_view_images = GoogleStViewImage.where(udprn: udprns).delete_all
+    render json: 'SUCCESS', status: 200
   end
 
   private

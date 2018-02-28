@@ -5,7 +5,7 @@ class AgentsController < ApplicationController
                                              :branch_specific_invited_agents, :credit_history, :subscribe_premium_service, :remove_subscription,
                                              :manual_property_leads, :invited_vendor_history, :missing_sale_price_properties_for_agents, 
                                              :inactive_property_credits, :crawled_property_details, :verify_manual_property_from_agent,
-																						 :claim_property, :matching_udprns, :detailed_properties, :list_of_properties ]
+																						 :claim_property, :matching_udprns,  :list_of_properties ]
   ### Details of the branch
   ### curl -XGET 'http://localhost/agents/predictions?str=Dyn'
   def search
@@ -25,6 +25,13 @@ class AgentsController < ApplicationController
       results.push(new_row)
     end
     render json: results, status: 200
+  end
+
+  ### Companies search
+  ### curl -XGET 'http://localhost/agents/search/companies?str=Dyn' 
+  def search_company
+    companies = Agent.where("lower(name) LIKE ?", "#{params[:str].downcase}%").select([:id, :name]).limit(10)
+    render json: companies, status: 200
   end
 
   ### Group by a district and calculate the number of agents and branches
@@ -127,6 +134,7 @@ class AgentsController < ApplicationController
   def invite_agents_to_register
     agent_id = params[:branch_id].to_i
     branch = Agents::Branch.where(id: agent_id).last
+    Rails.logger.info("INVITE_AGENTS_#{branch.id}_#{params[:invited_agents]}")
     if branch
       other_agents = params[:invited_agents]
       invited_agents = branch.invited_agents
@@ -152,6 +160,7 @@ class AgentsController < ApplicationController
   ### curl -XPOST -H "Content-Type: application/json"  'http://localhost/agents/23/edit' -d '{ "agent" : { "name" : "Jackie Bing", "email" : "jackie.bing@friends.com", "mobile" : "9873628232", "password" : "1234567890", "branch_id" : 9851, "office_phone_number" : "9876543210", "mobile_phone_number": "7896543219" } }'
   def edit
     agent_id = params[:id].to_i
+    Rails.logger.info("EDIT_AGENTS_#{agent_id.to_i}_#{params[:agent]}")
     agent = Agents::Branches::AssignedAgent.find(agent_id)
     agent_params = params[:agent].as_json
     agent.first_name = agent_params['first_name'] if agent_params['first_name']
@@ -216,6 +225,7 @@ class AgentsController < ApplicationController
   def info_for_agent_verification
     verification_hash = params[:verification_hash]
     udprn = params[:udprn]
+    Rails.logger.info("AGENTS_VERIFY_#{udprn}_#{verification_hash}")
     hash_obj = VerificationHash.where(hash_value: verification_hash, udprn: udprn.to_i).last
     if hash_obj
       agent = Agents::Branches::AssignedAgent.where(id: hash_obj.entity_id).last
@@ -237,8 +247,9 @@ class AgentsController < ApplicationController
   def verify_agent
     udprn = params[:udprn].to_i
     agent_id = params[:agent_id].to_i
+    Rails.logger.info("VERIFY_AGENT_#{udprn}_#{agent_id}_#{params[:property_status_type]}")
     property_status_type = params[:property_status_type]
-    response, status = PropertyService.new(udprn).update_details({ property_status_type: property_status_type, verification_status: true, agent_id: agent_id, agent_status: 2 })
+    response, status = PropertyService.new(udprn).update_details({ property_status_type: property_status_type, verification_status: false, agent_id: agent_id, agent_status: 2 })
     response['message'] = "Agent verification successful." unless status.nil? || status!=200
     render json: response, status: status
   rescue Exception => e
@@ -264,6 +275,7 @@ class AgentsController < ApplicationController
     details[:claimed_on] = Time.now.to_s
     details[:vendor_id] = params[:vendor_id].to_i if params[:vendor_id]
     details[:verification_status] = false
+    Rails.logger.info("VERIFY_VENDOR_#{udprn}_#{vendor_id}_#{params[:beds].to_i}_#{params[:baths].to_i}")
     response, status = PropertyDetails.update_details(client, udprn, details)
     response['message'] = "Property verification successful." unless status.nil? || status!=200
     render json: response, status: status
@@ -283,6 +295,7 @@ class AgentsController < ApplicationController
     property_for ||= 'Sale'
     property_status_type = nil
     property_for == 'Sale' ? property_status_type = 'Green' : property_status_type = 'Rent'
+    Rails.logger.info("UPLOAD_CRAWLED_PROPERTY_#{udprn}_#{agent_id}")
     pictures = params[:pictures]
     property_attrs = {
       property_status_type: property_status_type,
@@ -323,6 +336,7 @@ class AgentsController < ApplicationController
     udprn = params[:udprn].to_i
     agent_id = agent.id
     agent_service = AgentService.new(agent_id, udprn)
+    Rails.logger.info("UPLOAD_MANUAL_PROPERTY_#{udprn}_#{agent_id}")
     property_attrs = {
       verification_status: false,
       property_type: params[:property_type],
@@ -333,13 +347,15 @@ class AgentsController < ApplicationController
       property_id: udprn,
       claimed_on: Time.now.to_s,
       claimed_by: 'Agent',
-      agent_id: agent_id.to_i
+      agent_id: agent_id.to_i,
+      property_status_type: 'Red'
     }
+    Rails.logger.info("#{property_attrs}  CLAIM_PROPERTY_#{agent.id}")
     
     vendor_email = params[:vendor_email]
     assigned_agent_email = params[:assigned_agent_email]
     response, status = agent_service.verify_manual_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
-    response['message'] = "Property details updated." unless status.nil? || status!=200
+    response['message'] = "Property details updated." unless status.nil? || status != 200
     render json: response, status: status
   #rescue Exception => e
   #  Rails.logger.info("AGENT_MANUAL_PROPERTY_VERIFICATION_FAILURE_#{e}")
@@ -357,6 +373,7 @@ class AgentsController < ApplicationController
     postcodes = ""
     page_no = params[:page].to_i rescue 0
     page_size = 5
+    Rails.logger.info("GET_CRAWLED_PROPERTY_#{agent_id}")
     if agent
       branch_id = agent.branch_id
       properties = Agents::Branches::CrawledProperty.where(branch_id: branch_id).select([:id, :postcode, :image_urls, :stored_response, :additional_details, :udprn]).where.not(postcode: nil).where(udprn: nil).limit(page_size).offset(page_no*page_size).order('created_at asc')
@@ -412,6 +429,7 @@ class AgentsController < ApplicationController
   ### curl -XPOST -H "Content-Type: application/json"  'http://localhost/branches/9851/edit' -d '{ "branch" : { "name" : "Jackie Bing", "address" : "8 The Precinct, Main Road, Church Village, Pontypridd, HR1 1SB", "phone_number" : "9873628232", "website" : "www.google.com", "image_url" : "some random url", "email" : "a@b.com"  } }'
   def edit_branch_details
     branch = Agents::Branch.where(id: params[:id].to_i).last
+    Rails.logger.info("EDIT_BRANCH_DETAILS_#{branch.id}")
     if branch
       branch_details = params[:branch]
       branch.name = branch_details[:name] if branch_details[:name] && !branch_details[:name].blank?
@@ -421,6 +439,9 @@ class AgentsController < ApplicationController
       branch.image_url = branch_details[:image_url] if branch_details[:image_url] && !branch_details[:image_url].blank?
       branch.email = branch_details[:email] if branch_details[:email] && !branch_details[:email].blank?
       branch.domain_name = branch_details[:domain_name] if branch_details[:domain_name] && !branch_details[:domain_name].blank?
+      agents = branch.assigned_agents
+      agents.each { |agent| AgentUpdateWorker.new.perform(agent.id) }
+
       if branch.save!
         render json: { message: 'Branch edited successfully', details: branch.as_json(only: [:name, :address, :phone_number, :website, :image_url, :email, :domain_name]) }, status: 200
       else
@@ -435,6 +456,7 @@ class AgentsController < ApplicationController
   ### `curl -XPOST -H "Content-Type: application/json"  'http://localhost/companies/6290/edit' -d '{ "company" : { "name" : "Jackie Bing", "address" : "8 The Precinct, Main Road, Church Village, Pontypridd, HR1 1SB", "phone_number" : "9873628232", "website" : "www.google.com", "image_url" : "some random url", "email" : "a@b.com"  } }'`
   def edit_company_details
     company = Agent.where(id: params[:id].to_i).last
+    Rails.logger.info("EDIT_COMPANY_DETAILS_#{company.id}")
     if company
       company_details = params[:company]
       company.name = company_details[:name] if company_details[:name] && !company_details[:name].blank?
@@ -457,6 +479,7 @@ class AgentsController < ApplicationController
   ### `curl -XPOST -H "Content-Type: application/json"  'http://localhost/groups/6292/edit' -d '{ "group" : { "name" : "Jackie Bing", "address" : "8 The Precinct, Main Road, Church Village, Pontypridd, HR1 1SB", "phone_number" : "9873628232", "website" : "www.google.com", "image_url" : "some random url", "email" : "a@b.com"  } }'`
   def edit_group_details
     group = Agents::Group.where(id: params[:id].to_i).last
+    Rails.logger.info("EDIT_GROUP_DETAILS_#{group.id}")
     if group
       group_details = params[:group]
       group.name = group_details[:name] if group_details[:name] && !group_details[:name].blank?
@@ -504,6 +527,7 @@ class AgentsController < ApplicationController
   ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" -H "Content-Type: application/json" 'http://localhost/agents/credits/add' -d '{ "stripeEmail" : "abhiuec@gmail.com", "stripeToken":"tok_19WlE9AKL3KAwfPBkWwgTpqt", "credits" : 100, "udprn":23840421 }'
   def add_credits
     agent = @current_user
+    Rails.logger.info("ADD_CREDITS_#{agent.id}")
     begin
       customer = Stripe::Customer.create(
         email: params[:stripeEmail],
@@ -555,6 +579,7 @@ class AgentsController < ApplicationController
     agent = @current_user
     sig_header = request.env['HTTP_STRIPE_SIGNATURE']
     payload = request.body.read
+    Rails.logger.info("SUBSCRIBE_PREMIUM_SERVICE_#{agent.id}")
     begin
       # Create the customer in Stripe
       customer = Stripe::Customer.create(
@@ -607,6 +632,7 @@ class AgentsController < ApplicationController
   ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/premium/subscription/remove'
   def remove_subscription
     agent = @current_user
+    Rails.logger.info("REMOVE_SUBSCRIBE_PREMIUM_SERVICE_#{agent.id}")
     customer_id = agent.stripe_customer_id
     customer = Stripe::Customer.retrieve(customer_id)
     subscription.delete
@@ -693,7 +719,6 @@ class AgentsController < ApplicationController
   ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/properties/quotes/missing/price'
   def missing_sale_price_properties_for_agents
     agent = @current_user
-    won_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']
     api = PropertySearchApi.new(filtered_params: { not_exists: 'sale_price', agent_id: agent.id, results_per_page: 200 })
     api = api.filter_query
     result, status = api.filter
@@ -761,7 +786,7 @@ class AgentsController < ApplicationController
     agent = @current_user
     invited_vendor_emails = InvitedVendor.where(agent_id: agent.id).where(source: Vendor::INVITED_FROM_CONST[:family]).pluck(:email).uniq
     registered_vendor_count = Vendor.where(email: invited_vendor_emails).count
-    Rails.logger.info("Claiming a property request #{agent.id}  with credit #{agent.credit} and email #{agent.email} and vendor count #{registered_vendor_count} ")
+    Rails.logger.info("CLAIM_LEAD_AGENT_#{agent.id}_#{agent.credit}_#{agent.email}_#{registered_vendor_count}")
     if registered_vendor_count >= Agents::Branches::AssignedAgent::MIN_INVITED_FRIENDS_FAMILY_VALUE
       if agent.credit >= Agents::Branches::AssignedAgent::LEAD_CREDIT_LIMIT
       #if true
@@ -935,6 +960,7 @@ class AgentsController < ApplicationController
   ### Get the list of properties the agent has been attached to
   ### curl -XGET 'http://localhost/agents/list/properties?incomplete_details=true'
   def list_of_properties
+    #@current_user = Agents::Branches::AssignedAgent.find(232)
     search_params = { agent_id: @current_user.id, results_per_page: 200 }
     #search_params = { agent_id: 113, results_per_page: 200 }
     api = PropertySearchApi.new(filtered_params: search_params)
@@ -944,17 +970,27 @@ class AgentsController < ApplicationController
     total_count = api.total_count
     bulk_results = PropertyService.bulk_details(udprns)
     results = bulk_results.map do |result|
+      result[:address] = PropertyDetails.address(result)
       result[:percent_completed] = PropertyService.new(result[:udprn]).compute_percent_completed({}, result)
-      result = result.slice(:beds, :baths, :property_type, :property_status_type, :receptions, :address, :udprn, :percent_completed)
+      result = result.slice(:beds, :baths, :property_type, :property_status_type, :receptions, :address, :udprn, :percent_completed, :claimed_on)
       result
     end
 
     if params[:incomplete_details].to_s == 'true'
+      udprns = results.map{ |t| t[:udprn] }
+      leads = Agents::Branches::AssignedAgents::Lead.where(agent_id: @current_user.id, property_id: udprns, expired: false).select([:created_at, :property_id, :owned_property])
+      leads.each_with_index do |lead|
+        index =  results.index{ |t| t[:udprn].to_i == lead.property_id }
+        #Rails.logger.info("#{index} #{results[index]} hello")
+        results[index][:lead_expiry_time] = nil
+        results[index][:lead_expiry_time] = lead.created_at + Agents::Branches::AssignedAgents::Lead::VERIFICATION_DAY_LIMIT if !lead.owned_property
+      end
+      udprns = leads.map{ |t| t.property_id }
       results = results.select{ |t| t[:percent_completed].to_f < 100 }
     elsif  params[:incomplete_details].to_s == 'false'
       results = results.select{ |t| t[:percent_completed].to_f == 100 }
     end
-    Rails.logger.info("RESULTS #{results}")
+    #Rails.logger.info("RESULTS #{results}")
 
     render json: results, status: 200
   end

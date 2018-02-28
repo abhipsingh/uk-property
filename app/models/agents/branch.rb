@@ -4,7 +4,7 @@ module Agents
     belongs_to :agent, class_name: '::Agent'
     has_many :properties, class_name: 'Agents::Branches::CrawledProperty'
     has_many :assigned_agents, class_name: '::Agents::Branches::AssignedAgent'
-    attr_accessor :agent_email, :invited_agents
+    attr_accessor :agent_email#, :invited_agents
 
     def self.table_name
       'agents_branches'
@@ -29,9 +29,9 @@ module Agents
       klass ||= 'Agents::Branches::AssignedAgent'
       invited_klass = InvitedDeveloper  if is_developer
       invited_klass ||= InvitedAgent
-      @invited_agents ||= []
+      #@invited_agents ||= []
       first_agent_flag = (Agents::Branches::AssignedAgent.where(branch_id: self.id).count == 0)
-      @invited_agents.each do |invited_agent|
+      self.invited_agents.each do |invited_agent|
         invited_agent = invited_agent.with_indifferent_access
         self.agent_email = invited_agent['email']
         salt_str = "#{self.name}_#{self.address}_#{self.district}"

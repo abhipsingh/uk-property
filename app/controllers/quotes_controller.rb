@@ -2,7 +2,7 @@
 class QuotesController < ApplicationController
   include CacheHelper
   around_action :authenticate_agent, only: [ :new, :edit_agent_quote, :agents_recent_properties_for_quotes ]
-  around_action :authenticate_vendor, only: [ :submit, :quote_details,  :new_quote_for_property, :historical_vendor_quotes, :quotes_per_property ]
+  around_action :authenticate_vendor, only: [ :submit, :quote_details,  :new_quote_for_property,  :quotes_per_property ]
 
   #### When a vendor changes the status to Green or when a vendor selects a Fixed or Ala Carte option,
   #### He/She submits his preferences about the type of quotes he would want to receieve, Fixed or Ala carte
@@ -20,6 +20,7 @@ class QuotesController < ApplicationController
     new_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
     won_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won']
     yearly_quote_count = Agents::Branches::AssignedAgents::Quote.where(vendor_id: vendor_id).where("created_at > ?", 1.year.ago).where("(status = ? AND expired='t' ) OR status = ?", new_status, won_status).count
+    Rails.logger.info("VENDOR_NEW_QUOTE_#{vendor_id}_#{params[:udprn].to_i}_#{yearly_quote_count}_#{buyer.is_premium}")
     if yearly_quote_count < Vendor::QUOTE_LIMIT_MAP[buyer.is_premium.to_s]
       response, status = service.new_quote_for_property(params[:services_required], params[:payment_terms],
                                               params[:quote_details], params[:assigned_agent], existing_agent_id)
@@ -41,6 +42,7 @@ class QuotesController < ApplicationController
     agent = @current_user
     invited_vendor_emails = InvitedVendor.where(agent_id: agent.id).where(source: Vendor::INVITED_FROM_CONST[:family]).pluck(:email).uniq
     registered_vendor_count = Vendor.where(email: invited_vendor_emails).count
+    Rails.logger.info("AGENT_NEW_QUOTE_#{agent.id}_#{params[:udprn].to_i}_#{registered_vendor_count}_#{invited_vendor_emails.count}")
     if registered_vendor_count >= Agents::Branches::AssignedAgent::MIN_INVITED_FRIENDS_FAMILY_VALUE
       details = PropertyDetails.details(params[:udprn].to_i)[:_source]
       current_valuation = details[:current_valuation].to_i

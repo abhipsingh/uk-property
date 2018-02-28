@@ -14,7 +14,7 @@ services:
       POSTGRES_USER: ec2_user
       PGDATA:  /postgres_data/data/postgres_data/data
   ardb_cache:
-    image: app_ardb:latest
+    image: ardb_cache:latest
     expose:
       - 16379
     ports:

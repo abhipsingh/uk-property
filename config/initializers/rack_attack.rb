@@ -42,12 +42,12 @@ class Rack::Attack
   # Throttle POST requests to /login by IP address
   #
   # Key: "rack::attack:#{Time.now.to_i/:period}:logins/ip:#{req.ip}"
-  throttle('predictions/ip', :limit => 2000, :period => 10.seconds) do |req|
-    if req.path == '/addresses/predictions' && req.get?
-      req.ip
-    end
-  end
-
+#  throttle('predictions/ip', :limit => 2000, :period => 10.seconds) do |req|
+#    if req.path == '/addresses/predictions' && req.get?
+#      req.ip
+#    end
+#  end
+#
   throttle('searches/ip', :limit => 20, :period => 10.seconds) do |req|
     if req.path == '/api/v0/properties/search' && req.get?
       req.ip

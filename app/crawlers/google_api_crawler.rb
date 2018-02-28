@@ -9,10 +9,10 @@ class GoogleApiCrawler
   API_KEY = 'AIzaSyBfcSipqHZEZooyoKqxpLzVu3u-NuEdIt8'
 
   REQUEST_PARAMS = {
-    size: '400x400',
+    size: '640*640',
     location: nil,
-    fov: 120,
-    pitch: 10,
+    fov: 90,
+    pitch: 0,
     key: API_KEY
   }
 
@@ -142,4 +142,63 @@ class GoogleApiCrawler
     return body,status
   end
 
+  def self.match_udprns_to_historical_data
+    file = File.open('/mnt3/lspm.csv', 'a')
+    count = 0
+    urls = []
+    threads = []
+    uuids = []
+    size = 10
+    postcodes = []
+    File.open('/home/ec2-user/pp-complete.csv', 'r').each_line do |line|
+      parts = line.scrub.strip.split(',').map{|t| t.gsub(/"/, '')}
+      price = parts[1].to_i
+      date = parts[2].to_s.split(' ')[0]
+      property_type = parts[6]
+      tenure = parts[4]
+      paon = parts[7].gsub('.','').downcase
+      saon = parts[8].gsub('.','').downcase
+      street = parts[9].gsub('.','').downcase
+      locality = parts[10].downcase
+      post_town = parts[11].downcase
+      postcode = parts[3]
+      address_parts = []
+      address_str = nil
+      uuid = parts[0]
+      if locality == post_town
+        address_parts = [ saon, paon, street, post_town ].select{|t| !t.strip.empty? }
+      else
+        address_parts = [ saon, paon, street, locality, post_town ].select{|t| !t.strip.empty? }
+      end
+      address_str = address_parts.join(' ')
+      #begin 
+        urls.push({str: address_str, uuid: uuid, date: date, price: price, tenure: tenure, property_type: property_type})
+        if urls.length == size
+          query = {}
+          urls.each_with_index do |each_url, index|
+            query["suggest_#{index}".to_sym] = {:text=>urls[index][:str], :completion=>{:field=>"suggest", :size=>10}}
+          end 
+          body, status = PropertyService.post_url(Rails.configuration.location_index_name, nil, '_suggest' , query)
+          if status.to_i == 200
+            resp = Oj.load(body)
+            (0..size-1).to_a.each do |elem|
+              each_resp = resp["suggest_#{elem}"][0]['options']
+              if each_resp.length == 1
+                udprn_hash = each_resp[0]['text']
+                udprn = udprn_hash.split('_').first.to_i
+                file.puts("#{urls[elem][:uuid]}|#{udprn}|#{urls[elem][:date]}|#{urls[elem][:price]}|#{urls[elem][:tenure]}|#{urls[elem][:property_type]}")
+              end
+            end
+          end
+          urls = []
+        end 
+      #rescue Exception
+      #end 
+      count += 1
+      Rails.logger.info("COUNT #{count/10000}") if count % 10000 == 0
+    end
+    file.close
+  end
+
 end
+

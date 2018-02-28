@@ -16,8 +16,7 @@ class PopulateEsData
       p location
     end
   end
+
+
 end
-
-
-
 
