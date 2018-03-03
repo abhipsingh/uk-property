@@ -1,0 +1,16 @@
+:schedule:
+  LeadStatusUpdateWorker:
+    every: '10m'
+  QuoteExpiryWorker:
+    every: '3m'
+  AdminStatusPanelWorker:
+    every: '1440m'
+  BranchLockedStatusUpdateWorker:
+    every: '1440m'
+  SoldPropertyUpdateWorker:
+    every: '1440m'
+  AdsExpiryWorker:
+    every: '1440m'
+  S3ImageCleanUpWorker:
+    every: '1440m'
+
