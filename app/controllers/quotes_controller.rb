@@ -1,7 +1,7 @@
 #### Emulation of a request for each action is given
 class QuotesController < ApplicationController
   include CacheHelper
-  around_action :authenticate_agent, only: [ :new, :edit_agent_quote, :agents_recent_properties_for_quotes ]
+  around_action :authenticate_agent, only: [ :new, :edit_agent_quote]#, :agents_recent_properties_for_quotes ]
   around_action :authenticate_vendor, only: [ :submit, :quote_details,  :new_quote_for_property,  :quotes_per_property ]
 
   #### When a vendor changes the status to Green or when a vendor selects a Fixed or Ala Carte option,
@@ -119,13 +119,13 @@ class QuotesController < ApplicationController
   def quotes_per_property
     cache_response(params[:udprn].to_i, []) do
       property_id = params[:udprn].to_i
-      status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
+      new_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
 
       final_result = []
       ### Last vendor quote submitted for this property
       vendor_quote = Agents::Branches::AssignedAgents::Quote.where(expired: false, parent_quote_id: nil, property_id: property_id).where.not(vendor_id: nil).order('created_at DESC').first
       if vendor_quote
-        agents_for_quotes = Agents::Branches::AssignedAgents::Quote.where(status: status).where.not(agent_id: nil).where.not(agent_id: 0).where.not(agent_id: 1).where(property_id: property_id).where(expired: false).where('created_at >= ?', vendor_quote.created_at).where('created_at < ?', vendor_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME)
+        agents_for_quotes = Agents::Branches::AssignedAgents::Quote.where(status: new_status).where(expired: false).where(parent_quote_id: vendor_quote.id)
         agents_for_quotes.each do |each_agent_id|
           each_agent_quote = each_agent_id
           quotes = AgentApi.new(property_id.to_i, each_agent_id.agent_id.to_i).calculate_quotes(vendor_quote, each_agent_quote)

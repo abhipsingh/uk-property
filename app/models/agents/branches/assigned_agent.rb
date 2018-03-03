@@ -67,10 +67,11 @@ module Agents
         services_required = Agents::Branches::AssignedAgents::Quote::REVERSE_SERVICES_REQUIRED_HASH[service_required_param]
         new_status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
         query = Agents::Branches::AssignedAgents::Quote
+        klass = Agents::Branches::AssignedAgents::Quote
 
         ### District of that branch
         branch = self.branch
-        query = query.where(district: branch.district)
+        query = klass.where(district: branch.district)
         query = query.where('created_at > ?', Time.parse(latest_time)) if latest_time
         max_hours_for_expiry = Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME
 
@@ -108,7 +109,6 @@ module Agents
           results = query.order('created_at DESC').limit(PAGE_SIZE).offset(page_number*PAGE_SIZE)
         end
 
-
         results.each do |each_quote|
           property_details = PropertyDetails.details(each_quote.property_id)['_source']
           ### Quotes status filter
@@ -133,7 +133,7 @@ module Agents
           new_row[:created_at] = each_quote.created_at
           new_row[:submitted_on] = agent_quote.created_at.to_s if agent_quote
           new_row[:submitted_on] ||= each_quote.created_at.to_s
-          new_row[:status] = quote_status
+          new_row[:status] = klass::REVERSE_STATUS_HASH[each_quote.status]
           new_row[:property_status_type] = property_details['property_status_type']
           #new_row[:activated_on] = property_details['status_last_updated']
           new_row[:activated_on] = each_quote.created_at.to_s

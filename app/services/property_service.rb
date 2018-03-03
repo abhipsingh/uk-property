@@ -695,20 +695,36 @@ class PropertyService
     count = 0
     udprns = []
     arr_details = nil
-    File.foreach('/mnt3/udprn_last_transactions.csv') do |line|
-      fields = line.split(',')
-      date = fields[2].split(' ')[0]
-      price = fields[1]
-      udprn = fields[3]
-      udprns.push([udprn, date, price] )
-      if udprns.length == 400
+    # {61D8894E-B7CD-3DE6-E053-6C04A8C01207}|26528855|2017-10-27|117000|O|L
+    property_type_map = {
+      'D' => 'detached',
+      'T' => 'terraced',
+      'S' => 'semi_detached',
+      'F' => 'flat' 
+    }
+    tenure_map = {
+      'L' => 'Leasehold',
+      'F' => 'Freehold'
+    }
+    size = 600
+    File.foreach('/mnt3/lspm.csv') do |line|
+      fields = line.scrub.strip.split('|')
+      date = fields[2]
+      price = fields[3].to_i
+      udprn = fields[1].to_i
+      property_type = property_type_map[fields[4]]
+      tenure = tenure_map[fields[5]]
+      udprns.push([udprn, date, price, property_type, tenure] )
+      if udprns.length == 600
         list_udprns = udprns.map{|t| t[0] }
         arr_details = PropertyService.bulk_details(list_udprns)
         details_arr = []
         arr_details.each_with_index do |details, index|
           details[:price] = details[:sale_price]
-          #details[:sale_prices] ||= []
-          #details[:sale_prices].push({price: udprns[index][2], date: udprns[index][1]})
+          details[:sale_prices] ||= []
+          details[:sale_prices].push({price: udprns[index][2], date: udprns[index][1]})
+          details[:property_type] = udprns[index][3]
+          details[:tenure] = udprns[index][4]
           details_arr.push(details)
         end
         PropertyService.bulk_set(details_arr)

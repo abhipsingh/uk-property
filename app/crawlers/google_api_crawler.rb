@@ -143,13 +143,18 @@ class GoogleApiCrawler
   end
 
   def self.match_udprns_to_historical_data
-    file = File.open('/mnt3/lspm.csv', 'a')
+    #file = File.open('/mnt3/lspm.csv', 'a')
+    g_zero_file = File.open('/mnt3/lspgz.csv', 'a')
+    zero_file = File.open('/mnt3/lspz.csv', 'a')
+    #file = File.open('/mnt3/lspm.csv', 'a')
     count = 0
     urls = []
     threads = []
     uuids = []
-    size = 10
+    size = 1000
     postcodes = []
+    length_count_zero = 0
+    length_count_g_zero = 0
     File.open('/home/ec2-user/pp-complete.csv', 'r').each_line do |line|
       parts = line.scrub.strip.split(',').map{|t| t.gsub(/"/, '')}
       price = parts[1].to_i
@@ -172,7 +177,7 @@ class GoogleApiCrawler
       end
       address_str = address_parts.join(' ')
       #begin 
-        urls.push({str: address_str, uuid: uuid, date: date, price: price, tenure: tenure, property_type: property_type})
+        urls.push({str: address_str, uuid: uuid, date: date, price: price, tenure: tenure, property_type: property_type, postcode: postcode})
         if urls.length == size
           query = {}
           urls.each_with_index do |each_url, index|
@@ -186,7 +191,15 @@ class GoogleApiCrawler
               if each_resp.length == 1
                 udprn_hash = each_resp[0]['text']
                 udprn = udprn_hash.split('_').first.to_i
-                file.puts("#{urls[elem][:uuid]}|#{udprn}|#{urls[elem][:date]}|#{urls[elem][:price]}|#{urls[elem][:tenure]}|#{urls[elem][:property_type]}")
+                #file.puts("#{urls[elem][:uuid]}|#{udprn}|#{urls[elem][:date]}|#{urls[elem][:price]}|#{urls[elem][:tenure]}|#{urls[elem][:property_type]}")
+              elsif each_resp.length > 1
+                g_zero_file.puts("#{urls[elem][:uuid]}|#{udprn}|#{urls[elem][:date]}|#{urls[elem][:price]}|#{urls[elem][:tenure]}|#{urls[elem][:property_type]}")
+                length_count_g_zero += 1
+              elsif each_resp.length == 0
+                #p resp["suggest_#{elem}"][0] 
+                #p urls[elem][:postcode]
+                zero_file.puts("#{urls[elem][:uuid]}|#{udprn}|#{urls[elem][:date]}|#{urls[elem][:price]}|#{urls[elem][:tenure]}|#{urls[elem][:property_type]}")
+                length_count_zero += 1
               end
             end
           end
@@ -197,7 +210,11 @@ class GoogleApiCrawler
       count += 1
       Rails.logger.info("COUNT #{count/10000}") if count % 10000 == 0
     end
-    file.close
+    p "Rows having greater than zero possibilities #{length_count_g_zero}"
+    p "Rows having zero possibilities #{length_count_zero}"
+    zero_file.close
+    g_zero_file.close
+    #file.close
   end
 
 end

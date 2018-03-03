@@ -6,6 +6,14 @@ module Agents
     has_many :assigned_agents, class_name: '::Agents::Branches::AssignedAgent'
     attr_accessor :agent_email#, :invited_agents
 
+    INDEPENDENT_TYPE_MAP = {
+      'INDEPENDENT' => 1,
+      'MAYBE' => 2,
+      'ONLINE' => 3,
+      'NO' => 4,
+      'UNKNOWN' => 5
+    }
+
     def self.table_name
       'agents_branches'
     end
@@ -67,6 +75,11 @@ module Agents
         branch_stats[key] = nil if branch_stats[key].to_i == 0
       end
       branch_stats
+    end
+
+    def vanity_url
+      processed_name = name.gsub(',', ' ')
+      processed_name.downcase.split(' ').join('-')
     end
 
 #    def as_json option = {}

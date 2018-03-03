@@ -146,12 +146,16 @@ module Api
               dependent_thoroughfare_description: details[:dependent_thoroughfare_description],
               thoroughfare_description: details[:thoroughfare_description],
               udprn: details[:udprn],
+              district: details[:district],
+              sector: details[:sector],
+              unit: details[:unit],
               output_str: details[:address]
             }
   
             resp_hash[:dependent_locality] = details[:dependent_locality] if details[:dependent_locality]
             resp_hash[:dependent_thoroughfare_description] = details[:dependent_thoroughfare_description] if details[:dependent_thoroughfare_description]
             resp_hash[:thoroughfare_description] = details[:thoroughfare_description] if details[:thoroughfare_description]
+
             
           end
   

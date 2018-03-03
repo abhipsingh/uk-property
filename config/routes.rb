@@ -58,9 +58,6 @@ Rails.application.routes.draw do
   ### Get all properties quicklinks for the queried agent_id, or branch or group or company id
   get 'agents/quicklinks/properties',        to: 'events#quicklinks'
 
-  ### Get all properties quicklinks for the queried agent_id, or branch or group or company id
-  get 'agents/properties',                   to: 'agents#detailed_properties'
-
   ### Request to unsubscribe a buyer for a particular event for a udprn
   get 'events/unsubscribe',                   to: 'events#unsubscribe'
   #####################################################################
@@ -79,8 +76,6 @@ Rails.application.routes.draw do
   #### When a vendor clicks the submit button
   post 'quotes/submit/:quote_id',          to: 'quotes#submit'
 
-  #### For an agent, claim this property
-  post 'events/property/claim/:udprn',     to: 'agents#claim_property'
   #####################################################################
   #####################################################################
   #####################################################################
@@ -135,29 +130,6 @@ Rails.application.routes.draw do
   #####################################################################
   #####################################################################
   #### Agents routes for assigned agents details panel
-  get 'agents/agent/:assigned_agent_id',                       to: 'agents#assigned_agent_details'
-
-  #### Agents routes for branch details
-  get 'agents/branch/:branch_id',                               to: 'agents#branch_details'
-
-  #### Agents routes for agent details
-  get 'agents/company/:company_id',                             to: 'agents#company_details'
-
-  #### Agents routes for agent group details
-  get 'agents/group/:group_id',                                 to: 'agents#group_details'
-
-  #### Agents routes for search any of agent, group, branch or assigned agents by name
-  get 'agents/predictions',                                     to: 'agents#search'
-
-  #### Agents routes for search any of agent, group, branch or assigned agents by name
-  post 'agents/register',                                       to: 'agents#add_agent_details'
-
-  #### Invite other agents to register as well
-  post 'agents/invite',                                         to: 'agents#invite_agents_to_register'
-
-  #### Edit agents details 
-  post 'agents/:id/edit',                                       to: 'agents#edit'
-
   #### Shows details of a specific property owned by a vendor
   get 'vendors/properties/details/:vendor_id',                  to: 'vendors#property_details'
 
@@ -182,65 +154,8 @@ Rails.application.routes.draw do
   #### Edit basic details of a buyer
   post 'buyers/:id/edit',                                       to: 'buyers#edit_basic_details'
 
-  ### Registers an agent for the first time and issues a web token for the agent
-  post 'register/agents',                                       to: 'sessions#create_agent'
-
-  ### Login for an agent when an email and a password is provided
-  post 'login/agents',                                          to: 'sessions#login_agent'
-
-  ### Registers a vendor for the first time and issues a web token for the agent
-  post 'register/vendors',                                      to: 'sessions#create_vendor'
-
-  ### Login for a vendor when an email and a password is provided
-  post 'login/vendors',                                         to: 'sessions#login_vendor'
-
-  ### Login for a developer when an email and a password is provided
-  post 'login/developers',                                      to: 'sessions#login_developer'
-
-  ### Details for a vendor when a token is provided
-  get 'details/vendors',                                        to: 'sessions#vendor_details'
-
-  ### Details for a developer when a token is provided
-  get 'details/developers',                                     to: 'sessions#developer_details'
-
-  ### Sends an email to the buyer for registration
-  post 'buyers/signup',                                         to: 'sessions#buyer_signup'
-
-  ### Sends an email to the vendor for registration
-  post 'vendors/signup',                                        to: 'sessions#vendor_signup'
-
-  ### Gets the details of the verification hash sent to the emails of vendor and buyers
-  get 'users/all/hash',                                         to: 'sessions#hash_details'
-
-  ### Registers a buyer for the first time and issues a web token for the agent
-  post 'register/buyers',                                       to: 'sessions#create_buyer'
-
-  ### Login for a vendor when an email and a password is provided
-  post 'login/buyers',                                          to: 'sessions#login_buyer'
-
-  ### Details for a vendor when a token is provided
-  get 'details/buyers',                                         to: 'sessions#buyer_details'
-
   ### Details for a vendor when a token is provided
   post 'buyers/:id/edit',                                       to: 'property_buyers#edit'
-
-  ### Details for an agent when a token is provided
-  get 'details/agents',                                         to: 'sessions#agent_details'
-
-  ### Verify the udprns and invite the vendors
-  get 'agents/:id/udprns/verify',                               to: 'agents#verify_udprns'
-
-  ### Invite vendors by sending them an email
-  post 'agents/:agent_id/udprns/:udprn/verify',                 to: 'agents#invite_vendor'
-
-  ### get info about the agents which invited the vendor who is registering to verify and change password as well
-  post 'vendors/invite/udprns/:udprn/agents/info',               to: 'agents#info_for_agent_verification'
-
-  ### verify info about the agents which invited the vendor who is registering to verify
-  post 'vendors/udprns/:udprn/agents/:agent_id/verify',         to: 'agents#verify_property_from_vendor'
-
-  ### verify info about the properties which invited the vendor who is registering to verify
-  post 'vendors/udprns/:udprn/verify',                          to: 'agents#verify_property_from_vendor'
 
   ### Get a presigned url for every image to be uploaded on S3
   get 's3/upload/url',                                          to: 's3#presigned_url'
@@ -248,40 +163,11 @@ Rails.application.routes.draw do
   ### Verify that a upload happened
   get 's3/verify/upload',                                       to: 's3#verify_upload'
 
-  ### For the agent, when he authorizes also make him attach his properties to the udprn
-  get 'agents/:id/udprns/attach/verify',                        to: 'agents#verify_udprn_to_crawled_property'
-
   ### For any vendor, claim an unknown udprn
   post 'properties/udprns/claim/:udprn',                        to: 'properties#claim_udprn'
 
-  ### Get the info about agents for a district
-  get 'agents/info/:udprn',                                     to: 'agents#info_agents'
-
-  ### Get the info about agents for a district
-  get ':udprn/valuations/last/details',                         to: 'agents#last_valuation_details'
-
-  ### Edit branch details
-  post 'branches/:id/edit',                                     to: 'agents#edit_branch_details'  
-
-  ### Edit branch details
-  post 'companies/:id/edit',                                    to: 'agents#edit_company_details' 
-
-  ### Edit group details
-  post 'groups/:id/edit',                                       to: 'agents#edit_group_details' 
-
-  ### Edit property details
-  post 'properties/:udprn/edit/details',                        to: 'properties#edit_property_details'
-
-  ### Update property details, attach udprn to crawled properties, send
-  ### vendor email and add assigned agents to properties
-  post 'agents/properties/:udprn/verify',                       to: 'agents#verify_property_through_agent'
-
   ### Verify property details, agent_id from the vendor
   post 'vendors/:udprn/verify/',                                to: 'vendors#verify_property_from_vendor'
-
-  ### Update property details, attach udprn to manually added properties, send
-  ### vendor email and add assigned agents to properties
-  post 'agents/properties/:udprn/manual/verify',                to: 'agents#verify_manual_property_from_agent'
 
   ### Verify the details submiitted by the agent and approve the agent as assigned_agent
   get 'vendors/:udprn/:agent_id/lead/details/verify/:verified', to: 'vendors#verify_details_submitted_from_agent_following_lead'
@@ -289,32 +175,11 @@ Rails.application.routes.draw do
   #### Update basic details of a property by a vendor
   post 'properties/vendor/basic/:udprn/update',                 to: 'properties#update_basic_details_by_vendor'
 
-  ####  Creates a new agent with a randomized password
-  post 'agents/add/:agent_id',                                  to: 'agents#create_agent_without_password'
-
-  ####  Adds credits to agents
-  post 'agents/credits/add',                                    to: 'agents#add_credits'
-
-  ####  Adds credits to agents
-  get 'agents/credits/history',                                 to: 'agents#credit_history'
-
   #### Gives predictions for buyer's name/mobile or email
   get 'buyers/predict',                                         to: 'buyers#predictions'
 
   ### Verify property as green and verified and the agent as assigned agent
   # post 'vendors/udprns/:udprn/agents/:agent_id/verify',         to: 'agents#verify_property_from_agent'
-
-  ### Webhook for stripe monthly agent premium service subscription
-  post 'agents/premium/subscription/process',                   to: 'agents#process_subscription'
-
-  ### Info about the premium cost
-  get 'agents/premium/cost',                                    to: 'agents#info_premium'
-
-  ### Info about the leads generated from manually claimed properties
-  get 'agents/manual/properties/leads',                         to: 'agents#manual_property_leads'
-
-  ### Info about the verification hash(Verified or Not)
-  get 'sessions/hash/verified',                                 to: 'sessions#verification_hash_verified'
 
   ### Quote details api
   get '/property/quotes/details/:id',                           to: 'quotes#quote_details'
@@ -355,44 +220,14 @@ Rails.application.routes.draw do
   ### Count of matching properties(aggregate) not divided by property_status_type
   get '/property/aggregate/supply/:udprn',                      to: 'properties#supply_info_aggregate'
 
-  ### For agents subscribe to a premium service
-  post '/agents/subscribe/premium/service',                     to: 'agents#subscribe_premium_service'
-
-  ### For agents info about premium subscription
-  get '/agents/premium/cost',                                   to: 'agents#info_premium'
-
-  ### For agents callback api from stripe
-  post '/agents/premium/subscription/process',                  to: 'agents#process_subscription'
-
-  ### For agents Stripe agents subscription recurring payment 
-  post '/agents/premium/subscription/remove',                   to: 'agents#remove_subscription'
-
-  ### For agents, get the details of the crawled property
-  get '/agents/details/property/:property_id',                  to: 'agents#crawled_property_details'
-
   ### For vendors, get the details of the quote
   get '/property/quotes/property/:udprn',                       to: 'quotes#property_quote'
-
-  ### For all the users, to reset their password if they have done an email based signup
-  post '/forgot/password',                                      to: 'sessions#forgot_password'
-
-  ### Reset password for any user
-  post '/reset/password',                                       to: 'sessions#reset_password'
-
-  ### Get all the details of an agent who invited the vendor via friends and family
-  get 'properties/agent/details/:udprn',                        to: 'agents#manual_agent_details'
 
   ### Attach the vendor to a manually added property(No basic attributes though)
   post 'properties/manually/added/claim/vendor',                to: 'properties#attach_vendor_to_udprn_manual_for_manually_added_properties'
 
-  ### History of manually claimed properties for an agent
-  get 'agents/properties/history/invited',                      to: 'agents#invited_vendor_history'
-
   ### Auto suggest new properties
   get 'properties/new/suggest',                                 to: 'auto_suggests#suggest_new_properties'
-
-  ### Filter claimed properties
-  post '/properties/filter/claimed',                            to: 'agents#filter_claimed_udprns'
 
   ### Get unclaimed properties for udprn
   get '/properties/unclaimed/search/:postcode',                 to: 'properties#unclaimed_properties_for_postcode'
@@ -415,23 +250,11 @@ Rails.application.routes.draw do
   ### Predict tags for a particular field
   get 'predict/tags',                                           to: 'properties#predict_tags'
 
-  ### Gets the list of invited agents for a branch
-  get 'agents/list/invited/agents',                             to: 'agents#branch_specific_invited_agents'
-
   ### Invite a friend/family to a property
   post 'invite/friends/family/',                                to: 'properties#invite_friends_and_family'
 
-  ### Sends an SMS to a mobile number to check it later
-  post '/send/otp',                                             to: 'sessions#send_otp_to_number'
-
-  ### Properties for an agent which have missing sale price
-  get '/agents/properties/quotes/missing/price',                to: 'agents#missing_sale_price_properties_for_agents'
-
   ### Level specific matrix view search
   get 'matrix/view/level',                                      to: 'matrix_view#matrix_view_level'
-
-  ### Credits chargeable info for an agent for an enquiry
-  get '/agents/inactive/property/credits/:udprn',               to: 'agents#inactive_property_credits'
 
   ### Process premium subscription for users through Stripe
   post '/users/subscribe/premium/service',                      to: 'buyers#subscribe_premium_service'
@@ -466,9 +289,6 @@ Rails.application.routes.draw do
 
   ### Edit basic details of a property claimed by a vendor having an assigned agent already
   post 'claimed/assigned/basic/:udprn/edit',                    to: 'vendors#edit_basic_details_with_an_assigned_agent'
-
-  ### Search for agents companies by name
-  get 'agents/search/companies',                                to: 'agents#search_company'
 
   #####################################################################
   #####################################################################
@@ -507,11 +327,6 @@ Rails.application.routes.draw do
       get 'locations/predict',                       to: 'locations_search#predict'
     end
   end
-
-  ### Facebook login routes
-  get 'auth/:provider/callback',                  to: 'sessions#create'
-  get 'signout',                                  to: 'sessions#destroy',   as: 'signout'
-  resources 'sessions',                           only: [:create, :destroy]
 
 end
 

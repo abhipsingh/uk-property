@@ -392,19 +392,10 @@ class AgentsController < ApplicationController
         response.push(new_row)
         postcodes = postcodes + "," + postcode
       end
-      present_udprns = properties.map(&:udprn).compact
-
-      query = PropertyAddress
-      where_query = postcodes.split(',').map{ |t| t.split(' ').join('') }.map{ |t| "(to_tsvector('simple'::regconfig, postcode)  @@ to_tsquery('simple', '#{t}'))" }.join(' OR ')
-      results = PropertyAddress.connection.execute(query.where(where_query).select([:udprn, :postcode]).limit(1000).to_sql).to_a
+      #query = PropertyAddress
+      #where_query = postcodes.split(',').map{ |t| t.split(' ').join('') }.map{ |t| "(to_tsvector('simple'::regconfig, postcode)  @@ to_tsquery('simple', '#{t}'))" }.join(' OR ')
+      #results = PropertyAddress.connection.execute(query.where(where_query).select([:udprn, :postcode]).limit(1000).to_sql).to_a
       #results = []
-      udprns = results.map{ |t| t['udprn'] }
-      ### TODO: USE OF BULK DETAILS API HERE
-      bulk_results = PropertyService.bulk_details(udprns)
-      nullable_attrs = [:building_name, :building_number, :sub_building_name, :organisation_name, :department_name, :dependent_locality, :thoroughfare_descripion, :dependent_thoroughfare_description]
-      bulk_results.each{ |result| nullable_attrs.each{ |attr| result[attr] ||= nil } }
-      #results = Uk::Property.where(postcode: postcodes.split(',')).where(indexed: false).select([:building_name, :building_number, :sub_building_name, :organisation_name, :department_name, :postcode, :udprn, :post_town, :county]).select('dl as dependent_locality').select('td as thoroughfare_descripion').select('dtd as dependent_thoroughfare_description').limit(1000)
-      logged_postcodes = []
       #Rails.logger.info(results.as_json)
       response.each do |each_crawled_property_data|
         if !each_crawled_property_data['udprn'] 

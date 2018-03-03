@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180224170713) do
+ActiveRecord::Schema.define(version: 20180301181428) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -47,28 +47,30 @@ ActiveRecord::Schema.define(version: 20180224170713) do
   add_index "agent_credit_verifiers", ["agent_id", "entity_id", "is_refund"], name: "agent_credit_unique_refund_idx", unique: true, using: :btree
 
   create_table "agents", force: :cascade do |t|
-    t.string  "name",         limit: 255
-    t.string  "branches_url", limit: 255
+    t.string  "name",              limit: 255
+    t.string  "branches_url",      limit: 255
     t.integer "group_id"
     t.string  "email"
     t.string  "phone_number"
     t.string  "website"
     t.string  "address"
     t.string  "image_url"
-    t.boolean "is_developer",             default: false
+    t.boolean "is_developer",                  default: false
+    t.integer "zoopla_company_id"
+    t.integer "independent"
   end
 
   add_index "agents", ["group_id"], name: "index_agents_on_group_id", using: :btree
   add_index "agents", ["name", "branches_url"], name: "index_agents_on_name_and_branches_url", unique: true, using: :btree
 
   create_table "agents_branches", force: :cascade do |t|
-    t.string  "name",              limit: 255
-    t.string  "property_urls",     limit: 255
+    t.string  "name",                limit: 255
+    t.string  "property_urls",       limit: 255
     t.integer "agent_id"
-    t.string  "address",           limit: 255
+    t.string  "address",             limit: 255
     t.string  "postcode"
     t.string  "district"
-    t.text    "udprns",                        default: [],    array: true
+    t.text    "udprns",                          default: [],    array: true
     t.string  "image_url"
     t.string  "email"
     t.string  "phone_number"
@@ -80,9 +82,13 @@ ActiveRecord::Schema.define(version: 20180224170713) do
     t.jsonb   "opening_hours"
     t.integer "zoopla_branch_id"
     t.string  "domain_name"
-    t.boolean "is_developer",                  default: false
-    t.boolean "locked",                        default: false
+    t.boolean "is_developer",                    default: false
+    t.boolean "locked",                          default: false
     t.date    "locked_date"
+    t.string  "sales_email"
+    t.string  "commercial_email"
+    t.string  "lettings_email"
+    t.boolean "suitable_for_launch"
   end
 
   add_index "agents_branches", ["district"], name: "index_agents_branches_on_district", using: :btree
@@ -621,13 +627,11 @@ ActiveRecord::Schema.define(version: 20180224170713) do
 
   create_table "sale_price_uuid_udprn_maps", id: false, force: :cascade do |t|
     t.integer "udprn"
-    t.string  "uuid"
-    t.integer "property_type", limit: 2
-    t.jsonb   "sale_prices",             default: []
-    t.integer "tenure",        limit: 2
+    t.string  "property_type", limit: 1
+    t.string  "tenure",        limit: 1
+    t.integer "sale_price"
+    t.date    "sale_date"
   end
-
-  add_index "sale_price_uuid_udprn_maps", ["uuid"], name: "index_sale_price_uuid_udprn_maps_on_uuid", unique: true, using: :btree
 
   create_table "sold_properties", force: :cascade do |t|
     t.integer  "udprn",           null: false

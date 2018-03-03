@@ -97,12 +97,15 @@ module EventsHelper
           buyer = PropertyBuyer.find(buyer_id)
           tracking_limit_count = PropertyBuyer::BUYER_TRACKING_LIMIT[type_of_tracking.to_s][buyer.is_premium.to_s]
           total_buyer_trackings = Events::Track.where(type_of_tracking: enum_type_of_tracking, buyer_id: buyer_id).count
-          if total_buyer_trackings <= tracking_limit_count
+          if total_buyer_trackings < tracking_limit_count
             details = PropertyDetails.details(property_id)
             hash_str = Events::Track.send("#{address_attr}_hash", details[:_source])
             tracking_event = Events::Track.new(type_of_tracking: enum_type_of_tracking, hash_str: hash_str, agent_id: agent_id, buyer_id: buyer_id, udprn: property_id)
             tracking_event.premium = buyer.is_premium
             tracking_event.save!
+          else
+            response[:error] = true
+            response[:message] = "You have reached the maximum allowed limit of following #{tracking_limit_count} #{type_of_tracking.to_s.split('_')[0].pluralize}"
           end
         end
       elsif Event::QUALIFYING_STAGE_EVENTS.include?(Event::REVERSE_EVENTS[event])

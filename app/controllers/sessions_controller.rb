@@ -1,7 +1,9 @@
 ### Main controller which handles the requests to show
 ### index pages and the mobile offers page
-
 class SessionsController < ApplicationController
+
+  after_action :compute_sha256_key, only: [ :agent_details, :developer_details, :vendor_details, :buyer_details ]
+
   def create
     # Rails.logger.info(params[:facebook])
     req_params = params[:facebook]
@@ -503,6 +505,13 @@ class SessionsController < ApplicationController
     if session[:user_type] && ['Vendor', 'Buyer', 'Agent', 'Developer'].include?(session[:user_type])
       @current_user ||= session[:user_type].constantize.unscope(where: :is_developer).where(id: session[:user_id]).last
     end
+  end
+
+  def compute_sha256_key
+    key = 'ngZEaYXIvyuMdIGPNhz4AX_GjwQth9uqMOkLkV6S'
+    data = "#{@current_user.id}"
+    digest = OpenSSL::Digest.new('sha256')
+    response.headers['SHA256_HMAC'] = OpenSSL::HMAC.hexdigest(digest, key, data)
   end
 
 end
