@@ -114,20 +114,17 @@ class DevelopersController < ApplicationController
   end
 
   #### Invite the other developers to register
-  #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/developers/invite' -d '{"branch_id" : 9851, "invited_developers" : "\[ \{ \"branch_id\" : 9851, \"company_id\" : 6290, \"email\" : \"test@prophety.co.uk\" \} ]" }'
+  #### curl -XPOST -H "Content-Type: application/json" -H "Authorization: dhshs7261b" 'http://localhost/developers/invite' -d '{"branch_id" : 9851, "invited_developers" : "\[ \{ \"branch_id\" : 9851, \"company_id\" : 6290, \"email\" : \"test@prophety.co.uk\" \} ]" }'
   def invite_developers_to_register
     branch_id = params[:branch_id].to_i
     branch = Agents::Branch.unscope(where: :is_developer).where(is_developer: true, id: branch_id).last
     if branch
-      other_developers = branch.invited_agents
-      invited_developers = JSON.parse(params[:invited_developers]) rescue []
-      branch.invited_agents = invited_developers
+      user_valid_for_viewing?('Developer')
+      other_developers = JSON.parse(params[:invited_developers]) rescue []
+      new_developers = [{email: other_developers.first['email'], entity_id: @current_user.id, branch_id: other_developers.first['branch_id']}]
+      branch.invited_agents = new_developers
       branch.send_emails(is_developer=true)
-      branch.invited_agents = other_developers + invited_developers
-      branch.save
       render json: { message: 'Branch with given emails invited' }, status: 200
-    else
-      render json: { message: 'Branch with given branch_id doesnt exist' }, status: 400
     end
   end
 
@@ -344,17 +341,43 @@ class DevelopersController < ApplicationController
     end
   end
 
+
+  ### Is used to fetch additional details of an agent (registered friends and family and registered agents)
+  ### curl -XGET -H "Authorization: abxsbsk21w1xa" 'http://localhost/developers/additional/details'
+  def additional_developer_details_intercom
+    user_valid_for_viewing?('Developer')
+    details = {}
+    search_params = { agent_id: @current_user.id } 
+    api = PropertySearchApi.new(filtered_params: search_params)
+    api.modify_filtered_params
+    api.apply_filters
+
+    ### THIS LIMIT IS THE MAXIMUM. CAN BE BREACHED IN AN EXCEPTIONAL CASE
+    #api.query[:size] = 10000
+    udprns, status = api.fetch_udprns
+    total_count = api.total_count
+    details[:properties_count] = total_count
+    details[:branch_name] = @current_user.branch.name
+    is_first_agent = (@current_user.class.where(branch_id: @current_user.branch_id).unscope(where: :is_developer).where(is_developer: true).select(:id).order('agents_branches_assigned_agents.id asc').limit(1).first.id == @current_user.id)
+    details[:is_first_developer] = is_first_agent
+    invited_emails = InvitedDeveloper.where(entity_id: @current_user.id).pluck(:email)
+    details[:invited_developers_count]= Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(is_developer: true).where(email: invited_emails).count
+    invited_friends_family_emails = InvitedVendor.where(agent_id: @current_user.id).where(source: Vendor::INVITED_FROM_CONST[:family]).pluck(:email)
+    details[:friends_family_count] = Vendor.where(email: invited_friends_family_emails).count
+    render json: details, status: 200
+ end
+
   private
 
   def user_valid_for_viewing?(klass, klasses=[])
     if !klasses.empty?
       result = nil
       klasses.each do |klass|
-        result ||= AuthorizeApiRequest.call(request.headers, klass).result
+        @current_user ||= AuthorizeApiRequest.call(request.headers, klass).result
       end
-      result
+      @current_user
     else
-      AuthorizeApiRequest.call(request.headers, klass).result
+      @current_user = AuthorizeApiRequest.call(request.headers, klass).result
     end
   end
 

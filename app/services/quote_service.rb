@@ -84,21 +84,22 @@ class QuoteService
   end
 
   #### TODO: Accepting Quote is racy
-  def accept_quote_from_agent(agent_id)
+  def accept_quote_from_agent(agent_id, agent_quote)
     klass = Agents::Branches::AssignedAgents::Quote
     new_status = klass::STATUS_HASH['New']
     won_status = klass::STATUS_HASH['Won']
     lost_status = klass::STATUS_HASH['Lost']
-    quote = klass.where(property_id: @udprn.to_i, agent_id: nil, parent_quote_id: nil).first
-    agent_quote = klass.where(property_id: @udprn.to_i, agent_id: agent_id, parent_quote_id: quote.id).first if quote
-    agent = Agents::Branches::AssignedAgent.where(id: agent_id).last
     response = nil
+    agent = Agents::Branches::AssignedAgent.find(agent_id)
+    quote = klass.where(id: agent_quote.parent_quote_id, parent_quote_id: nil).last
+    Rails.logger.info("#{quote.id}__#{agent_quote.id}__#{agent_id}")
     if quote && quote.status != won_status && agent_quote && agent
+      parent_quote_id = quote.id
       quote.destroy!
       agent_quote.status = won_status
       agent_quote.parent_quote_id = nil
       agent_quote.save!
-      klass.where(property_id: @udprn.to_i).where.not(agent_id: nil).where.not(agent_id: agent_id).update_all(status: lost_status, parent_quote_id: agent_quote.id)
+      klass.where(property_id: @udprn.to_i, parent_quote_id: parent_quote_id).where.not(agent_id: agent_id).update_all(status: lost_status, parent_quote_id: agent_quote.id)
 
       ### Attach the agent to the property and tag the property
       ### enquiries to the agent

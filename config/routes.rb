@@ -288,7 +288,7 @@ Rails.application.routes.draw do
   post 'non/properties',                                        to: 'vendors#post_non_crawled_properties'
 
   ### Edit basic details of a property claimed by a vendor having an assigned agent already
-  post 'claimed/assigned/basic/:udprn/edit',                    to: 'vendors#edit_basic_details_with_an_assigned_agent'
+  post 'properties/claim/assigned/basic/:udprn/edit',           to: 'properties#edit_basic_details_with_an_assigned_agent'
 
   #####################################################################
   #####################################################################

@@ -121,24 +121,16 @@ Rails.application.routes.draw do
   get 'agents/search/companies',                                to: 'agents#search_company'
 
   ### Get all properties quicklinks for the queried agent_id, or branch or group or company id
-  get 'agents/properties',                   to: 'agents#detailed_properties'
+  get 'agents/properties',                                      to: 'agents#detailed_properties'
 
   #### For an agent, claim this property
-  post 'events/property/claim/:udprn',     to: 'agents#claim_property'
+  post 'events/property/claim/:udprn',                          to: 'agents#claim_property'
 
   ### For the agent, when he authorizes also make him attach his properties to the udprn
   get 'agents/:id/udprns/attach/verify',                        to: 'agents#verify_udprn_to_crawled_property'
 
-  ### For all the users, to reset their password if they have done an email based signup
-  post '/forgot/password',                                      to: 'sessions#forgot_password'
+  ### Get additional details of an agent related to invited agents count and friends and family count
+  get 'agents/additional/details',                              to: 'agents#additional_agent_details_intercom'
 
-  ### Reset password for any user
-  post '/reset/password',                                       to: 'sessions#reset_password'
-
-  ### Sends an SMS to a mobile number to check it later
-  post '/send/otp',                                             to: 'sessions#send_otp_to_number'
-
-  ### Destroys a session
-  get 'signout',                                                to: 'sessions#destroy',   as: 'signout'
 end
 

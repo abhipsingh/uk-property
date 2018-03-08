@@ -23,7 +23,7 @@ module TestApp
     config.middleware.insert_after 0, "Rack::Cors" do
       allow do
         origins '*'
-        resource '*', :headers => :any, :methods => [:get, :post, :put, :delete, :options], expose: ['latest_time', 'ETag' ]
+        resource '*', :headers => :any, :methods => [:get, :post, :put, :delete, :options], expose: ['latest_time', 'ETag', 'SHA256_HMAC' ]
       end
     end
     # config.load_paths << "#{Rails.root}/app/services"

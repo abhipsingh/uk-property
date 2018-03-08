@@ -41,5 +41,18 @@ Rails.application.routes.draw do
 
   ### Info about the verification hash(Verified or Not)
   get 'sessions/hash/verified',                                 to: 'sessions#verification_hash_verified'
+
+  ### For all the users, to reset their password if they have done an email based signup
+  post '/forgot/password',                                      to: 'sessions#forgot_password'
+
+  ### Reset password for any user
+  post '/reset/password',                                       to: 'sessions#reset_password'
+
+  ### Sends an SMS to a mobile number to check it later
+  post '/send/otp',                                             to: 'sessions#send_otp_to_number'
+
+  ### Destroys a session
+  get 'signout',                                                to: 'sessions#destroy',   as: 'signout'
+
 end
 

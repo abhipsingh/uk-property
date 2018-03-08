@@ -5,7 +5,8 @@ class AgentsController < ApplicationController
                                              :branch_specific_invited_agents, :credit_history, :subscribe_premium_service, :remove_subscription,
                                              :manual_property_leads, :invited_vendor_history, :missing_sale_price_properties_for_agents, 
                                              :inactive_property_credits, :crawled_property_details, :verify_manual_property_from_agent,
-																						 :claim_property, :matching_udprns,  :list_of_properties ]
+																						 :claim_property, :matching_udprns,  :list_of_properties, :invite_agents_to_register,
+                                             :additional_agent_details_intercom ]
   ### Details of the branch
   ### curl -XGET 'http://localhost/agents/predictions?str=Dyn'
   def search
@@ -72,9 +73,12 @@ class AgentsController < ApplicationController
                                               :password, :provider, :uid, :oauth_token, :oauth_expires_at, :invited_agents]}},
                                     except: [:verification_hash, :invited_agents])
     branch_details[:company_id] = branch.agent_id
+    first_agent_id = Agents::Branches::AssignedAgent.where(branch_id: branch.id).order('id asc').limit(1).first.id
+    branch_details['assigned_agents'] = branch_details['assigned_agents'].select{|t| t['id'].to_i != first_agent_id }
     branch_details[:group_id] = branch.agent.group.id
     branch_details[:invited_agents] = InvitedAgent.where(branch_id: branch_id).select([:email, :created_at]).as_json
     branch_details[:invited_agents].each do |invited_agent|
+      invited_agent.delete('id')
       invited_agent['branch_id'] = branch_id.to_i 
       invited_agent['group_id'] = branch_details[:group_id].to_i
     end
@@ -135,22 +139,13 @@ class AgentsController < ApplicationController
     agent_id = params[:branch_id].to_i
     branch = Agents::Branch.where(id: agent_id).last
     Rails.logger.info("INVITE_AGENTS_#{branch.id}_#{params[:invited_agents]}")
+    agent_id = @current_user.id
     if branch
-      other_agents = params[:invited_agents]
-      invited_agents = branch.invited_agents
-      invited_agents ||= []
-      new_agents = (JSON.parse(other_agents) rescue [])
-      new_agent_emails = new_agents.map{ |t| t['email'] }
-      existing_emails = Agents::Branches::AssignedAgent.where(email: new_agent_emails).pluck(:email).uniq
-      missing_emails = new_agent_emails - existing_emails
+      other_agents = JSON.parse(params[:invited_agents])
+      new_agents = [{email: other_agents.first['email'], entity_id: @current_user.id, branch_id: other_agents.first['branch_id']}]
       branch.invited_agents = new_agents
       branch.send_emails
-      branch.invited_agents = (branch.invited_agents + invited_agents).uniq
-      if branch.save
-        render json: { message: 'Branch with given emails invited' }, status: 200
-      else
-        render json: { message: 'Server error' }, status: 400
-      end
+      render json: { message: 'Branch with given emails invited' }, status: 200
     else
       render json: { message: 'Branch with given branch_id doesnt exist' }, status: 400
     end
@@ -275,6 +270,7 @@ class AgentsController < ApplicationController
     details[:claimed_on] = Time.now.to_s
     details[:vendor_id] = params[:vendor_id].to_i if params[:vendor_id]
     details[:verification_status] = false
+    vendor_id = details[:vendor_id].to_i
     Rails.logger.info("VERIFY_VENDOR_#{udprn}_#{vendor_id}_#{params[:beds].to_i}_#{params[:baths].to_i}")
     response, status = PropertyDetails.update_details(client, udprn, details)
     response['message'] = "Property verification successful." unless status.nil? || status!=200
@@ -431,7 +427,7 @@ class AgentsController < ApplicationController
       branch.email = branch_details[:email] if branch_details[:email] && !branch_details[:email].blank?
       branch.domain_name = branch_details[:domain_name] if branch_details[:domain_name] && !branch_details[:domain_name].blank?
       agents = branch.assigned_agents
-      agents.each { |agent| AgentUpdateWorker.new.perform(agent.id) }
+      agents.each { |agent| AgentUpdateWorker.new.perform_async(agent.id) }
 
       if branch.save!
         render json: { message: 'Branch edited successfully', details: branch.as_json(only: [:name, :address, :phone_number, :website, :image_url, :email, :domain_name]) }, status: 200
@@ -985,6 +981,30 @@ class AgentsController < ApplicationController
 
     render json: results, status: 200
   end
+
+  ### Is used to fetch additional details of an agent (registered friends and family and registered agents)
+  ### curl -XGET -H "Authorization: abxsbsk21w1xa" 'http://localhost/agents/additional/details'
+  def additional_agent_details_intercom
+    details = {}
+    search_params = { agent_id: @current_user.id } 
+    api = PropertySearchApi.new(filtered_params: search_params)
+    api.modify_filtered_params
+    api.apply_filters
+
+    ### THIS LIMIT IS THE MAXIMUM. CAN BE BREACHED IN AN EXCEPTIONAL CASE
+    #api.query[:size] = 10000
+    udprns, status = api.fetch_udprns
+    details[:branch_name] = @current_user.branch.name
+    total_count = api.total_count
+    details[:properties_count] = total_count
+    is_first_agent = (@current_user.class.where(branch_id: @current_user.branch_id).select(:id).order('agents_branches_assigned_agents.id asc').limit(1).first.id == @current_user.id)
+    details[:is_first_agent] = is_first_agent
+    invited_emails = InvitedAgent.where(entity_id: @current_user.id).pluck(:email)
+    details[:invited_agents_count]= Agents::Branches::AssignedAgent.where(email: invited_emails).count
+    invited_friends_family_emails = InvitedVendor.where(agent_id: @current_user.id).where(source: Vendor::INVITED_FROM_CONST[:family]).pluck(:email)
+    details[:friends_family_count] = Vendor.where(email: invited_friends_family_emails).count
+    render json: details, status: 200
+ end
 
   private
 

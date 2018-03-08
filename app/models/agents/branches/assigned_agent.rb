@@ -71,7 +71,7 @@ module Agents
 
         ### District of that branch
         branch = self.branch
-        query = klass.where(district: branch.district)
+        query = klass.where("(district = ? OR (existing_agent_id = ? AND is_assigned_agent='t'))", branch.district, self.id)
         query = query.where('created_at > ?', Time.parse(latest_time)) if latest_time
         max_hours_for_expiry = Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME
 
@@ -79,7 +79,7 @@ module Agents
         #query = query.where("(agent_id = ? AND status = ?) OR (agent_id is null and status = ? AND created_at > ?)", self.id, won_status, new_status, max_hours_for_expiry.ago)
         query = query.where(vendor_id: vendor_id) if buyer_id
         query = query.where(payment_terms: payment_terms_params) if payment_terms_params
-        query = query.where(service_required: services_required) if service_required_param
+        query = query.where(services_required: services_required) if service_required_param
         query = query.where("(agent_id is null and status = ? and expired = 'f') OR ( agent_id = ? and ( expired= 't' OR status = ? OR status = ? ))", new_status, self.id, won_status, lost_status)
 
         if status_param == 'New'
@@ -98,8 +98,8 @@ module Agents
         results = []
 
         if self.is_premium
-          final_results = query.to_a
-          count = final_results.count
+          count = query.count
+          results = query.order('created_at DESC')
         else
           #Rails.logger.info(query.to_sql)
           count = query.count
@@ -108,6 +108,13 @@ module Agents
           page_number -= 1
           results = query.order('created_at DESC').limit(PAGE_SIZE).offset(page_number*PAGE_SIZE)
         end
+
+        property_ids = results.map(&:property_id)
+        winning_quotes = klass.where(status: won_status).where(property_id: property_ids).select([:agent_id, :property_id])
+        agents_property_hash = winning_quotes.reduce({}) { |acc_hash, hash| acc_hash.merge(hash.property_id => hash)}
+        agent_ids = winning_quotes.map(&:agent_id).uniq
+        agents_results = self.class.joins(:branch).where(id: agent_ids).select(['agents_branches_assigned_agents.id', 'agents_branches_assigned_agents.first_name', 'agents_branches.image_url', 'agents_branches_assigned_agents.last_name'])
+        agent_result_hash = agents_results.reduce({}) { |acc_hash, hash| acc_hash.merge(hash.id => hash)}
 
         results.each do |each_quote|
           property_details = PropertyDetails.details(each_quote.property_id)['_source']
@@ -133,7 +140,12 @@ module Agents
           new_row[:created_at] = each_quote.created_at
           new_row[:submitted_on] = agent_quote.created_at.to_s if agent_quote
           new_row[:submitted_on] ||= each_quote.created_at.to_s
+          new_row[:quote_submitted] = !agent_quote.nil?
+
           new_row[:status] = klass::REVERSE_STATUS_HASH[each_quote.status]
+          
+          new_row[:status] = quote_status if quote_status == 'Expired'
+
           new_row[:property_status_type] = property_details['property_status_type']
           #new_row[:activated_on] = property_details['status_last_updated']
           new_row[:activated_on] = each_quote.created_at.to_s
@@ -154,21 +166,12 @@ module Agents
           new_row[:quote_details] = agent_quote.quote_details if agent_quote
           new_row[:quote_details] ||= each_quote.quote_details
           
-          existing_agent = Agents::Branches::AssignedAgent.where(id: each_quote.existing_agent_id).last
-          if existing_agent
-            new_row[:current_agent] = existing_agent.name
-            ### Branch and logo
-            new_row[:assigned_branch_logo] = existing_agent.branch.image_url
-            new_row[:assigned_branch_name] = existing_agent.branch.name
-            new_row[:assigned_agent_id] = existing_agent.id
-          else
-            new_row[:current_agent] = nil
-            ### Branch and logo
-            new_row[:assigned_branch_logo] = nil
-            new_row[:assigned_branch_name] = nil
-            new_row[:assigned_agent_id] = nil
-          end
-          new_row[:current_agent] = self.name
+
+          new_row[:assigned_agent_id] = property_details[:agent_id]
+          new_row[:assigned_agent_name] = property_details[:assigned_agent_first_name].to_s + ' ' + property_details[:assigned_agent_last_name].to_s
+          new_row[:assigned_branch_logo] = property_details[:assigned_agent_branch_logo]
+          new_row[:assigned_branch_name] = property_details[:assigned_agent_branch_name]
+
           new_row['street_view_url'] = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{property_details['udprn']}/fov_120_#{property_details['udprn']}.jpg"
           new_row[:current_valuation] = property_details['current_valuation']
           new_row[:latest_valuation] = property_details['current_valuation']
@@ -176,7 +179,7 @@ module Agents
           ### Historical prices
           new_row[:historical_prices] = property_details['sale_prices']
 
-          if quote_status == 'Won'
+          if (quote_status == 'Won') || property_details[:agent_id].to_i == self.id
             new_row[:vendor_id] = property_details['vendor_id']
             new_row[:vendor_first_name] = property_details['vendor_first_name']
             new_row[:vendor_last_name] = property_details['vendor_last_name']
@@ -193,25 +196,19 @@ module Agents
             new_row['address'] = PropertyDetails.street_address(property_details)
           end
 
-          ### Branch and logo
-          new_row[:assigned_branch_logo] = self.branch.image_url
-          new_row[:assigned_branch_name] = self.branch.name
-          new_row[:assigned_agent_id] = property_details['agent_id']
-
           ### TODO: Fix for multiple lifetimes
           new_row[:quotes_received] = Agents::Branches::AssignedAgents::Quote.where(property_id: property_id).where.not(agent_id: nil).where(expired: false).count
 
           ### TODO: Fix for multiple lifetimes
           #### WINNING AGENT
-          winning_quote = Agents::Branches::AssignedAgents::Quote.where(status: Agents::Branches::AssignedAgents::Quote::STATUS_HASH['Won'], property_id: property_id).last
-          if winning_quote
-            new_row[:winning_agent] = winning_quote.agent.name
-            new_row[:quote_accepted] = true
-          else
-            new_row[:winning_quote] = nil
-            new_row[:quote_price] = nil
-            new_row[:quote_accepted] = false
+          if quote_status == 'Won' || quote_status == 'Lost'
+            winning_agent = agent_result_hash[agents_property_hash[each_quote.property_id].agent_id] rescue nil
+            if winning_agent
+              new_row[:winning_agent_name] = winning_agent.first_name.to_s + ' ' + winning_agent.last_name.to_s
+              new_row[:winning_agent_branch_logo] = winning_agent.image_url
+            end
           end
+
           new_row[:deadline] = (each_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_AGENT_QUOTE_WAIT_TIME).to_s
           new_row[:vendor_deadline_end] = (each_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME).to_s
           new_row[:vendor_deadline_start] = (each_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_AGENT_QUOTE_WAIT_TIME).to_s

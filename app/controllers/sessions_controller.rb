@@ -240,6 +240,11 @@ class SessionsController < ApplicationController
           buyer.save!
           vendor.buyer_id = buyer.id
           vendor.save!
+          invited_udprns = InvitedVendor.where(email: vendor_params['email']).pluck(:udprn)
+          invited_udprns.each do |udprn|
+            update_hash = { vendor_id: vendor.id }
+            PropertyService.new(udprn).update_details(update_hash)
+          end
           command = AuthenticateUser.call(vendor_params['email'], vendor_params['password'], Vendor)
           render json: { auth_token: command.result, details: vendor.as_json } 
         else
@@ -293,6 +298,19 @@ class SessionsController < ApplicationController
       details.delete("oauth_expires_at")
       details.delete("password")
       details.delete("password_digest")
+      search_params = { agent_id: @current_user.id } 
+      api = PropertySearchApi.new(filtered_params: search_params)
+      api.modify_filtered_params
+      api.apply_filters
+
+      ### THIS LIMIT IS THE MAXIMUM. CAN BE BREACHED IN AN EXCEPTIONAL CASE
+      #api.query[:size] = 10000
+      udprns, status = api.fetch_udprns
+      total_count = api.total_count
+      details[:properties_count] = total_count
+      first_agent = @current_user.branch.assigned_agents.unscope(where: :is_developer).where(is_developer: true).order('id asc').first
+      details[:first_agent_invited_agents] = InvitedDeveloper.where(entity_id: first_agent.id).count
+      details[:friends_family_count] = InvitedVendor.where(agent_id: @current_user.id).where(source: Vendor::INVITED_FROM_CONST[:family]).count
       render json: details, status: 200
     end
   end

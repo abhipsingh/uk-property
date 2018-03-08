@@ -229,7 +229,6 @@ class PropertiesController < ActionController::Base
   #### curl -XPOST -H "Authorization: sjbcdcguw" -H "Content-Type: application/json"  'http://localhost/properties/claim/assigned/basic/10966139/edit' -d '{ "beds" : 2, "baths": 190, "receptions" : 34, "property_status_type" : "Green", "dream_price" : 34000, "assigned_agent_id" : 232 }'
   def edit_basic_details_with_an_assigned_agent
     udprn = params[:udprn].to_i
-    client = Elasticsearch::Client.new(host: Rails.configuration.remote_es_host)
     body = {}
     body[:dream_price] = params[:dream_price].to_i
     body[:beds] = params[:beds].to_i
@@ -237,12 +236,13 @@ class PropertiesController < ActionController::Base
     body[:receptions] = params[:receptions].to_i
     body[:property_status_type] = params[:property_status_type] if params[:property_status_type]
     body[:verification_status] = false
-    body[:agent_id] = params[:agent_id].to_i if params[:agent_id]
+    body[:agent_id] = params[:assigned_agent_id].to_i if params[:assigned_agent_id]
+    body[:vendor_id] = @current_user.id
     response = {}
-    response, status = PropertyDetails.update_details(client, udprn, body) if body[:agent_id] > 0
+    response, status = PropertyService.new(udprn).update_details(body) if body[:agent_id] > 0
 
     ### Transfer the enquiries of this property to the agent
-    Event.where(udprn: udprn).where(is_archived: false).update_all(agent_id: params[:agent_id].to_i) if body[:agent_id] > 0
+    Event.where(udprn: udprn).where(is_archived: false).update_all(agent_id: params[:assigned_agent_id].to_i) if body[:agent_id] > 0
     
     if status.to_i ==  200
       render json: { message: 'Sucessfully updated', response: response }, status: 200

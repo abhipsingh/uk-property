@@ -89,7 +89,7 @@ class QuotesController < ApplicationController
   ##### curl -XPOST  -H "Content-Type: application/json" 'http://localhost/quotes/submit/2'
   ##### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/quotes/submit/:quote_id'
   def submit
-    agent = @current_user
+    vendor = @current_user
     #if true
     quote_id = params[:quote_id]
     #### When the quote is won
@@ -106,7 +106,7 @@ class QuotesController < ApplicationController
     elsif (Time.now > (parent_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_AGENT_QUOTE_WAIT_TIME)) && (Time.now < (parent_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME))
       service = QuoteService.new(quote.property_id)
       agent_id = quote.agent_id
-      message = service.accept_quote_from_agent(agent_id)
+      message = service.accept_quote_from_agent(agent_id, quote)
       render json: message, status: 200
     else
       message = 'Current time is not within the time bounds'
@@ -177,7 +177,7 @@ class QuotesController < ApplicationController
         terms_url: quote.terms_url,
         refund_status: quote.refund_status,
         quote_price: quote.compute_price,
-        service_required: Agents::Branches::AssignedAgents::Quote::SERVICES_REQUIRED_HASH[quote.service_required.to_s.to_sym],
+        services_required: Agents::Branches::AssignedAgents::Quote::SERVICES_REQUIRED_HASH[quote.service_required.to_s.to_sym],
         status: Agents::Branches::AssignedAgents::Quote::REVERSE_STATUS_HASH[quote.status],
         parent_quote_id: quote.parent_quote_id
       }
@@ -213,7 +213,7 @@ class QuotesController < ApplicationController
       status = 200
       count = params[:count].to_s == 'true'
       #begin
-        agent = Agents::Branches::AssignedAgent.find(params[:agent_id].to_i)
+        agent = Agents::Branches::AssignedAgent.find(params[:agent_id])
         if !agent.locked
           results, count = agent.recent_properties_for_quotes(params[:payment_terms], params[:services_required], params[:quote_status], params[:hash_str], 'Sale', params[:buyer_id], agent.is_premium, params[:page], count, params[:latest_time])
           response = (!results.is_a?(Fixnum) && results.empty?) ? { quotes: results, message: 'No claims to show', count: count } : { quotes: results, count: count }

@@ -75,5 +75,8 @@ Rails.application.routes.draw do
   ### List of all the invited developers for a developer branch
   get 'developers/list/invited/developers',              to: 'developers#branch_specific_invited_developers'
 
+  ### Get all additional details of a developer
+  get 'developers/additional/details',                   to: 'developers#additional_developer_details_intercom'
+
 end
 

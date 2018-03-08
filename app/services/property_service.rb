@@ -148,12 +148,8 @@ class PropertyService
     property_status_type = details_hash[:property_status_type] || update_hash[:property_status_type]
     property_status_type ||= 'Red'
     mandatory_attrs = nil
-    begin
+
     mandatory_attrs = PropertyService::STATUS_MANDATORY_ATTRS_MAP[property_status_type] + [:address] if property_status_type
-    rescue Exception => e
-      binding.pry
-      p "hello"
-    end
     mandatory_attrs ||= PropertyService::STATUS_MANDATORY_ATTRS_MAP['Red'] + [:address]
 
     ### Populate details completed and percent of attributes completed
