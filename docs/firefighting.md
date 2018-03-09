@@ -253,19 +253,19 @@ There are two indexes in the server
 
 1. `locations` (Stores all the locations for serving auto suggest)
 
-   ```bash
-   curl -XGET 'http://localhost:9200/locations/_mapping'
-   curl -XGET 'http://localhost:9200/locations/_settings'
-   ```
+```bash
+curl -XGET 'http://localhost:9200/locations/_mapping'
+curl -XGET 'http://localhost:9200/locations/_settings'
+```
    
 2. `addresses`(Stores all the core property attributes like beds, baths etc for searching and filtering capabilities)
 
-    ```bash
-       curl -XGET 'http://localhost:9200/addresses/_mapping'
-       curl -XGET 'http://localhost:9200/addresses/_settings'
-    ```
+```bash
+curl -XGET 'http://localhost:9200/addresses/_mapping'
+curl -XGET 'http://localhost:9200/addresses/_settings'
+```
 
-    This index only contains properties which have a property status of either `Green`,`Red` or `Yellow`
+3. This index only contains properties which have a property status of either `Green`,`Red` or `Yellow`
 
 
 ### Docker testing and environment for easy development workflow
@@ -319,7 +319,7 @@ docker load -i app_rails
     - /home/ec2-user/elasticsearch/:/usr/share/elasticsearch/data
 ```
 
-    For each of the volumes listed above, just change the line in such a way that the folder location before `:` is the location of the downloaded data on your machine.
+- For each of the volumes listed above, just change the line in such a way that the folder location before `:` is the location of the downloaded data on your machine.
 
 ```bash
   $CURRENT_FOLDER/elasticsearch/:/usr/share/elasticsearch/data
