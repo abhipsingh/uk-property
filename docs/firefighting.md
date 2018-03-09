@@ -1,24 +1,24 @@
 # Firefighting tools and tips
 
-The application presently lives in a single t2.large AWS instance hosted in ap-south region. 
+The application presently lives in a single r4.large AWS instance hosted in eu-west region. 
 
 The application and its dependencies have been listed below
- - PostgreSQL server(9.5)
+ - PostgreSQL server(10)
  - [Ardb](https://github.com/yinqiwen/ardb) A redis plug and play alternative for low memory environments
  - Elasticsearch (2.4.3)
- - Nginx(Open Resty)
+ - Nginx
  - Unicorn(For creating multiple Ruby processes and listening to UNIX sockets)
  
 ## Access to the instance
 
-Currently, a `pem` file named as `aws-new-mumbai.pem` needs to be shared with anyone trying to access the instance.
+Currently, a `pem` file named as `aws-london.pem` needs to be shared with anyone trying to access the instance.
 
 Also an IAM profile needs to be present to access the [AWS web console](https://704247956245.signin.aws.amazon.com). Signin with your username and password and click on EC2 instances.
 
 If you have the `pem` file, the instance can be accessed using
 
 ```bash
-ssh -i ~/.ssh/aws-new-mumbai.pem ec2-user@13.126.50.230
+ssh -i ~/.ssh/aws-london.pem ec2-user@35.176.93.242
 ```
 
 The home folder has a file named as `instance_init.sh`.
@@ -31,11 +31,13 @@ cd ~/
 ./instance_init.sh
 ```
 
+There is also a script named as `startup.sh` located at `/home/ec2-user/startup.sh` which starts the development server, NGINX server, database server and monitoring server in tmux console. The script is automatically run after every reboot.
+
 To just restart the unicorn process(loads the new ruby application code), simply run
 
 ```bash
 cd ~/uk-property
-./unicorn_init.sh
+./unicorn_init.sh stop && ./unicorn_init.sh start
 ```
 
 ### Instance data info
@@ -59,17 +61,20 @@ Its also possible to create a new instance with the same application and data as
   - Mount those volumes and we can have our data and application back.
   - Install Elasticsearch(2.4.3) and PostgreSQL(9.5)
   - Install Nginx
-  - The original nginx conf resided at the location `/usr/local/openresty/nginx/conf/nginx.conf`. Copy this `conf` file to the relevant nginx conf directory.
+  - The original nginx conf resided at the location `/home/ec2-user/uk-property/default.conf`. Copy this `conf` file to the relevant nginx conf directory.
   - Ardb installation lives in the `mnt3` directory (In future, we'll move to Redis on availability of higher memory instances)
-  - Open `sudo vim /var/lib/pgsql94/data/postgresql.conf` and tweak the `data_directory` to the location containing the backed up postgres data.
+  - Open `sudo vim /mnt3/postgres_data/data/postgresql.conf` and tweak the `data_directory` to the location containing the backed up postgres data.
   - Open `sudo vim /etc/elasticsearch/elasticsearch.yml` and tweak the setting `path.data` and `path.logs` to the relevant data and log location.
   - Start the ardb server(Redis)
+
     ```bash
     cd /mnt3/ardb/
     ./ardb-server
     ```
+
   - You can change ardb's settings by changing the value of the setting `data-dir` located inside the file `/mnt3/ardb/ardb.conf`
   - After all the data locations have been configured correctly, simply restart all the processes by running `instance_init.sh`
+
     ```bash
     ./instance_init.sh ## Location of the file instance_init.sh
     ```
@@ -77,14 +82,17 @@ Its also possible to create a new instance with the same application and data as
 And access the following apis
 
 1) Elasticsearch health monitoring(Needs to be setup properly)
+
 ```bash
 curl locahost:9200
 ```
 
 2) Rails apis
+
 ```bash
 curl localhost
 ```
+
  If everything seems fine, the instance copy has completed successfully.
  
 ### Debugging issues
@@ -109,12 +117,13 @@ The nginx logs live in the directory
 `/var/log/nginx/error.log` and `/var/log/nginx/access.log`
 
 A background job scheduler enabled by [Sidekiq](https://github.com/mperham/sidekiq) can be run using the following command after accessing the rails directory
+
 ```bash
 cd ~/uk-property 
 RAILS_ENV=production bundle exec sidekiq -L /mnt3/rails_logs/sidekiq.log
 ```
 
-There are three worker classes `QuoteExpiryWorker`, `SoldPropertyUpdateWorker`, `TrackingEmailPropertySoldWorker` and `TrackingEmailStatusChangeWorker` which are triggered frequently.
+There are five worker classes `TrackingEmailWorker`, `QuoteExpiryWorker`, `SoldPropertyUpdateWorker`, `TrackingEmailPropertySoldWorker` and `TrackingEmailStatusChangeWorker` which are triggered frequently.
 
 The workers are set to run on `retry: false` mode. So an error in any of the worker code means that the job is not retried. This may manifest itself into other bugs such as the some attribute not being updated etc.
 
@@ -124,12 +133,16 @@ To see the jobs queued currently, go to the rails console
 cd ~/uk-property
 rails c
 ```
+
  and in the rails console
+
 ```ruby
 require 'sidekiq/api'
 r = Sidekiq::ScheduledSet.new
 jobs = r.select{|job| true }
 ```
+
+`sidekiq-scheduler` gem is being used to schedule jobs currently for periodic tasks. The config file for this gem can be found at `/home/ec2-user/uk-property/conf/sidekiq.yml`.
 
 Sometimes the job scheduler might not keep up with the pace of enqueing requests.
 In that situation, its better to kill some jobs to process them later.
@@ -148,6 +161,7 @@ rails s -p 3001
 ```
 
 Now, open any file.e.g.
+
 ```bash
 vim app/models/property_search_api.rb
 ```
@@ -157,6 +171,7 @@ Place debugger at the relevant source line and resolve the issue.
 ### Apis division
 
 There are nearly 200 Apis that exist in the application. They can all be listed by running
+
 ```bash
 rake routes
 ```
@@ -227,6 +242,7 @@ Currently the `Xmx` has been set to `4g`.
 ### Elasticsearch index settings
 
 The index settings can be found at 
+
 ```bash
 cd ~/uk-property
 cat addresses_mapping.json
@@ -266,12 +282,15 @@ You need to have docker installed on your machine for this. We have four docker 
   * [Elasticsearch data](https://s3.eu-west-2.amazonaws.com/prophety-docker-images-dev/es.tar.gz)
 - Please ensure that you have disk greater than `15G` in the folder you are downloading.
 - Uncompress the data files for `elastic`, `postgres` and `ardb` by using 
+
    ```bash
    tar xf es.tar.gz
    tar xf postgres_data.tar.gz
    tar xf ardb_data.tar.gz
    ```
+
 - Load downloaded docker images by using the following commands
+
     ```bash
     docker load -i es
     docker load -i ardb_cache
@@ -281,6 +300,7 @@ You need to have docker installed on your machine for this. We have four docker 
 
 - Open [`docker-compose.yml`](https://bitbucket.org/stephenkassi/uk-property/src/c898129c484ac75c7f510aba725640257a42c959/docker-compose.yml?at=master&fileviewer=file-view-default) file present in the root of the application.
 - Configure the line which looks like the following for each service `postgres94`, `ardb_cache`, `es24` and `main_app`
+
     ```yaml
      volumes:
        - /home/ec2-user/postgres_data/postgres_data/data/:/postgres_data/data/postgres_data/data
@@ -295,7 +315,9 @@ You need to have docker installed on your machine for this. We have four docker 
     volumes:
       - /home/ec2-user/elasticsearch/:/usr/share/elasticsearch/data
     ```
+
     For each of the volumes listed above, just change the line in such a way that the folder location before `:` is the location of the downloaded data on your machine.
+
     ```bash
     $CURRENT_FOLDER/elasticsearch/:/usr/share/elasticsearch/data
     ```
@@ -307,15 +329,18 @@ You need to have docker installed on your machine for this. We have four docker 
    * `host: postgres94` in the `yaml` file for each `development`, `test` and `production` environment.
  
 - Finally, the server can be started by using
+
    ```bash
    docker-compose up
    ```
    
 - Test the api call by executing the following command
+
    ```bash
    curl -XGET 'http://localhost:3001//addresses/predictions?str=Liverpool'
    ```
 - Also the server can be closed by using
+
    ```bash
    docker-compose down
    ```
