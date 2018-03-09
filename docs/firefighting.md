@@ -252,16 +252,19 @@ cat locations_mapping.json
 There are two indexes in the server
 
 1. `locations` (Stores all the locations for serving auto suggest)
+
    ```bash
    curl -XGET 'http://localhost:9200/locations/_mapping'
    curl -XGET 'http://localhost:9200/locations/_settings'
    ```
    
 2. `addresses`(Stores all the core property attributes like beds, baths etc for searching and filtering capabilities)
+
     ```bash
        curl -XGET 'http://localhost:9200/addresses/_mapping'
        curl -XGET 'http://localhost:9200/addresses/_settings'
     ```
+
     This index only contains properties which have a property status of either `Green`,`Red` or `Yellow`
 
 
@@ -283,44 +286,44 @@ You need to have docker installed on your machine for this. We have four docker 
 - Please ensure that you have disk greater than `15G` in the folder you are downloading.
 - Uncompress the data files for `elastic`, `postgres` and `ardb` by using 
 
-   ```bash
-   tar xf es.tar.gz
-   tar xf postgres_data.tar.gz
-   tar xf ardb_data.tar.gz
-   ```
+```bash
+tar xf es.tar.gz
+tar xf postgres_data.tar.gz
+tar xf ardb_data.tar.gz
+```
 
 - Load downloaded docker images by using the following commands
 
-    ```bash
-    docker load -i es
-    docker load -i ardb_cache
-    docker load -i app_db
-    docker load -i app_rails
-    ```
+```bash
+docker load -i es
+docker load -i ardb_cache
+docker load -i app_db
+docker load -i app_rails
+```
 
 - Open [`docker-compose.yml`](https://bitbucket.org/stephenkassi/uk-property/src/c898129c484ac75c7f510aba725640257a42c959/docker-compose.yml?at=master&fileviewer=file-view-default) file present in the root of the application.
 - Configure the line which looks like the following for each service `postgres94`, `ardb_cache`, `es24` and `main_app`
 
-    ```yaml
-     volumes:
-       - /home/ec2-user/postgres_data/postgres_data/data/:/postgres_data/data/postgres_data/data
-    ```
+```yaml
+ volumes:
+    - /home/ec2-user/postgres_data/postgres_data/data/:/postgres_data/data/postgres_data/data
+```
     
-    ```yaml
-    volumes:
-        - /home/ec2-user/ardb_data/rocksdb/:/var/lib/ardb/data/rocksdb/
-    ```
+```yaml
+ volumes:
+   - /home/ec2-user/ardb_data/rocksdb/:/var/lib/ardb/data/rocksdb/
+```
     
-    ```yaml
-    volumes:
-      - /home/ec2-user/elasticsearch/:/usr/share/elasticsearch/data
-    ```
+```yaml
+  volumes:
+    - /home/ec2-user/elasticsearch/:/usr/share/elasticsearch/data
+```
 
     For each of the volumes listed above, just change the line in such a way that the folder location before `:` is the location of the downloaded data on your machine.
 
-    ```bash
-    $CURRENT_FOLDER/elasticsearch/:/usr/share/elasticsearch/data
-    ```
+```bash
+  $CURRENT_FOLDER/elasticsearch/:/usr/share/elasticsearch/data
+```
     
 - Now, you need to configure `config/application.yml` file in the rails application folder to assign the parameters
   * Key `ELASTICSEARCH_HOST` : Value `es24` for each `development`, `test` and `production` environment.
@@ -330,20 +333,21 @@ You need to have docker installed on your machine for this. We have four docker 
  
 - Finally, the server can be started by using
 
-   ```bash
-   docker-compose up
-   ```
+```bash
+docker-compose up
+```
    
 - Test the api call by executing the following command
 
-   ```bash
-   curl -XGET 'http://localhost:3001//addresses/predictions?str=Liverpool'
-   ```
+```bash
+curl -XGET 'http://localhost:3001//addresses/predictions?str=Liverpool'
+```
+
 - Also the server can be closed by using
 
-   ```bash
-   docker-compose down
-   ```
+```bash
+docker-compose down
+```
   
   #### PLEASE NOTE
   - This docker image setup doesn't contain the full production db clone but is sufficient for a quick run on any machine. In case the production db clone is required, the postgres data on production needs to be cloned to the machine.
