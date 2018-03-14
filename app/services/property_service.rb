@@ -175,6 +175,7 @@ class PropertyService
 
   def create_lead_for_local_branches(district, property_id, vendor_id)
     Agents::Branches::AssignedAgents::Lead.create(district: district, property_id: udprn, vendor_id: vendor_id)
+    AgentVendorLeadNotifyWorker.perform_async(property_id)
   end
 
   def claim_new_property(agent_id)
@@ -558,8 +559,8 @@ class PropertyService
   end
 
   def self.send_tracking_email_to_tracking_buyers(update_hash, property_details)
-    matching_keys = PropertyService::BUYER_MATCH_ATTRS && update_hash.keys.map(&:to_sym)
-    TrackingEmailWorker.perform_async(update_hash, property_details, matching_keys) if !matching_keys.empty?
+    property_status_type_changed = (update_hash[:property_status_type] != property_details[:property_status_type])
+    TrackingEmailWorker.new.perform(update_hash, property_details) if property_status_type_changed
   end
 
   def self.update_full_ardb_db

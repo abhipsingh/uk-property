@@ -1,0 +1,8 @@
+{
+  "Template": {
+    "TemplateName": "vendor_upgrade_premium_notify_vendor",
+    "SubjectPart": "Prophety® - Thank you for upgrading!",
+    "HtmlPart": "<!DOCTYPE html><p>Hi {{vendor_first_name}}<p><strong>Thank you for upgrading to our 'Premium' Account.</strong><p><a href=http://prophety.co.uk/ ><strong>Login</strong></a> now to access these special features.  <p>Sent from Prophety®",
+    "TextPart": "Hi {{vendor_first_name}}Thank you for upgrading to our 'Premium' Account.Login now to access these special features.  Sent from Prophety®"
+  }
+}

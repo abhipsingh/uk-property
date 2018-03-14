@@ -106,7 +106,12 @@ class QuotesController < ApplicationController
     elsif (Time.now > (parent_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_AGENT_QUOTE_WAIT_TIME)) && (Time.now < (parent_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME))
       service = QuoteService.new(quote.property_id)
       agent_id = quote.agent_id
+      property_id = quote.property_id
       message = service.accept_quote_from_agent(agent_id, quote)
+
+      ### Send email to the agent who has won and who has lost the quote
+      VendorAcceptQuoteNotifyAgentWorker.perform_async(property_id, agent_id)
+
       render json: message, status: 200
     else
       message = 'Current time is not within the time bounds'
@@ -181,6 +186,14 @@ class QuotesController < ApplicationController
         status: Agents::Branches::AssignedAgents::Quote::REVERSE_STATUS_HASH[quote.status],
         parent_quote_id: quote.parent_quote_id
       }
+      
+      ### Merge aggregate stats
+      agent_api = AgentApi.new(nil, quote.agent_id)
+      agent_stats = {}
+      agent_api.populate_aggregate_stats(agent_stats)
+      agent_stats
+      hash.merge!(agent_stats)
+
       agent = Agents::Branches::AssignedAgent.where(id: quote.agent_id).select([:first_name, :last_name, :image_url, :branch_id]).last
       hash[:agent_first_name] = agent.first_name
       hash[:agent_last_name] = agent.last_name

@@ -4,7 +4,7 @@ class AgentMailer < ApplicationMailer
     @url  = 'http://example.com/login'
     @agent_present = !Agents::Branches::AssignedAgent.where(email: @user.agent_email).last.nil?
     @first_agent = (Agents::Branches::AssignedAgent.where(branch_id: @user.id).count == 0)
-    @link = "http://sleepy-mountain-35147.herokuapp.com/auth?email=#{@user.agent_email}&verification_hash=#{@user.verification_hash}&branch_id=#{@user.id}&company_id=#{@user.agent_id}&group_id=#{@user.agent.group_id}&agent_present=#{@agent_present}&user_type=Agent&first_agent=#{@first_agent}"
+    @link = "http://prophety-test.herokuapp.com/auth?email=#{@user.agent_email}&verification_hash=#{@user.verification_hash}&branch_id=#{@user.id}&company_id=#{@user.agent_id}&group_id=#{@user.agent.group_id}&agent_present=#{@agent_present}&user_type=Agent&first_agent=#{@first_agent}"
     mail(to: user.agent_email, subject: "Welcome to Prophety")
   end
 

@@ -64,7 +64,6 @@ module Api
       #### Details Api for a udprn
       #### curl -XGET 'http://localhost/api/v0/properties/details/10968961'
       def details
-        user_valid_for_viewing?(['Agent', 'Vendor', 'Buyer'])
         user = @current_user
         udprn = params[:property_id].to_i
         details_json = PropertyDetails.details(udprn)[:_source]
@@ -73,7 +72,7 @@ module Api
         if true
           details_json['photo_urls'] =  process_image(details_json)
           details_json['description'] = PropertyService.get_description(udprn)
-          if user.class.to_s == 'Agents::Branches::AssignedAgent'  && details_json[:agent_id].to_i == user.id
+          if user && ((user.class.to_s == 'Agents::Branches::AssignedAgent'  && details_json[:agent_id].to_i == user.id) || (user.id == details_json[:vendor_id].to_i && user.class.to_s == 'Vendor' ))
             render json: { details: details_json }, status: 200
           else
             details_json['percent_completed'] = nil

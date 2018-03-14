@@ -109,7 +109,13 @@ class BuyersController < ActionController::Base
         description: "Ads amount charged for premium access for buyer id, #{params[:buyer_id]} on #{Time.now.to_s}",
         currency: 'GBP'
       )
+
+      ### Upgrade to premium
       PropertyBuyer.find(buyer.id).update_attributes(is_premium: true)
+
+      ### Notify a vendor that a vendor has upgraded to premium
+      VendorUpgradePremiumNotifyVendorWorker.perform_async(buyer.vendor_id)
+
       message = 'Premium access for trackings enabled'
     rescue Stripe::CardError => e
       Rails.logger.info("STRIPE_CARD_ERROR_#{buyer_id}: #{e.message}")
@@ -158,7 +164,7 @@ class BuyersController < ActionController::Base
         search_hashes = Events::Track.where(buyer_id: buyer.id).where(type_of_tracking: Events::Track::TRACKING_TYPE_MAP[type_of_tracking]).pluck(:hash_str).compact
         search_hashes.each do |search_hash|
           ### TODO: Fix this. Use internal methods rather than calling the api
-          body = Oj.load(Net::HTTP.get(URI.parse(URI.encode("http://52.66.124.42/api/v0/properties/search?hash_str=#{search_hash}")))) + body
+          body = Oj.load(Net::HTTP.get(URI.parse(URI.encode("http://api.prophety.co.uk/api/v0/properties/search?hash_str=#{search_hash}")))) + body
         end
         render json: {search_hashes: search_hashes, property_details: body}
       end
@@ -191,6 +197,10 @@ class BuyersController < ActionController::Base
       buyer.stripe_customer_id = customer.id
       buyer.premium_expires_at = 1.month.from_now.to_date
       buyer.save!
+
+      ### Notify a vendor that a vendor has upgraded to premium
+      VendorUpgradePremiumNotifyVendorWorker.perform_async(buyer.vendor_id)
+
       render json: { message: 'Created a monthly subscription for premium service' }, status: 200
     rescue JSON::ParserError => e
       # Invalid payload

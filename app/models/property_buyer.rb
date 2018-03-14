@@ -112,7 +112,7 @@ class PropertyBuyer < ActiveRecord::Base
       VendorMailer.welcome_email_from_a_friend(self).deliver_now
     end
 
-    ### http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=<%=@user.verification_hash%>&udprn=<%=@user.email_udprn%>&email=<%=@user.vendor_email%>
+    ### http://prophety-test.herokuapp.com/auth?verification_hash=<%=@user.verification_hash%>&udprn=<%=@user.email_udprn%>&email=<%=@user.vendor_email%>
   end
 
   def create_hash(vendor_email, udprn)
@@ -158,12 +158,12 @@ class PropertyBuyer < ActiveRecord::Base
     super(:except => [:password, :password_digest])
   end
 
-  def send_email_for_a_matching_property(details, tracking_date, type_of_tracking)
+  def send_email_for_a_matching_property(details, tracking_date, type_of_tracking, buyer_id, update_hash)
     first_name = self.first_name
     last_name = self.last_name
     email = self.email
     details[:address] = PropertyDetails.address(details)
-    BuyerMailer.send_email_for_a_matching_property(first_name, last_name, email, details, tracking_date, type_of_tracking).deliver_now
+    BuyerMailer.send_email_for_a_matching_property(first_name, last_name, email, details, tracking_date, type_of_tracking, buyer_id, update_hash).deliver_now
   end
 end
 

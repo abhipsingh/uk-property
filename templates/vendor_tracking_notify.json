@@ -1,0 +1,8 @@
+{
+  "Template": {
+    "TemplateName": "vendor_tracking_notify",
+    "SubjectPart": "Prophety® - Someone started following your property ",
+    "HtmlPart": "<!DOCTYPE html> <html> <head> <title></title> </head> <body> <p>Hi {{vendor_first_name}}</p><p>Someone started following your property:</p><ul> <li> <p><strong>{{vendor_property_address}}</strong></p></li></ul> <p><a href='http: //prophety.co.uk/login'>Login</a> to your Prophety® Account or visit our <a href='http://help.prophety.co.uk'>help desk</a> for more information.</p><p>Sent from Prophety®</p></body> </html>",
+    "TextPart": "Hi {{vendor_first_name}} Someone started following your property:  {{vendor_property_address}} Login to your Prophety® Account or visit our help desk for more information.Sent from Prophety®"
+  }
+}

@@ -71,7 +71,7 @@ module Agents
 
         ### District of that branch
         branch = self.branch
-        query = klass.where("(district = ? OR (existing_agent_id = ? AND is_assigned_agent='t'))", branch.district, self.id)
+        query = klass.where("(district = ? OR (existing_agent_id = ?))", branch.district, self.id)
         query = query.where('created_at > ?', Time.parse(latest_time)) if latest_time
         max_hours_for_expiry = Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME
 
@@ -125,7 +125,7 @@ module Agents
           if each_quote.status == won_status
             quote_status = 'Won'
           elsif each_quote.status == new_status && each_quote.agent_id.nil? && each_quote.expired == false
-            agent_quote = Agents::Branches::AssignedAgents::Quote.where(agent_id: self.id).where(property_id: each_quote.property_id).where(expired: false).last
+            agent_quote = Agents::Branches::AssignedAgents::Quote.where(agent_id: self.id).where(property_id: each_quote.property_id).where(expired: false).where(status: new_status).last
             !agent_quote.nil? ? quote_status = 'Pending' : quote_status = 'New'
           elsif each_quote.expired
             quote_status = 'Expired'
@@ -430,7 +430,7 @@ module Agents
         self.assigned_agent_present = assigned_agent_present
         self.alternate_agent_email = alternate_agent_email
         VendorMailer.welcome_email(self).deliver_now
-        ### http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=<%=@user.verification_hash%>&udprn=<%=@user.email_udprn%>&email=<%=@user.vendor_email%>
+        ### http://prophety-test.herokuapp.com/auth?verification_hash=<%=@user.verification_hash%>&udprn=<%=@user.email_udprn%>&email=<%=@user.vendor_email%>
       end
 
       def create_hash(vendor_email, udprn)

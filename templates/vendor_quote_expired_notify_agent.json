@@ -1,0 +1,8 @@
+{
+  "Template": {
+    "TemplateName": "vendor_quote_expired_notify_agent",
+    "SubjectPart": "Prophety® - Your quote expired...",
+    "HtmlPart": "<!DOCTYPE html><p>Hi {{agent_first_name}}<p><strong>Your </strong><strong>quote expired.</strong><p>This means the vendor did not accept a quote from anyone so there is no winning agent.<p><a href=http://prophety.co.uk/ ><strong>Login</strong></a> to your Prophety® Agent Account to find out more. <p>Sent from Prophety®",
+    "TextPart": "Hi {{agent_first_name}}Your quote expired.This means the vendor did not accept a quote from anyone so there is no winning agent.Login to your Prophety® Agent Account to find out more. Sent from Prophety®"
+  }
+}

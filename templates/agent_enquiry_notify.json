@@ -1,0 +1,8 @@
+{
+  "Template": {
+    "TemplateName": "agent_enquiry_notify",
+    "SubjectPart": "Prophety® - - Someone has made an enquiry about your property",
+    "HtmlPart": "<!DOCTYPE html><title></title><p>Hi {{agent_first_name}}<p>Someone has made an <strong>enquiry</strong> for this property:<ul><li><p><strong>{{vendor_property_address}}</strong></ul><p>Login to your Prophety® Agent Account or visit our <a href=http://help.prophety.co.uk><strong>help desk</strong></a> for more information.<p>Sent from Prophety®",
+    "TextPart": "Hi {{agent_first_name}} Someone started following your property:  {{vendor_property_address}} Login to your Prophety® Account or visit our help desk for more information.Sent from Prophety®"
+  }
+}

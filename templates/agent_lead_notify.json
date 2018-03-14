@@ -1,0 +1,8 @@
+{
+  "Template": {
+    "TemplateName": "agent_lead_notify",
+    "SubjectPart": "Prophety® - You have a new lead!",
+    "HtmlPart": "<!DOCTYPE html><title></title><p>Hi {{agent_first_name}}<p><strong>You have a new lead! </strong><p>Login to your Prophety® Agent Account quickly to claim it before another agent does.<p>Sent from Prophety®",
+    "TextPart": "Hi {{agent_first_name}}You have a new lead! Login to your Prophety® Agent Account quickly to claim it before another agent does.Sent from Prophety®\nHi {{agent_first_name}}You have a new lead! Login to your Prophety® Agent Account quickly to claim it before another agent does.Sent from Prophety"
+  }
+}

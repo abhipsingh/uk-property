@@ -81,6 +81,9 @@ module EventsHelper
         Events::EnquiryStatProperty.new(udprn: property_id).update_enquiries(event)
         #Events::EnquiryStatBuyer.new(buyer_id: buyer_id).update_enquiries(event) if !buyer_id.nil?
 
+        ### Send emails to vendor and agent if the enquiry is new
+        AgentVendorEnquiryNotifyWorker.perform_async(property_id)
+
         ### Clear the cache. List all cached methods which has cache key as agent_id/udprn
         ardb_client = Rails.configuration.ardb_client
         ardb_client.del("cache_#{agent_id}_agent_new_enquiries") if agent_id
@@ -100,9 +103,26 @@ module EventsHelper
           if total_buyer_trackings < tracking_limit_count
             details = PropertyDetails.details(property_id)
             hash_str = Events::Track.send("#{address_attr}_hash", details[:_source])
-            tracking_event = Events::Track.new(type_of_tracking: enum_type_of_tracking, hash_str: hash_str, agent_id: agent_id, buyer_id: buyer_id, udprn: property_id)
+            existing_tracking_event = Events::Track.unscope(where: :active).where(hash_str: hash_str, buyer_id: buyer_id).last
+            tracking_event = nil
+
+            if existing_tracking_event
+              tracking_event = existing_tracking_event
+              tracking_event.active = true
+            else
+              tracking_event = Events::Track.new(type_of_tracking: enum_type_of_tracking, hash_str: hash_str, agent_id: agent_id, buyer_id: buyer_id, udprn: property_id)
+            end
+
             tracking_event.premium = buyer.is_premium
             tracking_event.save!
+
+            ### Send tracking email to the vendor
+            Rails.logger.info("#{details[:_source][:vendor_id]}___#{property_id}__#{type_of_tracking}")
+            if details[:_source][:vendor_id].to_i > 0
+              Rails.logger.info("Heloooo")
+              TrackingVendorNotifyWorker.perform_async(details[:_source][:vendor_id].to_i, details[:_source][:agent_id].to_i, property_id, type_of_tracking.to_s)
+            end
+
           else
             response[:error] = true
             response[:message] = "You have reached the maximum allowed limit of following #{tracking_limit_count} #{type_of_tracking.to_s.split('_')[0].pluralize}"
@@ -126,6 +146,9 @@ module EventsHelper
               enquiries = Enquiries::PropertyService.process_enquiries_result(original_enquiries)
               response[:enquiries] = enquiries
             end
+            ### Send emails to tracking buyers
+            details = PropertyDetails.details(property_id)
+            PropertyService.send_tracking_email_to_tracking_buyers({ offer_made: true }, details)
           end
           response[:enquiries] ||= []
   

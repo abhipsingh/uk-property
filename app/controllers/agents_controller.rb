@@ -579,6 +579,10 @@ class AgentsController < ApplicationController
       agent.stripe_customer_id = customer.id
       agent.premium_expires_at = 1.month.from_now.to_date
       agent.save!
+
+      ### Notify a vendor that a vendor has upgraded to premium
+      AgentUpgradePremiumNotifyAgentWorker.perform_async(agent.id)
+
       render json: { message: 'Created a monthly subscription for premium service' }, status: 200
     rescue JSON::ParserError => e
       # Invalid payload

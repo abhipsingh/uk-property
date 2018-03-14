@@ -1,0 +1,8 @@
+{
+  "Template": {
+    "TemplateName": "vendor_accept_quote_notify_agent",
+    "SubjectPart": "Prophety® - Congratulations, your quote was accepted!",
+    "HtmlPart": "<!DOCTYPE html><p>Hi {{agent_first_name}}<p><strong>Congratulations, a vendor accepted your quote for the following property:</strong><ul><li><strong>{{vendor_property_address}} </strong></ul><p><a href=http://prophety.co.uk/ ><strong>Login</strong></a> to your Prophety® Agent Account to see your new instruction. <p>Well done.<p>Sent from Prophety®",
+    "TextPart": "Hi {{agent_first_name}}Congratulations, a vendor accepted your quote for the following property:{{vendor_property_address}} Login to your Prophety® Agent Account to see your new instruction. Well done.Sent from Prophety®"
+  }
+}

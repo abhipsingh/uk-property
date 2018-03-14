@@ -1,0 +1,8 @@
+{
+  "Template": {
+    "TemplateName": "vendor_quote_notify",
+    "SubjectPart": "Prophety® - You have received a new quote!",
+    "HtmlPart": "<!DOCTYPE html><p>Hi {{vendor_first_name}}<p>You have received a <strong>new quote </strong>from an agent to sell the following property:<ul><li><strong>{{vendor_property_address}}</strong></ul><p><a href=http://prophety.co.uk/ ><strong>Login</strong></a> to your Prophety® Account to view it (and compare it to others), before deciding which quote (if any) to accept.<p>Sent from Prophety®",
+    "TextPart": "Hi {{vendor_first_name}}You have received a new quote from an agent to sell the following property:{{vendor_property_address}}Login to your Prophety® Account to view it (and compare it to others), before deciding which quote (if any) to accept.Sent from Prophety®"
+  }
+}

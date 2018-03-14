@@ -20,7 +20,7 @@ module PepoHelper
     end
     p qry_params.merge(extra_qry_params).to_query
     p uri.path
-    #res = http.post(uri.path, qry_params.merge(extra_qry_params).to_query)
+    res = http.post(uri.path, qry_params.merge(extra_qry_params).to_query)
     body = JSON.parse(res.body)
     puts "API RESPONSE:: #{body}"
   end

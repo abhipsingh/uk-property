@@ -1,0 +1,8 @@
+{
+  "Template": {
+    "TemplateName": "vendor_ads_buy_notify_vendor",
+    "SubjectPart": "Prophety® - Thank you for advertising",
+    "HtmlPart": "<!DOCTYPE html><p>Thank you for advertising on Prophety®.<p>The following property is now being promoted on the site:<ul><li><strong>{{vendor_property_address}}</strong></ul><p>Sent from Prophety®",
+    "TextPart": "Thank you for advertising on Prophety®.The following property is now being promoted on the site:{{vendor_property_address}}Sent from Prophety®"
+  }
+}

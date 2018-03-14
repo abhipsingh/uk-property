@@ -391,7 +391,7 @@ class SessionsController < ApplicationController
       salt_str = email
       verification_hash = BCrypt::Password.create salt_str
       VerificationHash.create(hash_value: verification_hash, email: email, entity_type: 'PropertyBuyer')
-      email_link = 'http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=' + verification_hash  + '&user_type=Buyer'
+      email_link = 'http://prophety-test.herokuapp.com/auth?verification_hash=' + verification_hash  + '&user_type=Buyer'
       email_link += '&udprn=' + params[:udprn].to_i if params[:udprn]
       email_link += '&rent=true' if params[:rent].to_s == 'true'
       params_hash = { verification_hash: verification_hash, email: email, link: email_link }
@@ -410,7 +410,7 @@ class SessionsController < ApplicationController
       salt_str = email
       verification_hash = BCrypt::Password.create salt_str
       VerificationHash.create(hash_value: verification_hash, email: email, entity_type: 'Vendor')
-      email_link = 'http://sleepy-mountain-35147.herokuapp.com/auth?verification_hash=' + verification_hash + '&user_type=Vendor'
+      email_link = 'http://prophety-test.herokuapp.com/auth?verification_hash=' + verification_hash + '&user_type=Vendor'
       params_hash = { verification_hash: verification_hash, email: email, link: email_link }
       VendorMailer.signup_email(params_hash).deliver_now
       render json: { message:  'Please check your email id and click on the link sent'}, status: 200

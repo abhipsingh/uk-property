@@ -62,18 +62,11 @@ module Agents
       
       branch_stats[:for_sale] = all_agent_stats.inject(0){|h,k| h+=k[:for_sale] }
       branch_stats[:sold] = all_agent_stats.inject(0){|h,k| h+=k[:sold] }
+      branch_stats[:total_count] = all_agent_stats.inject(0){|h,k| h+=k[:total_count] }
+      branch_stats[:green_property_count] = all_agent_stats.inject(0){|h,k| h+=k[:green_property_count] }
+      branch_stats[:amber_red_property_count] = all_agent_stats.inject(0){|h,k| h+=k[:amber_red_property_count] }
+      branch_stats[:aggregate_valuation] = all_agent_stats.inject(0){|h,k| h+=k[:aggregate_valuation] }
 
-      keys = [:aggregate_sales, :avg_no_of_days_to_sell, :avg_achieved_more_than_valuation_count, :avg_increase_in_price, :avg_percent_of_first_valuation,
-              :avg_percent_of_last_valuation]
-
-      keys.each do |key|
-        if all_agent_stats.count == 0
-          branch_stats[key] = nil
-        else
-          branch_stats[key] = ((all_agent_stats.inject(0.0){|h,k| h+=k[key].to_f }).to_f/all_agent_stats.count).round(2)
-        end
-        branch_stats[key] = nil if branch_stats[key].to_i == 0
-      end
       branch_stats
     end
 

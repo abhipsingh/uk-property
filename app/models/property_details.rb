@@ -194,6 +194,7 @@ class PropertyDetails
     update_hash[:status_last_updated] = Time.now.to_s[0..Time.now.to_s.rindex(" ")-1] if property_updated_cond
 
     details = PropertyService.bulk_details([udprn]).first
+    old_details = details.deep_dup
     update_hash[:is_new_home] = update_hash[:not_yet_built] if update_hash[:not_yet_built]
     last_property_status_type = details[:property_status_type]
 
@@ -230,7 +231,7 @@ class PropertyDetails
       end
 
       ### Send tracking emails for matching buyers aynschronously
-      PropertyService.send_tracking_email_to_tracking_buyers(update_hash, details)
+      PropertyService.send_tracking_email_to_tracking_buyers(update_hash, old_details)
 
       PropertySearchApi::ES_ATTRS.each { |key| es_hash[key] = details[key] if details[key] }
       PropertySearchApi::ADDRESS_LOCALITY_LEVELS.each { |key| es_hash[key] = details[key] if details[key] }
@@ -263,7 +264,7 @@ class PropertyDetails
     end
 
     ### If the property has been sold
-    TrackingEmailPropertySoldWorker.perform_async(old_hash) if new_hash[:sold]
+    #TrackingEmailPropertySoldWorker.perform_async(old_hash) if new_hash[:sold]
 
     ### If assigned agent has been changed
     if previous_agent_id

@@ -353,3 +353,4 @@ docker-compose down
   - This docker image setup doesn't contain the full production db clone but is sufficient for a quick run on any machine. In case the production db clone is required, the postgres data on production needs to be cloned to the machine.
 
 
+

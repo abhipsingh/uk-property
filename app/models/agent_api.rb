@@ -56,9 +56,32 @@ class AgentApi
                                     .select("string_agg(date(created_at)::text, '|') as date")
                                     .group(:udprn)
     all_property_count = PropertyEvent.where(agent_id: @agent_id).count
+
+    
+    ### Calculate agent properties
+    statuses = ['Green', 'Red' , 'Amber']
+    all_counts = {}
+    statuses.each do |status|
+      search_params = { agent_id: @agent_id.to_i, property_search_type: status }
+      api = PropertySearchApi.new(filtered_params: search_params)
+      count, status = api.matching_property_count
+      all_counts[status] = count if status.to_i == 200
+    end
+    
+    ### Calculate current valuations of all agent properties
+    search_params = { agent_id: @agent_id.to_i, results_per_page: 200 }
+    api = PropertySearchApi.new(filtered_params: search_params)
+    api.modify_query
+    api.apply_filters
+    udprns, status = api.fetch_udprns
+    udprns ||= []
+    Rails.logger.info(udprns)
+    aggregate_valuation = udprns.inject(0){|sum, udprn| PropertyDetails.details(udprn)[:_source][:current_valuation].to_i + sum }
+
     sold_property_count = sold_properties.count
     sold_property_map = {}
     avg_increase_in_price = 0
+    all_sold_udprns = []
     sold_properties.each do |each_prop|
       sold_property = PropertyEvent.where(agent_id: @agent_id).where(udprn: each_prop.udprn).where("(attr_hash ? 'price') OR (attr_hash ? 'sale_price')").order('created_at asc').limit(1).first #### There might be multiple times an agent can be attached to this property TODO
       sale_price = sold_property.attr_hash['sale_price'] || sold_property.attr_hash['price']  if sold_property
@@ -66,9 +89,24 @@ class AgentApi
       avg_increase_in_price += (((each_prop.sale_price - sale_price).to_f)/(each_prop.sale_price.to_f)*100).round(2)
 
       sold_property_map[each_prop.udprn] = each_prop
+      all_sold_udprns.push(each_prop.udprn)
     end
     ### Avg increase in price
     avg_increase_in_price = (avg_increase_in_price.to_f)/(sold_property_count.to_f)
+
+    agent_events = PropertyEvent.where(agent_id: @agent_id).where(udprn: all_sold_udprns).group(:udprn).select('min(created_at) as first_date').select(:udprn)
+    last_property_status_types = []
+    udprn_property_status_type_agent_attached_date_map = {}
+    udprn_agent_attached_date_map = {}
+    agent_events.each do |each_event|
+      last_property_status_type = PropertyEvent.where(udprn: each_event.udprn).where("attr_hash ? 'property_status_type'").order('created_at desc').limit(1).select("attr_hash ? 'property_status_type' as property_status_type").last
+      last_property_status_types.push(last_property_status_type)
+      udprn_property_status_type_agent_attached_date_map[last_property_status_type.property_status_type] ||= []
+      property_status_type = last_property_status_type.property_status_type
+      udprn_hash = { udprn: each_event.udprn, created_at: each_event.first_date, property_status_type: property_status_type }
+      udprn_property_status_type_agent_attached_date_map[property_status_type].push(udprn_hash)
+      udprn_agent_attached_date_map[each_event.udprn] = udprn_hash
+    end
 
     aggregate_sales = sold_properties.map{|t| t.sale_price }.reduce(:+)
     total_days_to_sell = nil
@@ -76,6 +114,7 @@ class AgentApi
     changes_to_valuation = 0
     percent_of_first_valuation = 0
     percent_of_last_valuation = 0
+    total_days_to_sell_map = {}
     valuation_events.each do |each_udprn|
       valuations = each_udprn.current_valuation.split('|') 
       
@@ -103,8 +142,8 @@ class AgentApi
       sold_property_data ||= []
       sold_property_data.each do |each_sold_prop_data|
         total_days_to_sell ||= 1
-        Rails.logger.info("#{each_sold_prop_data.as_json}_data")
-        total_days_to_sell += each_sold_prop_data.completion_date - dates.sort.first
+        total_days_to_sell_map[udprn_agent_attached_date_map[each_sold_prop_data.udprn][:property_status_type]] ||= []
+        total_days_to_sell_map[udprn_agent_attached_date_map[each_sold_prop_data.udprn][:property_status_type]].push(each_sold_prop_data.completion_date - udprn_agent_attached_date_map[each_sold_prop_data.udprn][:created_at].to_date)
 
         ### for finding first and last valuation
         first_valuation_index = dates.index(dates.sort.first)
@@ -122,18 +161,27 @@ class AgentApi
 
       end
     end
-
-    avg_days_to_sell = (total_days_to_sell.to_f/sold_property_count.to_f).round(1)
+    total_days_to_sell_map['Green'] ||= []
+    total_days_to_sell_map['Red'] ||= []
+    total_days_to_sell_map['Amber'] ||= []
+    avg_no_of_days_to_sell_green = ((total_days_to_sell_map['Green'].sum.to_f/total_days_to_sell_map['Green'].count.to_f)*100).round(2)
+    avg_no_of_days_to_sell_amber_red = (((total_days_to_sell_map['Red'].sum.to_f + total_days_to_sell_map['Amber'].sum.to_f)/(total_days_to_sell_map['Amber'].count.to_f + total_days_to_sell_map['Red'].count.to_f))*100).round(2)
     avg_achieved_more_than_valuation_count = ((achieved_more_than_valuation_count.to_f/sold_property_count.to_f)*100).round(2)
     avg_changes_to_valuation = (changes_to_valuation.to_f/sold_property_count.to_f).round(2)
     percent_of_first_valuation = (percent_of_first_valuation.to_f/sold_property_count.to_f).round(2)
     percent_of_last_valuation = (percent_of_last_valuation.to_f/sold_property_count.to_f).round(2)
     
     ### All stats for agents quotes
-    aggregate_stats[:for_sale] = all_property_count - sold_property_count
+    aggregate_stats[:total_count] = all_counts['Green'].to_i + all_counts['Red'].to_i + all_counts['Amber'].to_i
+    aggregate_stats[:aggregate_valuation] = aggregate_valuation
+    aggregate_stats[:avg_no_of_days_to_sell_green] = avg_no_of_days_to_sell_green.nan? ? nil : avg_no_of_days_to_sell_green
+    aggregate_stats[:avg_no_of_days_to_sell_amber_red] = avg_no_of_days_to_sell_amber_red.nan? ? nil : avg_no_of_days_to_sell_amber_red
+    aggregate_stats[:aggregate_valuation] = aggregate_valuation
+    aggregate_stats[:green_property_count] = all_counts['Green'].to_i
+    aggregate_stats[:amber_red_property_count] = all_counts['Red'].to_i + all_counts['Amber'].to_i
+    aggregate_stats[:for_sale] = aggregate_stats[:green_property_count]
     aggregate_stats[:sold] = sold_property_count
     aggregate_stats[:aggregate_sales] = aggregate_sales
-    aggregate_stats[:avg_no_of_days_to_sell] = (avg_days_to_sell.nan? ? nil : avg_days_to_sell)
     aggregate_stats[:avg_achieved_more_than_valuation_count] = (avg_achieved_more_than_valuation_count.nan? ? nil : avg_achieved_more_than_valuation_count)
     aggregate_stats[:avg_changes_to_valuation] = (avg_changes_to_valuation.nan? ? nil : avg_changes_to_valuation)
     aggregate_stats[:avg_increase_in_price] = (avg_increase_in_price.nan? ? nil : avg_increase_in_price)

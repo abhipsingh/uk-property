@@ -33,9 +33,9 @@ class SoldPropertyUpdateWorker
         update_hash[:agent_id] = nil
         property_service = PropertyService.new(udprn)
         property_service.attach_vendor_to_property(new_vendor_id.to_i)
-        response = property_service.update_details(update_hash)
+        updated_details, status = property_service.update_details(update_hash)
       else
-        response = PropertyService.new(udprn).update_details(update_hash)
+        updated_details, status = PropertyService.new(udprn).update_details(update_hash)
       end
   
       ### Archive the enquiries that were received for this property
@@ -43,6 +43,9 @@ class SoldPropertyUpdateWorker
 
       ### Also archive the fresh property stats and enquiries
       Events::ArchivedStat.new(udprn: udprn.to_i).transfer_from_unarchived_stats
+
+      ### Send emails to tracking buyers
+      PropertyService.send_tracking_email_to_tracking_buyers({ sold: true}, updated_details)
     end
   end
 

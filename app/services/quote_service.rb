@@ -35,6 +35,10 @@ class QuoteService
         existing_agent_id: first_quote.existing_agent_id
       )
       @quote = quote_details
+
+      ### Send email to the vendor
+      AgentQuoteNotifyVendorWorker.perform_async(@quote.id)
+
     end
     return { message: 'Quote successfully submitted', quote: quote_details }, 200
   end
@@ -80,6 +84,10 @@ class QuoteService
       amount: details[:current_valuation].to_i,
       existing_agent_id: existing_agent_id.to_i
     )
+
+    ### Send email to all local agents
+    VendorQuoteAgentNotifyWorker.perform_async(quote.id)
+
     return { message: 'Quote successfully created', quote: quote }, 200
   end
 

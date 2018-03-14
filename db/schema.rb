@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180301181428) do
+ActiveRecord::Schema.define(version: 20180314154344) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -173,10 +173,8 @@ ActiveRecord::Schema.define(version: 20180301181428) do
     t.integer  "existing_agent_id"
   end
 
-  add_index "agents_branches_assigned_agents_quotes", ["agent_id", "property_id", "expired"], name: "quotes_unique_property_agents_idx", unique: true, where: "((agent_id IS NOT NULL) AND (expired = false))", using: :btree
   add_index "agents_branches_assigned_agents_quotes", ["agent_id", "property_id"], name: "agent_unique_quotes_active_property_idx", unique: true, where: "((parent_quote_id IS NOT NULL) AND (status = 1) AND (expired = false))", using: :btree
   add_index "agents_branches_assigned_agents_quotes", ["district"], name: "index_agents_branches_assigned_agents_quotes_on_district", using: :btree
-  add_index "agents_branches_assigned_agents_quotes", ["property_id", "expired"], name: "quotes_unique_property_idx", unique: true, where: "((agent_id IS NULL) AND (expired = false))", using: :btree
   add_index "agents_branches_assigned_agents_quotes", ["property_id"], name: "vendor_quote_active_property_idx", unique: true, where: "((parent_quote_id IS NULL) AND (status = 1) AND (expired = false))", using: :btree
 
   create_table "agents_branches_crawled_properties", force: :cascade do |t|

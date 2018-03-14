@@ -19,8 +19,7 @@ class BuyerMailer < ApplicationMailer
     @assigned_agent_branch = details['assigned_agent_branch_name']
 
     @tracking_date = Events::Track.where(id: tracking_buyer['id']).order('type_of_tracking ASC').select(:created_at).first.created_at.to_time
-      ## TODO - pick this from config
-    # @unsubscribe_link = "http://52.66.124.42/events/tracking/unsubscribe?buyer_id=#{tracking_buyer["id"]}&udprn=#{@details["udprn"]}&event_id=#{Trackers::Buyer::REVERSE_EVENTS[@tracking_buyer["event"]]}"
+    @unsubscribe_link = "https://api.prophety.co.uk/events/unsubscribe?buyer_id=#{tracking_buyer["id"]}&udprn=#{@details["udprn"]}"
     mail(to: tracking_buyer["email"], subject: "Start Tracking")
   end
 
@@ -31,7 +30,7 @@ class BuyerMailer < ApplicationMailer
     enquiry_buyers.each do |enquiry_buyer|
       @enquiry_buyer = enquiry_buyer
       ## TODO - pick this from config
-      @unsubscribe_link = "http://52.66.124.42/events/unsubscribe?buyer_id=#{@enquiry_buyer["buyer_id"]}&udprn=#{@details["udprn"]}&event=#{Trackers::Buyer::REVERSE_EVENTS[@details["event"]]}"
+      @unsubscribe_link = "https://api.prophety.co.uk/events/unsubscribe?buyer_id=#{@enquiry_buyer["buyer_id"]}&udprn=#{@details["udprn"]}"
       mail(to: @enquiry_buyer["buyer_email"], subject: "Start Tracking")
     end
   end
@@ -54,16 +53,29 @@ class BuyerMailer < ApplicationMailer
     @assigned_agent_branch = details['assigned_agent_branch_name']
     @tracking_date = Events::Track.where(id: property_buyer['id']).order('type_of_tracking ASC').select(:created_at).first.created_at.to_time
     @offer_date = Date.today.to_s
-      ## TODO - pick this from config
-    @unsubscribe_link = "http://52.66.124.42/events/unsubscribe?buyer_id=#{property_buyer["id"]}&udprn=#{details["udprn"]}&event=#{event}"
+    ### TODO - pick this from config
+    @unsubscribe_link = "https://api.prophety.co.uk/events/unsubscribe?buyer_id=#{tracking_buyer["id"]}&udprn=#{@details["udprn"]}"
     mail(to: property_buyer["buyer_email"], subject: "Offer Made")
   end
 
-  def send_email_for_a_matching_property(first_name, last_name, email, details, tracking_date, type_of_tracking)
+  def send_email_for_a_matching_property(first_name, last_name, email, details, tracking_date, type_of_tracking, buyer_id, update_hash)
     @first_name = first_name
     @last_name = last_name
     @details = details
     @tracking_date = tracking_date
+    @unsubscribe_link = "https://api.prophety.co.uk/events/unsubscribe?buyer_id=#{buyer_id}"
+    update_hash = update_hash.with_indifferent_access
+
+    if update_hash['property_status_type'] 
+      previous_property_status_type = details[:property_status_type]
+      new_property_status_type = update_hash['property_status_type']
+      @message = "The status of the property located at #{details[:address]} has been changed from #{previous_property_status_type} to #{new_property_status_type}"
+    elsif update_hash['sold']
+      @message = "The property located at #{details[:address]} has been sold to a new buyer"
+    elsif update_hash['offer_made']
+      @message = "The property located at #{details[:address]} has just been made a new offer"
+    end
+
     if "#{type_of_tracking}" == 'property_tracking'
       subject = "An update has occured in the property you were tracking"
     else

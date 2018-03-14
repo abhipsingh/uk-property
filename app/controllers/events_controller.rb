@@ -3,7 +3,7 @@ class EventsController < ApplicationController
   include CacheHelper
   before_filter :set_headers
   around_action :authenticate_agent_and_buyer, only: [ :process_event ]
-  around_action :authenticate_agent_and_developer, only: [ :buyer_stats_for_enquiry, :agent_new_enquiries ]
+  around_action :authenticate_agent_and_developer, only: [ :buyer_stats_for_enquiry]#, :agent_new_enquiries ]
 
   ### List of params
   ### :udprn, :event, :message, :type_of_match, :buyer_id, :agent_id
@@ -137,21 +137,10 @@ class EventsController < ApplicationController
   #### When a buyer clicks on the unsubscibe link in the mails he is no longer subscribed to that event
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/events/unsubscribe?buyer_id=1&udprn=11111111&event=interested_in_viewing'
   def unsubscribe
-    buyer_id = params[:buyer_id]
-    udprn = params[:udprn]
-    event = Event::EVENTS[params[:event].to_sym]
-    if buyer_id && udprn && event
-      type_of_tracking = Event::REVERSE_EVENTS[event.to_i]
-      enum_type_of_tracking = Events::Track::TRACKING_TYPE_MAP[type_of_tracking]
-      subscribed_event = Events::Track.where(buyer_id: buyer_id).where(udprn: udprn).where(type_of_tracking: subscribed_event).first
-      subscribed_event.active = false
-      if subscribed_event.save!
-        render json: {message: "Unsubscribed"}, status: 200
-      else
-        Rails.logger.info("cannot unsubscribe - #{params}")
-        render json: {message: "Cannot Unsubscribe"}, status: 400
-      end
-    end
+    buyer_id = params[:buyer_id].to_i
+    subscribed_events = Events::Track.where(buyer_id: buyer_id)
+    subscribed_events.each { |event| event.active = false && event.save! }
+    render json: {message: "Unsubscribed"}, status: 200
   end
 
   private

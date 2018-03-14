@@ -1,0 +1,8 @@
+{
+  "Template": {
+    "TemplateName": "vendor_quote_lost_notify_agent",
+    "SubjectPart": "Prophety® - Your quote was unsuccessful...",
+    "HtmlPart": "<!DOCTYPE html><p>Hi {{agent_first_name}}<p><strong>Your </strong><strong>quote was unsuccessful.</strong><p>This mean the vendor accepted a quote from another agent.<p><a href=http://prophety.co.uk/ ><strong>Login</strong></a> to your Prophety® Agent Account to find out which one and to discover the winning branch. <p>Sent from Prophety®",
+    "TextPart": "Hi {{agent_first_name}}Your quote was unsuccessful.This mean the vendor accepted a quote from another agent.Login to your Prophety® Agent Account to find out which one and to discover the winning branch. Sent from Prophety®"
+  }
+}

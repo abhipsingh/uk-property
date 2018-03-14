@@ -1,0 +1,8 @@
+{
+  "Template": {
+    "TemplateName": "agent_quote_notify",
+    "SubjectPart": "Prophety® - You have a new quote request!",
+    "HtmlPart": "<!DOCTYPE html><p>Hi {{agent_first_name}}<p><strong>You have a new quote request!</strong><p>Login to your Prophety® Agent Account to view it and submit your quote before the deadline expires.<p>Sent from Prophety®",
+    "TextPart": "Hi {{agent_first_name}} You have a new quote request!Login to your Prophety® Agent Account to view it and submit your quote before the deadline expires. Sent from Prophety®"
+  }
+}

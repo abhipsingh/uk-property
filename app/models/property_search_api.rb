@@ -546,7 +546,9 @@ class PropertySearchApi
   def matching_property_count
     inst = self
     inst.adjust_size
-    inst = inst.modify_filtered_params
+    inst.modify_filtered_params
+    inst.modify_query
+    inst.apply_filters
     body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name, '_search?search_type=count')
     count = Oj.load(body)['hits']['total'] rescue 0
     return count, status

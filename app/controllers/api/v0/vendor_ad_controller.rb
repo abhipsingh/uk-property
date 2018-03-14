@@ -73,6 +73,9 @@ module Api
             if PropertyAd.where(hash_str: hash_value, ad_type: PropertyAd::TYPE_HASH[type], service: service).count < PropertyAd::MAX_ADS_HASH[type]
               ads = PropertyAd.create(hash_str: hash_value, property_id: udprn.to_i, ad_type: PropertyAd::TYPE_HASH[type], service: service, expiry_at: expiry_at)
 
+              ### Send an email to vendor notifying them of ad purchase for the property
+              VendorAdsBuyNotifyVendorWorker.perform_async(udprn.to_i)
+
               ### Create a log for future reference
               AdPaymentHistory.create!(hash_str: hash_value, udprn: udprn.to_i, type_of_ad: PropertyAd::TYPE_HASH[type], service: service, months: location[:months].to_i)
 

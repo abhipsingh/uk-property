@@ -1,0 +1,8 @@
+{
+  "Template": {
+    "TemplateName": "vendor_lead_notify",
+    "SubjectPart": "Your new Prophety® Expert is... ",
+    "HtmlPart": "<!DOCTYPE html><p>Hi {{vendor_first_name}}<p>Thank again for claiming your property. <p>Your new<strong> Prophety® Expert</strong> is:<strong> </strong><ul><li><strong>{{agent_first_name}} {{agent_last_name}}</strong><li><strong>{{agent_job_title}}</strong>,<strong> {{agent_branch_name}}</strong><li><strong>{{agent_mobile_number}}   </strong>/    <strong>{{agent_email_address}} </strong><li><strong>{{agent_branch_address}}</strong><li><strong>{{agent_branch_website}}  </strong></ul><p>{{agent_first_name}} will contact your very soon to introduce themselves and to answer any questions you may have.<p>Please remember to tell your friends and family about us. <p>Sent from Prophety®",
+    "TextPart": "Hi {{vendor_first_name}}Thank again for claiming your property. Your new Prophety® Expert is: {{agent_first_name}} {{agent_last_name}}{{agent_job_title}}, {{agent_branch_name}}{{agent_mobile_number}}   /    {{agent_email_address}} {{agent_branch_address}}{{agent_branch_website}}  {{agent_first_name}} will contact your very soon to introduce themselves and to answer any questions you may have.Please remember to tell your friends and family about us. Sent from Prophety®"
+  }
+}
