@@ -5,7 +5,8 @@ class PropertiesController < ActionController::Base
   around_action :authenticate_buyer_and_vendor, only: [ :invite_friends_and_family ]
   around_action :authenticate_premium_agent_vendor, only: [ :supply_info, :demand_info, :agent_stage_and_rating_stats, :ranking_stats, :buyer_profile_stats ]
   around_action :authenticate_all, only: [ :predict_tags, :add_new_tags, :show_tags, :vanity_url ]
-  around_action :authenticate_vendor, only: [ :attach_vendor_to_udprn_manual_for_manually_added_properties, :edit_basic_details_with_an_assigned_agent ]
+  around_action :authenticate_vendor, only: [ :attach_vendor_to_udprn_manual_for_manually_added_properties, :edit_basic_details_with_an_assigned_agent,
+                                              :agent_details_for_the_vendor ]
   around_action :authenticate_buyer, only: [ :upload_property_details_from_a_renter, :historical_enquiries ]
 
   #### Edit property url
@@ -431,6 +432,32 @@ class PropertiesController < ActionController::Base
     search_str = params[:str]
     tags = FieldValueStore.where(field_type: field_type).where(" name LIKE '#{search_str}%'").pluck(:name)
     render json: tags, status: 200
+  end
+
+  ### Show agent's details for a property vendor invited by the agent from
+  ### either properties popup or f&f popup
+  ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9."  'http://localhost/property/vendor/agent/details/verify/:udprn' 
+  def agent_details_for_the_vendor
+    udprn = params[:udprn]
+    agent_id = InvitedVendor.where(email: @current_user.email).where(udprn: udprn).pluck(:agent_id).last.to_i
+    agent = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(id: agent_id).last
+    details = {}
+    if agent
+      branch = agent.branch
+      company = branch.agent
+      details = { 
+        assigned_agent_first_name: agent.first_name,
+        assigned_agent_last_name: agent.last_name,
+        assigned_agent_image_url: agent.image_url,
+        assigned_agent_branch_logo: branch.image_url,
+        assigned_agent_branch_name: branch.name,
+        assigned_agent_branch_address: branch.address,
+        assigned_agent_company_name: company.name
+      }
+
+    end
+    render json: details, status: 200 
+    
   end
   
   private

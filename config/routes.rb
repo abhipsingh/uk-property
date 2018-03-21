@@ -290,6 +290,9 @@ Rails.application.routes.draw do
   ### Edit basic details of a property claimed by a vendor having an assigned agent already
   post 'properties/claim/assigned/basic/:udprn/edit',           to: 'properties#edit_basic_details_with_an_assigned_agent'
 
+  ### For vendors invited through both the sources, get agent details
+  get 'property/vendor/agent/details/verify/:udprn',            to: 'properties#agent_details_for_the_vendor'
+
   #####################################################################
   #####################################################################
   #####################################################################

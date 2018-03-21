@@ -1,6 +1,7 @@
 class PropertyBuyer < ActiveRecord::Base
 
-  attr_accessor :renter_address, :verification_hash, :email_udprn, :vendor_email
+  attr_accessor :renter_address, :verification_hash, :email_udprn, :vendor_email,
+                :social_sign_status
   has_secure_password
   has_one :rent_requirement, class_name: 'RentRequirement', foreign_key: :buyer_id
   PREMIUM_COST = 25
@@ -74,6 +75,8 @@ class PropertyBuyer < ActiveRecord::Base
   def self.from_omniauth(auth)
     new_params = auth.as_json.with_indifferent_access
     where(new_params.slice(:provider, :uid)).first_or_initialize.tap do |user|
+      user.new_record? ? user.social_sign_status = true : user.social_sign_status = false
+      Rails.logger.info("FB_LOGIN_#{user.social_sign_status}")
       user.provider = new_params['provider']
       user.uid = new_params['uid']
       user.first_name = new_params['first_name']

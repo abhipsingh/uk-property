@@ -8,9 +8,9 @@
   BranchLockedStatusUpdateWorker:
     every: '1440m'
   SoldPropertyUpdateWorker:
-    every: '1440m'
+    cron: '0 0 * * *'
   AdsExpiryWorker:
-    every: '1440m'
+    cron: '5 0 * * *'
   S3ImageCleanUpWorker:
     every: '1440m'
 

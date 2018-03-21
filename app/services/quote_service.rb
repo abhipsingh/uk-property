@@ -47,6 +47,7 @@ class QuoteService
     quote = Agents::Branches::AssignedAgents::Quote.where(agent_id: agent_id, property_id: @udprn.to_i, expired: false).order('created_at DESC').first
     services_required = Agents::Branches::AssignedAgents::Quote::REVERSE_SERVICES_REQUIRED_HASH[services_required] if services_required
     services_required = eval(services_required.to_s) if services_required
+    Rails.logger.info("QUOTE_EDIT_#{agent_id}__#{@udprn}")
     if quote
       quote.payment_terms = payment_terms
       quote.service_required = services_required
@@ -54,6 +55,10 @@ class QuoteService
       quote.terms_url = terms_url if terms_url
     end
     quote.save!
+
+    ### Send email to the assigned agent
+    AssignedAgentQuoteEditNotifyVendorWorker.perform_async(@udprn.to_i, agent_id)
+
     return { message: 'Quote successfully submitted', quote: quote_details }, 200
   end
 

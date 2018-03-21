@@ -260,8 +260,9 @@ class AgentsController < ApplicationController
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     response, status = nil
     udprn = params[:udprn].to_i
-    property_status_type = params[:property_status_type]
-    details = { property_status_type: property_status_type }
+    property_status_type = params[:property_status_type] if params[:property_status_type]
+    details = {}
+    details[:property_status_type] = property_status_type if params[:property_status_type]
     details[:beds] = params[:beds].to_i if params[:beds]
     details[:baths] = params[:baths].to_i if params[:baths]
     details[:receptions] = params[:receptions].to_i if params[:receptions]
@@ -427,7 +428,7 @@ class AgentsController < ApplicationController
       branch.email = branch_details[:email] if branch_details[:email] && !branch_details[:email].blank?
       branch.domain_name = branch_details[:domain_name] if branch_details[:domain_name] && !branch_details[:domain_name].blank?
       agents = branch.assigned_agents
-      agents.each { |agent| AgentUpdateWorker.new.perform_async(agent.id) }
+      agents.each { |agent| AgentUpdateWorker.perform_async(agent.id) }
 
       if branch.save!
         render json: { message: 'Branch edited successfully', details: branch.as_json(only: [:name, :address, :phone_number, :website, :image_url, :email, :domain_name]) }, status: 200

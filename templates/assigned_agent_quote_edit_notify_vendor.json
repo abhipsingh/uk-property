@@ -1,0 +1,8 @@
+{
+  "Template": {
+    "TemplateName": "assigned_agent_quote_edit_notify_vendor",
+    "SubjectPart": "Prophety® - A quote was edited",
+    "HtmlPart": "<!DOCTYPE html><body><style>p.p1{margin:0;font:12px 'Helvetica Neue';color:#454545}li.li1{margin:0;font:12px 'Helvetica Neue';color:#454545}span.s1{font:10px Menlo}span.s2{text-decoration:underline;color:#e4af0a}ul.ul1{list-style-type:disc}</style><p>Hi {{Vendor_first_name}}<p>{{Agent_first_name}} has <strong>edited</strong> the quote they sent you to sell the following property:<ul><li>{{vendor_property_address}}<br></ul><p><a href=http://prophety.co.uk/ >Login</a> to your Prophety® Account to view it (and compare it to others), before deciding which quote (if any) to accept.<p>Sent from Prophety®",
+    "TextPart": "Hi {{Vendor_first_name}}{{Agent_first_name}} has edited the quote they sent you to sell the following property:{{vendor_property_address}}Login to your Prophety® Account to view it (and compare it to others), before deciding which quote (if any) to accept.Sent from Prophety®"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "Template": {
+    "TemplateName": "vendor_linkedin_registration",
+    "SubjectPart": "Welcome to Prophety® via LinkedIn",
+    "HtmlPart": "Hi {{vendor_email_address}} Thank you for signing up to Prophety® using LinkedIn. To login to your account in future, just remember to click on the Facebook login button. Sent from Prophety®",
+    "TextPart": "Hi {{vendor_email_address}} Thank you for signing up to Prophety® using LinkedIn. To login to your account in future, just remember to click on the Facebook login button. Sent from Prophety®"
+  }
+}

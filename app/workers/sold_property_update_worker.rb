@@ -3,7 +3,7 @@ class SoldPropertyUpdateWorker
   sidekiq_options :retry => false # job will be discarded immediately if failed
 
   def perform
-    sold_properties = SoldProperty.where('completion_date = ?', Date.yesterday)
+    sold_properties = SoldProperty.where('created_at <= ?', Date.yesterday).where(status: false)
     sold_properties.each do |sold_property|
       udprn = sold_property.udprn
       details = PropertyDetails.details(udprn)[:_source]
@@ -37,7 +37,11 @@ class SoldPropertyUpdateWorker
       else
         updated_details, status = PropertyService.new(udprn).update_details(update_hash)
       end
-  
+      
+      ### Update the sold property's status to true
+      sold_property.status = true
+      sold_property.save!
+
       ### Archive the enquiries that were received for this property
       Event.where(udprn: udprn).where(is_archived: false).update_all(is_archived: true)
 

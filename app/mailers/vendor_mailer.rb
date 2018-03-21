@@ -5,6 +5,7 @@ class VendorMailer < ApplicationMailer
     ### Pass a flag that a vendor is already registered
     vendor_flag = Vendor.where(email: @user.vendor_email).last.nil?
     @link = "http://prophety-test.herokuapp.com/auth?verification_hash=#{@user.verification_hash}&udprn=#{@user.email_udprn}&email=#{@user.vendor_email}&vendor_present=#{vendor_flag}&user_type=Vendor"
+    @link += "&source=#{user.source}" if user.source
     mail(to: @user.vendor_email, subject: "Welcome to Prophety #{@user.vendor_email}")
   end
 
@@ -51,7 +52,7 @@ class VendorMailer < ApplicationMailer
     @vendor_email = vendor_email
     @udprn = agent_attrs[:udprn]
     vendor_present = Vendor.where(email: @vendor_email).empty?
-    @hash_url = "http://prophety-test.herokuapp.com/auth?verification_hash=#{@hash_link}&udprn=#{@udprn}&email=#{@vendor_email}&user_type=Vendor&vendor_present=#{vendor_present}"
+    @hash_url = "http://prophety-test.herokuapp.com/auth?verification_hash=#{@hash_link}&udprn=#{@udprn}&email=#{@vendor_email}&user_type=Vendor&vendor_present=#{vendor_present}&source=f_and_f"
     subject = 'An agent has claimed the lead of your property located at ' + @address
     mail(to: vendor_email, subject: subject)
   end

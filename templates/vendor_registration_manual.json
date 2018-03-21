@@ -1,0 +1,8 @@
+{
+  "Template": {
+    "TemplateName": "vendor_registration_manual",
+    "SubjectPart": "Welcome to Prophety®",
+    "HtmlPart": "<!DOCTYPE html><body><meta charset=utf-8><style>p.p1{margin:0;font:12px 'Helvetica Neue';color:#454545}li.li1{margin:0;font:12px 'Helvetica Neue';color:#454545}span.s1{font:10px Menlo}ul.ul1{list-style-type:disc}</style><p>Hi {{vendor_email_address}}<p><strong>Thank you for signing up to Prophety®</strong>.<p>To login, please click on the following link (or copy and paste it into your browser).<ul><li>{{vendor_manual_registration_first_time_login_url}}</ul><p>Sent from Prophety®",
+    "TextPart": "Hi {{vendor_email_address}}Thank you for signing up to Prophety®.To login, please click on the following link (or copy and paste it into your browser).{{vendor_manual_registration_first_time_login_url}}Sent from Prophety®"
+  }
+}

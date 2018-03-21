@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180314154344) do
+ActiveRecord::Schema.define(version: 20180321142900) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -631,15 +631,24 @@ ActiveRecord::Schema.define(version: 20180314154344) do
     t.date    "sale_date"
   end
 
+  create_table "ses_email_requests", force: :cascade do |t|
+    t.string   "email"
+    t.string   "klass"
+    t.jsonb    "template_data"
+    t.string   "template_name"
+    t.datetime "created_at"
+  end
+
   create_table "sold_properties", force: :cascade do |t|
-    t.integer  "udprn",           null: false
-    t.integer  "sale_price",      null: false
+    t.integer  "udprn",                           null: false
+    t.integer  "sale_price",                      null: false
     t.date     "completion_date"
-    t.integer  "vendor_id",       null: false
-    t.integer  "buyer_id",        null: false
-    t.integer  "agent_id",        null: false
-    t.datetime "created_at",      null: false
+    t.integer  "vendor_id",                       null: false
+    t.integer  "buyer_id",                        null: false
+    t.integer  "agent_id",                        null: false
+    t.datetime "created_at",                      null: false
     t.integer  "new_vendor_id"
+    t.boolean  "status",          default: false
   end
 
   create_table "stripe_payments", force: :cascade do |t|

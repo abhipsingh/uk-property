@@ -20,7 +20,7 @@ class SessionsController < ApplicationController
       }
       req_params[:token] = params[:token]
       user = user_type_map[user_type].constantize.from_omniauth(req_params)
-      
+
       if user_type == 'Vendor' 
         buyer = PropertyBuyer.from_omniauth(req_params)
         buyer.vendor_id = user.id
@@ -54,6 +54,11 @@ class SessionsController < ApplicationController
       # user_details['uid'] = '1173320732780684'
       user_details.delete('password')
       user_details.delete('password_digest')
+
+      ### Send email to vendor/buyer for their registration
+      Rails.logger.info("POST_REQ_#{user.social_sign_status}")
+      SocialSignupNotifyUserWorker.perform_async(req_params['email'], user.provider) if user.social_sign_status
+
       #Rails.logger.info(req_params)
       command = AuthenticateUser.call(req_params['email'], "#{ENV['OAUTH_PASSWORD']}", user_type_map[user_type].constantize)
       render json: { message: 'Successfully created a session', auth_token: command.result, details: user.as_json }, status: 200
@@ -236,7 +241,8 @@ class SessionsController < ApplicationController
           buyer.vendor_id = vendor.id
           buyer.email_id = buyer.email.downcase
           buyer.account_type = 'a'
-          VerificationHash.where(email: vendor_params['email']).update_all({verified: true})
+          verification_hash = VerificationHash.where(email: vendor_params['email'])
+          verification_hash.update_all({verified: true})
           buyer.save!
           vendor.buyer_id = buyer.id
           vendor.save!
@@ -245,6 +251,7 @@ class SessionsController < ApplicationController
             update_hash = { vendor_id: vendor.id }
             PropertyService.new(udprn).update_details(update_hash)
           end
+
           command = AuthenticateUser.call(vendor_params['email'], vendor_params['password'], Vendor)
           render json: { auth_token: command.result, details: vendor.as_json } 
         else
@@ -395,7 +402,10 @@ class SessionsController < ApplicationController
       email_link += '&udprn=' + params[:udprn].to_i if params[:udprn]
       email_link += '&rent=true' if params[:rent].to_s == 'true'
       params_hash = { verification_hash: verification_hash, email: email, link: email_link }
-      UserMailer.signup_email(params_hash).deliver_now
+
+      ### If manually invited vendor, then send registration email
+      VendorManualRegistrationWorker.perform_async(email, email_link)
+
       render json: { message:  'Please check your email id and click on the link sent'}, status: 200
     else
       render json: { message:  'Email has already been registered'}, status: 400
@@ -410,9 +420,11 @@ class SessionsController < ApplicationController
       salt_str = email
       verification_hash = BCrypt::Password.create salt_str
       VerificationHash.create(hash_value: verification_hash, email: email, entity_type: 'Vendor')
-      email_link = 'http://prophety-test.herokuapp.com/auth?verification_hash=' + verification_hash + '&user_type=Vendor'
-      params_hash = { verification_hash: verification_hash, email: email, link: email_link }
-      VendorMailer.signup_email(params_hash).deliver_now
+      email_link = 'http://prophety-test.herokuapp.com/auth?verification_hash=' + verification_hash + '&user_type=Vendor&email=' + email
+
+      ### If manually invited vendor, then send registration email
+      VendorManualRegistrationWorker.perform_async(email, email_link)
+
       render json: { message:  'Please check your email id and click on the link sent'}, status: 200
     else 
       render json: { message:  'Email has already been registered'}, status: 400
@@ -436,7 +448,7 @@ class SessionsController < ApplicationController
   ### curl -XPOST -H "Content-Type: application/json"  'http://localhost/register/buyers/' -d '{ "buyer" : { "email" : "jackie.bing1@gmail.com", "password" : "1234567890", hash_value: "$2a$10$3YUduTL7Hc.vBzGIXDe4mOv8sVy4YrM3/TsGcnohBYeSu/izRq4K6", "otp":346721 } }'
   def create_buyer
     buyer_params = params[:buyer].as_json
-    
+
     if PropertyBuyer.where(email: buyer_params['email']).last
       render json: { message: 'A buyer with the same email id already exists' }, status: 400
     else
@@ -457,10 +469,12 @@ class SessionsController < ApplicationController
       buyer = PropertyBuyer.new(buyer_params)
   
       if true
-        if buyer.save! && vendor.save! && VerificationHash.where(email: buyer_params['email']).update_all({verified: true})
+        verification_hash = VerificationHash.where(email: buyer_params['email'])
+        if buyer.save! && vendor.save! && verification_hash.update_all({verified: true})
           buyer.vendor_id = vendor.id
           vendor.buyer_id = buyer.id
           vendor.save && buyer.save
+
           render json: { message: 'New buyer created', details: buyer.as_json }, status: 200
         else
           render json: { message: 'Buyer creation failed', errors: buyer.errors }, status: 400

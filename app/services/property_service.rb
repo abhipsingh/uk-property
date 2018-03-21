@@ -666,21 +666,25 @@ class PropertyService
     udprns = []
     count = 0
     details_arr = []
-    File.foreach('/mnt3/corrected_royal.csv') do |line|
-      udprn = line.split(',')[12]
-      udprns.push(udprn)
-      if udprns.length == 400
-        arr_details = PropertyService.bulk_details(udprns)
-        arr_details.each_with_index do |details, index|
-          details[:price] = details[:sale_price]
-          if details[:sale_prices]
-            details[:last_sale_price] = details[:sale_prices].sort_by{ |t| Date.parse(t['date']) }.last['price']
-            details_arr.push(details)
+    File.foreach('/mnt3/royal.csv') do |line|
+      if (count/10000) > 1146
+        processed_line = line.strip.encode('UTF-8', :invalid => :replace)
+        udprn = processed_line.split(',')[12]
+        udprns.push(udprn)
+        if udprns.length == 400
+          arr_details = PropertyService.bulk_details(udprns)
+          arr_details.each_with_index do |details, index|
+            details[:price] = details[:sale_price]
+            if details[:sale_prices]
+              #details[:last_sale_price] = details[:sale_prices].sort_by{ |t| Date.parse(t['date']) }.last['price']
+              details[:sale_prices] = details[:sale_prices].compact.uniq{ |t| Date.parse(t['date']) }
+              details_arr.push(details)
+            end
           end
+          udprns = []
+          PropertyService.bulk_set(details_arr)
+          details_arr = []
         end
-        udprns = []
-        PropertyService.bulk_set(details_arr)
-        details_arr = []
       end
       count += 1
       p "#{count/10000}" if count % 10000 == 0

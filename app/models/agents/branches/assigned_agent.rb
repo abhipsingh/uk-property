@@ -7,7 +7,7 @@ module Agents
       has_many :leads, class_name: 'Agents::Branches::AssignedAgents::Lead', foreign_key: 'agent_id'
 
       belongs_to :branch, class_name: 'Agents::Branch'
-      attr_accessor :vendor_email, :vendor_address, :email_udprn, :verification_hash, :assigned_agent_present, :alternate_agent_email
+      attr_accessor :vendor_email, :vendor_address, :email_udprn, :verification_hash, :assigned_agent_present, :alternate_agent_email, :source
 
       ### TODO: Refactoring required. Figure out a better way of dumping details of a user through a consensus
       DETAIL_ATTRS = [:id, :name, :email, :mobile, :branch_id, :title, :office_phone_number, :mobile_phone_number, :image_url, :invited_agents, :provider, :uid, :is_premium]
@@ -245,8 +245,8 @@ module Agents
         if !self.locked
           query = query.where('created_at > ?', Time.parse(latest_time)) if latest_time
           query = query.where(vendor_id: vendor_id) if buyer_id
-          query = query.where(district: district)
           query = query.where(owned_property: owned_property) if !owned_property.nil?
+          query = query.where("(district = ? AND owned_property = 'f') OR (owned_property='t' AND agent_id = ?)", district, self.id)
   
           if search_str && is_premium
             udprns = Enquiries::PropertyService.fetch_udprns(search_str)
@@ -429,6 +429,7 @@ module Agents
         self.vendor_address = details['address']
         self.assigned_agent_present = assigned_agent_present
         self.alternate_agent_email = alternate_agent_email
+        self.source = 'properties'
         VendorMailer.welcome_email(self).deliver_now
         ### http://prophety-test.herokuapp.com/auth?verification_hash=<%=@user.verification_hash%>&udprn=<%=@user.email_udprn%>&email=<%=@user.vendor_email%>
       end
