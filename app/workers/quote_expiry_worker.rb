@@ -1,5 +1,6 @@
 ### TODO: Daily night worker
 class QuoteExpiryWorker
+  include SesEmailSender
   include Sidekiq::Worker
   sidekiq_options :retry => false
 
@@ -30,13 +31,7 @@ class QuoteExpiryWorker
           each_agent_quote.expired = true
           
           template_data = { agent_first_name: agent.first_name }
-          destination = nil
-          ENV['EMAIL_ENV'] == 'dev' ? destination = 'test@prophety.co.uk' :  destination = agent.email
-          destination_addrs = []
-          destination_addrs.push(destination)
-          client = Aws::SES::Client.new(access_key_id: Rails.configuration.aws_access_key, secret_access_key: Rails.configuration.aws_access_secret, region: 'us-east-1')
-          resp = client.send_templated_email({ source: 'alerts@prophety.co.uk', destination: { to_addresses: destination_addrs, cc_addresses: [], bcc_addresses: [], }, tags: [], template: 'vendor_quote_expired_notify_agent', template_data: template_data.to_json})
-          Rails.logger.info("EXPIRED_AGENT_QUOTE_#{each_agent_quote.agent_id}")
+          self.class.send_email(agent.email, 'vendor_quote_expired_notify_agent', self.class.to_s, template_data)
 
           ### Save all credit verifier and agent info and agent quote
           agent_credit_verifier.save!

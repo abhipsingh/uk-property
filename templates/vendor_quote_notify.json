@@ -1,8 +1,8 @@
 {
   "Template": {
     "TemplateName": "vendor_quote_notify",
-    "SubjectPart": "Prophety® - You have received a new quote!",
-    "HtmlPart": "<!DOCTYPE html><p>Hi {{vendor_first_name}}<p>You have received a <strong>new quote </strong>from an agent to sell the following property:<ul><li><strong>{{vendor_property_address}}</strong></ul><p><a href=http://prophety.co.uk/ ><strong>Login</strong></a> to your Prophety® Account to view it (and compare it to others), before deciding which quote (if any) to accept.<p>Sent from Prophety®",
-    "TextPart": "Hi {{vendor_first_name}}You have received a new quote from an agent to sell the following property:{{vendor_property_address}}Login to your Prophety® Account to view it (and compare it to others), before deciding which quote (if any) to accept.Sent from Prophety®"
+    "SubjectPart": "Prophety® - You have received a new quote from {{agent_branch_name}}!",
+    "HtmlPart": "<!DOCTYPE html><body><style>p.p1{margin:0;font:12px 'Helvetica Neue';color:#454545}li.li1{margin:0;font:12px 'Helvetica Neue';color:#454545}span.s1{font:10px Menlo}span.s2{text-decoration:underline;color:#e4af0a}ul.ul1{list-style-type:disc}</style><p>Hi {{vendor_first_name}}<p>You have received a <strong>new quote </strong>to sell the following property: <ul><li><strong>Property:</strong> {{vendor_property_address}}<li><strong>Submitted by:</strong></li><ul><li><strong>Branch: </strong>{{agent_branch_name}}<li><strong>Agent:</strong> {{agent_first_name}} {{agent_last_name}}</ul></ul><p><a href=http://prophety.co.uk/ ><strong>Login</strong></a> to your Prophety® Account to view it (and compare it to others), before deciding which quote (if any) to accept.<p>Sent from Prophety®",
+    "TextPart": "Hi {{vendor_first_name}}You have received a new quote to sell the following property: Property: {{vendor_property_address}}Submitted by:Branch: {{agent_branch_name}}Agent: {{agent_first_name}} {{agent_last_name}}Login to your Prophety® Account to view it (and compare it to others), before deciding which quote (if any) to accept.Sent from Prophety®"
   }
 }
