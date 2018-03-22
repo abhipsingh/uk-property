@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180321142900) do
+ActiveRecord::Schema.define(version: 20180322110702) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -637,6 +637,7 @@ ActiveRecord::Schema.define(version: 20180321142900) do
     t.jsonb    "template_data"
     t.string   "template_name"
     t.datetime "created_at"
+    t.string   "request_id"
   end
 
   create_table "sold_properties", force: :cascade do |t|

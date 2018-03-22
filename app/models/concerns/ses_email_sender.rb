@@ -13,7 +13,7 @@ module SesEmailSender
       destination_addrs.push(destination)
       client = Aws::SES::Client.new(access_key_id: Rails.configuration.aws_access_key, secret_access_key: Rails.configuration.aws_access_secret, region: 'us-east-1')
       resp = client.send_templated_email({ source: 'alerts@prophety.co.uk', destination: { to_addresses: destination_addrs, cc_addresses: [], bcc_addresses: [], }, tags: [], template: template_name, template_data: template_data.to_json})
-      SesEmailRequest.create!(email: email_address, template_name: template_name, template_data: template_data, klass: klass)
+      SesEmailRequest.create!(email: email_address, template_name: template_name, template_data: template_data, klass: klass, request_id: resp.message_id)
     end
 
   end
