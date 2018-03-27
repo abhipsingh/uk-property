@@ -20,7 +20,7 @@ class QuoteExpiryWorker
       agent_quotes = klass.where(parent_quote_id: expired_vendor_quote.id, expired: false)
       agent_quotes.each do |each_agent_quote|
         current_valuation = each_agent_quote.amount
-        credits = ((Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(current_valuation.to_f)).to_i/Agents::Branches::AssignedAgent::PER_CREDIT_COST)
+        credits = ((Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(current_valuation.to_f)).round/Agents::Branches::AssignedAgent::PER_CREDIT_COST)
         agent = each_agent_quote.agent
         agent_credit_verifier = AgentCreditVerifier.where(entity_class: entity_class, entity_id: each_agent_quote.id).last
 

@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180322110702) do
+ActiveRecord::Schema.define(version: 20180322134113) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -82,13 +82,11 @@ ActiveRecord::Schema.define(version: 20180322110702) do
     t.jsonb   "opening_hours"
     t.integer "zoopla_branch_id"
     t.string  "domain_name"
-    t.boolean "is_developer",                    default: false
-    t.boolean "locked",                          default: false
-    t.date    "locked_date"
     t.string  "sales_email"
     t.string  "commercial_email"
     t.string  "lettings_email"
     t.boolean "suitable_for_launch"
+    t.boolean "is_developer",                    default: false
   end
 
   add_index "agents_branches", ["district"], name: "index_agents_branches_on_district", using: :btree

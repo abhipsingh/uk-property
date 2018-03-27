@@ -25,6 +25,7 @@ class Vendor < ActiveRecord::Base
     'true' => 40,
     'false' => 12
   }
+
   PROPERTY_CLAIM_LIMIT = 10
 
   trigger.before(:update).of(:email) do

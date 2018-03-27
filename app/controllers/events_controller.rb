@@ -134,7 +134,8 @@ class EventsController < ApplicationController
   end
 
   #### TODO - Make it token based (Apply some authentication)
-  #### When a buyer clicks on the unsubscibe link in the mails he is no longer subscribed to that event
+  #### When a buyer clicks on the unsubscibe link in the mails he is no longer subscribed to that event for that property
+  #### udprn param is mandatory
   #### curl -XGET -H "Content-Type: application/json" 'http://localhost/events/unsubscribe?buyer_id=1&udprn=11111111&event=interested_in_viewing'
   def unsubscribe
     buyer_id = params[:buyer_id].to_i

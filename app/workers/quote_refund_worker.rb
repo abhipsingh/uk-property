@@ -18,7 +18,7 @@ class QuoteRefundWorker
       agent = quote.agent
       udprn = quote.property_id
       current_valuation = quote.amount
-      refund_credits = ((Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(current_valuation.to_f)).to_i/Agents::Branches::AssignedAgent::PER_CREDIT_COST)          
+      refund_credits = ((Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(current_valuation.to_f)).round/Agents::Branches::AssignedAgent::PER_CREDIT_COST)          
       agent_credit_verifier = AgentCreditVerifier.where(entity_class: entity_class, entity_id: quote.id).last
       agent = quote.agent
 

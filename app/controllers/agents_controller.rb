@@ -521,7 +521,7 @@ class AgentsController < ApplicationController
         email: params[:stripeEmail],
         card: params[:stripeToken]
       )
-      amount = Agents::Branches::AssignedAgent::PER_CREDIT_COST*params[:credit].to_i*100 ### In pences
+      amount = ((Agents::Branches::AssignedAgent::PER_CREDIT_COST*params[:credit]).round)*100 ### In pences
       charge = Stripe::Charge.create(
         customer: customer.id,
         amount: amount,
@@ -540,6 +540,19 @@ class AgentsController < ApplicationController
       Rails.logger.info("REFUND_INITIATED_#{e.message}_#{agent}_#{params[:credit]}")
       render json: { message: 'Unsuccessful in adding credits' }, status: 401
     end
+  end
+
+  ### Gets the info about the credits remaining and the credits locked for the quotes
+  ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9" -H "Content-Type: application/json" 'http://localhost/agents/credit/info/'
+  def agent_credit_info
+    agent = @current_user
+    remaining_credits = agent.credit
+    klass = Agents::Branches::AssignedAgents::Quote
+    new_status = klass::STATUS_HASH['New']
+    locked_amount = klass.where(agent_id: @current_user.id).where(status: new_status).where(expired: false).sum(:amount)
+    locked_credits = (locked_amount.to_f*0.01*0.01).round/Agents::Branches::AssignedAgent::PER_CREDIT_COST
+    result_hash = { total_credits: (locked_credits + remaining_credits), remaining_credits: remaining_credits, locked_credits: locked_credits }
+    render json: result_hash, status: 200
   end
 
   ### Invited agents history for branches
@@ -729,7 +742,7 @@ class AgentsController < ApplicationController
     details = PropertyDetails.details(udprn)[:_source]
     buyer_id = params[:buyer_id].to_i
     offer_price = Event.where(buyer_id: buyer_id, udprn: udprn).order('created_at DESC').select([:offer_price]).first.offer_price
-    credits = ((Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(offer_price.to_f)).to_i/Agents::Branches::AssignedAgent::PER_CREDIT_COST)
+    credits = ((Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(offer_price.to_f)).round/Agents::Branches::AssignedAgent::PER_CREDIT_COST)
     has_required_credits = (agent.credit >= credits)
     render json: { credits: credits, has_required_credits: has_required_credits, agent_credits: agent.credit }, status: 200
   end

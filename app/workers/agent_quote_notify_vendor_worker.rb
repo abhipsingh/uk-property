@@ -8,12 +8,15 @@ class AgentQuoteNotifyVendorWorker
     quote = Agents::Branches::AssignedAgents::Quote.where(id: quote_id.to_i).last
     property_id = quote.property_id
     details = PropertyDetails.details(property_id)[:_source]
+    agent_id = quote.agent_id
     vendor_first_name = details[:vendor_first_name]
     vendor_email = details[:vendor_email]
-    agent_first_name = details[:assigned_agent_first_name]
-    agent_last_name = details[:assigned_agent_last_name]
-    agent_branch_name = details[:assigned_agent_branch_name]
     address = details[:address]
+
+    assigned_agent = Agents::Branches::AssignedAgent.where(id: agent_id).last
+    agent_first_name = assigned_agent.first_name
+    agent_last_name = assigned_agent.last_name
+    agent_branch_name = assigned_agent.branch.name
 
     if quote
       template_data = { vendor_first_name: vendor_first_name, vendor_property_address: address, agent_first_name: agent_first_name,

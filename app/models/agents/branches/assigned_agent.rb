@@ -12,9 +12,10 @@ module Agents
       ### TODO: Refactoring required. Figure out a better way of dumping details of a user through a consensus
       DETAIL_ATTRS = [:id, :name, :email, :mobile, :branch_id, :title, :office_phone_number, :mobile_phone_number, :image_url, :invited_agents, :provider, :uid, :is_premium]
 
-      PER_CREDIT_COST = 5
+      PER_CREDIT_COST = 1
       QUOTE_CREDIT_LIMIT = -10
-      LEAD_CREDIT_LIMIT = 1
+      LEAD_CREDIT_LIMIT = 10
+      PER_LEAD_COST = 10
       PAGE_SIZE = 10
       PREMIUM_COST = 25
       MIN_INVITED_FRIENDS_FAMILY_VALUE = 1
@@ -124,16 +125,28 @@ module Agents
           quote_status = nil
           if each_quote.status == won_status
             quote_status = 'Won'
+            new_row[:locked_status] = false
           elsif each_quote.status == new_status && each_quote.agent_id.nil? && each_quote.expired == false
             agent_quote = Agents::Branches::AssignedAgents::Quote.where(agent_id: self.id).where(property_id: each_quote.property_id).where(expired: false).where(status: new_status).last
-            !agent_quote.nil? ? quote_status = 'Pending' : quote_status = 'New'
+
+            if !agent_quote.nil?
+              quote_status = 'Pending'
+              new_row[:locked_status] = true
+            else
+              quote_status = 'New'
+              new_row[:locked_status] = false
+            end
+
           elsif each_quote.expired
             quote_status = 'Expired'
+            new_row[:locked_status] = false
           else
             quote_status = 'Lost'
+            new_row[:locked_status] = false
           end
           new_row = {}
           new_row[:id] = each_quote.id
+          new_row[:credits_required] = ((each_quote.amount.to_f)*(0.01*0.01)).round/PER_CREDIT_COST
           new_row[:udprn] = property_id
           new_row[:terms_url] = agent_quote.terms_url if agent_quote
           new_row[:terms_url] ||= each_quote.terms_url
@@ -301,6 +314,9 @@ module Agents
         new_row['street_view_url'] = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details['udprn']}/fov_120_#{details['udprn']}.jpg"
         new_row[:photo_url] = details['pictures'] ? details['pictures'][0] : "Image not available"
         #new_row[:last_sale_prices] = PropertyHistoricalDetail.where(udprn: details['udprn']).order('date DESC').pluck(:price)
+        
+        ### Total cost of lead
+        new_row[:credits_required] = PER_LEAD_COST
 
         new_row[:last_sale_price] = new_row['sale_prices'].last['price'] rescue nil
         #### Vendor details

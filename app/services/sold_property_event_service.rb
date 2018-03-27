@@ -29,7 +29,7 @@ class SoldPropertyEventService
         ### Charge credits required from the agent if the property status is Red/Amber
         if details[:property_status_type] == 'Red' || details[:property_status_type] == 'Amber'
           offer_price = Event.where(buyer_id: @buyer_id, udprn: @udprn).last.offer_price
-          credits = ((Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(offer_price.to_f)).to_i/Agents::Branches::AssignedAgent::PER_CREDIT_COST)
+          credits = ((Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(offer_price.to_f)).round/Agents::Branches::AssignedAgent::PER_CREDIT_COST)
           agent = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(id: @agent_id.to_i).last
 
           if agent.credit >= credits

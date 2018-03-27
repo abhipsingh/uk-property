@@ -541,9 +541,11 @@ class SessionsController < ApplicationController
 
   def compute_sha256_key
     key = 'ngZEaYXIvyuMdIGPNhz4AX_GjwQth9uqMOkLkV6S'
-    data = "#{@current_user.id}"
-    digest = OpenSSL::Digest.new('sha256')
-    response.headers['SHA256_HMAC'] = OpenSSL::HMAC.hexdigest(digest, key, data)
+    if @current_user
+      data = "#{@current_user.id}"
+      digest = OpenSSL::Digest.new('sha256')
+      response.headers['SHA256_HMAC'] = OpenSSL::HMAC.hexdigest(digest, key, data)
+    end
   end
 
 end

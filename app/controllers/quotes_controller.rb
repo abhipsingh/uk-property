@@ -1,8 +1,8 @@
 #### Emulation of a request for each action is given
 class QuotesController < ApplicationController
   include CacheHelper
-  around_action :authenticate_agent, only: [ :new, :edit_agent_quote]#, :agents_recent_properties_for_quotes ]
-  around_action :authenticate_vendor, only: [ :submit, :quote_details,  :new_quote_for_property,  :quotes_per_property ]
+  around_action :authenticate_agent, only: [ :new, :edit_agent_quote, :agents_recent_properties_for_quotes ]
+  around_action :authenticate_vendor, only: [ :submit, :quote_details, :new_quote_for_property, :quotes_per_property ]
 
   #### When a vendor changes the status to Green or when a vendor selects a Fixed or Ala Carte option,
   #### He/She submits his preferences about the type of quotes he would want to receieve, Fixed or Ala carte
@@ -51,7 +51,7 @@ class QuotesController < ApplicationController
         klass = Agents::Branches::AssignedAgents::Quote
         entity_class = AgentCreditVerifier::KLASSES.index(klass.to_s)
 
-        if agent.credit > ((Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(current_valuation.to_f)).to_i/Agents::Branches::AssignedAgent::PER_CREDIT_COST)
+        if agent.credit > ((Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(current_valuation.to_f)).round/Agents::Branches::AssignedAgent::PER_CREDIT_COST)
           service = QuoteService.new(params[:udprn].to_i)
           response = service.submit_price_for_quote(params[:agent_id].to_i, params[:payment_terms], 
                                                     params[:quote_details], params[:services_required], params[:terms_url])
@@ -59,7 +59,7 @@ class QuotesController < ApplicationController
           ### Create a agent credit verifier to prevent duplicate entries
           AgentCreditVerifier.create!(entity_id: service.quote.id, entity_class: entity_class, agent_id: agent.id, udprn: params[:udprn].to_i, vendor_id: details[:vendor_id].to_i, amount: current_valuation.to_i)
 
-          agent.credit -= ((Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(current_valuation.to_f)).to_i/Agents::Branches::AssignedAgent::PER_CREDIT_COST)
+          agent.credit -= ((Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(current_valuation.to_f)).round/Agents::Branches::AssignedAgent::PER_CREDIT_COST)
           agent.save!
           render json: response, status: 200
         else

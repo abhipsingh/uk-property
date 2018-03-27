@@ -195,8 +195,8 @@ class PropertyService
       VendorService.new(vendor_id).send_email_following_agent_lead(agent_id, address)
       status = 200
       ### Update the agents credits
-    Rails.logger.info("PROPERTY_CLAIM_#{agent.id}_#{udprn.to_i}  with credit #{agent.credit} and email #{agent.email}")
-      agent.credit = agent.credit - 1
+      Rails.logger.info("PROPERTY_CLAIM_#{agent.id}_#{udprn.to_i}  with credit #{agent.credit} and email #{agent.email}")
+      agent.credit = agent.credit - Agents::Branches::AssignedAgent::PER_LEAD_COST ### Deduct 10 credits for claiming a lead
       agent.save!
     else
       message = 'Sorry, this property has already been claimed'

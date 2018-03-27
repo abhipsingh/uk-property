@@ -6,6 +6,10 @@ module Agents
     has_many :assigned_agents, class_name: '::Agents::Branches::AssignedAgent'
     attr_accessor :agent_email#, :invited_agents
 
+    #### By default, keep the scope limited to agents(not developers)
+    default_scope { where(is_developer: false) }
+      
+
     INDEPENDENT_TYPE_MAP = {
       'INDEPENDENT' => 1,
       'MAYBE' => 2,
@@ -13,6 +17,7 @@ module Agents
       'NO' => 4,
       'UNKNOWN' => 5
     }
+    BRANCH_CACHE_KEY_PREFIX = 'branch_stats_'
 
     def self.table_name
       'agents_branches'
@@ -51,21 +56,29 @@ module Agents
     end
 
     def branch_specific_stats
-      agent_ids = Agents::Branches::AssignedAgent.where(branch_id: self.id).pluck(:id)
-      branch_stats = {}
-      all_agent_stats = agent_ids.map do |agent_id|
-        agent_api = AgentApi.new(nil, agent_id)
-        agent_stats = {}
-        agent_api.populate_aggregate_stats(agent_stats)
-        agent_stats
+      cache_key = BRANCH_CACHE_KEY_PREFIX+self.id.to_s
+      branch_stats = Rails.configuration.ardb_client.get(cache_key)
+      if branch_stats
+        branch_stats = Oj.load(branch_stats)
+      else
+        agent_ids = Agents::Branches::AssignedAgent.where(branch_id: self.id).pluck(:id)
+        branch_stats = {}
+        all_agent_stats = agent_ids.map do |agent_id|
+          agent_api = AgentApi.new(nil, agent_id)
+          agent_stats = {}
+          agent_api.populate_aggregate_stats(agent_stats)
+          agent_stats
+        end
+        
+        branch_stats[:for_sale] = all_agent_stats.inject(0){|h,k| h+=k[:for_sale] }
+        branch_stats[:sold] = all_agent_stats.inject(0){|h,k| h+=k[:sold] }
+        branch_stats[:total_count] = all_agent_stats.inject(0){|h,k| h+=k[:total_count] }
+        branch_stats[:green_property_count] = all_agent_stats.inject(0){|h,k| h+=k[:green_property_count] }
+        branch_stats[:amber_red_property_count] = all_agent_stats.inject(0){|h,k| h+=k[:amber_red_property_count] }
+        branch_stats[:aggregate_valuation] = all_agent_stats.inject(0){|h,k| h+=k[:aggregate_valuation] }
+        
+        Rails.configuration.ardb_client.set(cache_key, Oj.dump(branch_stats), {ex: 1.month})
       end
-      
-      branch_stats[:for_sale] = all_agent_stats.inject(0){|h,k| h+=k[:for_sale] }
-      branch_stats[:sold] = all_agent_stats.inject(0){|h,k| h+=k[:sold] }
-      branch_stats[:total_count] = all_agent_stats.inject(0){|h,k| h+=k[:total_count] }
-      branch_stats[:green_property_count] = all_agent_stats.inject(0){|h,k| h+=k[:green_property_count] }
-      branch_stats[:amber_red_property_count] = all_agent_stats.inject(0){|h,k| h+=k[:amber_red_property_count] }
-      branch_stats[:aggregate_valuation] = all_agent_stats.inject(0){|h,k| h+=k[:aggregate_valuation] }
 
       branch_stats
     end
