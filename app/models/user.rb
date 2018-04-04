@@ -29,7 +29,7 @@ class User
       matching_postcode_areas = postcode_areas.select{ |t| t.start_with?(postcode_area) } - [ postcode_area ]
       matching_postcode_listing_sum = postcode_area_details.select{ |t| matching_postcode_areas.include?(t['postcode_area']) }.map{ |t| t['total_listings'].to_i }.sum
       area_details['total_listings'] = area_details['total_listings'] - matching_postcode_listing_sum
-      area_details['total_percentage_draft'] = area_details['draft_properties'].to_f / area_details['total_listings']
+      area_details['total_percentage_draft'] = (area_details['draft_properties'].to_f / area_details['total_listings']).round(2)
       api = ::PropertySearchApi.new(filtered_params: {})
       ["Green", "Amber", "Red"].each do |property_status_type|
         query = {query: {bool: {must: [{term: {area: postcode_area}}, {term: {property_status_type: property_status_type}}]}}}
@@ -37,6 +37,10 @@ class User
       end
       area_details["unknown"] = area_details["total_listings"] - area_details["green"] - area_details["amber"] - area_details["red"]
       postcode_area_details << area_details
+      
+      ### Transfer the stats to prometheus server
+      Rails.configuration.user_admin_panel_key.observe(1, area_details)
+
     end
     Rails.configuration.ardb_client.set("postcode_area_panel_details", Oj.dump(postcode_area_details), {ex: 1.day})
     postcode_area_details

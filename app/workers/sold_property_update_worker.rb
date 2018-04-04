@@ -14,6 +14,7 @@ class SoldPropertyUpdateWorker
       last_sale_price = sold_property.sale_price
       sale_prices ||= details[:sale_prices] || []
       sale_prices.push(sale_price)
+
       ### Update the property details
       update_hash = { 
                       property_status_type: 'Red',

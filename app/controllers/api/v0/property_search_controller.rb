@@ -56,9 +56,26 @@ module Api
       def matching_property_count
         ## hash_str compulsory?
         api = ::PropertySearchApi.new(filtered_params: params)
-        api = api.filter_query
-        result, status = api.fetch_udprns
-        render :json => result.count, :status => status.to_i
+        count, status = api.matching_property_count
+        render :json => count, :status => status
+      end
+
+      ### Return street and locality hash for any udprn
+      ### curl -XGET 'http://localhost/property/hash/10968961'
+      def udprn_street_locality_hash
+        udprn = params[:udprn]
+        details = PropertyDetails.details(udprn.to_i)[:_source]
+        locality_hash = Events::Track.locality_hash(details)
+        street_hash = Events::Track.street_hash(details)
+        street_hash_type = nil
+
+        if details[:thoroughfare_description]
+          street_hash_type = :thoroughfare_description
+        elsif details[:dependent_thoroughfare_description]
+          street_hash_type = :dependent_thoroughfare_description
+        end
+
+        render json: { locality_hash: locality_hash, street_hash: street_hash, street_hash_type: street_hash_type, locality_hash_type: :dependent_locality }, status: 200
       end
       
       #### Details Api for a udprn
@@ -150,12 +167,7 @@ module Api
               unit: details[:unit],
               output_str: details[:address]
             }
-  
-            resp_hash[:dependent_locality] = details[:dependent_locality] if details[:dependent_locality]
-            resp_hash[:dependent_thoroughfare_description] = details[:dependent_thoroughfare_description] if details[:dependent_thoroughfare_description]
-            resp_hash[:thoroughfare_description] = details[:thoroughfare_description] if details[:thoroughfare_description]
 
-            
           end
   
           result = resp_hash.clone

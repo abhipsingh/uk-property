@@ -132,5 +132,8 @@ Rails.application.routes.draw do
   ### Get additional details of an agent related to invited agents count and friends and family count
   get 'agents/additional/details',                              to: 'agents#additional_agent_details_intercom'
 
+  ### Agent credit info
+  get 'agents/credit/info',                                     to: 'agents#agent_credit_info'
+
 end
 

@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180322134113) do
+ActiveRecord::Schema.define(version: 20180403110735) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -47,17 +47,19 @@ ActiveRecord::Schema.define(version: 20180322134113) do
   add_index "agent_credit_verifiers", ["agent_id", "entity_id", "is_refund"], name: "agent_credit_unique_refund_idx", unique: true, using: :btree
 
   create_table "agents", force: :cascade do |t|
-    t.string  "name",              limit: 255
-    t.string  "branches_url",      limit: 255
+    t.string  "name",                limit: 255
+    t.string  "branches_url",        limit: 255
     t.integer "group_id"
     t.string  "email"
     t.string  "phone_number"
     t.string  "website"
     t.string  "address"
     t.string  "image_url"
-    t.boolean "is_developer",                  default: false
+    t.boolean "is_developer",                    default: false
     t.integer "zoopla_company_id"
     t.integer "independent"
+    t.boolean "is_ready_for_launch",             default: false
+    t.integer "prophety_company_id"
   end
 
   add_index "agents", ["group_id"], name: "index_agents_on_group_id", using: :btree
@@ -87,6 +89,7 @@ ActiveRecord::Schema.define(version: 20180322134113) do
     t.string  "lettings_email"
     t.boolean "suitable_for_launch"
     t.boolean "is_developer",                    default: false
+    t.integer "prophety_branch_id"
   end
 
   add_index "agents_branches", ["district"], name: "index_agents_branches_on_district", using: :btree
@@ -294,6 +297,13 @@ ActiveRecord::Schema.define(version: 20180322134113) do
     t.integer  "listing_type"
     t.datetime "created_at",   null: false
     t.datetime "updated_at",   null: false
+  end
+
+  create_table "buyer_status_changes", force: :cascade do |t|
+    t.integer "buyer_id",              null: false
+    t.date    "date",                  null: false
+    t.integer "new_status",  limit: 2, null: false
+    t.integer "prev_status", limit: 2
   end
 
   create_table "developers_branches", force: :cascade do |t|

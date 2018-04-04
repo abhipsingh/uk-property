@@ -43,23 +43,30 @@ class QuoteService
     return { message: 'Quote successfully submitted', quote: quote_details }, 200
   end
 
-  def edit_quote_details(agent_id, payment_terms, quote_details, services_required, terms_url)
-    quote = Agents::Branches::AssignedAgents::Quote.where(agent_id: agent_id, property_id: @udprn.to_i, expired: false).order('created_at DESC').first
+  def edit_quote_details(quote, agent_id, payment_terms, quote_details, services_required, terms_url)
     services_required = Agents::Branches::AssignedAgents::Quote::REVERSE_SERVICES_REQUIRED_HASH[services_required] if services_required
     services_required = eval(services_required.to_s) if services_required
     Rails.logger.info("QUOTE_EDIT_#{agent_id}__#{@udprn}")
-    if quote
-      quote.payment_terms = payment_terms
-      quote.service_required = services_required
-      quote.quote_details = quote_details if quote_details
-      quote.terms_url = terms_url if terms_url
-    end
+    quote.payment_terms = payment_terms
+    quote.service_required = services_required
+    quote.quote_details = quote_details if quote_details
+    quote.terms_url = terms_url if terms_url
     quote.save!
-
     ### Send email to the assigned agent
     AssignedAgentQuoteEditNotifyVendorWorker.perform_async(@udprn.to_i, agent_id)
-
     return { message: 'Quote successfully submitted', quote: quote_details }, 200
+  end
+
+  def edit_vendor_quote_details(quote, user_id, payment_terms, quote_details, services_required, terms_url)
+    services_required = Agents::Branches::AssignedAgents::Quote::REVERSE_SERVICES_REQUIRED_HASH[services_required] if services_required
+    services_required = eval(services_required.to_s) if services_required
+    Rails.logger.info("QUOTE_VENDOR_EDIT_#{user_id}__#{@udprn}")
+    quote.payment_terms = payment_terms
+    quote.service_required = services_required
+    quote.quote_details = quote_details if quote_details
+    quote.terms_url = terms_url if terms_url
+    quote.save!
+    return { message: 'Quote successfully edited', quote: quote_details }, 200
   end
 
   def new_quote_for_property(services_required, payment_terms, quote_details, assigned_agent, existing_agent_id)

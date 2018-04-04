@@ -71,7 +71,7 @@ class SessionsController < ApplicationController
   ### curl -XPOST  -H "Content-Type: application/json" 'http://localhost/send/otp'  -d '{ "mobile" : "+446474255672"  }'
   ### TODO: This is an open api. Checks needs to be put in place to prevent abuse of this api.
   def send_otp_to_number
-    sns = Aws::SNS::Client.new(region: "us-west-2", access_key_id: Rails.configuration.aws_access_key, secret_access_key: Rails.configuration.aws_secret_key)
+    sns = Aws::SNS::Client.new(region: "us-west-2", access_key_id: Rails.configuration.aws_access_key, secret_access_key: Rails.configuration.aws_access_secret)
     mobile = params[:mobile]
     totp = ROTP::TOTP.new("base32secret3232", interval: 1)
     #totp.verify_with_drift(totp, 3600, Time.now+3600)

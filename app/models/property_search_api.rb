@@ -130,6 +130,7 @@ class PropertySearchApi
     inst = self
     modify_filtered_params
     inst.apply_filters
+    inst.modify_query
     inst
   end
 
@@ -236,13 +237,12 @@ class PropertySearchApi
         hash[level] = arr[index] if !arr[index].nil? && arr[index] != '@'
       end
     end
-
+    
     if postcode_levels && postcode_levels.split('_').length > 0
       arr = postcode_levels.split('_')
       POSTCODE_LEVELS.each_with_index do |level, index|
         if !arr[index].nil? && arr[index] != '@'
           hash[level] = arr[index] 
-          break
         end
       end
     end
@@ -414,6 +414,7 @@ class PropertySearchApi
   def append_term_filters
     inst = self
     term_filters = @filtered_params.keys & FIELDS[:term]
+    Rails.logger.info("#{term_filters}___#{@filtered_params}")
     term_filters.each{|t| inst = inst.append_term_filter_query(t,@filtered_params[t], :and)}
     inst
   end
@@ -547,8 +548,8 @@ class PropertySearchApi
     inst = self
     inst.adjust_size
     inst.modify_filtered_params
-    inst.modify_query
     inst.apply_filters
+    inst.modify_query
     body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name, '_search?search_type=count')
     count = Oj.load(body)['hits']['total'] rescue 0
     return count, status

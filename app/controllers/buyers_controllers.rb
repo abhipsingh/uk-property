@@ -20,7 +20,13 @@ class BuyersController < ActionController::Base
 		buyer.buying_status = buying_status if buying_status
 		buyer.budget_from = budget_from if budget_from
 		buyer.budget_to = budget_to if budget_to
-		buyer.status = status if status
+
+    ### Record changes in buyer status
+    if status
+      BuyerStatusChange.create!(buyer_id: buyer.id, prev_status: buyer.status, new_status: status, date: Date.today)
+		  buyer.status = status
+    end
+
 		buyer.funding = funding_status if funding_status
 		buyer.biggest_problems = biggest_problem if biggest_problem
 		buyer.chain_free = chain_free unless chain_free.nil?

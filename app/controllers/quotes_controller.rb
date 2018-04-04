@@ -78,10 +78,39 @@ class QuotesController < ApplicationController
   #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/quotes/edit/'  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" -d '{ "udprn" : "10966139",  "services_required" : "Fixed Price", "payment_terms" : "Pay upfront", "quote_details" : "\{ \"fixed_price_services_requested\" : \{ \"price\" : 4500, \"list_of_services\" : \[\"Full\"\]  \}  \}" }'
   def edit_agent_quote
     agent = @current_user
-    service = QuoteService.new(params[:udprn].to_i)
-    response = service.edit_quote_details(params[:agent_id].to_i, params[:payment_terms], params[:quote_details],
-                                          params[:services_required], params[:terms_url])
-    render json: response, status: 200
+    klass = Agents::Branches::AssignedAgents::Quote
+    new_status = klass::STATUS_HASH['New']
+    quote = klass.where(agent_id: agent.id, property_id: params[:udprn].to_i, expired: false, status: new_status).order('created_at DESC').first
+
+    ### Only available for assigned agent
+    details = PropertyDetails.details(params[:udprn].to_i)[:_source]
+
+    if quote && details[:agent_id].to_i == agent.id
+      service = QuoteService.new(params[:udprn].to_i)
+      response = service.edit_quote_details(quote, params[:agent_id].to_i, params[:payment_terms], params[:quote_details],
+                                            params[:services_required], params[:terms_url])
+      render json: response, status: 200
+    else
+      render json: { message: 'Unable to edit quote' }, status: 400
+    end
+  end
+
+  #### When a new quote is entered by  vendor
+  #### Flow is submit a quote --> new quote
+  #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/quotes/vendor/edit/'  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" -d '{ "udprn" : "10966139",  "services_required" : "Fixed Price", "payment_terms" : "Pay upfront", "quote_details" : "\{ \"fixed_price_services_requested\" : \{ \"price\" : 4500, \"list_of_services\" : \[\"Full\"\]  \}  \}" }'
+  def edit_vendor_quote
+    user = @current_user
+    klass = Agents::Branches::AssignedAgents::Quote
+    new_status = klass::STATUS_HASH['New']
+    quote = klass.where(parent_quote_id: nil, property_id: params[:udprn].to_i, expired: false, status: new_status).order('created_at DESC').first
+    if quote
+      service = QuoteService.new(params[:udprn].to_i)
+      response = service.edit_vendor_quote_details(quote, user.id, params[:payment_terms], params[:quote_details],
+                                            params[:services_required], params[:terms_url])
+      render json: response, status: 200
+    else
+      render json: { message: 'Unable to edit quote' }, status: 400
+    end
   end
 
   ##### When submit quote button is clicked, the property data needs to be sent for the

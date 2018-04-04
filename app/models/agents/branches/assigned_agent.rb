@@ -118,6 +118,7 @@ module Agents
         agent_result_hash = agents_results.reduce({}) { |acc_hash, hash| acc_hash.merge(hash.id => hash)}
 
         results.each do |each_quote|
+          new_row = {}
           property_details = PropertyDetails.details(each_quote.property_id)['_source']
           ### Quotes status filter
           property_id = property_details['udprn'].to_i
@@ -144,7 +145,6 @@ module Agents
             quote_status = 'Lost'
             new_row[:locked_status] = false
           end
-          new_row = {}
           new_row[:id] = each_quote.id
           new_row[:credits_required] = ((each_quote.amount.to_f)*(0.01*0.01)).round/PER_CREDIT_COST
           new_row[:udprn] = property_id
@@ -336,7 +336,11 @@ module Agents
           new_row[:vendor_mobile] = nil
           new_row[:vendor_image_url] = nil
         end
+      
+        ### Indicates that a property is claimed through friends and family or not
+        new_row[:fnf_property] = lead.owned_property
 
+        ### Update percent completed
         new_row[:percent_completed] = details['percent_completed']
         new_row[:percent_completed] ||= PropertyService.new(details[:udprn]).compute_percent_completed({}, details)
 

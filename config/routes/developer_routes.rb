@@ -28,7 +28,7 @@ Rails.application.routes.draw do
   get '/developers/branch/:branch_id',                   to: 'developers#branch_details'
 
   ### Details of the company
-  get '/agents/company/:company_id',                     to: 'developers#company_details'
+  get '/developers/company/:company_id',                 to: 'developers#company_details'
 
   ### Details of the group
   get '/developers/group/:group_id',                     to: 'developers#group_details'

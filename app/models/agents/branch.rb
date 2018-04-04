@@ -44,6 +44,8 @@ module Agents
       invited_klass ||= InvitedAgent
       #@invited_agents ||= []
       first_agent_flag = (Agents::Branches::AssignedAgent.where(branch_id: self.id).count == 0)
+      self.invited_agents = [ self.invited_agents.first ].compact if self.invited_agents
+      self.invited_agents ||= []
       self.invited_agents.each do |invited_agent|
         invited_agent = invited_agent.with_indifferent_access
         self.agent_email = invited_agent['email']
@@ -77,7 +79,7 @@ module Agents
         branch_stats[:amber_red_property_count] = all_agent_stats.inject(0){|h,k| h+=k[:amber_red_property_count] }
         branch_stats[:aggregate_valuation] = all_agent_stats.inject(0){|h,k| h+=k[:aggregate_valuation] }
         
-        Rails.configuration.ardb_client.set(cache_key, Oj.dump(branch_stats), {ex: 1.month})
+        Rails.configuration.ardb_client.set(cache_key, Oj.dump(branch_stats), {ex: 1.day}) ### Convert it to 1 day
       end
 
       branch_stats

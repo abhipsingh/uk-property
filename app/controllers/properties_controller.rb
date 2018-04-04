@@ -21,7 +21,7 @@ class PropertiesController < ActionController::Base
       end
     end
     details = details.with_indifferent_access
-    @current_user = Agents::Branches::AssignedAgent.find(111)
+    #@current_user = Agents::Branches::AssignedAgent.find(111)
     #updated_details = PropertyService.new(udprn).edit_details(details, @current_user)
     updated_details = PropertyService.new(udprn).edit_details(details, @current_user)
     property_status_type = updated_details[:property_status_type]

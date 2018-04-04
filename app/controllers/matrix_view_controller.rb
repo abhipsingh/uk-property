@@ -39,6 +39,7 @@ class MatrixViewController < ActionController::Base
     #Rails.logger.info(udprns)
     details = PropertyService.bulk_details(udprns)
     details = details.map{|t| t.with_indifferent_access }
+
     counter = 0
     predictions = predictions.each_with_index do |t, index|
       text = t['text']

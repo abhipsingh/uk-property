@@ -143,9 +143,9 @@ class GoogleApiCrawler
   end
 
   def self.match_udprns_to_historical_data
-    #file = File.open('/mnt3/lspm.csv', 'a')
-    g_zero_file = File.open('/mnt3/lspgz.csv', 'a')
-    zero_file = File.open('/mnt3/lspz.csv', 'a')
+    file = File.open('/mnt3/lspm.csv', 'a')
+    #g_zero_file = File.open('/mnt3/lspgz.csv', 'a')
+    #zero_file = File.open('/mnt3/lspz.csv', 'a')
     #file = File.open('/mnt3/lspm.csv', 'a')
     count = 0
     urls = []
@@ -191,15 +191,15 @@ class GoogleApiCrawler
               if each_resp.length == 1
                 udprn_hash = each_resp[0]['text']
                 udprn = udprn_hash.split('_').first.to_i
-                #file.puts("#{urls[elem][:uuid]}|#{udprn}|#{urls[elem][:date]}|#{urls[elem][:price]}|#{urls[elem][:tenure]}|#{urls[elem][:property_type]}")
-              elsif each_resp.length > 1
-                g_zero_file.puts("#{urls[elem][:uuid]}|#{udprn}|#{urls[elem][:date]}|#{urls[elem][:price]}|#{urls[elem][:tenure]}|#{urls[elem][:property_type]}")
-                length_count_g_zero += 1
-              elsif each_resp.length == 0
-                #p resp["suggest_#{elem}"][0] 
-                #p urls[elem][:postcode]
-                zero_file.puts("#{urls[elem][:uuid]}|#{udprn}|#{urls[elem][:date]}|#{urls[elem][:price]}|#{urls[elem][:tenure]}|#{urls[elem][:property_type]}")
-                length_count_zero += 1
+                file.puts("#{urls[elem][:uuid]}|#{udprn}|#{urls[elem][:date]}|#{urls[elem][:price]}|#{urls[elem][:tenure]}|#{urls[elem][:property_type]}")
+#              elsif each_resp.length > 1
+#                g_zero_file.puts("#{urls[elem][:uuid]}|#{udprn}|#{urls[elem][:date]}|#{urls[elem][:price]}|#{urls[elem][:tenure]}|#{urls[elem][:property_type]}")
+#                length_count_g_zero += 1
+#              elsif each_resp.length == 0
+#                #p resp["suggest_#{elem}"][0] 
+#                #p urls[elem][:postcode]
+#                zero_file.puts("#{urls[elem][:uuid]}|#{udprn}|#{urls[elem][:date]}|#{urls[elem][:price]}|#{urls[elem][:tenure]}|#{urls[elem][:property_type]}")
+#                length_count_zero += 1
               end
             end
           end
@@ -212,9 +212,9 @@ class GoogleApiCrawler
     end
     p "Rows having greater than zero possibilities #{length_count_g_zero}"
     p "Rows having zero possibilities #{length_count_zero}"
-    zero_file.close
-    g_zero_file.close
-    #file.close
+    #zero_file.close
+    #g_zero_file.close
+    file.close
   end
 
 end

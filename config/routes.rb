@@ -328,6 +328,10 @@ Rails.application.routes.draw do
 
       ### Predict the locations and tag those locations with their type
       get 'locations/predict',                       to: 'locations_search#predict'
+    
+      ### Returns street and locality hash for any given udprn
+      get 'property/hash/:udprn',                    to: 'property_search#udprn_street_locality_hash'
+
     end
   end
 

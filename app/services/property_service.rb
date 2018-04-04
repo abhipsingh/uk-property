@@ -78,6 +78,10 @@ class PropertyService
 
   BUYER_MATCH_ATTRS = [:beds, :baths, :receptions, :property_status_type, :property_type ]
 
+  LAND_REGISTRY_ATTRS = [ :property_type, :tenure, :sale_prices, :last_sale_price ]
+
+  BASE_ATTRS = LOCALITY_ATTRS + POSTCODE_ATTRS + LAND_REGISTRY_ATTRS
+
   STATUS_MANDATORY_ATTRS_MAP = {
     'Green' => MANDATORY_ATTRS + [:sale_price, :sale_price_type],
     'Amber' => MANDATORY_ATTRS,
@@ -667,25 +671,28 @@ class PropertyService
     count = 0
     details_arr = []
     File.foreach('/mnt3/royal.csv') do |line|
-      if (count/10000) > 1146
+      #if (count/10000) > 1146
         processed_line = line.strip.encode('UTF-8', :invalid => :replace)
         udprn = processed_line.split(',')[12]
         udprns.push(udprn)
-        if udprns.length == 400
+        if udprns.length == 800
           arr_details = PropertyService.bulk_details(udprns)
           arr_details.each_with_index do |details, index|
-            details[:price] = details[:sale_price]
-            if details[:sale_prices]
-              #details[:last_sale_price] = details[:sale_prices].sort_by{ |t| Date.parse(t['date']) }.last['price']
-              details[:sale_prices] = details[:sale_prices].compact.uniq{ |t| Date.parse(t['date']) }
-              details_arr.push(details)
-            end
+            DETAIL_ATTRS - BASE_ATTRS.each{|t| details[t] = nil }
+            details_arr.push(details)
+#            details[:price] = details[:sale_price]
+#            if details[:sale_prices]
+#              #details[:last_sale_price] = details[:sale_prices].sort_by{ |t| Date.parse(t['date']) }.last['price']
+#              details[:sale_prices] = details[:sale_prices].compact.uniq{ |t| Date.parse(t['date']) }
+#              details_arr.push(details)
+#            end
+            details_arr.push(details)
           end
           udprns = []
           PropertyService.bulk_set(details_arr)
           details_arr = []
         end
-      end
+      #end
       count += 1
       p "#{count/10000}" if count % 10000 == 0
     end
@@ -716,16 +723,18 @@ class PropertyService
       property_type = property_type_map[fields[4]]
       tenure = tenure_map[fields[5]]
       udprns.push([udprn, date, price, property_type, tenure] )
-      if udprns.length == 600
+      if udprns.length == size
         list_udprns = udprns.map{|t| t[0] }
         arr_details = PropertyService.bulk_details(list_udprns)
         details_arr = []
         arr_details.each_with_index do |details, index|
           details[:price] = details[:sale_price]
           details[:sale_prices] ||= []
-          details[:sale_prices].push({price: udprns[index][2], date: udprns[index][1]})
+          details[:sale_prices].push({'price'=> udprns[index][2], 'date'=> udprns[index][1]})
+          details[:sale_prices] = details[:sale_prices].uniq{|t| t['date'] }
           details[:property_type] = udprns[index][3]
           details[:tenure] = udprns[index][4]
+          DETAIL_ATTRS - BASE_ATTRS.each{|t| details[t] = nil }
           details_arr.push(details)
         end
         PropertyService.bulk_set(details_arr)
@@ -740,7 +749,11 @@ class PropertyService
     arr_details.each_with_index do |details, index|
       details[:price] = details[:sale_price]
       details[:sale_prices] ||= []
-      details[:sale_prices].push({price: udprns[index][2], date: udprns[index][1]})
+      details[:sale_prices].push({'price'=> udprns[index][2], 'date'=> udprns[index][1]})
+      details[:sale_prices] = details[:sale_prices].uniq{|t| t['date'] }
+      details[:property_type] = udprns[index][3]
+      details[:tenure] = udprns[index][4]
+      DETAIL_ATTRS - BASE_ATTRS.each{|t| details[t] = nil }
       details_arr.push(details)
     end
     PropertyService.bulk_set(details_arr)

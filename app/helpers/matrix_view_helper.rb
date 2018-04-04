@@ -138,7 +138,7 @@ module MatrixViewHelper
   end
 
   def calculate_formatted_string(hash, type)
-    address_levels = PropertySearchApi::ADDRESS_LOCALITY_LEVELS.take_while{|t| t!= type }
+    address_levels = PropertySearchApi::ADDRESS_LOCALITY_LEVELS.take_while{|t| t != type }
     if type == :building_type
       PropertyDetails.address(hash)
     elsif type == :thoroughfare_description

@@ -39,8 +39,7 @@ class SoldPropertyEventService
             ### Update the enquiry to closed won if property status is not green
             original_enquiries = Event.where(buyer_id: @buyer_id).where(udprn: @udprn.to_i).where(is_archived: false)
 
-            SoldProperty.create!(udprn: @udprn.to_i, buyer_id: @buyer_id, agent_id: @agent_id, vendor_id: vendor_id, sale_price: @final_price, completion_date: enquiries.last.expected_completion_date.to_s)
-
+            SoldProperty.create!(udprn: @udprn.to_i, buyer_id: @buyer_id, agent_id: @agent_id, vendor_id: vendor_id, sale_price: @final_price, completion_date: completion_date)
             original_enquiries.update_all(stage: Event::EVENTS[:closed_won_stage])
             enquiries = Enquiries::PropertyService.process_enquiries_result(original_enquiries)
             enquiries

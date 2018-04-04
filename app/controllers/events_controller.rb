@@ -3,7 +3,7 @@ class EventsController < ApplicationController
   include CacheHelper
   before_filter :set_headers
   around_action :authenticate_agent_and_buyer, only: [ :process_event ]
-  around_action :authenticate_agent_and_developer, only: [ :buyer_stats_for_enquiry]#, :agent_new_enquiries ]
+  around_action :authenticate_agent_and_developer, only: [ :buyer_stats_for_enquiry, :agent_new_enquiries ]
 
   ### List of params
   ### :udprn, :event, :message, :type_of_match, :buyer_id, :agent_id
@@ -102,7 +102,7 @@ class EventsController < ApplicationController
     enquiry_id = params[:enquiry_id].to_i
     event = Event.unscope(where: :is_developer).where(id: enquiry_id).select([:buyer_id, :udprn, :agent_id]).first
     if event
-      if event.agent_id == 272
+      if event.agent_id == @current_user.id
         agent_service = Enquiries::AgentService
         view_ratio = agent_service.buyer_views(event.buyer_id, event.udprn)
         enquiry_ratio = agent_service.buyer_enquiries(event.buyer_id, event.udprn)

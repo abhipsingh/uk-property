@@ -6,7 +6,7 @@ class AgentsController < ApplicationController
                                              :manual_property_leads, :invited_vendor_history, :missing_sale_price_properties_for_agents, 
                                              :inactive_property_credits, :crawled_property_details, :verify_manual_property_from_agent,
 																						 :claim_property, :matching_udprns,  :list_of_properties, :invite_agents_to_register,
-                                             :additional_agent_details_intercom ]
+                                             :additional_agent_details_intercom, :agent_credit_info ]
   ### Details of the branch
   ### curl -XGET 'http://localhost/agents/predictions?str=Dyn'
   def search
@@ -68,21 +68,26 @@ class AgentsController < ApplicationController
   ### curl -XGET 'http://localhost/agents/branch/9851'
   def branch_details
     branch_id = params[:branch_id]
-    branch = Agents::Branch.find(branch_id)
-    branch_details = branch.as_json(include: {assigned_agents: {methods: [:active_properties], except: [:password_digest, 
-                                              :password, :provider, :uid, :oauth_token, :oauth_expires_at, :invited_agents]}},
-                                    except: [:verification_hash, :invited_agents])
-    branch_details[:company_id] = branch.agent_id
-    first_agent_id = Agents::Branches::AssignedAgent.where(branch_id: branch.id).order('id asc').limit(1).first.id
-    branch_details['assigned_agents'] = branch_details['assigned_agents'].select{|t| t['id'].to_i != first_agent_id }
-    branch_details[:group_id] = branch.agent.group.id
-    branch_details[:invited_agents] = InvitedAgent.where(branch_id: branch_id).select([:email, :created_at]).as_json
-    branch_details[:invited_agents].each do |invited_agent|
-      invited_agent.delete('id')
-      invited_agent['branch_id'] = branch_id.to_i 
-      invited_agent['group_id'] = branch_details[:group_id].to_i
+    branch = Agents::Branch.where(id: branch_id).last
+
+    if branch
+      branch_details = branch.as_json(include: {assigned_agents: {methods: [:active_properties], except: [:password_digest, 
+                                                :password, :provider, :uid, :oauth_token, :oauth_expires_at, :invited_agents]}},
+                                      except: [:verification_hash, :invited_agents])
+      branch_details[:company_id] = branch.agent_id
+      first_agent_id = Agents::Branches::AssignedAgent.where(branch_id: branch.id).order('id asc').limit(1).first.id
+      branch_details['assigned_agents'] = branch_details['assigned_agents'].select{|t| t['id'].to_i != first_agent_id }
+      branch_details[:group_id] = branch.agent.group.id
+      branch_details[:invited_agents] = InvitedAgent.where(branch_id: branch_id).select([:email, :created_at]).as_json
+      branch_details[:invited_agents].each do |invited_agent|
+        invited_agent.delete('id')
+        invited_agent['branch_id'] = branch_id.to_i 
+        invited_agent['group_id'] = branch_details[:group_id].to_i
+      end
+      render json: branch_details, status: 200
+    else
+      render json: { message: 'Branch does not exist' }, status: 400
     end
-    render json: branch_details, status: 200
   end
 
   ### Details of the company
@@ -521,7 +526,7 @@ class AgentsController < ApplicationController
         email: params[:stripeEmail],
         card: params[:stripeToken]
       )
-      amount = ((Agents::Branches::AssignedAgent::PER_CREDIT_COST*params[:credit]).round)*100 ### In pences
+      amount = ((Agents::Branches::AssignedAgent::PER_CREDIT_COST*params[:credit].to_i).round)*100 ### In pences
       charge = Stripe::Charge.create(
         customer: customer.id,
         amount: amount,
@@ -549,9 +554,12 @@ class AgentsController < ApplicationController
     remaining_credits = agent.credit
     klass = Agents::Branches::AssignedAgents::Quote
     new_status = klass::STATUS_HASH['New']
-    locked_amount = klass.where(agent_id: @current_user.id).where(status: new_status).where(expired: false).sum(:amount)
+    new_quotes = klass.where(agent_id: @current_user.id).where(status: new_status).where(expired: false).pluck(:amount)
+    quote_count = new_quotes.count
+    locked_amount = new_quotes.reduce(:+)
     locked_credits = (locked_amount.to_f*0.01*0.01).round/Agents::Branches::AssignedAgent::PER_CREDIT_COST
-    result_hash = { total_credits: (locked_credits + remaining_credits), remaining_credits: remaining_credits, locked_credits: locked_credits }
+    result_hash = { total_credits: (locked_credits + remaining_credits), remaining_credits: remaining_credits,
+                    locked_credits: locked_credits, quote_count: quote_count }
     render json: result_hash, status: 200
   end
 

@@ -11,6 +11,8 @@
     cron: '0 0 * * *'
   AdsExpiryWorker:
     cron: '5 0 * * *'
+  PanelDetailsWorker:
+    cron: '20 0 * * *'
   S3ImageCleanUpWorker:
     every: '1440m'
 
