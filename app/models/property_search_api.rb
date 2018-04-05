@@ -159,7 +159,7 @@ class PropertySearchApi
     @query[:size] = 10000
   end
 
-  def fetch_udprns
+  def fetch_udprns(count_flag=false)
     inst = self
     udprns = []
     range_fields = FIELDS[:range].map{|t| ["max_#{t.to_s}".to_sym, "min_#{t.to_s}".to_sym] }.flatten
@@ -175,33 +175,40 @@ class PropertySearchApi
       status = 200
     elsif @filtered_params[:udprn]
       udprns = [ @filtered_params[:udprn] ]
-    elsif ((((FIELDS[:terms] + FIELDS[:term] +range_fields + FIELDS[:not_exists] + FIELDS[:exists]) - ADDRESS_LOCALITY_LEVELS - POSTCODE_LEVELS) & ( @filtered_params.keys + exists_filtered_keys + not_exists_filtered_keys )).empty?) &&  @filtered_params[:sort_key].nil?
-      udprns, status = search_from_primary_db
+    elsif ((((FIELDS[:terms] + FIELDS[:term] + range_fields + FIELDS[:not_exists] + FIELDS[:exists]) - ADDRESS_LOCALITY_LEVELS - POSTCODE_LEVELS) & ( @filtered_params.keys + exists_filtered_keys + not_exists_filtered_keys )).empty?) &&  @filtered_params[:sort_key].nil?
+      udprns, status = search_from_primary_db(count_flag)
     else
       Rails.logger.info("ES_QUERY_#{inst.query}")
-      body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name)
-      parsed_body = Oj.load(body)['hits']['hits']
-      udprns = parsed_body.map { |e|  e['_id'] }
-      @total_count = Oj.load(body)['hits']['total']
-
-      ### If count of udprns is zero and no filters have been selected(only sort by)
-      ### then first get the results and the intended page number and adjust limit 
-      ### offset accordingly
-      if udprns.count == 0 && ((((FIELDS[:terms] + FIELDS[:term] +range_fields + FIELDS[:not_exists] + FIELDS[:exists]) - ADDRESS_LOCALITY_LEVELS - POSTCODE_LEVELS) & ( @filtered_params.keys + exists_filtered_keys + not_exists_filtered_keys )).empty?) && @filtered_params[:sort_key] == 'status_last_updated'
-        ### Only get the count of results in es
+      
+      body, status = nil
+      if count_flag
         body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name, '_search?search_type=count')
-        total_count = Oj.load(body)['hits']['total']
-
-        primary_db_page_number = @filtered_params[:p].to_i - ((total_count/RESULTS_PER_PAGE).to_i)
-        @filtered_params[:p] = primary_db_page_number
-        inst = self
-        inst = inst.append_pagination_filter
-        udprns, status = search_from_primary_db
+        udprns = Oj.load(body)['hits']['total']
+      else
+        body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name)
+        parsed_body = Oj.load(body)['hits']['hits']
+        udprns = parsed_body.map { |e|  e['_id'] }
+        @total_count = Oj.load(body)['hits']['total']
+  
+        ### If count of udprns is zero and no filters have been selected(only sort by)
+        ### then first get the results and the intended page number and adjust limit 
+        ### offset accordingly
+        if udprns.count == 0 && ((((FIELDS[:terms] + FIELDS[:term] +range_fields + FIELDS[:not_exists] + FIELDS[:exists]) - ADDRESS_LOCALITY_LEVELS - POSTCODE_LEVELS) & ( @filtered_params.keys + exists_filtered_keys + not_exists_filtered_keys )).empty?) && @filtered_params[:sort_key] == 'status_last_updated'
+          ### Only get the count of results in es
+          body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name, '_search?search_type=count')
+          total_count = Oj.load(body)['hits']['total']
+  
+          primary_db_page_number = @filtered_params[:p].to_i - ((total_count/RESULTS_PER_PAGE).to_i)
+          @filtered_params[:p] = primary_db_page_number
+          inst = self
+          inst = inst.append_pagination_filter
+          udprns, status = search_from_primary_db(count_flag)
+        end
       end
     end
     return udprns, status
   end
-
+  
   def fetch_details_from_udprns(udprns)
     udprns = udprns.map(&:to_i).uniq.select{|t| t> 0 }
     body = PropertyService.bulk_details(udprns)    
@@ -248,11 +255,11 @@ class PropertySearchApi
     end
   end
 
-  def search_from_primary_db
+  def search_from_primary_db(count_flag=false)
     query = PropertyAddress
     mvc = MatrixViewService.new(hash_str: @hash_key)
     search_columns = SEARCH_CONSTRAINTS_MAP[mvc.level]
-    
+
     if !search_columns.empty?
       postcode = nil
       if !([:district, :unit, :sector] & search_columns).empty?
@@ -283,16 +290,23 @@ class PropertySearchApi
     else
       return [], 200
     end
+    udprns, status = execute_search_primary_db(query, count_flag)
+    return udprns, status
+  end
 
+  def execute_search_primary_db(query, count=false)
     #### Paginate
-    query = query.limit(@query[:size].to_i) if @query[:size]
-    query = query.offset(@query[:from].to_i)
-    PropertyAddress.connection.execute("set enable_seqscan to off;")
-    query = query.select(:udprn)
-    udprns = query.pluck(:udprn)
-    PropertyAddress.connection.execute("set enable_seqscan to on;")
-    Rails.logger.info("POSTGRES_QUERY_#{query.to_sql}")
+    udprns = nil
     status = 200
+    PropertyAddress.connection.execute("set enable_seqscan to off;")
+    if !count 
+      query = query.limit(@query[:size].to_i) if @query[:size]
+      query = query.offset(@query[:from].to_i)
+      udprns = query.pluck(:udprn)
+    else
+      udprns = query.count
+    end
+    PropertyAddress.connection.execute("set enable_seqscan to on;")
     return udprns, status
   end
 
@@ -529,11 +543,11 @@ class PropertySearchApi
   def self.transfer_data_from_es_to_key_value_store(scroll_id)
     scroll_id = scroll_id
     glob_counter = 0
-    Rails.configuration.ardb_client.flushall
+    #Rails.configuration.ardb_client.flushall
     batch = 0
     loop do
       scroll_hash = { scroll: '240m', scroll_id: scroll_id }
-      response , _status = post_url_new(scroll_hash)
+      response, _status = post_url_new(scroll_hash)
       response_arr = Oj.load(response)['hits']['hits'].map { |e| e['_source'] }
       break if response_arr.length == 0
       body = []
@@ -550,8 +564,7 @@ class PropertySearchApi
     inst.modify_filtered_params
     inst.apply_filters
     inst.modify_query
-    body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name, '_search?search_type=count')
-    count = Oj.load(body)['hits']['total'] rescue 0
+    count, status = fetch_udprns(true)
     return count, status
   end
 

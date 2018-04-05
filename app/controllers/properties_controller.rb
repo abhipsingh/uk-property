@@ -409,7 +409,7 @@ class PropertiesController < ActionController::Base
   def invite_friends_and_family
     udprn = params[:udprn].to_i
     email = params[:email]
-    buyer_id = @current_user.class.to_s == 'PropertyBuyer' ? @current_user.id : @current_user.buyer_id
+    buyer_id = @current_user.id
 
     ### Verify OTP within one hour
     totp = ROTP::TOTP.new("base32secret3232", interval: 1)
@@ -417,12 +417,26 @@ class PropertiesController < ActionController::Base
     otp_verified = totp.verify_with_drift(user_otp, 3600, Time.now+3600)
 
     if true
-      PropertyBuyer.find(buyer_id).send_vendor_email(email, udprn, false)
-      render json: { message: 'Invited the friend/family of yours with email ' + email }, status: 200
+      invited_buyer = PropertyBuyer.where(email: email).last
+      if invited_buyer.nil?
+        InvitedFandFVendor.create!(email: email, invitee_id: buyer_id)
+        PropertyBuyer.find(buyer_id).send_vendor_email(email, udprn, false)
+        render json: { message: 'Invited the friend/family of yours with email ' + email }, status: 200
+      else
+        render json: { message: 'A user is already registered with the  email address' }, status: 400
+      end
     else
       render json: { message: 'OTP Failure' }, status: 400
     end
   end
+
+  ### List of invited friends and family for the vendor
+  ### curl -XGET  -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9." 'http://localhost/list/invite/friends/family/'
+  def invited_f_and_f_list
+    invited_f_and_fs = InvitedFandFVendor.where(invitee_id: @current_user.id).select([:email, :created_at])
+    render json: invited_f_and_fs, status: 200
+  end
+
 
   ### Predictions for the tags
   ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo3LCJleHAiOjE0ODUxODUwMTl9.7drkfFR5AUFZoPxzumLZ5TyEod_dLm8YoZZM0yqwq6U" " 'http://localhost/predict/tags?field=property_style&str=Exampl' 

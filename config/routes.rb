@@ -293,6 +293,9 @@ Rails.application.routes.draw do
   ### For vendors invited through both the sources, get agent details
   get 'property/vendor/agent/details/verify/:udprn',            to: 'properties#agent_details_for_the_vendor'
 
+  ### Fetch the list of invited friends and family(for a buyer/vendor)
+  get 'list/invite/friends/family',                             to: 'properties#invited_f_and_f_list'
+
   #####################################################################
   #####################################################################
   #####################################################################

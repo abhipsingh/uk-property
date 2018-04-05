@@ -19,7 +19,7 @@ module Api
       include MatrixViewHelper
 
       around_action :authenticate_all, only: [ :search, :details ]
-      
+
       def search
         api = ::PropertySearchApi.new(filtered_params: params)
         result, status = api.filter
@@ -52,6 +52,7 @@ module Api
         render :json => new_result, :status => status
       end
 
+      ### Matching property count for particular set of filters
       ### curl -XGET 'http://localhost/api/v0/properties/matching/count?hash_str=LIVERPOOL&hash_type=Text&count=true'
       def matching_property_count
         ## hash_str compulsory?
@@ -77,7 +78,7 @@ module Api
 
         render json: { locality_hash: locality_hash, street_hash: street_hash, street_hash_type: street_hash_type, locality_hash_type: :dependent_locality }, status: 200
       end
-      
+
       #### Details Api for a udprn
       #### curl -XGET 'http://localhost/api/v0/properties/details/10968961'
       def details
@@ -194,7 +195,7 @@ module Api
         end
         @current_user
       end
-      
+
       def authenticate_all
         if user_valid_for_viewing?(['Vendor', 'Agent', 'Developer'])
           yield
