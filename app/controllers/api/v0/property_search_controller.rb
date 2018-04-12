@@ -184,6 +184,14 @@ module Api
         end
       end
 
+      ### Randomise the property ads for featured properties
+      ### curl -XGET 'http://localhost/api/v0/randomise/ads/property'
+      def randomise_property_ad
+        udprns = PropertyAd.where(ad_type: PropertyAd::TYPE_HASH['Featured']).order("random()").limit(5).pluck(:property_id)
+        result = PropertySearchApi.new(filtered_params: {}).fetch_details_from_udprns(udprns)
+        render json: { random_ad_properties: result }, status: 200
+      end
+
       private
 
       def user_valid_for_viewing?(klasses=[])

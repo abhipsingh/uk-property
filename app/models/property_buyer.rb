@@ -103,9 +103,12 @@ class PropertyBuyer < ActiveRecord::Base
     hash_obj = create_hash(vendor_email, udprn)
     self.verification_hash = hash_obj.hash_value
     self.vendor_email = vendor_email
-    self.email_udprn = udprn
-    details = PropertyDetails.details(udprn)['_source']
-    self.renter_address = details['address']
+
+    if udprn != 0
+      self.email_udprn = udprn
+      details = PropertyDetails.details(udprn)['_source']
+      self.renter_address = details['address']
+    end
 
     ### If the inviter is a renter, then send a different mail than
     ### when its a buyer

@@ -13,7 +13,8 @@ class Vendor < ActiveRecord::Base
 
   INVITED_FROM_CONST = {
     crawled: 1,
-    family: 2
+    family: 2,
+    non_crawled: 3
   }
   
   PROPERTY_CLAIM_LIMIT_MAP = {

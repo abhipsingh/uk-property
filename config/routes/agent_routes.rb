@@ -135,5 +135,19 @@ Rails.application.routes.draw do
   ### Agent credit info
   get 'agents/credit/info',                                     to: 'agents#agent_credit_info'
 
+  ### Verify property attrs for non f and f vendors
+  get 'agents/properties/:udprn/manual/verify/non/fandf',       to: 'agents#verify_manual_property_from_agent_non_f_and_f'
+
+  ### Fetch agent details for a vanity url
+  get 'agents/details/:vanity_url',                             to: 'agents#agent_vanity_url_details'
+
+  ### Fetch branch details for a vanity url
+  get 'branches/details/:vanity_url',                           to: 'agents#branch_vanity_url_details'
+
+  ### Fetch company details for a vanity url
+  get 'companies/details/:vanity_url',                          to: 'agents#company_vanity_url_details'
+
+  ### Fetch group details for a vanity url
+  get 'groups/details/:vanity_url',                             to: 'agents#group_vanity_url_details'
 end
 

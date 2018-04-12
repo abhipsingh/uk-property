@@ -19,6 +19,10 @@ class AgentApi
     result = { id: @agent_id  }
     result[:branch_id] = branch.id
     result[:branch_logo] = branch.image_url
+    result[:branch_address] = branch.address
+    result[:branch_name] = branch.name
+    result[:branch_phone_number] = branch.phone_number
+    result[:branch_website] = branch.website
     calculate_aggregate_stats(result, branch_id, vendor_quote, agent_quote)
 
     result[:assigned_agent_first_name] = agent.first_name
@@ -26,6 +30,7 @@ class AgentApi
     result[:assigned_agent_image_url] = agent.image_url
     result[:assigned_agent_mobile] = agent.mobile
     result[:assigned_agent_email] = agent.email
+    result[:assigned_agent_title] = agent.title
     result
   end
 
@@ -80,19 +85,15 @@ class AgentApi
 
     sold_property_count = sold_properties.count
     sold_property_map = {}
-    avg_increase_in_price = 0
     all_sold_udprns = []
     sold_properties.each do |each_prop|
       sold_property = PropertyEvent.where(agent_id: @agent_id).where(udprn: each_prop.udprn).where("(attr_hash ? 'price') OR (attr_hash ? 'sale_price')").order('created_at asc').limit(1).first #### There might be multiple times an agent can be attached to this property TODO
       sale_price = sold_property.attr_hash['sale_price'] || sold_property.attr_hash['price']  if sold_property
       sale_price ||= 0
-      avg_increase_in_price += (((each_prop.sale_price - sale_price).to_f)/(each_prop.sale_price.to_f)*100).round(2)
 
       sold_property_map[each_prop.udprn] = each_prop
       all_sold_udprns.push(each_prop.udprn)
     end
-    ### Avg increase in price
-    avg_increase_in_price = (avg_increase_in_price.to_f)/(sold_property_count.to_f)
 
     agent_events = PropertyEvent.where(agent_id: @agent_id).where(udprn: all_sold_udprns).group(:udprn).select('min(created_at) as first_date').select(:udprn)
     last_property_status_types = []
@@ -156,9 +157,6 @@ class AgentApi
         ### for calculating percent of first valuation
         percent_of_first_valuation += ((valuations[first_valuation_index].to_f/each_sold_prop_data.sale_price.to_f)*100).round(2)
 
-        ### for calculating percent of last valuation
-        percent_of_last_valuation += ((valuations[last_valuation_index].to_f/each_sold_prop_data.sale_price.to_f)*100).round(2)
-
       end
     end
     total_days_to_sell_map['Green'] ||= []
@@ -169,8 +167,7 @@ class AgentApi
     avg_achieved_more_than_valuation_count = ((achieved_more_than_valuation_count.to_f/sold_property_count.to_f)*100).round(2)
     avg_changes_to_valuation = (changes_to_valuation.to_f/sold_property_count.to_f).round(2)
     percent_of_first_valuation = (percent_of_first_valuation.to_f/sold_property_count.to_f).round(2)
-    percent_of_last_valuation = (percent_of_last_valuation.to_f/sold_property_count.to_f).round(2)
-    
+
     ### All stats for agents quotes
     aggregate_stats[:total_count] = all_counts['Green'].to_i + all_counts['Red'].to_i + all_counts['Amber'].to_i
     aggregate_stats[:aggregate_valuation] = aggregate_valuation
@@ -184,9 +181,7 @@ class AgentApi
     aggregate_stats[:aggregate_sales] = aggregate_sales
     aggregate_stats[:avg_achieved_more_than_valuation_count] = (avg_achieved_more_than_valuation_count.nan? ? nil : avg_achieved_more_than_valuation_count)
     aggregate_stats[:avg_changes_to_valuation] = (avg_changes_to_valuation.nan? ? nil : avg_changes_to_valuation)
-    aggregate_stats[:avg_increase_in_price] = (avg_increase_in_price.nan? ? nil : avg_increase_in_price)
     aggregate_stats[:avg_percent_of_first_valuation] = (percent_of_first_valuation.nan? ? nil : percent_of_first_valuation)
-    aggregate_stats[:avg_percent_of_last_valuation] = (percent_of_last_valuation.nan? ? nil : percent_of_last_valuation)
   end
 
   #### Final aggregated quote price of the agent

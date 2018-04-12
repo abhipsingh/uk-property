@@ -6,6 +6,32 @@ class AgentService
     @udprn = udprn
   end
 
+  def verify_manual_property_from_agent_non_f_and_f(property_attrs, vendor_email, assigned_agent_email, agent)
+    assigned_agent = agent
+    branch = Agents::Branches::AssignedAgent.where(id: @agent_id.to_i).last.branch
+    property_id = property_attrs[:property_id]
+    response, status = PropertyService.new(udprn).update_details(property_attrs)
+    agent_attrs = {
+      name: assigned_agent.first_name.to_s + ' ' + assigned_agent.last_name.to_s,
+      branch_address: branch.address,
+      title: assigned_agent.title,
+      company_name: branch.agent.name,
+      office: assigned_agent.office_phone_number,
+      mobile: assigned_agent.mobile_phone_number,
+      email: assigned_agent.email,
+      address: address,
+      udprn: udprn,
+      hash_link: assigned_agent.create_hash(vendor_email, property_id).hash_value
+    }
+
+    VendorMailer.agent_lead_expect_visit_manual(agent_attrs, vendor_email).deliver_now
+
+    ### Add this vendor to invited vendors table, source
+    InvitedVendor.create!(udprn: @udprn, email: vendor_email, agent_id: @agent_id.to_i, source: Vendor::INVITED_FROM_CONST[:non_crawled] )
+
+    return response, status
+  end
+
   ### When an agent verifies a crawled property
   ### Called from agents_controller#verify_property_from_agent
   def verify_crawled_property_from_agent(property_attrs, vendor_email, assigned_agent_email)

@@ -1,8 +1,8 @@
 class PropertiesController < ActionController::Base
   include CacheHelper
   before_filter :set_headers
-  around_action :authenticate_agent_and_vendor, only: [   :interest_info, :supply_info_aggregate, :enquiries, :property_stats ]
-  around_action :authenticate_buyer_and_vendor, only: [ :invite_friends_and_family ]
+  around_action :authenticate_agent_and_vendor, only: [ :interest_info, :supply_info_aggregate, :enquiries, :property_stats ]
+  around_action :authenticate_buyer_and_vendor, only: [ :invite_friends_and_family, :invited_f_and_f_list ]
   around_action :authenticate_premium_agent_vendor, only: [ :supply_info, :demand_info, :agent_stage_and_rating_stats, :ranking_stats, :buyer_profile_stats ]
   around_action :authenticate_all, only: [ :predict_tags, :add_new_tags, :show_tags, :vanity_url ]
   around_action :authenticate_vendor, only: [ :attach_vendor_to_udprn_manual_for_manually_added_properties, :edit_basic_details_with_an_assigned_agent,
@@ -31,6 +31,7 @@ class PropertiesController < ActionController::Base
     missing_fields = mandatory_attrs.select{ |t| updated_details[t].nil? }
     missing_fields += [:description] if updated_details[:description_set].nil?
     missing_fields -= [:description_set]
+    Rails.logger.info("UPDATED_DETAILS_#{updated_details}_#{details}")
     render json: { message: 'Property details edited', response: updated_details, missing_fields: missing_fields, mandatory_fields: mandatory_attrs }, status: 200
   end
 
@@ -238,6 +239,7 @@ class PropertiesController < ActionController::Base
       body[:baths] = params[:baths].to_i
       body[:receptions] = params[:receptions].to_i
       body[:property_status_type] = params[:property_status_type] if params[:property_status_type]
+      body[:property_type] = params[:property_type] if params[:property_type]
       body[:verification_status] = false
       body[:agent_id] = params[:assigned_agent_id].to_i if params[:assigned_agent_id]
       body[:vendor_id] = @current_user.id
@@ -405,28 +407,21 @@ class PropertiesController < ActionController::Base
   end
 
   ### Invite friends/family for signing up as a vendor/property owner of a property
-  ### curl -XPOST  -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9." 'http://localhost/invite/friends/family/' -d '{ "email" : "johnt@yt.com", "udprn":123456789, "otp":432321  }'
+  ### curl -XPOST  -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9." 'http://localhost/properties/invite/friends/family/' -d '{ "email" : "johnt@yt.com", "udprn": 123456789, "otp": 432321  }'
   def invite_friends_and_family
     udprn = params[:udprn].to_i
     email = params[:email]
+    Rails.logger.info("CURRENT_SUSER+#{@current_user}")
     buyer_id = @current_user.id
+    #buyer_id = 476
 
-    ### Verify OTP within one hour
-    totp = ROTP::TOTP.new("base32secret3232", interval: 1)
-    user_otp = params['otp']
-    otp_verified = totp.verify_with_drift(user_otp, 3600, Time.now+3600)
-
-    if true
-      invited_buyer = PropertyBuyer.where(email: email).last
-      if invited_buyer.nil?
-        InvitedFandFVendor.create!(email: email, invitee_id: buyer_id)
-        PropertyBuyer.find(buyer_id).send_vendor_email(email, udprn, false)
-        render json: { message: 'Invited the friend/family of yours with email ' + email }, status: 200
-      else
-        render json: { message: 'A user is already registered with the  email address' }, status: 400
-      end
+    invited_buyer = PropertyBuyer.where(email: email).last
+    if invited_buyer.nil?
+      InvitedFandFVendor.create!(email: email, invitee_id: buyer_id)
+      PropertyBuyer.find(buyer_id).send_vendor_email(email, udprn, false)
+      render json: { message: 'Invited the friend/family of yours with email ' + email }, status: 200
     else
-      render json: { message: 'OTP Failure' }, status: 400
+      render json: { message: 'A user is already registered with the  email address' }, status: 400
     end
   end
 
@@ -436,7 +431,6 @@ class PropertiesController < ActionController::Base
     invited_f_and_fs = InvitedFandFVendor.where(invitee_id: @current_user.id).select([:email, :created_at])
     render json: invited_f_and_fs, status: 200
   end
-
 
   ### Predictions for the tags
   ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo3LCJleHAiOjE0ODUxODUwMTl9.7drkfFR5AUFZoPxzumLZ5TyEod_dLm8YoZZM0yqwq6U" " 'http://localhost/predict/tags?field=property_style&str=Exampl' 

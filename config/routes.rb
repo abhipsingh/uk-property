@@ -7,6 +7,9 @@ Rails.application.routes.draw do
   ### Sidekiq
   mount Sidekiq::Web => '/sidekiq'
 
+  ### Post the list of invited friends and family(for a buyer/vendor)
+  post 'properties/invite/friends/family',    to: 'properties#invite_friends_and_family'
+
   get 'welcome/index'
   # The priority is based upon order of creation: first created -> highest priority.
   # See how all your routes lay out with "rake routes".
@@ -22,7 +25,7 @@ Rails.application.routes.draw do
 
   ## Get user details
   get 'users/details', to: 'users#details'
-  get 'users/postcode_area_panel_details', to: 'users#postcode_area_panel_details'
+  get 'users/postcode_area_panel_details',   to: 'users#postcode_area_panel_details'
 
   ###### ENQUIRIES ####################################################
   #####################################################################
@@ -135,7 +138,7 @@ Rails.application.routes.draw do
 
   #### Edit vendor details 
   post 'vendors/:id/edit',                                      to: 'vendors#edit'
-  
+
   #### Edit agent quotes
   post 'quotes/edit',                                           to: 'quotes#edit_agent_quote'
 
@@ -295,7 +298,6 @@ Rails.application.routes.draw do
 
   ### Fetch the list of invited friends and family(for a buyer/vendor)
   get 'list/invite/friends/family',                             to: 'properties#invited_f_and_f_list'
-
   #####################################################################
   #####################################################################
   #####################################################################
@@ -334,6 +336,9 @@ Rails.application.routes.draw do
     
       ### Returns street and locality hash for any given udprn
       get 'property/hash/:udprn',                    to: 'property_search#udprn_street_locality_hash'
+
+      ### Randomise property ads
+      get 'randomise/ads/property',                  to: 'property_search#randomise_property_ad'
 
     end
   end

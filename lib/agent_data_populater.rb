@@ -42,11 +42,13 @@ class AgentDataPopulater
             company_id = nil
             group_id = nil
             group_name ||= company_name
-
+            
+            if prophety_company_id.to_i == 4845
             emails = [ branch_email, branch_lettings_email, branch_sales_email, branch_commercial_email ]
             domain_name_length = emails.map{ |t| t.strip if t}.map{ |t| t.split('@').last  if t }.compact.uniq.length
             company_count += 1 if domain_name_length > 1
             domain_name = emails.map{ |t| t.strip  if t}.map{ |t| t.split('@').last  if t }.compact.uniq if domain_name_length == 1
+            p emails if domain_name_length > 1
             
             independent_type = Agents::Branch::INDEPENDENT_TYPE_MAP[independent]
             if independent_type.nil?
@@ -60,32 +62,34 @@ class AgentDataPopulater
             end
 
             company = Agent.where(prophety_company_id: prophety_company_id).last
+            p company.id if domain_name_length > 1
             if !company
-              #group = Agents::Group.create!(name: group_name)
+              group = Agents::Group.create!(name: group_name)
               group_count += 1
-              #group_id = group.id
-              #company = Agent.create!(name: company_name, zoopla_company_id: zoopla_company_id, independent: independent_type, group_id: group_id, is_ready_for_launch: is_ready_for_launch, prophety_company_id: prophety_company_id)
+              group_id = group.id
+              company = Agent.create!(name: company_name, zoopla_company_id: zoopla_company_id, independent: independent_type, group_id: group_id, is_ready_for_launch: is_ready_for_launch, prophety_company_id: prophety_company_id)
               company_count += 1
             end
             company_id = company.id
 
-#            branch = Agents::Branch.create!(
-#              district: district,
-#              name: processed_branch_name,
-#              zoopla_branch_id: zoopla_branch_id,
-#              prophety_branch_id: prophety_branch_id,
-#              address: branch_address,
-#              phone_number: branch_phone_number,
-#              email: branch_email,
-#              sales_email: branch_sales_email,
-#              lettings_email: branch_lettings_email,
-#              commercial_email: branch_commercial_email,
-#              website: branch_website,
-#              suitable_for_launch: suitable_for_launch,
-#              agent_id: company_id
-#            )
-            Agents::Branch.where(agent_id: company_id, district: district, name: processed_branch_name, zoopla_branch_id: zoopla_branch_id).update_all(domain_name: domain_name.last) if domain_name
+            branch = Agents::Branch.create!(
+              district: district,
+              name: processed_branch_name,
+              zoopla_branch_id: zoopla_branch_id,
+              prophety_branch_id: prophety_branch_id,
+              address: branch_address,
+              phone_number: branch_phone_number,
+              email: branch_email,
+              sales_email: branch_sales_email,
+              lettings_email: branch_lettings_email,
+              commercial_email: branch_commercial_email,
+              website: branch_website,
+              suitable_for_launch: suitable_for_launch,
+              agent_id: company_id
+            )
+            #Agents::Branch.where(agent_id: company_id, district: district, name: processed_branch_name, zoopla_branch_id: zoopla_branch_id).update_all(domain_name: domain_name.last) if domain_name
             line += 1
+            end
             
           end
 

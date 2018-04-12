@@ -197,7 +197,7 @@ class QuotesController < ApplicationController
     klass = Agents::Branches::AssignedAgents::Quote
 
     results = klass.where("expired = 't' OR status = ? OR status = ?", klass::STATUS_HASH['Won'], klass::STATUS_HASH['Lost']).where.not(agent_id: nil).where(property_id: udprn).order('created_at desc').map do |quote|
-      agent = Agents::Branches::AssignedAgent.where(id: quote.agent_id).select([:first_name, :last_name, :email, :mobile]).last
+      agent = Agents::Branches::AssignedAgent.where(id: quote.agent_id).select([:first_name, :last_name, :email, :mobile, :title]).last
       hash = {
         id: quote.id,
         created_at: quote.created_at,
@@ -205,6 +205,7 @@ class QuotesController < ApplicationController
         agent_name: agent.first_name + ' ' + agent.last_name,
         agent_email: agent.email,
         agent_mobile: agent.mobile,
+        agent_title: agent.title,
         payment_terms: quote.payment_terms,
         quote_details: quote.quote_details,
         expired: quote.expired,

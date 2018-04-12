@@ -441,16 +441,18 @@ module Agents
 
       ### Agents::Branches::AssignedAgent.find(23).send_vendor_email("test@prophety.co.uk", 10968961)
       def send_vendor_email(vendor_email, udprn, assigned_agent_present=true, alternate_agent_email=nil)
-        hash_obj = create_hash(vendor_email, udprn)
-        self.verification_hash = hash_obj.hash_value
-        self.vendor_email = vendor_email
-        self.email_udprn = udprn
-        details = PropertyDetails.details(udprn)['_source']
-        self.vendor_address = details['address']
-        self.assigned_agent_present = assigned_agent_present
-        self.alternate_agent_email = alternate_agent_email
-        self.source = 'properties'
-        VendorMailer.welcome_email(self).deliver_now
+        if (Vendor.where(email: vendor_email).count == 0)
+          hash_obj = create_hash(vendor_email, udprn)
+          self.verification_hash = hash_obj.hash_value
+          self.vendor_email = vendor_email
+          self.email_udprn = udprn
+          details = PropertyDetails.details(udprn)['_source']
+          self.vendor_address = details['address']
+          self.assigned_agent_present = assigned_agent_present
+          self.alternate_agent_email = alternate_agent_email
+          self.source = 'properties'
+          VendorMailer.welcome_email(self).deliver_now
+        end
         ### http://prophety-test.herokuapp.com/auth?verification_hash=<%=@user.verification_hash%>&udprn=<%=@user.email_udprn%>&email=<%=@user.vendor_email%>
       end
 
@@ -464,9 +466,23 @@ module Agents
       def as_json option = {}
         super(:except => [:password, :password_digest])
       end
-      ### TODO: Refactoring required. Figure out a better way of dumping details of a user through a consensus
+ 
+      ### Vanity url of agent
+      def vanity_url
+        branch_name = self.branch.name.downcase.gsub(/[a-z ]+/).to_a.join('').split(' ').join('-')
+        company_name = self.branch.agent.name.downcase.gsub(/[a-z ]+/).to_a.join('').split(' ').join('-')
+        agent_name = name
+        agent_name ||= ''
+        agent_name = agent_name.downcase.gsub(/[a-z ]+/).to_a.join('').split(' ').join('-')
+        Rails.configuration.frontend_production_url + '/agents/' + [ company_name, branch_name, agent_name, self.id.to_s ].join('-')
+      end
+
+      ### TODO: Refactoring required. Figure out a better way of dumping
+      ### details of a user through a consensus
       def details
-        as_json(only: DETAIL_ATTRS)
+        hash = as_json(only: DETAIL_ATTRS)
+        hash['vanity_url'] = vanity_url
+        hash
       end
 
       def self.fetch_details(attrs=[], ids=[])

@@ -55,13 +55,30 @@ class AgentsController < ApplicationController
   def assigned_agent_details
     assigned_agent_id = params[:assigned_agent_id]
     assigned_agent = Agents::Branches::AssignedAgent.find(assigned_agent_id)
-    agent_details = assigned_agent.as_json(methods: [:active_properties], except: [:password_digest, 
-                                          :password, :provider, :uid, :oauth_token, :oauth_expires_at, :invited_agents])
+    agent_details = assigned_agent.as_json(methods: [:active_properties, :vanity_url], except: [:password_digest, :password, :provider, :uid, :oauth_token, :oauth_expires_at, :invited_agents])
     agent_details[:company_id] = assigned_agent.branch.agent_id
     agent_details[:group_id] = assigned_agent.branch.agent.group_id
     agent_details[:company_name] = assigned_agent.branch.agent.name
     agent_details[:domain_name] = assigned_agent.branch.domain_name
     render json: agent_details, status: 200
+  end
+ 
+  ### Details of the company
+  ### curl XGET 'http://localhost/agents/company/6290'
+  def company_details
+    company_id = params[:company_id]
+    company_details = Agent.find(company_id)
+    company_details = company_details.as_json(methods: [:vanity_url, :children_vanity_urls], include:  { branches: { include: { assigned_agents: {methods: [:active_properties], except: [ :password_digest, :password, :provider, :uid, :oauth_token, :oauth_expires_at ]}}, except: [:verification_hash]}})
+    render json: company_details, status: 200
+  end
+
+  ### Details of the group
+  ### curl XGET 'http://localhost/agents/group/1'
+  def group_details
+    group_id = params[:group_id]
+    group = Agents::Group.find(group_id)
+    group_details = group.as_json(methods: [:vanity_url, :children_vanity_urls], include:  { companies: { include: { branches: { include: { assigned_agents: {methods: [:active_properties]}}}}}})
+    render json: group_details, status: 200
   end
 
   ### Details of the branch
@@ -71,7 +88,7 @@ class AgentsController < ApplicationController
     branch = Agents::Branch.where(id: branch_id).last
 
     if branch
-      branch_details = branch.as_json(include: {assigned_agents: {methods: [:active_properties], except: [:password_digest, 
+      branch_details = branch.as_json(methods: [:vanity_url, :children_vanity_urls], include: {assigned_agents: {methods: [:active_properties], except: [:password_digest, 
                                                 :password, :provider, :uid, :oauth_token, :oauth_expires_at, :invited_agents]}},
                                       except: [:verification_hash, :invited_agents])
       branch_details[:company_id] = branch.agent_id
@@ -88,25 +105,6 @@ class AgentsController < ApplicationController
     else
       render json: { message: 'Branch does not exist' }, status: 400
     end
-  end
-
-  ### Details of the company
-  ### curl -XGET 'http://localhost/agents/company/6290'
-  def company_details
-    company_id = params[:company_id]
-    company_details = Agent.find(company_id)
-    company_details = company_details.as_json(include:  { branches: { include: { assigned_agents: {methods: [:active_properties], except: [:password_digest, 
-                                          :password, :provider, :uid, :oauth_token, :oauth_expires_at]}}, except: [:verification_hash]}})
-    render json: company_details, status: 200
-  end
-
-  ### Details of the group
-  ### curl -XGET 'http://localhost/agents/group/1'
-  def group_details
-    group_id = params[:group_id]
-    group = Agents::Group.find(group_id)
-    group_details = group.as_json(include:  { companies: { include: { branches: { include: { assigned_agents: {methods: [:active_properties]}}}}}})
-    render json: group_details, status: 200
   end
 
   ### Add new agent details to exisiting or create a new agent
@@ -145,8 +143,9 @@ class AgentsController < ApplicationController
     branch = Agents::Branch.where(id: agent_id).last
     Rails.logger.info("INVITE_AGENTS_#{branch.id}_#{params[:invited_agents]}")
     agent_id = @current_user.id
-    if branch
-      other_agents = JSON.parse(params[:invited_agents])
+    other_agents = JSON.parse(params[:invited_agents])
+    invited_email = other_agents.first['email']
+    if branch && (Agents::Branches::AssignedAgent.where(email: invited_email).count == 0)
       new_agents = [{email: other_agents.first['email'], entity_id: @current_user.id, branch_id: other_agents.first['branch_id']}]
       branch.invited_agents = new_agents
       branch.send_emails
@@ -328,6 +327,35 @@ class AgentsController < ApplicationController
 #  rescue Exception => e
 #    Rails.logger.info("AGENT_PROPERTY_VERIFICATION_FAILURE_#{e.message}")
 #    render json: { message: 'Verification failed due to some error' }, status: 400
+  end
+
+  ### Add manual property's basic attributes and attach the crawled property to a udprn for a non f and f property
+  ### Done when the agent attaches the udprn to the property
+  ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/agents/properties/10968961/manual/verify/non/fandf' -d '{  "agent_id": 1234, "vendor_email": "residentevil293@prophety.co.uk", "assigned_agent_email" :  "residentevil293@prophety.co.uk" }'
+  def verify_manual_property_from_agent_non_f_and_f
+    agent = @current_user
+    udprn = params[:udprn].to_i
+    agent_id = agent.id
+    agent_service = AgentService.new(agent_id, udprn)
+    Rails.logger.info("UPLOAD_MANUAL_PROPERTY_NON_F&F_#{udprn}_#{agent_id}")
+    property_attrs = {
+      details_completed: false,
+      claimed_on: Time.now.to_s,
+      claimed_by: 'Agent',
+      agent_id: agent_id.to_i,
+      property_id: params[:udprn],
+      property_status_type: 'Green'
+    }
+    Rails.logger.info("#{property_attrs}  CLAIM_PROPERTY_#{agent.id}")
+    
+    vendor_email = params[:vendor_email]
+    assigned_agent_email = params[:assigned_agent_email]
+    response, status = agent_service.verify_manual_property_from_agent_non_f_and_f(property_attrs, vendor_email, assigned_agent_email, agent)
+    response['message'] = "Property details updated." unless status.nil? || status != 200
+    render json: response, status: status
+  #rescue Exception => e
+  #  Rails.logger.info("AGENT_MANUAL_PROPERTY_VERIFICATION_FAILURE_#{e}")
+  #  render json: { message: 'Verification failed due to some error' }, status: 400
   end
 
   ### Add manual property's basic attributes and attach the crawled property to a udprn
@@ -1006,6 +1034,71 @@ class AgentsController < ApplicationController
     #Rails.logger.info("RESULTS #{results}")
 
     render json: results, status: 200
+  end
+
+  ### Used to fetch agent details when queried for a vanity url
+  ### curl -XGET -H "Authorization: abxsbsk21w1xa" 'http://localhost/agents/details/:vanity_url'
+  def agent_vanity_url_details
+    vanity_url = params[:vanity_url]
+    agent_id = vanity_url.split('-').last
+    agent_id = agent_id.to_i
+    agent = Agents::Branches::AssigndAgent.where(id: agent_id).last
+    if agent
+      render json: agent.details, status: 200
+    else
+      render json: { message: 'Agent not present in the db' }, status: 400
+    end
+  end
+
+  ### Used to fetch branch details when queried for a vanity url
+  ### curl -XGET -H "Authorization: abxsbsk21w1xa" 'http://localhost/branches/details/:vanity_url'
+  def branch_vanity_url_details
+    vanity_url = params[:vanity_url]
+    branch_id = vanity_url.split('-').last
+    branch_id = branch_id.to_i
+    branch = Agents::Branch.where(id: branch_id).last
+    if branch
+      children_vanity_urls = branch.assigned_agents.map(&:vanity_url)
+      branch = branch.as_json
+      branch['children_vanity_urls'] = children_vanity_urls
+      render json: branch, status: 200
+    else
+      render json: { message: 'Branch not present in the db' }, status: 400
+    end
+  end
+
+  ### Used to fetch company details when queried for a vanity url
+  ### curl -XGET -H "Authorization: abxsbsk21w1xa" 'http://localhost/companies/details/:vanity_url'
+  def company_vanity_url_details
+    vanity_url = params[:vanity_url]
+    company_id = vanity_url.split('-').last
+    company_id = company_id.to_i
+    company = Agent.where(id: company_id).last
+    if company
+      children_vanity_urls = company.branches.map(&:vanity_url)
+      company = company.as_json
+      company['children_vanity_urls'] = children_vanity_urls
+      render json: company, status: 200
+    else
+      render json: { message: 'Company not present in the db' }, status: 400
+    end
+  end
+
+  ### Used to fetch company details when queried for a vanity url
+  ### curl -XGET -H "Authorization: abxsbsk21w1xa" 'http://localhost/groups/details/:vanity_url'
+  def group_vanity_url_details
+    vanity_url = params[:vanity_url]
+    group_id = vanity_url.split('-').last
+    group_id = group_id.to_i
+    group = Agents::Group.where(id: group_id).last
+    if group
+      children_vanity_urls = group.companies.map(&:vanity_url)
+      group = group.as_json
+      group['children_vanity_urls'] = children_vanity_urls
+      render json: group, status: 200
+    else
+      render json: { message: 'Company not present in the db' }, status: 400
+    end
   end
 
   ### Is used to fetch additional details of an agent (registered friends and family and registered agents)

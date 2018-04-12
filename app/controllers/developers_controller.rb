@@ -118,7 +118,8 @@ class DevelopersController < ApplicationController
   def invite_developers_to_register
     branch_id = params[:branch_id].to_i
     branch = Agents::Branch.unscope(where: :is_developer).where(is_developer: true, id: branch_id).last
-    if branch
+    developer_email = other_developers.first['email']
+    if branch && (Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(email: developer_email, is_developer: true).count == 0)
       user_valid_for_viewing?('Developer')
       other_developers = JSON.parse(params[:invited_developers]) rescue []
       new_developers = [{email: other_developers.first['email'], entity_id: @current_user.id, branch_id: other_developers.first['branch_id']}]

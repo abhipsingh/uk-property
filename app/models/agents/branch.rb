@@ -5,6 +5,7 @@ module Agents
     has_many :properties, class_name: 'Agents::Branches::CrawledProperty'
     has_many :assigned_agents, class_name: '::Agents::Branches::AssignedAgent'
     attr_accessor :agent_email#, :invited_agents
+    attr_accessor :children_vanity_urls
 
     #### By default, keep the scope limited to agents(not developers)
     default_scope { where(is_developer: false) }
@@ -71,23 +72,33 @@ module Agents
           agent_api.populate_aggregate_stats(agent_stats)
           agent_stats
         end
-        
+
         branch_stats[:for_sale] = all_agent_stats.inject(0){|h,k| h+=k[:for_sale] }
         branch_stats[:sold] = all_agent_stats.inject(0){|h,k| h+=k[:sold] }
         branch_stats[:total_count] = all_agent_stats.inject(0){|h,k| h+=k[:total_count] }
         branch_stats[:green_property_count] = all_agent_stats.inject(0){|h,k| h+=k[:green_property_count] }
         branch_stats[:amber_red_property_count] = all_agent_stats.inject(0){|h,k| h+=k[:amber_red_property_count] }
         branch_stats[:aggregate_valuation] = all_agent_stats.inject(0){|h,k| h+=k[:aggregate_valuation] }
-        
+
         Rails.configuration.ardb_client.set(cache_key, Oj.dump(branch_stats), {ex: 1.day}) ### Convert it to 1 day
       end
 
       branch_stats
     end
 
+    ### Vanity url of children
+    def children_vanity_urls
+      branch_assigned_agents = self.assigned_agents
+      branch_assigned_agents.map do |agent|
+        { name: agent.name, vanity_url: agent.vanity_url }
+      end
+    end
+
+    ### Vanity url of branch
     def vanity_url
-      processed_name = name.gsub(',', ' ')
-      processed_name.downcase.split(' ').join('-')
+      branch_vanity_url = name.downcase.gsub(/[a-z ]+/).to_a.join('').split(' ').join('-')
+      company_vanity_url = self.agent.name.downcase.gsub(/[a-z ]+/).to_a.join('').split(' ').join('-')
+      Rails.configuration.frontend_production_url + '/branches/details/' + [ company_vanity_url, branch_vanity_url, self.id.to_s ].join('-')
     end
 
 #    def as_json option = {}
