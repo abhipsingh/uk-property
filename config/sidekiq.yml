@@ -9,6 +9,8 @@
     every: '1440m'
   SoldPropertyUpdateWorker:
     cron: '0 0 * * *'
+  BranchStatsWorker:
+    cron: '0 2 * * 0'
   AdsExpiryWorker:
     cron: '5 0 * * *'
   PanelDetailsWorker:

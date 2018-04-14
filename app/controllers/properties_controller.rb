@@ -362,10 +362,10 @@ class PropertiesController < ActionController::Base
         results = results[:results].select{ |t| t[:vendor_id].nil? }
         render json: results, status: code.to_i
       else
-        render json: { message: 'Invalid postcode search' }, status: 400
+        render json: [], status: 200
       end
     else
-      render json: { message: 'Invalid postcode search' }, status: 400
+      render json: [], status: 200
     end
   end
 

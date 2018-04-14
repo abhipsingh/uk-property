@@ -988,13 +988,13 @@ class AgentsController < ApplicationController
           results = results[:results]
           render json: results, status: code.to_i
         else
-          render json: { message: 'Invalid postcode search' }, status: 400
+          render json: [], status: 200
         end
       else
-        render json: { message: 'Invalid postcode search' }, status: 400
+        render json: [], status: 200
       end
     else
-      render json: { message: 'The property id was not found' }, status: 404
+      render json: [], status: 200
     end
   end
 

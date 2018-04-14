@@ -10,7 +10,7 @@ class PropertyService
   MANDATORY_ATTRS = [ :property_type, :beds, :baths, :receptions, :pictures, :floorplan_url, :current_valuation, :inner_area, :outer_area, :additional_features,
                       :description_set, :property_style, :tenure, :floors, :listed_status, :year_built, :parking_type, :outside_space_types, :decorative_condition,
                       :council_tax_band, :council_tax_band_cost, :council_tax_band_cost_unit, :lighting_cost, :lighting_cost_unit, :heating_cost,
-                      :heating_cost_unit, :hot_water_cost, :hot_water_cost_unit, :annual_service_charge, :ground_rent_cost,
+                      :heating_cost_unit, :hot_water_cost, :hot_water_cost_unit, :annual_service_charge, :ground_rent_cost, :ground_rent_unit,
                       :latitude, :longitude, :assigned_agent_branch_logo, :assigned_agent_image_url, :assigned_agent_branch_name, :assigned_agent_branch_address,
                       :assigned_agent_branch_website ]
 
@@ -331,7 +331,7 @@ class PropertyService
     details = []
     details = Rails.configuration.ardb_client.mget(*udprns) if udprns.length > 0
     results = details.map{ |detail| process_each_detail(detail) }
-    results = results.each{ |t| t[:verification_status] = (t[:details_completed].to_s == "true") }
+    results = results.each{ |t| t[:verification_status] = (t[:details_completed].to_s == "true"); t[:address] = PropertyDetails.address(t); t[:vanity_url] = PropertyDetails.vanity_url(t[:address]) }
     results
   end
 

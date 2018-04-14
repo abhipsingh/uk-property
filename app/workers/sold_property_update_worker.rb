@@ -3,8 +3,10 @@ class SoldPropertyUpdateWorker
   sidekiq_options :retry => false # job will be discarded immediately if failed
 
   def perform
+    Rails.logger.info("SoldPropertyUpdateWorker__STARTED")
     sold_properties = SoldProperty.where('created_at <= ?', Date.yesterday).where(status: false)
     sold_properties.each do |sold_property|
+      Rails.logger.info("SoldPropertyUpdateWorker_PROCESSING_STARTED_#{sold_property.id}")
       udprn = sold_property.udprn
       details = PropertyDetails.details(udprn)[:_source]
       buyer_id = sold_property.buyer_id
@@ -51,7 +53,11 @@ class SoldPropertyUpdateWorker
 
       ### Send emails to tracking buyers
       PropertyService.send_tracking_email_to_tracking_buyers({ sold: true}, updated_details)
+
+      ### Ending of processing of sold property
+      Rails.logger.info("SoldPropertyUpdateWorker_PROCESSING_FINISHED_#{sold_property.id}")
     end
+    Rails.logger.info("SoldPropertyUpdateWorker__FINISHED")
   end
 
 end

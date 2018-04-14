@@ -237,6 +237,7 @@ class PropertyDetails
       PropertySearchApi::ADDRESS_LOCALITY_LEVELS.each { |key| es_hash[key] = details[key] if details[key] }
       PropertyService.update_udprn(udprn, details)
 
+      ### Details hash
       es_hash[:status_last_updated] = Time.parse(es_hash[:status_last_updated]).to_s if es_hash[:status_last_updated]
       client.delete index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn rescue nil
       client.index index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn , body: es_hash
