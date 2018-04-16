@@ -29,6 +29,8 @@ class Vendor < ActiveRecord::Base
 
   PROPERTY_CLAIM_LIMIT = 10
 
+  REVERSE_INVITED_FROM_CONST = INVITED_FROM_CONST.invert
+
   trigger.before(:update).of(:email) do
     "NEW.email = LOWER(NEW.email); RETURN NEW;"
   end

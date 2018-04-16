@@ -39,7 +39,7 @@ class VendorMailer < ApplicationMailer
     mail(to: vendor.email, subject: subject)
   end
 
-  def agent_lead_expect_visit_manual(agent_attrs, vendor_email)
+  def agent_lead_expect_visit_manual(agent_attrs, vendor_email, f_and_f_flag=true)
     @agent_name = agent_attrs[:name]
     @agent_email = agent_attrs[:email]
     @agent_phone = agent_attrs[:office]
@@ -52,7 +52,9 @@ class VendorMailer < ApplicationMailer
     @vendor_email = vendor_email
     @udprn = agent_attrs[:udprn]
     vendor_present = Vendor.where(email: @vendor_email).empty?
-    @hash_url = "http://prophety-test.herokuapp.com/auth?verification_hash=#{@hash_link}&udprn=#{@udprn}&email=#{@vendor_email}&user_type=Vendor&vendor_present=#{vendor_present}&source=f_and_f"
+    source = nil
+    f_and_f_flag == true ? source = "f_and_f" : source = "non_f_and_f"
+    @hash_url = "http://prophety-test.herokuapp.com/auth?verification_hash=#{@hash_link}&udprn=#{@udprn}&email=#{@vendor_email}&user_type=Vendor&vendor_present=#{vendor_present}&source=#{source}"
     subject = 'An agent has claimed the lead of your property located at ' + @address
     mail(to: vendor_email, subject: subject)
   end

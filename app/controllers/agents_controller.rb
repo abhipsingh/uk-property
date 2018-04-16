@@ -6,7 +6,7 @@ class AgentsController < ApplicationController
                                              :manual_property_leads, :invited_vendor_history, :missing_sale_price_properties_for_agents, 
                                              :inactive_property_credits, :crawled_property_details, :verify_manual_property_from_agent,
 																						 :claim_property, :matching_udprns,  :list_of_properties, :invite_agents_to_register,
-                                             :additional_agent_details_intercom, :agent_credit_info ]
+                                             :additional_agent_details_intercom, :agent_credit_info, :verify_manual_property_from_agent_non_f_and_f ]
   ### Details of the branch
   ### curl -XGET 'http://localhost/agents/predictions?str=Dyn'
   def search
@@ -336,23 +336,28 @@ class AgentsController < ApplicationController
     agent = @current_user
     udprn = params[:udprn].to_i
     agent_id = agent.id
-    agent_service = AgentService.new(agent_id, udprn)
-    Rails.logger.info("UPLOAD_MANUAL_PROPERTY_NON_F&F_#{udprn}_#{agent_id}")
-    property_attrs = {
-      details_completed: false,
-      claimed_on: Time.now.to_s,
-      claimed_by: 'Agent',
-      agent_id: agent_id.to_i,
-      property_id: params[:udprn],
-      property_status_type: 'Green'
-    }
-    Rails.logger.info("#{property_attrs}  CLAIM_PROPERTY_#{agent.id}")
-    
     vendor_email = params[:vendor_email]
-    assigned_agent_email = params[:assigned_agent_email]
-    response, status = agent_service.verify_manual_property_from_agent_non_f_and_f(property_attrs, vendor_email, assigned_agent_email, agent)
-    response['message'] = "Property details updated." unless status.nil? || status != 200
-    render json: response, status: status
+
+    if (Vendor.where(email: vendor_email).count == 0)
+      agent_service = AgentService.new(agent_id, udprn)
+      Rails.logger.info("UPLOAD_MANUAL_PROPERTY_NON_F&F_#{udprn}_#{agent_id}")
+      property_attrs = {
+        details_completed: false,
+        claimed_on: Time.now.to_s,
+        claimed_by: 'Agent',
+        agent_id: agent_id.to_i,
+        property_id: params[:udprn],
+        property_status_type: 'Green'
+      }
+      Rails.logger.info("#{property_attrs}  CLAIM_PROPERTY_#{agent.id}")
+      
+      assigned_agent_email = params[:assigned_agent_email]
+      response, status = agent_service.verify_manual_property_from_agent_non_f_and_f(property_attrs, vendor_email, assigned_agent_email, agent)
+      response['message'] = "Property details updated." unless status.nil? || status != 200
+      render json: response, status: status
+    else
+      render json: { message: 'The user is already registered.' }, status: 400
+    end
   #rescue Exception => e
   #  Rails.logger.info("AGENT_MANUAL_PROPERTY_VERIFICATION_FAILURE_#{e}")
   #  render json: { message: 'Verification failed due to some error' }, status: 400
@@ -738,7 +743,7 @@ class AgentsController < ApplicationController
   def invited_vendor_history
     agent = @current_user
     results = []
-    InvitedVendor.where(agent_id: agent.id).where(source: Vendor::INVITED_FROM_CONST[:family]).order('created_at DESC').each do |invited_vendor|
+    InvitedVendor.where(agent_id: agent.id, registered: false).where(source: [ Vendor::INVITED_FROM_CONST[:family], Vendor::INVITED_FROM_CONST[:non_crawled] ]).order('created_at DESC').each do |invited_vendor|
       udprn = invited_vendor.udprn
       details = PropertyDetails.details(udprn)[:_source]
       result = {
@@ -748,6 +753,7 @@ class AgentsController < ApplicationController
         vendor_email: invited_vendor.email,
         property_type: details[:property_type],
         address: details[:address],
+        source: Vendor::REVERSE_INVITED_FROM_CONST[invited_vendor.source.to_i].to_s,
         last_email_sent: invited_vendor.created_at,
         is_vendor_registered: !Vendor.where(email: invited_vendor.email).last.nil?
       }

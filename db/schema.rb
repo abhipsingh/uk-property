@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180405115249) do
+ActiveRecord::Schema.define(version: 20180414100015) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -481,7 +481,8 @@ ActiveRecord::Schema.define(version: 20180405115249) do
     t.integer  "agent_id"
     t.integer  "udprn"
     t.integer  "source"
-    t.datetime "created_at", null: false
+    t.datetime "created_at",                 null: false
+    t.boolean  "registered", default: false
   end
 
   create_table "mobile_otp_verifies", force: :cascade do |t|

@@ -10,6 +10,7 @@ class AgentService
     assigned_agent = agent
     branch = Agents::Branches::AssignedAgent.where(id: @agent_id.to_i).last.branch
     property_id = property_attrs[:property_id]
+    details = PropertyDetails.details(udprn)[:_source]
     response, status = PropertyService.new(udprn).update_details(property_attrs)
     agent_attrs = {
       name: assigned_agent.first_name.to_s + ' ' + assigned_agent.last_name.to_s,
@@ -19,12 +20,13 @@ class AgentService
       office: assigned_agent.office_phone_number,
       mobile: assigned_agent.mobile_phone_number,
       email: assigned_agent.email,
-      address: address,
+      address: details[:address],
       udprn: udprn,
       hash_link: assigned_agent.create_hash(vendor_email, property_id).hash_value
     }
 
-    VendorMailer.agent_lead_expect_visit_manual(agent_attrs, vendor_email).deliver_now
+    f_anf_f_flag = false
+    VendorMailer.agent_lead_expect_visit_manual(agent_attrs, vendor_email, f_anf_f_flag).deliver_now
 
     ### Add this vendor to invited vendors table, source
     InvitedVendor.create!(udprn: @udprn, email: vendor_email, agent_id: @agent_id.to_i, source: Vendor::INVITED_FROM_CONST[:non_crawled] )

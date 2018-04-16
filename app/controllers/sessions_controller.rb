@@ -26,11 +26,19 @@ class SessionsController < ApplicationController
         buyer.vendor_id = user.id
         user.buyer_id = buyer.id
         user.save! && buyer.save!
+
+        ### Update invited vendors registered flag to true if there is one
+        InvitedVendor.where(email: req_params[:email]).update_all(registered: true)
+
       elsif user_type == 'Buyer'
         vendor = Vendor.from_omniauth(req_params)
         vendor.buyer_id = user.id
         user.vendor_id = vendor.id
         user.save! && vendor.save!
+
+        ### Update invited vendors registered flag to true if there is one
+        InvitedVendor.where(email: req_params[:email]).update_all(registered: true)
+
       end
 
       if user_type == 'Agent'
@@ -246,6 +254,10 @@ class SessionsController < ApplicationController
           buyer.save!
           vendor.buyer_id = buyer.id
           vendor.save!
+
+          ### Update invited vendors registered flag to true if there is one
+          InvitedVendor.where(email: vendor_params['email']).update_all(registered: true)
+
           invited_udprns = InvitedVendor.where(email: vendor_params['email']).pluck(:udprn)
           invited_udprns.each do |udprn|
             update_hash = { vendor_id: vendor.id }
@@ -474,6 +486,9 @@ class SessionsController < ApplicationController
           buyer.vendor_id = vendor.id
           vendor.buyer_id = buyer.id
           vendor.save && buyer.save
+
+          ### Update invited vendors registered flag to true if there is one
+          InvitedVendor.where(email: buyer_params['email']).update_all(registered: true)
 
           render json: { message: 'New buyer created', details: buyer.as_json }, status: 200
         else
