@@ -44,6 +44,7 @@ class PropertiesController < ActionController::Base
     #details[:percent_completed] = nil if user.nil?
     details[:locality_hash] = Events::Track.locality_hash(details)
     details[:street_hash] = Events::Track.street_hash(details)
+    details[:photo_urls] = [ details[:photo_urls] ]
     render json: details, status: 200
   end
 
