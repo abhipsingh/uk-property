@@ -1,6 +1,6 @@
 class PropertyService
 
-  attr_accessor :udprn
+  attr_accessor :udprn, :sold_property
 
   #### AGENT_STATUS_MAP
   #### {

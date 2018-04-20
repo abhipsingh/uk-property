@@ -189,6 +189,8 @@ module Api
       def randomise_property_ad
         udprns = PropertyAd.where(ad_type: PropertyAd::TYPE_HASH['Featured']).order("random()").limit(5).pluck(:property_id)
         result = PropertySearchApi.new(filtered_params: {}).fetch_details_from_udprns(udprns)
+        result = result.each{|t| t[:photo_urls] = []; t[:percent_completed] = nil }
+        result = result.each{ |t| t[:photo_urls] = [ process_image(t) ] + t[:photo_urls] }
         render json: { random_ad_properties: result }, status: 200
       end
 

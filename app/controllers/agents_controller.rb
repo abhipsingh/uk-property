@@ -6,7 +6,8 @@ class AgentsController < ApplicationController
                                              :manual_property_leads, :invited_vendor_history, :missing_sale_price_properties_for_agents, 
                                              :inactive_property_credits, :crawled_property_details, :verify_manual_property_from_agent,
 																						 :claim_property, :matching_udprns,  :list_of_properties, :invite_agents_to_register,
-                                             :additional_agent_details_intercom, :agent_credit_info, :verify_manual_property_from_agent_non_f_and_f ]
+                                             :additional_agent_details_intercom, :agent_credit_info, :verify_manual_property_from_agent_non_f_and_f,
+                                             :incomplete_list_of_properties ]
   ### Details of the branch
   ### curl -XGET 'http://localhost/agents/predictions?str=Dyn'
   def search
@@ -242,24 +243,29 @@ class AgentsController < ApplicationController
   end
 
   ### Verify the agent as the intended agent and udprn as the correct udprn
-  ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/vendors/udprns/10968961/agents/23/verify'
+  ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/vendors/udprns/10968961/agents/23/verify' -d '{"invitation_id":34, "status" : true}'
   def verify_agent
     udprn = params[:udprn].to_i
     agent_id = params[:agent_id].to_i
-    Rails.logger.info("VERIFY_AGENT_#{udprn}_#{agent_id}_#{params[:property_status_type]}")
-    property_status_type = params[:property_status_type]
-    response, status = PropertyService.new(udprn).update_details({ property_status_type: property_status_type, verification_status: false, agent_id: agent_id, agent_status: 2 })
-    response['message'] = "Agent verification successful." unless status.nil? || status!=200
-    render json: response, status: status
-  rescue Exception => e
-    Rails.logger.info("VERIFICATION_FAILURE_#{e}")
-    render json: { message: 'Verification failed due to some error' }, status: 400
+
+    if params[:status].to_s == 'true'
+      InvitedVendor.where(id: params[:invitation_id].to_i).update_all(accepted: true)
+      Rails.logger.info("VERIFY_AGENT_#{udprn}_#{agent_id}_#{params[:property_status_type]}")
+      property_status_type = params[:property_status_type]
+      response, status = PropertyService.new(udprn).update_details({ property_status_type: property_status_type, verification_status: false, agent_id: agent_id, agent_status: 2 })
+      response['message'] = "Agent verification successful." unless status.nil? || status!=200
+      render json: response, status: status
+    else
+      InvitedVendor.where(id: params[:invitation_id].to_i).update_all(accepted: false)
+      render json: { message: 'Agent invitation has been rejected for this property' }, status: 200
+    end
+
   end
 
   ### Verify the property as the intended agent and udprn as the correct udprn.
   ### Done when the invited vendor(through email) verifies the property as his/her
   ### property and the agent as his/her agent.
-  ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/vendors/udprns/10968961/verify' -d '{ "verified": true, "vendor_id":319 }'
+  ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/vendors/udprns/10968961/verify' -d '{ "verified": true, "vendor_id":319, "invitation_id":34, "agent_id" : 231, "status": true }'
   def verify_property_from_vendor
     client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
     response, status = nil
@@ -276,8 +282,11 @@ class AgentsController < ApplicationController
     details[:vendor_id] = params[:vendor_id].to_i if params[:vendor_id]
     details[:verification_status] = false
     vendor_id = details[:vendor_id].to_i
+
     Rails.logger.info("VERIFY_VENDOR_#{udprn}_#{vendor_id}_#{params[:beds].to_i}_#{params[:baths].to_i}")
+
     response, status = PropertyDetails.update_details(client, udprn, details)
+
     response['message'] = "Property verification successful." unless status.nil? || status!=200
     render json: response, status: status
   rescue Exception => e
@@ -295,11 +304,10 @@ class AgentsController < ApplicationController
     property_for = params[:property_for]
     property_for ||= 'Sale'
     property_status_type = nil
-    property_for == 'Sale' ? property_status_type = 'Green' : property_status_type = 'Rent'
     Rails.logger.info("UPLOAD_CRAWLED_PROPERTY_#{udprn}_#{agent_id}")
     pictures = params[:pictures]
     property_attrs = {
-      property_status_type: property_status_type,
+      property_status_type: 'Green',
       verification_status: false,
       property_type: params[:property_type],
       beds: params[:beds].to_i,
@@ -704,7 +712,7 @@ class AgentsController < ApplicationController
     #if true
       count = Agents::Branch.unscope(where: :is_developer).where(district: params[:location]).count
       #results = Agents::Branch.unscope(where: :is_developer).where(district: params[:location]).limit(20).offset(20*(params[:p].to_i)).map do |branch|
-      results = Agents::Branch.unscope(where: :is_developer).where(district: params[:location]).map do |branch|
+      results = Agents::Branch.unscope(where: :is_developer).where(district: params[:location]).order('name ASC').map do |branch|
         agent_count = Agents::Branches::AssignedAgent.where(branch_id: branch.id).count
         agent_count == 0 ? agent_count = 0 : agent_count -= 1
         {
@@ -743,7 +751,7 @@ class AgentsController < ApplicationController
   def invited_vendor_history
     agent = @current_user
     results = []
-    InvitedVendor.where(agent_id: agent.id, registered: false).where(source: [ Vendor::INVITED_FROM_CONST[:family], Vendor::INVITED_FROM_CONST[:non_crawled] ]).order('created_at DESC').each do |invited_vendor|
+    InvitedVendor.where(agent_id: agent.id).where(source: [ Vendor::INVITED_FROM_CONST[:family], Vendor::INVITED_FROM_CONST[:non_crawled] ]).group(:email, :id).order('created_at DESC').each do |invited_vendor|
       udprn = invited_vendor.udprn
       details = PropertyDetails.details(udprn)[:_source]
       result = {
@@ -1002,6 +1010,35 @@ class AgentsController < ApplicationController
     else
       render json: [], status: 200
     end
+  end
+  
+  ### Get the list of properties the agent has been attached to
+  ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOi" 'http://localhost/agents/list/incomplete/properties'
+  def incomplete_list_of_properties
+    #@current_user = Agents::Branches::AssignedAgent.find(232)
+    search_params = { agent_id: @current_user.id, results_per_page: 200 }
+    #search_params = { agent_id: 113, results_per_page: 200 }
+    api = PropertySearchApi.new(filtered_params: search_params)
+    api.modify_filtered_params
+    api.apply_filters
+    udprns, status = api.fetch_udprns
+    total_count = api.total_count
+    bulk_results = PropertyService.bulk_details(udprns)
+
+    leads = Agents::Branches::AssignedAgents::Lead.where(agent_id: @current_user.id, property_id: udprns, expired: false).select([:created_at, :property_id, :owned_property])
+
+    results = bulk_results.map do |result|
+      result[:address] = PropertyDetails.address(result)
+      result[:percent_completed] = PropertyService.new(result[:udprn]).compute_percent_completed({}, result)
+      result = result.slice(:beds, :baths, :property_type, :property_status_type, :receptions, :address, :udprn, :percent_completed, :claimed_on)
+      lead = leads.select{|t| t.property_id == result[:udprn].to_i }.first
+      result[:expiry_time] = (lead.created_at + Agents::Branches::AssignedAgents::Lead::VERIFICATION_DAY_LIMIT).strftime("%Y-%m-%dT%H:%M:%SZ") if lead
+      result
+    end
+
+    results = results.select{ |t| t[:percent_completed].to_f < 100 }.sort_by{ |t| t[:percent_completed].to_i }
+
+    render json: results, status: 200
   end
 
   ### Get the list of properties the agent has been attached to

@@ -1,5 +1,5 @@
 class LeadsController < ApplicationController
-  around_action :authenticate_agent, only: [ :submit_lead_visit_time, :agents_recent_properties_for_claim ]
+  around_action :authenticate_agent, only: [ :submit_lead_visit_time]#, :agents_recent_properties_for_claim ]
 
   ### Edit lead visit time
   ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/lead/submit/visit/time' -d '{ "udprn" : "any udprn", "visit_time" : "2017-12-03T11:22:00Z" }'

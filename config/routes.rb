@@ -298,6 +298,9 @@ Rails.application.routes.draw do
 
   ### Fetch the list of invited friends and family(for a buyer/vendor)
   get 'list/invite/friends/family',                             to: 'properties#invited_f_and_f_list'
+
+  ### List of properties for the vendor and the agent confirmation status
+  get 'list/inviting/agents/properties',                        to: 'vendors#list_inviting_agents_properties'
   #####################################################################
   #####################################################################
   #####################################################################

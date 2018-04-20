@@ -62,15 +62,16 @@ class AgentApi
                                     .group(:udprn)
     all_property_count = PropertyEvent.where(agent_id: @agent_id).count
 
-    
+
     ### Calculate agent properties
     statuses = ['Green', 'Red' , 'Amber']
     all_counts = {}
     statuses.each do |status|
-      search_params = { agent_id: @agent_id.to_i, property_search_type: status }
+      search_params = { agent_id: @agent_id.to_i, property_status_type: status }
       api = PropertySearchApi.new(filtered_params: search_params)
-      count, status = api.matching_property_count
-      all_counts[status] = count if status.to_i == 200
+      count, api_status = api.matching_property_count
+      Rails.logger.info("Count #{status}  #{count}")
+      all_counts[status] = count if api_status.to_i == 200
     end
     
     ### Calculate current valuations of all agent properties

@@ -245,10 +245,10 @@ class PropertiesController < ActionController::Base
       body[:vendor_id] = @current_user.id
       response = {}
       response, status = PropertyService.new(udprn).update_details(body) if body[:agent_id] > 0
-  
+
       ### Transfer the enquiries of this property to the agent
       Event.where(udprn: udprn).where(is_archived: false).update_all(agent_id: params[:assigned_agent_id].to_i) if body[:agent_id] > 0
-      
+
       if status.to_i ==  200
         render json: { message: 'Sucessfully updated', response: response }, status: 200
       else

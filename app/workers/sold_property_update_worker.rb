@@ -36,9 +36,12 @@ class SoldPropertyUpdateWorker
         update_hash[:agent_id] = nil
         property_service = PropertyService.new(udprn)
         property_service.attach_vendor_to_property(new_vendor_id.to_i)
+        property_service.sold_property = true
         updated_details, status = property_service.update_details(update_hash)
       else
-        updated_details, status = PropertyService.new(udprn).update_details(update_hash)
+        property_service = PropertyService.new(udprn)
+        property_service.sold_property = true
+        updated_details, status = property_service.update_details(update_hash)
       end
       
       ### Update the sold property's status to true

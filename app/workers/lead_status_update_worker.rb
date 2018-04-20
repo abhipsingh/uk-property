@@ -9,8 +9,6 @@ class LeadStatusUpdateWorker
     leads = Agents::Branches::AssignedAgents::Lead.where.not(agent_id: nil).where(owned_property: false).where(expired: false).where('updated_at < ?', Agents::Branches::AssignedAgents::Lead::VERIFICATION_DAY_LIMIT.ago)
     #LeadStatusUpdateWorker.perform_in(10.minutes)
 
-    ### TODO:
-    leads = [] 
     leads.each do |lead|
       Rails.logger.info("LeadStatusUpdateWorker__STARTED__#{lead.id}")
       udprn = lead.property_id

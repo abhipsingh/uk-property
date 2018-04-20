@@ -4,29 +4,37 @@ class VendorMailer < ApplicationMailer
     ### TODO: Conditionally change a link depending on whether the vendor has already registered or not
     ### Pass a flag that a vendor is already registered
     vendor_flag = Vendor.where(email: @user.vendor_email).last.nil?
+    invitation = InvitedVendor.where(email: @user.vendor_email).last
     @link = "http://prophety-test.herokuapp.com/auth?verification_hash=#{@user.verification_hash}&udprn=#{@user.email_udprn}&email=#{@user.vendor_email}&vendor_present=#{vendor_flag}&user_type=Vendor"
     @link += "&source=#{user.source}" if user.source
+    @link += "&invitation_id=#{invitation.id}" if invitation
     mail(to: @user.vendor_email, subject: "Welcome to Prophety #{@user.vendor_email}")
   end
 
   def welcome_email_from_a_friend(user)
     @user = user
     vendor_flag = Vendor.where(email: @user.vendor_email).last.nil?
+    invitation = InvitedVendor.where(email: @user.vendor_email).last
     @link = "http://prophety-test.herokuapp.com/auth?verification_hash=#{@user.verification_hash}&udprn=#{@user.email_udprn}&email=#{@user.vendor_email}&vendor_present=#{vendor_flag}&user_type=Vendor"
+    @link += "invitation_id=#{invitation.id}" if invitation
     mail(to: @user.vendor_email, subject: "Welcome to Prophety #{@user.vendor_email}")
   end
 
   def welcome_email_from_a_renter(user)
     @user = user
     vendor_flag = Vendor.where(email: @user.vendor_email).last.nil?
+    invitation = InvitedVendor.where(email: @user.vendor_email).last
     @link = "http://prophety-test.herokuapp.com/auth?verification_hash=#{@user.verification_hash}&udprn=#{@user.email_udprn}&email=#{@user.vendor_email}&vendor_present=#{vendor_flag}&user_type=Vendor"
+    @link += "&invitation_id=#{invitation.id}" if invitation
     mail(to: @user.vendor_email, subject: "Welcome to Prophety #{@user.vendor_email}")
   end
 
   def signup_email(hash)
     @email = hash[:email]
     @hash = @hash
+    invitation = InvitedVendor.where(email: @email).last
     @link = hash[:link]
+    @link += "&invitation_id=#{invitation.id}" if invitation
     mail(to: @email, subject: "Vendor Registration #{@email}")
   end
 
@@ -52,9 +60,11 @@ class VendorMailer < ApplicationMailer
     @vendor_email = vendor_email
     @udprn = agent_attrs[:udprn]
     vendor_present = Vendor.where(email: @vendor_email).empty?
+    invitation = InvitedVendor.where(email: @vendor_email).last
     source = nil
-    f_and_f_flag == true ? source = "f_and_f" : source = "non_f_and_f"
+    f_and_f_flag == true ? source = "f_and_f" : source = "properties_v2"
     @hash_url = "http://prophety-test.herokuapp.com/auth?verification_hash=#{@hash_link}&udprn=#{@udprn}&email=#{@vendor_email}&user_type=Vendor&vendor_present=#{vendor_present}&source=#{source}"
+    @hash_url += "&invitation_id=#{invitation.id}" if invitation
     subject = 'An agent has claimed the lead of your property located at ' + @address
     mail(to: vendor_email, subject: subject)
   end

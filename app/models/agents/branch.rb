@@ -19,6 +19,7 @@ module Agents
       'UNKNOWN' => 5
     }
     BRANCH_CACHE_KEY_PREFIX = 'branch_stats_'
+    REVERSE_INDEPENDENT_TYPE_MAP = INDEPENDENT_TYPE_MAP.invert
 
     def self.table_name
       'agents_branches'
@@ -73,6 +74,7 @@ module Agents
           agent_stats
         end
 
+        branch_stats[:aggregate_sales] = all_agent_stats.inject(0){|h,k| h+=k[:aggregate_sales].to_i }
         branch_stats[:for_sale] = all_agent_stats.inject(0){|h,k| h+=k[:for_sale] }
         branch_stats[:sold] = all_agent_stats.inject(0){|h,k| h+=k[:sold] }
         branch_stats[:total_count] = all_agent_stats.inject(0){|h,k| h+=k[:total_count] }
@@ -80,6 +82,7 @@ module Agents
         branch_stats[:amber_red_property_count] = all_agent_stats.inject(0){|h,k| h+=k[:amber_red_property_count] }
         branch_stats[:aggregate_valuation] = all_agent_stats.inject(0){|h,k| h+=k[:aggregate_valuation] }
 
+        
         Rails.configuration.ardb_client.set(cache_key, Oj.dump(branch_stats), {ex: 1.day}) ### Convert it to 1 day
       end
 

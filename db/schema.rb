@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180414100015) do
+ActiveRecord::Schema.define(version: 20180420170837) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -483,6 +483,7 @@ ActiveRecord::Schema.define(version: 20180414100015) do
     t.integer  "source"
     t.datetime "created_at",                 null: false
     t.boolean  "registered", default: false
+    t.boolean  "accepted"
   end
 
   create_table "mobile_otp_verifies", force: :cascade do |t|
@@ -592,11 +593,12 @@ ActiveRecord::Schema.define(version: 20180414100015) do
   add_index "property_buyers", ["email_id"], name: "index_property_buyers_on_email_id", unique: true, using: :btree
 
   create_table "property_events", force: :cascade do |t|
-    t.jsonb    "attr_hash",  default: {}, null: false
-    t.integer  "udprn",                   null: false
-    t.datetime "created_at",              null: false
+    t.jsonb    "attr_hash",                 default: {}, null: false
+    t.integer  "udprn",                                  null: false
+    t.datetime "created_at",                             null: false
     t.integer  "agent_id"
     t.integer  "vendor_id"
+    t.integer  "lifecycle_count", limit: 2, default: 0
   end
 
   create_table "property_historical_details", force: :cascade do |t|
@@ -607,6 +609,12 @@ ActiveRecord::Schema.define(version: 20180414100015) do
     t.string  "property_type"
     t.string  "age"
     t.string  "duration"
+  end
+
+  create_table "property_lifecycles", force: :cascade do |t|
+    t.integer  "udprn",        null: false
+    t.datetime "created_at",   null: false
+    t.datetime "completed_at"
   end
 
   create_table "rent_quotes", force: :cascade do |t|

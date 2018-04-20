@@ -221,7 +221,7 @@ module Agents
               new_row[:winning_agent_branch_logo] = winning_agent.image_url
             end
           end
-
+          new_row[:claimed_on] = each_quote.created_at
           new_row[:deadline] = (each_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_AGENT_QUOTE_WAIT_TIME).to_s
           new_row[:vendor_deadline_end] = (each_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_VENDOR_QUOTE_WAIT_TIME).to_s
           new_row[:vendor_deadline_start] = (each_quote.created_at + Agents::Branches::AssignedAgents::Quote::MAX_AGENT_QUOTE_WAIT_TIME).to_s
@@ -309,8 +309,9 @@ module Agents
         else
           new_row[:submitted_on] = nil
         end
+        new_row[:created_at] = lead.created_at
         details = PropertyDetails.details(lead.property_id)[:_source]
-        new_row = new_row.merge(['property_type', 'street_view_url', 'udprn', 'beds', 'baths', 'receptions', 'dream_price', 'pictures', 'street_view_image_url', 'claimed_on', 'address', 'sale_prices', 'vanity_url'].reduce({}) {|h, k| h[k] = details[k]; h })
+        new_row = new_row.merge(['property_type', 'street_view_url', 'udprn', 'beds', 'baths', 'receptions', 'dream_price', 'pictures', 'street_view_image_url', 'claimed_on', 'address', 'sale_prices', 'vanity_url', 'property_status_type'].reduce({}) {|h, k| h[k] = details[k]; h })
         new_row['street_view_url'] = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details['udprn']}/fov_120_#{details['udprn']}.jpg"
         new_row[:photo_url] = details['pictures'] ? details['pictures'][0] : "Image not available"
         #new_row[:last_sale_prices] = PropertyHistoricalDetail.where(udprn: details['udprn']).order('date DESC').pluck(:price)
@@ -319,15 +320,15 @@ module Agents
         new_row[:credits_required] = PER_LEAD_COST
 
         new_row[:last_sale_price] = new_row['sale_prices'].last['price'] rescue nil
+
         #### Vendor details
-        if lead.agent_id == self.id && lead.vendor_id
-          vendor = Vendor.where(id: lead.vendor_id).first
-          new_row[:vendor_id] = vendor.id
-          new_row[:vendor_first_name] = vendor.first_name
-          new_row[:vendor_last_name] = vendor.last_name
-          new_row[:vendor_email] = vendor.email
-          new_row[:vendor_mobile] = vendor.mobile
-          new_row[:vendor_image_url] = vendor.image_url
+        if lead.agent_id == self.id
+          new_row[:vendor_id] = details[:vendor_id]
+          new_row[:vendor_first_name] = details[:vendor_first_name]
+          new_row[:vendor_last_name] = details[:vendor_last_name]
+          new_row[:vendor_email] = details[:vendor_email]
+          new_row[:vendor_mobile] = details[:vendor_mobile_number]
+          new_row[:vendor_image_url] = details[:vendor_image_url]
         else
           new_row[:vendor_id] = nil
           new_row[:vendor_first_name] = nil 
@@ -383,6 +384,7 @@ module Agents
         new_row[:visit_time] = Time.parse(lead.visit_time.to_s).strftime("%Y-%m-%dT%H:%M:%SZ") if lead.visit_time
 
         ### Normalize timestamps
+        new_row[:claimed_on] = lead.created_at
         new_row[:claimed_on] = Time.parse(new_row['claimed_on']).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row['claimed_on']
         new_row[:submitted_on] = Time.parse(new_row[:submitted_on]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:submitted_on]
         new_row[:deadline] = Time.parse(new_row[:deadline]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:deadline]

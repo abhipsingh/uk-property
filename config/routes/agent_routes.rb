@@ -52,9 +52,6 @@ Rails.application.routes.draw do
   ### get info about the agents which invited the vendor who is registering to verify and change password as well
   post 'vendors/invite/udprns/:udprn/agents/info',               to: 'agents#info_for_agent_verification'
 
-  ### verify info about the agents which invited the vendor who is registering to verify
-  post 'vendors/udprns/:udprn/agents/:agent_id/verify',         to: 'agents#verify_property_from_vendor'
-
   ### verify info about the properties which invited the vendor who is registering to verify
   post 'vendors/udprns/:udprn/verify',                          to: 'agents#verify_property_from_vendor'
 
@@ -149,6 +146,12 @@ Rails.application.routes.draw do
 
   ### Fetch group details for a vanity url
   get 'groups/details/:vanity_url',                             to: 'agents#group_vanity_url_details'
+
+  ### Get the list of properties with incomplete details
+  get 'agents/list/incomplete/properties',                      to: 'agents#incomplete_list_of_properties'
+
+  ### Verify agent for a vendor
+  post 'vendors/udprns/:udprn/agents/:agent_id/verify',         to: 'agents#verify_agent'
 
 end
 

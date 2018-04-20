@@ -10,7 +10,10 @@ class AgentService
     assigned_agent = agent
     branch = Agents::Branches::AssignedAgent.where(id: @agent_id.to_i).last.branch
     property_id = property_attrs[:property_id]
-    details = PropertyDetails.details(udprn)[:_source]
+    details = PropertyDetails.details(@udprn)[:_source]
+    Rails.logger.info("#{@udprn}__#{details[:address]}")
+    address = details[:address]
+    assigned_agent_present = !(Agents::Branches::AssignedAgent.where(email: assigned_agent_email).last.nil?)
     response, status = PropertyService.new(udprn).update_details(property_attrs)
     agent_attrs = {
       name: assigned_agent.first_name.to_s + ' ' + assigned_agent.last_name.to_s,
@@ -20,13 +23,12 @@ class AgentService
       office: assigned_agent.office_phone_number,
       mobile: assigned_agent.mobile_phone_number,
       email: assigned_agent.email,
-      address: details[:address],
+      address: address,
       udprn: udprn,
       hash_link: assigned_agent.create_hash(vendor_email, property_id).hash_value
     }
 
-    f_anf_f_flag = false
-    VendorMailer.agent_lead_expect_visit_manual(agent_attrs, vendor_email, f_anf_f_flag).deliver_now
+    Agents::Branches::AssignedAgent.find(@agent_id).send_vendor_email(vendor_email, @udprn, assigned_agent_present, assigned_agent_email)
 
     ### Add this vendor to invited vendors table, source
     InvitedVendor.create!(udprn: @udprn, email: vendor_email, agent_id: @agent_id.to_i, source: Vendor::INVITED_FROM_CONST[:non_crawled] )
@@ -63,7 +65,8 @@ class AgentService
     assigned_agent = Agents::Branches::AssignedAgent.where(email: assigned_agent_email).first
     branch = Agents::Branches::AssignedAgent.where(id: @agent_id.to_i).last.branch
     property_id = property_attrs[:property_id]
-    address = PropertyDetails.details(property_id)['_source']['address']
+    details = PropertyDetails.details(property_id)['_source']
+    address = details['address']
     vendor = Vendor.where(email: vendor_email).last
     property_attrs[:vendor_id] = vendor.id if vendor
     response, status = PropertyService.new(udprn).update_details(property_attrs)

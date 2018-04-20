@@ -182,6 +182,7 @@ class PropertySearchApi
       
       body, status = nil
       if count_flag
+        Rails.logger.info("QUERY_#{inst.query}")
         body, status = post_url(inst.query, Rails.configuration.address_index_name, Rails.configuration.address_type_name, '_search?search_type=count')
         udprns = Oj.load(body)['hits']['total']
       else
