@@ -20,6 +20,8 @@ module Agents
       PREMIUM_COST = 25
       MIN_INVITED_FRIENDS_FAMILY_VALUE = 1
 
+      ONE_TIME_UNLOCKING_COST = 100
+
       trigger.before(:update).of(:email) do
         "NEW.email = LOWER(NEW.email); RETURN NEW;"
       end

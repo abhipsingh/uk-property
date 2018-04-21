@@ -213,7 +213,7 @@ class QuotesController < ApplicationController
         terms_url: quote.terms_url,
         refund_status: quote.refund_status,
         quote_price: quote.compute_price,
-        branch_phone_number: branch.phone_number,
+        branch_phone_number: agent.office_phone_number,
         services_required: Agents::Branches::AssignedAgents::Quote::SERVICES_REQUIRED_HASH[quote.service_required.to_s.to_sym],
         status: Agents::Branches::AssignedAgents::Quote::REVERSE_STATUS_HASH[quote.status],
         parent_quote_id: quote.parent_quote_id

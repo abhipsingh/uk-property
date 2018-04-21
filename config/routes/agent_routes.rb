@@ -153,5 +153,8 @@ Rails.application.routes.draw do
   ### Verify agent for a vendor
   post 'vendors/udprns/:udprn/agents/:agent_id/verify',         to: 'agents#verify_agent'
 
+  ### Unlock the agents by making a stripe payment
+  post 'unlock/agents',                                         to: 'agents#unlock_agent'
+
 end
 

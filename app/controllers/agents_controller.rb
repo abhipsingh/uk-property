@@ -506,87 +506,119 @@ class AgentsController < ApplicationController
       end
     else
       render json: { message: 'Company details not found' }, status: 404
-    end
-  end
-
-  #### Edit group details
-  ### `curl -XPOST -H "Content-Type: application/json"  'http://localhost/groups/6292/edit' -d '{ "group" : { "name" : "Jackie Bing", "address" : "8 The Precinct, Main Road, Church Village, Pontypridd, HR1 1SB", "phone_number" : "9873628232", "website" : "www.google.com", "image_url" : "some random url", "email" : "a@b.com"  } }'`
-  def edit_group_details
-    group = Agents::Group.where(id: params[:id].to_i).last
-    Rails.logger.info("EDIT_GROUP_DETAILS_#{group.id}")
-    if group
-      group_details = params[:group]
-      group.name = group_details[:name] if group_details[:name] && !group_details[:name].blank?
-      group.image_url = group_details[:image_url] if group_details[:image_url] && !group_details[:image_url].blank?
-      group.email = group_details[:email] if group_details[:email] && !group_details[:email].blank?
-      group.phone_number = group_details[:phone_number] if group_details[:phone_number] && !group_details[:phone_number].blank?
-      group.website = group_details[:website] if group_details[:website] && !group_details[:website].blank?
-      group.address = group_details[:address] if group_details[:address] && !group_details[:address].blank?
-      if group.save!
-        render json: { message: 'Group edited successfully', details: group.as_json(only: [:name, :address, :phone_number, :website, :image_url, :email]) }, status: 200
-      else
-        render json: { message: 'Group not able to edit' }, status: 400
       end
-    else
-      render json: { message: 'Group details not found' }, status: 404
     end
-  end
+  
+    #### Edit group details
+    ### `curl -XPOST -H "Content-Type: application/json"  'http://localhost/groups/6292/edit' -d '{ "group" : { "name" : "Jackie Bing", "address" : "8 The Precinct, Main Road, Church Village, Pontypridd, HR1 1SB", "phone_number" : "9873628232", "website" : "www.google.com", "image_url" : "some random url", "email" : "a@b.com"  } }'`
+    def edit_group_details
+      group = Agents::Group.where(id: params[:id].to_i).last
+      Rails.logger.info("EDIT_GROUP_DETAILS_#{group.id}")
+      if group
+        group_details = params[:group]
+        group.name = group_details[:name] if group_details[:name] && !group_details[:name].blank?
+        group.image_url = group_details[:image_url] if group_details[:image_url] && !group_details[:image_url].blank?
+        group.email = group_details[:email] if group_details[:email] && !group_details[:email].blank?
+        group.phone_number = group_details[:phone_number] if group_details[:phone_number] && !group_details[:phone_number].blank?
+        group.website = group_details[:website] if group_details[:website] && !group_details[:website].blank?
+        group.address = group_details[:address] if group_details[:address] && !group_details[:address].blank?
+        if group.save!
+          render json: { message: 'Group edited successfully', details: group.as_json(only: [:name, :address, :phone_number, :website, :image_url, :email]) }, status: 200
+        else
+          render json: { message: 'Group not able to edit' }, status: 400
+        end
+      else
+        render json: { message: 'Group details not found' }, status: 404
+      end
+    end
+  
+    ### Creates a new agent with a randomized password
+    ### The agent having the email will have to reset the password
+    ### curl -XPOST -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/add/:agent_id' -d '{ "first_name" : "Jack", "last_name" : "Daniels", "title" : "Mr.", "email" : "jack_daniels@prophety.co.uk", "mobile_number" : "876628921", "branch_id" : 1422 }'
+    def create_agent_without_password
+      agent = @current_user
+      response = {}
+      agent_hash = {
+        name: params[:first_name] + ' ' + params[:last_name],
+        first_name: params[:first_name],
+        last_name: params[:last_name],
+        title: params[:title],
+        branch_id: params[:branch_id],
+        email: params[:email],
+        mobile: params[:mobile_number],
+        password: SecureRandom.hex(8)
+      }
+      response = Agents::Branches::AssignedAgent.create!(agent_hash)
+      status = 201
+      render json: response, status: status
+    rescue Exception => e 
+      status = 400
+      render json: { message: "#{e.message}" } , status: status
+    end
+  
+    ### Adds credits  to the agents account
+    ### The agent having the email will have to reset the password
+    ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" -H "Content-Type: application/json" 'http://localhost/agents/credits/add' -d '{ "stripeEmail" : "abhiuec@gmail.com", "stripeToken":"tok_19WlE9AKL3KAwfPBkWwgTpqt", "credits" : 100, "udprn":23840421 }'
+    def add_credits
+      agent = @current_user
+      Rails.logger.info("ADD_CREDITS_#{agent.id}")
+      begin
+        customer = Stripe::Customer.create(
+          email: params[:stripeEmail],
+          card: params[:stripeToken]
+        )
+        amount = ((Agents::Branches::AssignedAgent::PER_CREDIT_COST*params[:credit].to_i).round)*100 ### In pences
+        charge = Stripe::Charge.create(
+          customer: customer.id,
+          amount: amount,
+          description: 'Add credit to agents Stripe customer',
+          currency: 'GBP'
+        )
+        agent.credit = agent.credit + params[:credit].to_i
+        agent.save!
+        Stripe::Payment.create!(entity_type: 'Agents::Branches::AssignedAgent', entity_id: agent.id, amount: amount, charge_id: charge.id, udprn: params[:udprn].to_i)
+        render json: { message: 'Successfully added credits', credits: agent.credit, credits_bought: params[:credit].to_i }, status: 200
+      rescue Exception => e
+        Rails.logger.info("REFUND_INITIATED_#{e.message}_#{agent}_#{params[:credit]}")
+        render json: { message: 'Unsuccessful in adding credits' }, status: 401
+      end
+    end
+  
+    ### Unlock locked agents by paying one time Stripe payment
+    ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" -H "Content-Type: application/json" 'http://localhost/unlock/agents' -d '{ "stripeEmail" : "abhiuec@gmail.com", "stripeToken":"tok_19WlE9AKL3KAwfPBkWwgTpqt", "amount" : 100}'
+    def unlock_agent
+      agent = @current_user
+      Rails.logger.info("UNLOCK_AGENTS_STARTED_#{agent.id}")
+      begin
+        customer = Stripe::Customer.create(
+          email: params[:stripeEmail],
+          card: params[:stripeToken]
+        )
+  
+      if params[:amount].to_i == Agents::Branches::AssignedAgent::ONE_TIME_UNLOCKING_COST
+        amount = Agents::Branches::AssignedAgent::ONE_TIME_UNLOCKING_COST*100 ### In pences
+  
+        charge = Stripe::Charge.create(
+          customer: customer.id,
+          amount: amount,
+          description: 'Add credit to agents Stripe customer',
+          currency: 'GBP'
+        )
+        agent.locked = false
+        agent.save!
 
-  ### Creates a new agent with a randomized password
-  ### The agent having the email will have to reset the password
-  ### curl -XPOST -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/add/:agent_id' -d '{ "first_name" : "Jack", "last_name" : "Daniels", "title" : "Mr.", "email" : "jack_daniels@prophety.co.uk", "mobile_number" : "876628921", "branch_id" : 1422 }'
-  def create_agent_without_password
-    agent = @current_user
-    response = {}
-    agent_hash = {
-      name: params[:first_name] + ' ' + params[:last_name],
-      first_name: params[:first_name],
-      last_name: params[:last_name],
-      title: params[:title],
-      branch_id: params[:branch_id],
-      email: params[:email],
-      mobile: params[:mobile_number],
-      password: SecureRandom.hex(8)
-    }
-    response = Agents::Branches::AssignedAgent.create!(agent_hash)
-    status = 201
-    render json: response, status: status
-  rescue Exception => e 
-    status = 400
-    render json: { message: "#{e.message}" } , status: status
-  end
-
-  ### Adds credits  to the agents account
-  ### The agent having the email will have to reset the password
-  ### curl -XPOST  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" -H "Content-Type: application/json" 'http://localhost/agents/credits/add' -d '{ "stripeEmail" : "abhiuec@gmail.com", "stripeToken":"tok_19WlE9AKL3KAwfPBkWwgTpqt", "credits" : 100, "udprn":23840421 }'
-  def add_credits
-    agent = @current_user
-    Rails.logger.info("ADD_CREDITS_#{agent.id}")
-    begin
-      customer = Stripe::Customer.create(
-        email: params[:stripeEmail],
-        card: params[:stripeToken]
-      )
-      amount = ((Agents::Branches::AssignedAgent::PER_CREDIT_COST*params[:credit].to_i).round)*100 ### In pences
-      charge = Stripe::Charge.create(
-        customer: customer.id,
-        amount: amount,
-        description: 'Add credit to agents Stripe customer',
-        currency: 'GBP'
-      )
-      agent.credit = agent.credit + params[:credit].to_i
-      agent.save!
-      Stripe::Payment.create!(entity_type: 'Agents::Branches::AssignedAgent', entity_id: agent.id, amount: amount, charge_id: charge.id, udprn: params[:udprn].to_i)
-      render json: { message: 'Successfully added credits', credits: agent.credit, credits_bought: params[:credit].to_i }, status: 200
+        Rails.logger.info("AGENT_UNLOCKED_#{agent.id}")
+        Stripe::Payment.create!(entity_type: 'Agents::Branches::AssignedAgent', entity_id: agent.id, amount: amount, charge_id: charge.id, udprn: params[:udprn].to_i)
+        render json: { message: 'Successfully unlocked the agent' }, status: 200
+      else
+        render json: { message: 'Amount is incorrect' }, status: 400
+      end
     rescue Exception => e
-      re = Stripe::Refund.create(
-        charge: charge.id,
-        amount: value
-      )
-      Rails.logger.info("REFUND_INITIATED_#{e.message}_#{agent}_#{params[:credit]}")
+      Rails.logger.info("REFUND_INITIATED_#{e.message}_#{agent}___#{params[:credit]}")
       render json: { message: 'Unsuccessful in adding credits' }, status: 401
     end
   end
+
 
   ### Gets the info about the credits remaining and the credits locked for the quotes
   ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9" -H "Content-Type: application/json" 'http://localhost/agents/credit/info/'
