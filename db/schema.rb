@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180420170837) do
+ActiveRecord::Schema.define(version: 20180423124745) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -141,11 +141,12 @@ ActiveRecord::Schema.define(version: 20180420170837) do
     t.boolean  "owned_property",       default: false
     t.datetime "visit_time"
     t.boolean  "expired",              default: false
+    t.datetime "claimed_at"
   end
 
   add_index "agents_branches_assigned_agents_leads", ["agent_id"], name: "index_agents_branches_assigned_agents_leads_on_agent_id", using: :btree
   add_index "agents_branches_assigned_agents_leads", ["district"], name: "index_agents_branches_assigned_agents_leads_on_district", using: :btree
-  add_index "agents_branches_assigned_agents_leads", ["property_id", "agent_id", "vendor_id"], name: "prop_agent", unique: true, using: :btree
+  add_index "agents_branches_assigned_agents_leads", ["property_id", "agent_id", "vendor_id"], name: "prop_agent_leads", unique: true, where: "(expired = false)", using: :btree
   add_index "agents_branches_assigned_agents_leads", ["property_id"], name: "unique_vendor_property_claims_non_expired", unique: true, where: "(expired = false)", using: :btree
 
   create_table "agents_branches_assigned_agents_quotes", force: :cascade do |t|

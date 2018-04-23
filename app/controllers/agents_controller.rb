@@ -879,7 +879,9 @@ class AgentsController < ApplicationController
       #if true
         property_service = PropertyService.new(params[:udprn].to_i)
         message, status = property_service.claim_new_property(params[:agent_id].to_i)
-        render json: { message: message }, status: status
+        deadline = property_service.created_lead.claimed_at + Agents::Branches::AssignedAgents::Lead::VERIFICATION_DAY_LIMIT
+        Rails.logger.info("Deadline is #{deadline}")
+        render json: { message: message, deadline: deadline }, status: status
       else
         render json: { message: "Credits possessed for leads #{agent.credit}, not more than #{Agents::Branches::AssignedAgent::LEAD_CREDIT_LIMIT} " }, status: 401
       end

@@ -1,6 +1,6 @@
 class PropertyService
 
-  attr_accessor :udprn, :sold_property
+  attr_accessor :udprn, :sold_property, :created_lead
 
   #### AGENT_STATUS_MAP
   #### {
@@ -178,7 +178,8 @@ class PropertyService
   end
 
   def create_lead_for_local_branches(district, property_id, vendor_id)
-    Agents::Branches::AssignedAgents::Lead.create(district: district, property_id: udprn, vendor_id: vendor_id)
+    lead = Agents::Branches::AssignedAgents::Lead.create(district: district, property_id: udprn, vendor_id: vendor_id)
+    @created_lead ||= lead
     AgentVendorLeadNotifyWorker.perform_async(property_id)
   end
 
@@ -188,7 +189,10 @@ class PropertyService
     agent = Agents::Branches::AssignedAgent.find(agent_id)
     if lead && agent
       lead.agent_id = agent_id
+      lead.claimed_at = Time.now
       lead.save!
+
+      @created_lead ||= lead
       client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
       update_hash = { agent_id: agent_id, agent_status: 1 }
       details, status = PropertyDetails.update_details(client, udprn.to_i, update_hash)

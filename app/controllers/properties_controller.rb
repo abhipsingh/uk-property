@@ -279,7 +279,6 @@ class PropertiesController < ActionController::Base
     if (vendor && (results.count < Vendor::PROPERTY_CLAIM_LIMIT_MAP[vendor.buyer.is_premium.to_s]))
       ### Attach vendor to property's attributes
       property_service = PropertyService.new(udprn)
-      property_service.attach_vendor_to_property(vendor_id, {}, params[:property_for])
       render json: { message: 'You have claimed this property Successfully. All the agents in this district will be notified' }, status: 200
     else
       render json: { message: "You have exceeded your maximum limit of #{Vendor::PROPERTY_CLAIM_LIMIT_MAP[vendor.buyer.is_premium.to_s]} properties" }, status: 400

@@ -307,7 +307,7 @@ module Agents
         if lead.agent_id && lead.agent_id != self.id
           new_row[:submitted_on] = (lead.created_at + (1..5).to_a.sample.seconds).to_s
         elsif lead.agent_id
-          new_row[:submitted_on] = lead.updated_at.to_s
+          new_row[:submitted_on] = lead.claimed_at.to_s if lead.claimed_at
         else
           new_row[:submitted_on] = nil
         end
@@ -339,7 +339,7 @@ module Agents
           new_row[:vendor_mobile] = nil
           new_row[:vendor_image_url] = nil
         end
-      
+
         ### Indicates that a property is claimed through friends and family or not
         new_row[:fnf_property] = lead.owned_property
 
@@ -348,7 +348,7 @@ module Agents
         new_row[:percent_completed] ||= PropertyService.new(details[:udprn]).compute_percent_completed({}, details)
 
         ### Deadline
-        new_row[:deadline] = (lead.created_at.to_time +  Agents::Branches::AssignedAgents::Lead::VERIFICATION_DAY_LIMIT).to_s
+        new_row[:deadline] = (lead.claimed_at.to_time +  Agents::Branches::AssignedAgents::Lead::VERIFICATION_DAY_LIMIT).to_s if lead.claimed_at
         if lead.agent_id.nil?
           new_row[:claimed] = false
         else
@@ -386,7 +386,7 @@ module Agents
         new_row[:visit_time] = Time.parse(lead.visit_time.to_s).strftime("%Y-%m-%dT%H:%M:%SZ") if lead.visit_time
 
         ### Normalize timestamps
-        new_row[:claimed_on] = lead.created_at
+        new_row[:claimed_on] = lead.claimed_at
         new_row[:claimed_on] = Time.parse(new_row['claimed_on']).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row['claimed_on']
         new_row[:submitted_on] = Time.parse(new_row[:submitted_on]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:submitted_on]
         new_row[:deadline] = Time.parse(new_row[:deadline]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:deadline]
