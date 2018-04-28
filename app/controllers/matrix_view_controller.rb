@@ -198,7 +198,7 @@ class MatrixViewController < ActionController::Base
       PropertySearchApi.construct_hash_from_hash_str(hash)
       type_of_str(hash)
       range_params = PropertySearchApi::FIELDS[:range].map{|t| ["min_#{t.to_s}", "max_#{t.to_s}"]}.flatten.map{|t| t.to_sym}
-      if (((PropertySearchApi::FIELDS[:terms] + PropertySearchApi::FIELDS[:term] + range_params) - PropertySearchApi::ADDRESS_LOCALITY_LEVELS - PropertySearchApi::POSTCODE_LEVELS) & params.keys.map(&:to_sym)).empty?
+      if (((PropertySearchApi::FIELDS[:terms] + PropertySearchApi::FIELDS[:term] + range_params) - PropertySearchApi::ADDRESS_LOCALITY_LEVELS - PropertySearchApi::POSTCODE_LEVELS) & params.keys.map(&:to_sym)).empty? && params[:sort_key].nil?
         cache_client = Rails.configuration.ardb_client
         matrix_view_service = MatrixViewService.new(hash_str: params[:str])
         response = cache_client.get("mvca_#{matrix_view_service.hash_str}")
@@ -224,6 +224,7 @@ class MatrixViewController < ActionController::Base
         api.modify_range_params
         api.apply_filters
         api.modify_query
+        Rails.logger.info("QUERY_#{api.query}")
         area, district, sector, unit = compute_postcode_units(hash[type]) if hash[type]
         hash[:area] = area
         hash[:district] = district

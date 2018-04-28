@@ -7,7 +7,7 @@ class AgentsController < ApplicationController
                                              :inactive_property_credits, :crawled_property_details, :verify_manual_property_from_agent,
 																						 :claim_property, :matching_udprns,  :list_of_properties, :invite_agents_to_register,
                                              :additional_agent_details_intercom, :agent_credit_info, :verify_manual_property_from_agent_non_f_and_f,
-                                             :incomplete_list_of_properties ]
+                                             :incomplete_list_of_properties, :unlock_agent ]
   ### Details of the branch
   ### curl -XGET 'http://localhost/agents/predictions?str=Dyn'
   def search
@@ -641,8 +641,15 @@ class AgentsController < ApplicationController
   def branch_specific_invited_agents
     agent = @current_user
     branch_id = agent.branch_id
-    invited_agents = InvitedAgent.where(branch_id: branch_id).select([:email, :created_at])
-    render json: invited_agents, status: 200
+    invited_agents = InvitedAgent.where(branch_id: branch_id).select([:email, :created_at, :branch_id])
+    agent_emails = invited_agents.map(&:email).uniq
+    agents_invited = Agents::Branches::AssignedAgent.where(email: agent_emails).pluck(:email)
+
+    invited_agents.each do |invited_agent|
+      invited_agent.is_registered = agents_invited.include?(invited_agent.email)
+    end
+
+    render json: invited_agents ,methods: [:is_registered], status: 200
   end
 
   ### Credits history
@@ -1101,7 +1108,7 @@ class AgentsController < ApplicationController
         index =  results.index{ |t| t[:udprn].to_i == lead.property_id }
         #Rails.logger.info("#{index} #{results[index]} hello")
         results[index][:lead_expiry_time] = nil
-        results[index][:lead_expiry_time] = lead.created_at + Agents::Branches::AssignedAgents::Lead::VERIFICATION_DAY_LIMIT if !lead.owned_property
+        results[index][:lead_expiry_time] = lead.claimed_at + Agents::Branches::AssignedAgents::Lead::VERIFICATION_DAY_LIMIT if !lead.owned_property && lead.claimed_at
       end
       udprns = leads.map{ |t| t.property_id }
       results = results.select{ |t| t[:percent_completed].to_f < 100 }

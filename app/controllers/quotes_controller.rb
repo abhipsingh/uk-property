@@ -2,7 +2,7 @@
 class QuotesController < ApplicationController
   include CacheHelper
   around_action :authenticate_agent, only: [ :new, :edit_agent_quote, :agents_recent_properties_for_quotes ]
-  around_action :authenticate_vendor, only: [ :submit, :quote_details, :new_quote_for_property, :quotes_per_property ]
+  around_action :authenticate_vendor, only: [ :submit, :quote_details, :new_quote_for_property, :quotes_per_property, :historical_vendor_quotes]
 
   #### When a vendor changes the status to Green or when a vendor selects a Fixed or Ala Carte option,
   #### He/She submits his preferences about the type of quotes he would want to receieve, Fixed or Ala carte
@@ -196,7 +196,7 @@ class QuotesController < ApplicationController
     udprn = params[:udprn].to_i
     klass = Agents::Branches::AssignedAgents::Quote
     
-    results = klass.where("expired = 't' OR status = ? OR status = ?", klass::STATUS_HASH['Won'], klass::STATUS_HASH['Lost']).where.not(agent_id: nil).where(property_id: udprn).order('created_at desc').map do |quote|
+    results = klass.where('vendor_id = ?', @current_user.id).where("expired = 't' OR status = ? OR status = ?", klass::STATUS_HASH['Won'], klass::STATUS_HASH['Lost']).where.not(agent_id: nil).where(property_id: udprn).order('created_at desc').map do |quote|
       agent = Agents::Branches::AssignedAgent.where(id: quote.agent_id).select([:first_name, :last_name, :email, :mobile, :title, :branch_id, :office_phone_number]).last
       branch = Agents::Branch.where(id: agent.branch_id).select([:phone_number]).last
       hash = {

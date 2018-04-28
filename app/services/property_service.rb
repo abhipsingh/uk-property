@@ -157,10 +157,10 @@ class PropertyService
     mandatory_attrs ||= PropertyService::STATUS_MANDATORY_ATTRS_MAP['Red'] + [:address]
 
     ### Populate details completed and percent of attributes completed
-    details_completed = mandatory_attrs.all?{ |attr| details_hash.has_key?(attr) && !details_hash[attr].nil? }
+    details_completed = mandatory_attrs.all?{ |attr| details_hash.has_key?(attr) && !details_hash[attr].blank? }
     update_hash[:details_completed] = true if details_completed
     total_mandatory_attrs = mandatory_attrs.select{ |t| !t.to_s.end_with?('_unit') }
-    attrs_completed = mandatory_attrs.select{ |attr| details_hash[attr] }.count
+    attrs_completed = mandatory_attrs.select{ |attr| details_hash.has_key?(attr) && !details_hash[attr].blank? }.count
     ((attrs_completed.to_f/mandatory_attrs.length.to_f)*100.0).round(2)
   end
 

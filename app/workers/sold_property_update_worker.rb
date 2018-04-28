@@ -4,7 +4,7 @@ class SoldPropertyUpdateWorker
 
   def perform
     Rails.logger.info("SoldPropertyUpdateWorker__STARTED")
-    sold_properties = SoldProperty.where('created_at <= ?', Date.yesterday).where(status: false)
+    sold_properties = SoldProperty.where('completion_date <= ?', Date.yesterday).where(status: false)
     sold_properties.each do |sold_property|
       Rails.logger.info("SoldPropertyUpdateWorker_PROCESSING_STARTED_#{sold_property.id}")
       udprn = sold_property.udprn
