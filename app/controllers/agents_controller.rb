@@ -7,7 +7,7 @@ class AgentsController < ApplicationController
                                              :inactive_property_credits, :crawled_property_details, :verify_manual_property_from_agent,
 																						 :claim_property, :matching_udprns,  :list_of_properties, :invite_agents_to_register,
                                              :additional_agent_details_intercom, :agent_credit_info, :verify_manual_property_from_agent_non_f_and_f,
-                                             :incomplete_list_of_properties, :unlock_agent ]
+                                             :incomplete_list_of_properties, :unlock_agent, :send_emails_to_enquiry_producing_buyers ]
   ### Details of the branch
   ### curl -XGET 'http://localhost/agents/predictions?str=Dyn'
   def search
@@ -18,7 +18,8 @@ class AgentsController < ApplicationController
       'Agents::Group' => 'Group',
       'Agents::Branches::AssignedAgent' => 'Agent'
     }
-    search_results = klasses.map { |e|  e.constantize.where("lower(name) LIKE ?", "#{params[:str].downcase}%").limit(10).as_json }
+    page_size = 20
+    search_results = klasses.map { |e|  e.constantize.where("lower(name) LIKE ?", "#{params[:str].downcase}%").limit(page_size).as_json }
     results = []
     search_results.each_with_index do |result, index|
       new_row = {}
@@ -32,7 +33,8 @@ class AgentsController < ApplicationController
   ### Companies search
   ### curl -XGET 'http://localhost/agents/search/companies?str=Dyn' 
   def search_company
-    companies = Agent.where("lower(name) LIKE ?", "#{params[:str].downcase}%").select([:id, :name]).limit(10)
+    page_size = 20
+    companies = Agent.where("lower(name) LIKE ?", "#{params[:str].downcase}%").select([:id, :name]).limit(page_size)
     render json: companies, status: 200
   end
 
@@ -252,7 +254,9 @@ class AgentsController < ApplicationController
       InvitedVendor.where(id: params[:invitation_id].to_i).update_all(accepted: true)
       Rails.logger.info("VERIFY_AGENT_#{udprn}_#{agent_id}_#{params[:property_status_type]}")
       property_status_type = params[:property_status_type]
-      response, status = PropertyService.new(udprn).update_details({ property_status_type: property_status_type, verification_status: false, agent_id: agent_id, agent_status: 2 })
+      update_hash = { verification_status: false, agent_id: agent_id, agent_status: 2 }
+      update_hash[:property_status_type] = property_status_type if property_status_type
+      response, status = PropertyService.new(udprn).update_details(update_hash)
       response['message'] = "Agent verification successful." unless status.nil? || status!=200
       render json: response, status: status
     else
@@ -886,9 +890,7 @@ class AgentsController < ApplicationController
       #if true
         property_service = PropertyService.new(params[:udprn].to_i)
         message, status = property_service.claim_new_property(params[:agent_id].to_i)
-        deadline = property_service.created_lead.claimed_at + Agents::Branches::AssignedAgents::Lead::VERIFICATION_DAY_LIMIT
-        Rails.logger.info("Deadline is #{deadline}")
-        render json: { message: message, deadline: deadline }, status: status
+        render json: { message: message, deadline: message[:deadline] }, status: status
       else
         render json: { message: "Credits possessed for leads #{agent.credit}, not more than #{Agents::Branches::AssignedAgent::LEAD_CREDIT_LIMIT} " }, status: 401
       end
@@ -1207,7 +1209,27 @@ class AgentsController < ApplicationController
     invited_friends_family_emails = InvitedVendor.where(agent_id: @current_user.id).where(source: Vendor::INVITED_FROM_CONST[:family]).pluck(:email)
     details[:friends_family_count] = Vendor.where(email: invited_friends_family_emails).count
     render json: details, status: 200
- end
+  end
+
+  ### Send emails to all buyer emails
+  ### curl -XPOST 'http://localhost/agents/properties/send/emails/enquiries' -d '{ "udprn" : 8097861, "segment" : "include_archived", "body" : "sxbksavckwcvkwv", "subject" : "Random subject" }'
+  def send_emails_to_enquiry_producing_buyers
+    agent = @current_user
+    udprn = params[:udprn].to_i
+    subject = params[:subject]
+    body = params[:body]
+    buyer_emails = []
+
+    event_model = Event
+    event_model = event_model.unscope(where: :is_archived) if params[:segment] == 'include_archived' && agent.is_premium
+    buyer_ids = event_model.where(udprn: udprn).pluck(:buyer_id)
+    buyer_emails = PropertyBuyer.where(buyer_id: buyer_ids).pluck(:email)
+
+    ### Send emails to all buyer emails
+    SesSendBulkEmailWorker.perform_async(buyer_emails, agent.email, body, subject) if !buyer_emails.empty?
+
+    render json: { message: 'Bulk emails sent to all the buyers' }, status: 200
+  end
 
   private
 

@@ -156,5 +156,8 @@ Rails.application.routes.draw do
   ### Unlock the agents by making a stripe payment
   post 'unlock/agents',                                         to: 'agents#unlock_agent'
 
+  ### Send emails to all buyers who produced enquiries for a property(archived/non archived
+  post 'agents/properties/send/emails/enquiries',               to: 'agents#send_emails_to_enquiry_producing_buyers'
+
 end
 

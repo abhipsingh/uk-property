@@ -53,7 +53,7 @@ class PropertyService
                       :is_developer, :floorplan_urls, :latitude, :longitude, :renter_id, :council_tax_band_cost, :council_tax_band_cost_unit,
                       :resident_parking_cost_unit, :outside_space_types, :ground_rent_cost, :ground_rent_type, :sale_price_type, :percent_completed, 
                       :lettings, :rent_available_from, :rent_available_to, :rent_price, :rent_price_type, :rent_furnishing_type, :student_accommodation,
-                      :assigned_agent_branch_website, :ground_rent_unit ]
+                      :assigned_agent_branch_website, :ground_rent_unit, :property_status_last_updated ]
 
   COUNTIES = ["Aberdeenshire", "Kincardineshire", "Lincolnshire", "Banffshire", "Hertfordshire", "West Midlands", "Warwickshire", "Worcestershire", "Staffordshire", "Avon", "Somerset", "Wiltshire", "Lancashire", "West Yorkshire", "North Yorkshire", "ZZZZ", "Dorset", "Hampshire", "East Sussex", "West Sussex", "Kent", "County Antrim", "County Down", "Gwynedd", "County Londonderry", "County Armagh", "County Tyrone", "County Fermanagh", "Cumbria", "Cambridgeshire", "Suffolk", "Essex", "South Glamorgan", "Mid Glamorgan", "Cheshire", "Clwyd", "Merseyside", "Surrey", "Angus", "Fife", "Derbyshire", "Dumfriesshire", "Kirkcudbrightshire", "Wigtownshire", "County Durham", "Tyne and Wear", "South Yorkshire", "North Humberside", "South Humberside", "Nottinghamshire", "Midlothian", "West Lothian", "East Lothian", "Peeblesshire", "Middlesex", "Devon", "Cornwall", "Stirlingshire", "Clackmannanshire", "Perthshire", "Lanarkshire", "Dunbartonshire", "Gloucestershire", "Berkshire", "not", "Buckinghamshire", "Herefordshire", "Isle of Lewis", "Isle of Harris", "Isle of Scalpay", "Isle of North Uist", "Isle of Benbecula", "Inverness-shire", "Isle of Barra", "Norfolk", "Ross-shire", "Nairnshire", "Sutherland", "Morayshire", "Isle of Skye", "Ayrshire", "Isle of Arran", "Isle of Cumbrae", "Caithness", "Orkney", "Kinross-shire", "Powys", "Leicestershire", "Leicestershire / ", "Leicestershire / Rutland", "Dyfed", "Bedfordshire", "Northumberland", "Northamptonshire", "Gwent", "Shropshire", "Oxfordshire", "Renfrewshire", "Isle of Bute", "Argyll", "Isle of Gigha", "Isle of Islay", "Isle of Jura", "Isle of Colonsay", "Isle of Mull", "Isle of Iona", "Isle of Tiree", "Isle of Coll", "Isle of Eigg", "Isle of Rum", "Isle of Canna", "Isle of Wight", "West Glamorgan", "Selkirkshire", "Berwickshire", "Roxburghshire", "Isles of Scilly", "Cleveland", "Shetland Islands", "Central London", "East London", "North West London", "North London", "South East London", "South West London","Dummy", "West London"] 
        
@@ -63,7 +63,7 @@ class PropertyService
                             :annual_ground_water_cost_unit, :resident_parking_cost_unit, :outside_space_types, :lettings,
                             :rent_available_from, :rent_available_to, :rent_price, :rent_price_type, :rent_furnishing_type,
                             :student_accommodation, :ground_rent_unit, :sale_price, :sale_price_type, :is_new_home, :is_retirement_home,
-                            :is_shared_ownership, :chain_free ]
+                            :is_shared_ownership, :chain_free, :property_status_last_updated ]
 
   AGENT_STATUS = {
     lead: 1,
@@ -79,6 +79,8 @@ class PropertyService
   BUYER_MATCH_ATTRS = [:beds, :baths, :receptions, :property_status_type, :property_type ]
 
   LAND_REGISTRY_ATTRS = [ :property_type, :tenure, :sale_prices, :last_sale_price ]
+
+  NON_ZERO_INT_FLOAT_ATTRS = [:last_sale_price, :inner_area, :outer_area ] + INT_ATTRS
 
   BASE_ATTRS = LOCALITY_ATTRS + POSTCODE_ATTRS + LAND_REGISTRY_ATTRS
 
@@ -187,18 +189,22 @@ class PropertyService
     message, status = nil
     lead = Agents::Branches::AssignedAgents::Lead.where(property_id: udprn.to_i, agent_id: nil).last
     agent = Agents::Branches::AssignedAgent.find(agent_id)
+    Rails.logger.info("PropertyService_CLAIM_NEW_PROPERTY__#{agent}__#{lead}_#{agent_id}")
     if lead && agent
       lead.agent_id = agent_id
       lead.claimed_at = Time.now
       lead.save!
 
       @created_lead ||= lead
-      client = Elasticsearch::Client.new host: Rails.configuration.remote_es_host
+      
+      Rails.logger.info("CREATED_LEAD_#{@created_lead}")
+
       update_hash = { agent_id: agent_id, agent_status: 1 }
-      details, status = PropertyDetails.update_details(client, udprn.to_i, update_hash)
+      details, status = PropertyService.new(udprn).update_details(update_hash)
       vendor_id = lead.vendor_id
       vendor_details = Vendor.where(id: vendor_id).select([:first_name, :last_name, :email, :image_url, :mobile]).last
-      message = { message: 'You have claimed this property successfully. Now survey this property within 7 days', vendor_details: vendor_details }
+      deadline = lead.claimed_at + Agents::Branches::AssignedAgents::Lead::VERIFICATION_DAY_LIMIT
+      message = { message: 'You have claimed this property successfully. Now survey this property within 7 days', vendor_details: vendor_details, deadline: deadline }
       address = nil
       VendorService.new(vendor_id).send_email_following_agent_lead(agent_id, address)
       status = 200
@@ -429,6 +435,7 @@ class PropertyService
     if values[index] && !values[index].empty?
       if ARRAY_HASH_ATTRS.include?(attr_value)
         result_hash[attr_value] = Oj.load(values[index]) rescue values[index]
+      elsif (NON_ZERO_INT_FLOAT_ATTRS.include?(attr_value)) && values[index].to_i == 0
       else
         result_hash[attr_value] = values[index]
       end
@@ -447,6 +454,7 @@ class PropertyService
       if index
         if value && value.is_a?(Array) || value.is_a?(Hash)
           values[index] = value.to_json
+        elsif (NON_ZERO_INT_FLOAT_ATTRS.include?(key)) && value.to_i == 0
         else
           values[index] = value
         end

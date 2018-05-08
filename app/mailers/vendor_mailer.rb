@@ -59,8 +59,9 @@ class VendorMailer < ApplicationMailer
     @hash_link = agent_attrs[:hash_link]
     @vendor_email = vendor_email
     @udprn = agent_attrs[:udprn]
-    vendor_present = Vendor.where(email: @vendor_email).empty?
+    vendor_present = !Vendor.where(email: @vendor_email).empty?
     invitation = InvitedVendor.where(email: @vendor_email).last
+    Rails.logger.info("AGENT_INVITING_VENDOR_#{@vendor_email}_#{invitation}")
     source = nil
     f_and_f_flag == true ? source = "f_and_f" : source = "properties_v2"
     @hash_url = "http://prophety-test.herokuapp.com/auth?verification_hash=#{@hash_link}&udprn=#{@udprn}&email=#{@vendor_email}&user_type=Vendor&vendor_present=#{vendor_present}&source=#{source}"

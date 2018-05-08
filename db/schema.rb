@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180423124745) do
+ActiveRecord::Schema.define(version: 20180502125238) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -487,6 +487,46 @@ ActiveRecord::Schema.define(version: 20180423124745) do
     t.boolean  "accepted"
   end
 
+  create_table "locations_counties", force: :cascade do |t|
+    t.string "name"
+  end
+
+  create_table "locations_districts", force: :cascade do |t|
+    t.string  "name"
+    t.integer "post_town_id"
+  end
+
+  create_table "locations_localities", force: :cascade do |t|
+    t.integer "post_town_id"
+    t.integer "district_id"
+    t.string  "name"
+  end
+
+  create_table "locations_post_towns", force: :cascade do |t|
+    t.integer "county_id", limit: 2
+    t.string  "name"
+  end
+
+  create_table "locations_sectors", force: :cascade do |t|
+    t.string  "name"
+    t.integer "post_town_id"
+    t.integer "locality_id"
+  end
+
+  create_table "locations_streets", force: :cascade do |t|
+    t.integer "post_town_id"
+    t.string  "name"
+    t.integer "locality_id"
+    t.integer "district_id"
+  end
+
+  create_table "locations_units", force: :cascade do |t|
+    t.string  "name"
+    t.integer "post_town_id"
+    t.integer "locality_id"
+    t.integer "street_id"
+  end
+
   create_table "mobile_otp_verifies", force: :cascade do |t|
     t.string   "mobile"
     t.string   "otp"
@@ -594,12 +634,12 @@ ActiveRecord::Schema.define(version: 20180423124745) do
   add_index "property_buyers", ["email_id"], name: "index_property_buyers_on_email_id", unique: true, using: :btree
 
   create_table "property_events", force: :cascade do |t|
-    t.jsonb    "attr_hash",                 default: {}, null: false
-    t.integer  "udprn",                                  null: false
-    t.datetime "created_at",                             null: false
+    t.jsonb    "attr_hash",              default: {}, null: false
+    t.integer  "udprn",                               null: false
+    t.datetime "created_at",                          null: false
     t.integer  "agent_id"
     t.integer  "vendor_id"
-    t.integer  "lifecycle_count", limit: 2, default: 0
+    t.integer  "lifecycle_id", limit: 2
   end
 
   create_table "property_historical_details", force: :cascade do |t|

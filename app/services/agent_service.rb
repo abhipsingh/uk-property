@@ -28,10 +28,11 @@ class AgentService
       hash_link: assigned_agent.create_hash(vendor_email, property_id).hash_value
     }
 
-    Agents::Branches::AssignedAgent.find(@agent_id).send_vendor_email(vendor_email, @udprn, assigned_agent_present, assigned_agent_email)
-
     ### Add this vendor to invited vendors table, source
     InvitedVendor.create!(udprn: @udprn, email: vendor_email, agent_id: @agent_id.to_i, source: Vendor::INVITED_FROM_CONST[:non_crawled] )
+
+    Agents::Branches::AssignedAgent.find(@agent_id).send_vendor_email(vendor_email, @udprn, assigned_agent_present, assigned_agent_email)
+
 
     return response, status
   end
@@ -85,10 +86,10 @@ class AgentService
       hash_link: assigned_agent.create_hash(vendor_email, property_id).hash_value
     }
 
-    VendorMailer.agent_lead_expect_visit_manual(agent_attrs, vendor_email).deliver_now
-
     ### Add this vendor to invited vendors table, source
     InvitedVendor.create!(udprn: @udprn, email: vendor_email, agent_id: @agent_id.to_i, source: Vendor::INVITED_FROM_CONST[:family] )
+
+    VendorMailer.agent_lead_expect_visit_manual(agent_attrs, vendor_email).deliver_now
 
     return response, status
   end

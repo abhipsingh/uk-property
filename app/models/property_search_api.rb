@@ -495,7 +495,7 @@ class PropertySearchApi
 
   def append_sort_filters
     sort_keys = [ :budget, :popularity, :rent, :date_added, :current_valuation, :dream_price, :status_last_updated, :building_number, :last_sale_price, 
-                  :status_last_updated, :price ]
+                  :status_last_updated, :price, :sale_price ]
     inst = self
     sort_key = @filtered_params[:sort_key].to_sym rescue nil
     if sort_keys.include? sort_key

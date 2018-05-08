@@ -195,8 +195,7 @@ class BuyersController < ActionController::Base
       # Create the customer in Stripe
       customer = Stripe::Customer.create(
         email: params[:stripeEmail],
-        card: params[:stripeToken],
-        plan: 'agent_monthly_premium_package'
+        card: params[:stripeToken]
       )
       stripe_subscription = customer.subscriptions.create(:plan => 'user_premium-monthly')
       buyer.is_premium = true

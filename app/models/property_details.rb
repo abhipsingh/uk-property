@@ -184,14 +184,23 @@ class PropertyDetails
     es_hash = {}
     update_hash[:pictures] = update_hash['pictures'].sort_by{|x| x['priority']} if update_hash.key?('pictures')
 
-    property_attrs = PropertyService::DETAIL_ATTRS - (PropertyService::LOCALITY_ATTRS + PropertyService::AGENT_ATTRS + PropertyService::VENDOR_ATTRS + PropertyService::POSTCODE_ATTRS)
+    ### Exclude property_status_type from detail and other attrs
+    property_attrs = PropertyService::DETAIL_ATTRS - (PropertyService::LOCALITY_ATTRS + PropertyService::AGENT_ATTRS + PropertyService::VENDOR_ATTRS + PropertyService::POSTCODE_ATTRS) - [:property_status_type]
 
     ### Update description if description is set
     update_hash[:description_set] = true if update_hash[:description]
 
     property_updated_cond = nil
     property_updated_cond = property_attrs.any? { |attr| update_hash.has_key?(attr) }
-    update_hash[:status_last_updated] = Time.now.to_s[0..Time.now.to_s.rindex(" ")-1] if property_updated_cond
+
+    if property_updated_cond
+      update_hash[:status_last_updated] = Time.now.utc.to_s
+      es_hash[:status_last_updated] = Time.parse(update_hash[:status_last_updated]).localtime.to_s
+    end
+
+    if update_hash.has_key?(:property_status_type)
+      update_hash[:property_status_last_updated] = Time.now.utc.to_s
+    end
 
     details = PropertyService.bulk_details([udprn]).first
     old_details = details.deep_dup
@@ -233,13 +242,12 @@ class PropertyDetails
       ### Send tracking emails for matching buyers aynschronously
       PropertyService.send_tracking_email_to_tracking_buyers(update_hash, old_details)
 
-      PropertySearchApi::ES_ATTRS.each { |key| es_hash[key] = details[key] if details[key] }
+      (PropertySearchApi::ES_ATTRS - [:status_last_updated]).each { |key| es_hash[key] = details[key] if details[key] }
       PropertySearchApi::ADDRESS_LOCALITY_LEVELS.each { |key| es_hash[key] = details[key] if details[key] }
       PropertyService.update_udprn(udprn, details)
 
-      ### Details hash
-      es_hash[:status_last_updated] = Time.parse(es_hash[:status_last_updated]).to_s if es_hash[:status_last_updated]
       client.delete index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn rescue nil
+
       client.index index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn , body: es_hash
       PropertyService.update_description(udprn, update_hash[:description]) if update_hash[:description]
 
