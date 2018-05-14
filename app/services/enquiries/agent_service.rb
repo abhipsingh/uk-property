@@ -52,8 +52,8 @@ module Enquiries
       new_row[:pictures] = [] if details[:_source][:pictures].nil?
       image_url ||= "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details[:_source][:udprn]}/fov_120_#{details[:_source][:udprn]}.jpg"
       new_row[:street_view_image_url] = image_url
-      new_row[:status_last_updated] = details[:_source][:status_last_updated]
-      new_row[:status_last_updated] = Time.parse(new_row[:status_last_updated]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:status_last_updated] 
+      new_row[:status_last_updated] = details[:_source][:status_last_updated].to_i
+      new_row[:status_last_updated] = Time.at(new_row[:status_last_updated]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:status_last_updated]
     end
 
     #### Push event based additional details to each property details

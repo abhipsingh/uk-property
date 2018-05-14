@@ -301,6 +301,12 @@ Rails.application.routes.draw do
 
   ### List of properties for the vendor and the agent confirmation status
   get 'list/inviting/agents/properties',                        to: 'vendors#list_inviting_agents_properties'
+
+  ### Fetch invited properties for a district
+  get 'list/invited/properties/vendors',                        to: 'properties#fetch_invited_properties_for_district'
+
+  ### Marked by an admin to note the invitation which has been sent to the vendor
+  post 'send/invite/register/vendor/:udprn',                    to: 'properties#send_invite_to_register_vendor'
   #####################################################################
   #####################################################################
   #####################################################################

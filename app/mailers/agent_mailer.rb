@@ -86,4 +86,12 @@ class AgentMailer < ApplicationMailer
     mail(to: @email, subject: 'Password reset')
   end
 
+  def send_floorplan_request_mailer(agent_attrs, buyer_attrs, property_attrs)
+    @agent_attrs = agent_attrs
+    @buyer_attrs = buyer_attrs
+    @property_attrs = property_attrs
+    mail(to: agent_attrs['email'], subject: 'A new buyer has requested a floorplan')
+  end
+
 end
+

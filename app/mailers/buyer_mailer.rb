@@ -61,19 +61,19 @@ class BuyerMailer < ApplicationMailer
   def send_email_for_a_matching_property(first_name, last_name, email, details, tracking_date, type_of_tracking, buyer_id, update_hash)
     @first_name = first_name
     @last_name = last_name
-    @details = details
+    @details = details.with_indifferent_access
     @tracking_date = tracking_date
     @unsubscribe_link = "https://api.prophety.co.uk/events/unsubscribe?buyer_id=#{buyer_id}"
     update_hash = update_hash.with_indifferent_access
 
     if update_hash['property_status_type'] 
-      previous_property_status_type = details[:property_status_type]
+      previous_property_status_type = details['property_status_type']
       new_property_status_type = update_hash['property_status_type']
-      @message = "The status of the property located at #{details[:address]} has been changed from #{previous_property_status_type} to #{new_property_status_type}"
+      @message = "The status of the property located at #{details['address']} has been changed from #{previous_property_status_type} to #{new_property_status_type}"
     elsif update_hash['sold']
-      @message = "The property located at #{details[:address]} has been sold to a new buyer"
+      @message = "The property located at #{details['address']} has been sold to a new buyer"
     elsif update_hash['offer_made']
-      @message = "The property located at #{details[:address]} has just been made a new offer"
+      @message = "The property located at #{details['address']} has just been made a new offer"
     end
 
     if "#{type_of_tracking}" == 'property_tracking'

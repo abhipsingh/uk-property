@@ -11,6 +11,10 @@ module Events
       @id = udprn
     end
   
+    def cache_key_value
+      CACHE_KEY_PREFIX + @id.to_s
+    end
+
     def fetch_value
       ardb_client = Rails.configuration.ardb_client
       cache_key = CACHE_KEY_PREFIX + @id.to_s
@@ -113,3 +117,4 @@ module Events
   
   end
 end
+

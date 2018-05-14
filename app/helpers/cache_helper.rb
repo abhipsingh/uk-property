@@ -29,5 +29,20 @@ module CacheHelper
       yield
     end
   end
+
+  def cache_response_value(cache_key, expiry_interval=1.hour)
+    ardb_client = Rails.configuration.ardb_client
+    cache_key = "temp_method_cache_#{action_name}_#{cache_key}"
+    cache_val = ardb_client.get(cache_key)
+    cacheable_value = nil
+    if cache_val.nil?
+      cacheable_value = yield
+      ardb_client.set(cache_key, cacheable_value.to_json, {ex: expiry_interval})
+    else
+      cacheable_value = Oj.load(cache_val)
+      #cacheable_value = cache_val
+    end
+    cacheable_value
+  end
 end
 

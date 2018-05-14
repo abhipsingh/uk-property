@@ -75,7 +75,10 @@ module EventsHelper
         created_event = Event.create!(attrs_list)
         enquiries = Enquiries::PropertyService.process_enquiries_result([created_event])
         response[:enquiries] = enquiries
+        
 
+        ### Send an email to the buyer to the agent to send floorplan
+        AgentFloorplanRequestNotifyWorker.perform_async(agent_id, buyer_id, property_id) if Event::REVERSE_EVENTS[event] == :requested_floorplan
 
         ### Update counts enquiry wise for both property and buyer
         Events::EnquiryStatProperty.new(udprn: property_id).update_enquiries(event)

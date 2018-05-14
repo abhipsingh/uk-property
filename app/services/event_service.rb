@@ -36,7 +36,8 @@ class EventService
     save_search_hash: 30,
     sold: 31,
     valuation_change: 32,
-    dream_price_change: 33
+    dream_price_change: 33,
+    requested_floorplan: 34
   }
 
   TYPE_OF_MATCH = {
@@ -86,7 +87,8 @@ class EventService
     :requested_message,
     :requested_callback,
     :requested_viewing,
-    :viewing_stage
+    :viewing_stage,
+    :requested_floorplan
   ]
 
   TRACKING_EVENTS = [

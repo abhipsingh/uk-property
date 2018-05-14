@@ -233,7 +233,7 @@ class BuyersController < ActionController::Base
   ### Info about the premium charges monthly
   ### curl -XGET 'http://localhost/agents/premium/cost'
   def info_premium
-    render json: { value: PropertyBuyer::PREMIUM_COST }, status: 200
+    render json: { value: (PropertyBuyer::PREMIUM_COST*100) }, status: 200
   end
 
   def test_view

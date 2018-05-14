@@ -27,6 +27,7 @@ module TestApp
       end
     end
     # config.load_paths << "#{Rails.root}/app/services"
+    config.active_job.queue_adapter = :sidekiq
     config.active_record.logger = nil
     config.assets.initialize_on_precompile = false
     config.assets.paths << "#{Rails.root}/vendor/assets/fonts"

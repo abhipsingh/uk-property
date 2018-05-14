@@ -31,6 +31,8 @@ class AgentApi
     result[:assigned_agent_mobile] = agent.mobile
     result[:assigned_agent_email] = agent.email
     result[:assigned_agent_title] = agent.title
+    result[:assigned_agent_title] = agent.title
+    result[:assigned_agent_office_number] = agent.office_phone_number
     result
   end
 

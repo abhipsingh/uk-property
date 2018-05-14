@@ -51,7 +51,6 @@ gem 'omniauth-twitter'
 gem 'rename'
 
 ######
-
 group :development, :test do
   gem 'pry-rails'
 end
@@ -62,6 +61,10 @@ group :test do
   gem 'minitest-reporters'
 end
 gem 'activerecord', '4.2.2'
+
+### Activejob to send emails asynchronously
+gem 'activejob'
+
 gem 'unicorn'
 
 

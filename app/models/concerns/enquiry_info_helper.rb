@@ -305,6 +305,7 @@ module EnquiryInfoHelper
         new_row['requested_callback'] = archived_property_stat.specific_enquiry_count(:requested_callback) + unarchived_property_stat.specific_enquiry_count(:requested_callback)
         new_row['interested_in_making_an_offer'] = archived_property_stat.specific_enquiry_count(:interested_in_making_an_offer) + unarchived_property_stat.specific_enquiry_count(:interested_in_making_an_offer)
         new_row['interested_in_viewing'] = archived_property_stat.specific_enquiry_count(:interested_in_viewing) + unarchived_property_stat.specific_enquiry_count(:interested_in_viewing)
+        new_row['requested_floorplan'] = archived_property_stat.specific_enquiry_count(:requested_floorplan) + unarchived_property_stat.specific_enquiry_count(:requested_floorplan)
         new_row['deleted'] = Events::IsDeleted.where(udprn: property_id).count
         #new_row['offer_made_stage'] = Event.unscope(where: :is_developer).where(udprn: property_id).where(stage: EVENTS[:offer_made_stage]).count
         new_row['trackings'] = Events::Track.where(udprn: property_id).count 
@@ -317,6 +318,7 @@ module EnquiryInfoHelper
         new_row['requested_callback'] = property_stat.specific_enquiry_count(:requested_callback)
         new_row['interested_in_making_an_offer'] = property_stat.specific_enquiry_count(:interested_in_making_an_offer)
         new_row['interested_in_viewing'] = property_stat.specific_enquiry_count(:interested_in_viewing) 
+        new_row['requested_floorplan'] = property_stat.specific_enquiry_count(:requested_floorplan) 
         #new_row['offer_made_stage'] = Event.where(udprn: property_id).where(stage: Event::EVENTS[:offer_made_stage]).count
         Rails.logger.info("hello end #{Time.now.to_f}") 
 

@@ -569,6 +569,14 @@ class PropertySearchApi
     return count, status
   end
 
+  ### Get the matching udprns only
+  def matching_udprns
+    inst = self
+    inst.filter_query
+    udprns, status = fetch_udprns
+    return udprns, status
+  end
+
   def self.post_url_new(query = {}, index_name='property_details', type_name='property_detail')
     uri = URI.parse(URI.encode("#{ES_EC2_URL}/_search/scroll"))
     query = (query == {}) ? "" : query.to_json

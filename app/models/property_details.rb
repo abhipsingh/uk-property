@@ -150,8 +150,8 @@ class PropertyDetails
 
       tracking_buyers = Trackers::Buyer.new.get_emails_of_buyer_trackers udprn
       enquiry_buyers = Trackers::Buyer.new.get_emails_of_buyer_enquiries udprn
-      BuyerMailer.tracking_emails(tracking_buyers, address, last_property_status_type, update_hash["property_status_type"]).deliver_now
-      BuyerMailer.enquiry_emails(enquiry_buyers, address, last_property_status_type, update_hash["property_status_type"]).deliver_now
+      BuyerMailer.tracking_emails(tracking_buyers, address, last_property_status_type, update_hash["property_status_type"]).deliver_later
+      BuyerMailer.enquiry_emails(enquiry_buyers, address, last_property_status_type, update_hash["property_status_type"]).deliver_later
     end
   end
 
@@ -193,14 +193,8 @@ class PropertyDetails
     property_updated_cond = nil
     property_updated_cond = property_attrs.any? { |attr| update_hash.has_key?(attr) }
 
-    if property_updated_cond
-      update_hash[:status_last_updated] = Time.now.utc.to_s
-      es_hash[:status_last_updated] = Time.parse(update_hash[:status_last_updated]).localtime.to_s
-    end
-
-    if update_hash.has_key?(:property_status_type)
-      update_hash[:property_status_last_updated] = Time.now.utc.to_s
-    end
+    update_hash[:status_last_updated] = Time.now.to_i if property_updated_cond
+    update_hash[:property_status_last_updated] = Time.now.to_i if update_hash.has_key?(:property_status_type)
 
     details = PropertyService.bulk_details([udprn]).first
     old_details = details.deep_dup
@@ -216,12 +210,22 @@ class PropertyDetails
       ### No of characters = 500
       update_hash[:description_snapshot] = update_hash[:description][0..500] if update_hash[:description]
 
+      ### If vendor id has been changed or added, add this to AddressDistrictRegister
+      if update_hash[:vendor_id] && details[:vendor_id].to_i != update_hash[:vendor_id].to_i
+        AddressDistrictRegister.where(udprn: udprn).update_all(vendor_registered: true)
+      end
+
       ### If price or sale price has been changed, then make them the same attribute to be stored
       if update_hash[:price] || update_hash[:sale_price]
         price = update_hash[:price]
         sale_price = update_hash[:sale_price]
         price_abs = price || sale_price
         update_hash[:price] = update_hash[:sale_price] = price_abs.to_i
+
+        ### Clear the agents missing sale price cache 
+        cache_key = "temp_method_cache_missing_sale_price_properties_for_agents_#{details[:agent_id]}"
+        ardb_client = Rails.configuration.ardb_client
+        ardb_client.del(cache_key)
       end
 
       update_hash[:percent_completed] = PropertyService.new(udprn).compute_percent_completed(update_hash, details)
@@ -246,18 +250,26 @@ class PropertyDetails
       PropertySearchApi::ADDRESS_LOCALITY_LEVELS.each { |key| es_hash[key] = details[key] if details[key] }
       PropertyService.update_udprn(udprn, details)
 
+      ### Updated status of es model
+      es_hash[:status_last_updated] = Time.now.localtime.to_s if property_updated_cond
+      Rails.logger.info("STATUS_UPDATE_#{es_hash[:status_last_updated]}__#{property_updated_cond}") if property_updated_cond
+
+      deleted_count = 0
       client.delete index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn rescue nil
 
-      client.index index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn , body: es_hash
+      deleted_count += 1
+      error = client.index index: Rails.configuration.address_index_name, type: Rails.configuration.address_type_name, id: udprn , body: es_hash
       PropertyService.update_description(udprn, update_hash[:description]) if update_hash[:description]
 
+      deleted_count -= 1
+      Rails.logger.info("ES_UPDATE_ERROR_#{udprn}_#{error}__#{es_hash}") if deleted_count != 0
       response = { message: 'Successfully updated' }
     #rescue => e
     #  Rails.logger.info "Error updating details for udprn #{udprn} => #{e}"
     #i  response = {"message" => "Error in updating udprn #{udprn}", "details" => e.message}
      # status = 500
     #end
-    
+
     ### TODO: Email Offline or Daily
     perform_async_actions(details, update_hash, last_property_status_type, previous_agent_id)
     # send_email_to_trackers(udprn, update_hash, last_property_status_type, details) if update_hash.key?('property_status_type')

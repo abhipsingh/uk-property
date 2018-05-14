@@ -8,10 +8,9 @@ class AgentService
 
   def verify_manual_property_from_agent_non_f_and_f(property_attrs, vendor_email, assigned_agent_email, agent)
     assigned_agent = agent
-    branch = Agents::Branches::AssignedAgent.where(id: @agent_id.to_i).last.branch
+    branch = agent.branch
     property_id = property_attrs[:property_id]
     details = PropertyDetails.details(@udprn)[:_source]
-    Rails.logger.info("#{@udprn}__#{details[:address]}")
     address = details[:address]
     assigned_agent_present = !(Agents::Branches::AssignedAgent.where(email: assigned_agent_email).last.nil?)
     response, status = PropertyService.new(udprn).update_details(property_attrs)
@@ -31,7 +30,7 @@ class AgentService
     ### Add this vendor to invited vendors table, source
     InvitedVendor.create!(udprn: @udprn, email: vendor_email, agent_id: @agent_id.to_i, source: Vendor::INVITED_FROM_CONST[:non_crawled] )
 
-    Agents::Branches::AssignedAgent.find(@agent_id).send_vendor_email(vendor_email, @udprn, assigned_agent_present, assigned_agent_email)
+    agent.send_vendor_email(vendor_email, @udprn, assigned_agent_present, assigned_agent_email)
 
 
     return response, status
@@ -39,9 +38,9 @@ class AgentService
 
   ### When an agent verifies a crawled property
   ### Called from agents_controller#verify_property_from_agent
-  def verify_crawled_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
+  def verify_crawled_property_from_agent(property_attrs, vendor_email, assigned_agent_email, agent)
     assigned_agent = Agents::Branches::AssignedAgent.where(email: assigned_agent_email).first
-    branch = Agents::Branches::AssignedAgent.where(id: @agent_id.to_i).last.branch
+    branch = agent.branch
     if assigned_agent
       property_attrs[:agent_id] = assigned_agent.id
       property_attrs[:agent_status] = 2
@@ -57,21 +56,21 @@ class AgentService
       assigned_agent_present = false
     end
     property_id = property_attrs[:property_id]
-    response, status = verify_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
+    response, status = verify_property_from_agent(property_attrs, vendor_email, assigned_agent_email, branch, assigned_agent, agent)
     Agents::Branches::CrawledProperty.where(id: property_id).update_all({udprn: udprn})
     return response, status
   end
 
-  def verify_manual_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
+  def verify_manual_property_from_agent(property_attrs, vendor_email, assigned_agent_email, agent)
     assigned_agent = Agents::Branches::AssignedAgent.where(email: assigned_agent_email).first
-    branch = Agents::Branches::AssignedAgent.where(id: @agent_id.to_i).last.branch
+    branch = agent.branch
     property_id = property_attrs[:property_id]
     details = PropertyDetails.details(property_id)['_source']
     address = details['address']
     vendor = Vendor.where(email: vendor_email).last
     property_attrs[:vendor_id] = vendor.id if vendor
-    response, status = PropertyService.new(udprn).update_details(property_attrs)
     property_service = PropertyService.new(property_id)
+    response, status = property_service.update_details(property_attrs)
     property_service.claim_new_property_manual(assigned_agent.id)
     agent_attrs = {
       name: assigned_agent.first_name.to_s + ' ' + assigned_agent.last_name.to_s,
@@ -94,9 +93,7 @@ class AgentService
     return response, status
   end
 
-  def verify_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
-    assigned_agent = Agents::Branches::AssignedAgent.where(email: assigned_agent_email).first
-    branch = Agents::Branches::AssignedAgent.where(id: @agent_id.to_i).last.branch
+  def verify_property_from_agent(property_attrs, vendor_email, assigned_agent_email, branch, assigned_agent, agent)
     vendor = Vendor.where(email: vendor_email).last
     if assigned_agent
       property_attrs[:agent_id] = assigned_agent.id
@@ -107,8 +104,7 @@ class AgentService
     property_id = @udprn
     property_service = PropertyService.new(property_id)
     response, status = property_service.update_details(property_attrs)
-    Agents::Branches::AssignedAgent.find(@agent_id).send_vendor_email(vendor_email, @udprn, assigned_agent_present, assigned_agent_email)
-
+    agent.send_vendor_email(vendor_email, @udprn, assigned_agent_present, assigned_agent_email)
     
     ### Add this vendor to invited vendors table, source
     InvitedVendor.create!(udprn: @udprn, email: vendor_email, agent_id: @agent_id.to_i, source: Vendor::INVITED_FROM_CONST[:crawled] )

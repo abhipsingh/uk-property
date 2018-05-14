@@ -22,6 +22,8 @@ module Agents
 
       ONE_TIME_UNLOCKING_COST = 100
 
+      PER_BUYER_ENQUIRY_EMAIL_COST = 0.05
+
       trigger.before(:update).of(:email) do
         "NEW.email = LOWER(NEW.email); RETURN NEW;"
       end

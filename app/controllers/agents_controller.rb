@@ -7,7 +7,8 @@ class AgentsController < ApplicationController
                                              :inactive_property_credits, :crawled_property_details, :verify_manual_property_from_agent,
 																						 :claim_property, :matching_udprns,  :list_of_properties, :invite_agents_to_register,
                                              :additional_agent_details_intercom, :agent_credit_info, :verify_manual_property_from_agent_non_f_and_f,
-                                             :incomplete_list_of_properties, :unlock_agent, :send_emails_to_enquiry_producing_buyers ]
+                                             :incomplete_list_of_properties, :unlock_agent, :send_emails_to_enquiry_producing_buyers, :verify_property_through_agent,
+                                             :enquiry_count_for_buyer_emails ]
   ### Details of the branch
   ### curl -XGET 'http://localhost/agents/predictions?str=Dyn'
   def search
@@ -38,16 +39,6 @@ class AgentsController < ApplicationController
     render json: companies, status: 200
   end
 
-  ### Group by a district and calculate the number of agents and branches
-  ### curl -XGET 'http://localhost/agents/info/10968961'
-  def info_agents
-    udprn = params[:udprn]
-    details = PropertyDetails.details(udprn.to_i)
-    district = details['_source']['district']
-    count = Agents::Branches::AssignedAgent.joins(:branch).where('agents_branches.district = ?', district).count
-    render json: count, status: 200
-  end
-
   def quotes_per_property
     quotes = AgentApi.new(params[:udprn].to_i, params[:agent_id].to_i).calculate_quotes
     render json: quotes, status: 200
@@ -70,8 +61,10 @@ class AgentsController < ApplicationController
   ### curl XGET 'http://localhost/agents/company/6290'
   def company_details
     company_id = params[:company_id]
-    company_details = Agent.find(company_id)
-    company_details = company_details.as_json(methods: [:vanity_url, :children_vanity_urls], include:  { branches: { include: { assigned_agents: {methods: [:active_properties], except: [ :password_digest, :password, :provider, :uid, :oauth_token, :oauth_expires_at ]}}, except: [:verification_hash]}})
+    company_details = cache_response_value(company_id) do 
+      company_details = Agent.find(company_id)
+      company_details = company_details.as_json(methods: [:vanity_url, :children_vanity_urls], include:  { branches: { include: { assigned_agents: {methods: [:active_properties], except: [ :password_digest, :password, :provider, :uid, :oauth_token, :oauth_expires_at ]}}, except: [:verification_hash]}})
+    end
     render json: company_details, status: 200
   end
 
@@ -79,8 +72,10 @@ class AgentsController < ApplicationController
   ### curl XGET 'http://localhost/agents/group/1'
   def group_details
     group_id = params[:group_id]
-    group = Agents::Group.find(group_id)
-    group_details = group.as_json(methods: [:vanity_url, :children_vanity_urls], include:  { companies: { include: { branches: { include: { assigned_agents: {methods: [:active_properties]}}}}}})
+    group_details = cache_response_value(group_id) do 
+      group = Agents::Group.find(group_id)
+      group_details = group.as_json(methods: [:vanity_url, :children_vanity_urls], include:  { companies: { include: { branches: { include: { assigned_agents: {methods: [:active_properties]}}}}}})
+    end
     render json: group_details, status: 200
   end
 
@@ -88,55 +83,31 @@ class AgentsController < ApplicationController
   ### curl -XGET 'http://localhost/agents/branch/9851'
   def branch_details
     branch_id = params[:branch_id]
-    branch = Agents::Branch.where(id: branch_id).last
+    branch_details = cache_response_value(branch_id) do
+      branch = Agents::Branch.where(id: branch_id).last
+      if branch
 
-    if branch
-      branch_details = branch.as_json(methods: [:vanity_url, :children_vanity_urls], include: {assigned_agents: {methods: [:active_properties], except: [:password_digest, 
-                                                :password, :provider, :uid, :oauth_token, :oauth_expires_at, :invited_agents]}},
-                                      except: [:verification_hash, :invited_agents])
-      branch_details[:company_id] = branch.agent_id
-      first_agent_id = Agents::Branches::AssignedAgent.where(branch_id: branch.id).order('id asc').limit(1).first.id
-      branch_details['assigned_agents'] = branch_details['assigned_agents'].select{|t| t['id'].to_i != first_agent_id }
-      branch_details[:group_id] = branch.agent.group.id
-      branch_details[:invited_agents] = InvitedAgent.where(branch_id: branch_id).select([:email, :created_at]).as_json
-      branch_details[:invited_agents].each do |invited_agent|
-        invited_agent.delete('id')
-        invited_agent['branch_id'] = branch_id.to_i 
-        invited_agent['group_id'] = branch_details[:group_id].to_i
+        branch_details = branch.as_json(methods: [:vanity_url, :children_vanity_urls], include: {assigned_agents: {methods: [:active_properties], except: [:password_digest, 
+                                                  :password, :provider, :uid, :oauth_token, :oauth_expires_at, :invited_agents]}},
+                                        except: [:verification_hash, :invited_agents])
+        branch_details[:company_id] = branch.agent_id
+        first_agent_id = Agents::Branches::AssignedAgent.where(branch_id: branch.id).order('id asc').limit(1).first.id
+        branch_details['assigned_agents'] = branch_details['assigned_agents'].select{|t| t['id'].to_i != first_agent_id }
+        branch_details[:group_id] = branch.agent.group.id
+        branch_details[:invited_agents] = InvitedAgent.where(branch_id: branch_id).select([:email, :created_at]).as_json
+        branch_details[:invited_agents].each do |invited_agent|
+          invited_agent.delete('id')
+          invited_agent['branch_id'] = branch_id.to_i 
+          invited_agent['group_id'] = branch_details[:group_id].to_i
+        end
+        branch_details
+      else
+        {}
       end
-      render json: branch_details, status: 200
-    else
-      render json: { message: 'Branch does not exist' }, status: 400
     end
-  end
-
-  ### Add new agent details to exisiting or create a new agent
-  ### agent_id is null or not null depending upon if its a new agent or not
-  ### curl -XPOST -H "Content-Type: application/json" 'http://localhost/agents/register' -d '{ "branch_id" : 9851, "company_id" : 6290, "group_id" : 1, "group_name" :"Dynamic Group", "company_name" : "Dynamic Property Management", "branch_name" : "Dynamic Property Management", "branch_address" : "18 Hope Street, Crook, DL15 9HS", "branch_phone_number" : "9988776655", "branch_email" : "df@fg.com", "branch_website" : "www.dmg.com", "verification_hash" : "$2a$10$hdCZNKpM2VXH15h4TZKrLeJOH9ZptIZjK0jCE/LhD39Xs6DYYz9nS" }'
-  #### Successful
-  #### curl -XPOST -H "Content-Type: application/json" 'http://localhost/agents/register' -d '{ "branch_id" : 9851, "company_id" : 6290, "group_id" : 1, "group_name" :"Dynamic Group", "company_name" : "Dynamic Property Management", "branch_name" : "Dynamic Property Management", "branch_address" : "18 Hope Street, Crook, DL15 9HS", "branch_phone_number" : "9988776655", "branch_email" : "df@fg.com", "branch_website" : "www.dmg.com", "verification_hash" : "$2a$10$E0NsNocTd0getkV7h8GcFuwLlekcyUugcEg9lVXIzADRskrdcyYOu" }'
-  #### Unsuccessful
-  ### curl -XPOST -H "Content-Type: application/json" 'http://localhost/agents/register' -d '{ "branch_id" : 9851, "company_id" : 6290, "group_id" : 1, "group_name" :"Dynamic Group", "company_name" : "Dynamic Property Management", "branch_name" : "Dynamic Property Management", "branch_address" : "18 Hope Street, Crook, DL15 9HS", "branch_phone_number" : "9988776655", "branch_email" : "df@fg.com", "branch_website" : "www.dmg.com", "verification_hash" : "$2a$10$E0NsNocTd0getkV7h8GcFuwLlekcyUugcEg9lVXIzADRskrdcyYOu1" }
-  def add_agent_details
-    branch_id = params[:branch_id].to_i
-    branch = Agents::Branch.where(id: branch_id).first
-    company = branch.agent
-    group = company.group
-    branch.name = params[:branch_name]
-    branch.address = params[:branch_address]
-    branch.email = params[:branch_email]
-    branch.phone_number = params[:branch_phone_number]
-    branch.website = params[:branch_website]
-    group.name = params[:group_name]
-    company.name = params[:company_name]
-    verification_hash = params[:verification_hash]
-    if branch.verify_hash(verification_hash) && company.save! && group.save! && branch.save!
-      render json: { message: 'Branch details updated successfully', details: branch }, status: 201
-    else
-      render json: { message: 'Branch details not saved successfully', details: params }, status: 400
-    end
-  rescue Exception => e
-    render json: { message: 'Branch details not found', details: params }, status: 400
+    status = nil
+    branch_details.empty? ? status = 400 : status = 200
+    render json: branch_details, status: status
   end
 
   #### Invite the other agents to register
@@ -180,8 +151,8 @@ class AgentsController < ApplicationController
     ### TODO: Update all properties containing this agent
     update_hash = { agent_id: agent_id }
     render json: {message: 'Updated successfully', details: agent}, status: 200  if agent.save!
-  rescue 
-    render json: {message: 'Failed to Updated successfully'}, status: 200
+  #rescue 
+  #  render json: {message: 'Failed to Updated successfully'}, status: 200
   end
 
   ### Shows the udprns in the branch_id which are not verified and Green along with 
@@ -302,6 +273,7 @@ class AgentsController < ApplicationController
   ### Done when the agent attaches the udprn to the property
   ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/agents/properties/10968961/verify' -d '{ "property_type" : "Barn conversion", "beds" : 1, "baths" : 1, "receptions" : 1, "property_id" : 340620, "agent_id": 1234, "vendor_email": "residentevil293@prophety.co.uk", "assigned_agent_email" :  "residentevil293@prophety.co.uk" }'
   def verify_property_through_agent
+    agent = @current_user
     udprn = params[:udprn].to_i
     agent_id = params[:agent_id].to_i
     agent_service = AgentService.new(agent_id, udprn)
@@ -331,9 +303,7 @@ class AgentsController < ApplicationController
     ### Update udprn in crawled properties
     Agents::Branches::CrawledProperty.where(id: params[:property_id].to_i).last.update_attributes({udprn: udprn})
     PropertyService.new(udprn).attach_crawled_property_attrs_to_udprn
-    agent_count = Agents::Branches::AssignedAgent.where(id: agent_id).count > 0
-    raise StandardError, 'Branch and agent not found' if agent_count == 0
-    response, status = agent_service.verify_crawled_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
+    response, status = agent_service.verify_crawled_property_from_agent(property_attrs, vendor_email, assigned_agent_email, agent)
     response['message'] = 'Property details updated.' unless status.nil? || status != 200
     render json: response, status: status
 #  rescue Exception => e
@@ -401,7 +371,7 @@ class AgentsController < ApplicationController
     
     vendor_email = params[:vendor_email]
     assigned_agent_email = params[:assigned_agent_email]
-    response, status = agent_service.verify_manual_property_from_agent(property_attrs, vendor_email, assigned_agent_email)
+    response, status = agent_service.verify_manual_property_from_agent(property_attrs, vendor_email, assigned_agent_email, agent)
     response['message'] = "Property details updated." unless status.nil? || status != 200
     render json: response, status: status
   #rescue Exception => e
@@ -678,7 +648,7 @@ class AgentsController < ApplicationController
       customer = Stripe::Customer.create(
         email: params[:stripeEmail],
         card: params[:stripeToken],
-        plan: 'agent_monthly_premium_package'
+        description: 'Agent subscription for premium service'
       )
       stripe_subscription = customer.subscriptions.create(:plan => 'agent_monthly_premium_package')
       agent.is_premium = true
@@ -817,14 +787,21 @@ class AgentsController < ApplicationController
   ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/properties/quotes/missing/price'
   def missing_sale_price_properties_for_agents
     agent = @current_user
-    api = PropertySearchApi.new(filtered_params: { not_exists: 'sale_price', agent_id: agent.id, results_per_page: 200 })
-    api = api.filter_query
-    result, status = api.filter
-    if status.to_i == 200
-      render json: result, status: status
+    response = cache_response_value(agent.id) do
+      agent = @current_user
+      api = PropertySearchApi.new(filtered_params: { not_exists: 'sale_price', agent_id: agent.id, results_per_page: 200 })
+      api = api.filter_query
+      result, status = api.filter
+      { result: result, status: status }
+    end
+
+    response = response.with_indifferent_access
+    if response[:status].to_i == 200
+      render json: response[:result], status: response[:status]
     else
       render json: { message: 'Something wrong happened' }, status: 400
     end
+
   end
 
   ### Provide the credits which will be charged, if the agent makes an inactive property closed_won
@@ -954,7 +931,12 @@ class AgentsController < ApplicationController
 
           ### THIS LIMIT IS THE MAXIMUM. CAN BE BREACHED IN AN EXCEPTIONAL CASE
           #api.query[:size] = 10000
+
+          ### Take the first exists status updated at filter out
+          api.query[:filter][:and][:filters] = [ api.query[:filter][:and][:filters].last ]
+
           udprns, status = api.fetch_udprns
+          Rails.logger.info("AGENT_PROPERTIES_QUERY_#{api.query}")
           total_count = api.total_count
 
           ### Get all properties for whom the agent has won leads
@@ -1222,13 +1204,32 @@ class AgentsController < ApplicationController
 
     event_model = Event
     event_model = event_model.unscope(where: :is_archived) if params[:segment] == 'include_archived' && agent.is_premium
-    buyer_ids = event_model.where(udprn: udprn).pluck(:buyer_id)
-    buyer_emails = PropertyBuyer.where(buyer_id: buyer_ids).pluck(:email)
+    buyer_ids = event_model.where(udprn: udprn).pluck(:buyer_id).uniq
+    buyer_emails = PropertyBuyer.where(id: buyer_ids).pluck(:email)
 
     ### Send emails to all buyer emails
-    SesSendBulkEmailWorker.perform_async(buyer_emails, agent.email, body, subject) if !buyer_emails.empty?
+    required_credit = agent.class::PER_BUYER_ENQUIRY_EMAIL_COST*buyer_emails.count
+    if agent.credit >= required_credit
+      agent.credit -= required_credit
+      agent.save!
+      SesSendBulkEmailWorker.perform_async(buyer_emails, agent.email, body, subject) if !buyer_emails.empty?
+      render json: { message: 'Bulk emails sent to all the buyers', enquiry_count: buyer_emails.count }, status: 200
+    else
+      render json: { required_credit: required_credit, credits_remaining: agent.credit, message: 'Credits remaining are not enough to send enquiries' }, status: 200
+    end
 
-    render json: { message: 'Bulk emails sent to all the buyers' }, status: 200
+  end
+
+  ### Send emails to all buyer emails
+  ### curl -XGET -H "Authorization: abxsbsk21w1xa" 'http://localhost/agents/enquiry/count/emails/:udprn'
+  def enquiry_count_for_buyer_emails
+    agent = @current_user
+    udprn = params[:udprn].to_i
+    event_model = Event
+    event_model = event_model.unscope(where: :is_archived) if params[:segment] == 'include_archived' && agent.is_premium
+    buyer_ids = event_model.where(udprn: udprn).pluck(:buyer_id).uniq
+    buyer_count = PropertyBuyer.where(id: buyer_ids).count
+    render json: buyer_count, status: 200
   end
 
   private
@@ -1255,3 +1256,4 @@ class AgentsController < ApplicationController
   end
 
 end
+

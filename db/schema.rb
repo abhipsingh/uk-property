@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180502125238) do
+ActiveRecord::Schema.define(version: 20180511152405) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -31,6 +31,18 @@ ActiveRecord::Schema.define(version: 20180502125238) do
     t.integer  "type_of_ad", null: false
     t.datetime "created_at", null: false
   end
+
+  create_table "address_district_registers", force: :cascade do |t|
+    t.integer  "udprn"
+    t.string   "district"
+    t.boolean  "vendor_registered"
+    t.integer  "vendor_id"
+    t.boolean  "invite_sent"
+    t.datetime "created_at",        null: false
+    t.datetime "updated_at",        null: false
+  end
+
+  add_index "address_district_registers", ["udprn"], name: "index_address_district_registers_on_udprn", unique: true, using: :btree
 
   create_table "agent_credit_verifiers", force: :cascade do |t|
     t.integer  "entity_id"
@@ -115,7 +127,7 @@ ActiveRecord::Schema.define(version: 20180502125238) do
     t.datetime "oauth_expires_at"
     t.string   "first_name"
     t.string   "last_name"
-    t.integer  "credit",              default: 0
+    t.float    "credit",              default: 0.0
     t.boolean  "is_premium",          default: false
     t.string   "stripe_customer_id"
     t.date     "premium_expires_at"

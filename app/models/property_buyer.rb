@@ -4,7 +4,7 @@ class PropertyBuyer < ActiveRecord::Base
                 :social_sign_status
   has_secure_password
   has_one :rent_requirement, class_name: 'RentRequirement', foreign_key: :buyer_id
-  PREMIUM_COST = 25
+  PREMIUM_COST = 9.99
 
   trigger.before(:update).of(:email) do
     "NEW.email = LOWER(NEW.email); RETURN NEW;"
@@ -169,7 +169,7 @@ class PropertyBuyer < ActiveRecord::Base
     last_name = self.last_name
     email = self.email
     details[:address] = PropertyDetails.address(details)
-    BuyerMailer.send_email_for_a_matching_property(first_name, last_name, email, details, tracking_date, type_of_tracking, buyer_id, update_hash).deliver_now
+    BuyerMailer.send_email_for_a_matching_property(first_name, last_name, email, details, tracking_date, type_of_tracking.to_s, buyer_id, update_hash.as_json).deliver_now
   end
 end
 

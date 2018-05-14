@@ -468,6 +468,41 @@ class PropertiesController < ActionController::Base
     render json: details, status: 200 
     
   end
+
+  
+  ### Get list of invited properties for a district
+  ### curl -XGET 'http://localhost/list/invited/properties/vendors?hash_str=Devon_Plymouth_@_Kilmar%20Street_@_@_@_@_@|PL9%207FJ_PL9%207_PL9&hash_type=text'
+  def fetch_invited_properties_for_district
+    property_search_api = PropertySearchApi.new(filtered_params: params)
+    udprns, status = property_search_api.matching_udprns
+    invitation_udprns = AddressDistrictRegister.where(udprn: udprns).select([:vendor_registered, :invite_sent, :udprn])
+    bulk_details = PropertyService.bulk_details(udprns)
+    results = bulk_details.map do |each_detail|
+      invitation_udprn = invitation_udprns.select{|t| t.udprn == each_detail[:udprn]}.last
+      vendor_registered = false
+      invite_sent = false
+      if invitation_udprn
+        invite_sent = true
+        vendor_registered = invitation_udprn.vendor_registered  
+      end
+      {
+        address: each_detail[:address],
+        is_vendor_registered: vendor_registered,
+        invite_sent: invite_sent,
+        udprn: each_detail[:udprn]
+      }
+    end
+    render json: results, status: 200
+  end
+
+  ### Marked by an admin to note the invitation which has been sent to the vendor
+  ### curl -XPOST 'http://localhost/send/invite/register/vendor/:udprn'
+  def send_invite_to_register_vendor
+    udprn = params[:udprn]
+    district = PropertyDetails.details(udprn)[:_source][:district]
+    AddressDistrictRegister.create!(udprn: udprn, invite_sent: true, district: district)
+    render json: { message: 'Sent invitation to the vendor' }, status: 200
+  end
   
   private
 
