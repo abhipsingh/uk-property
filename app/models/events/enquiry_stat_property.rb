@@ -25,12 +25,13 @@ class Events::EnquiryStatProperty
   def update_enquiries(event)
     value_str = fetch_value
     views = value_str.split(VIEWS_SEPERATOR)[1].to_i
+    requested_floorplans = value_str.split(VIEWS_SEPERATOR)[2].to_i
     enquiries = value_str.split(VIEWS_SEPERATOR)[0].to_s.split(ENQUIRY_SEPERATOR)
     form_value_str(enquiries)
     enquiry_index = Event::ENQUIRY_EVENTS.index(Event::REVERSE_EVENTS[event])
     enquiries[enquiry_index] += 1
     enquiries[Event::ENQUIRY_EVENTS.length] += 1
-    value = enquiries.join(ENQUIRY_SEPERATOR) + VIEWS_SEPERATOR + views.to_s
+    value = [ enquiries.join(ENQUIRY_SEPERATOR), views.to_s,  requested_floorplans.to_s ].join(VIEWS_SEPERATOR)
     set_value(value)
   end
 
@@ -45,15 +46,30 @@ class Events::EnquiryStatProperty
 
   def update_views
     value_str = fetch_value
-    views = value_str.split(VIEWS_SEPERATOR)[1].to_i
+    parts = value_str.split(VIEWS_SEPERATOR)
+    views = parts[1].to_i
     views += 1
-    value = value_str.split(VIEWS_SEPERATOR)[0].to_s + VIEWS_SEPERATOR + views.to_s
+    value = [ parts[0], views.to_s, parts[2] ].join(VIEWS_SEPERATOR)
+    set_value(value)
+  end
+
+  def update_requested_floorplans
+    value_str = fetch_value
+    parts = value_str.split(VIEWS_SEPERATOR)
+    requested_floorplans = parts[2].to_i
+    requested_floorplans += 1
+    value = [ parts[0], parts[1], requested_floorplans.to_s ].join(VIEWS_SEPERATOR)
     set_value(value)
   end
 
   def views
     value_str = fetch_value
     value_str.split(VIEWS_SEPERATOR)[1].to_i
+  end
+
+  def requested_floorplans
+    value_str = fetch_value
+    value_str.split(VIEWS_SEPERATOR)[2].to_i
   end
 
   def enquiries
@@ -67,16 +83,5 @@ class Events::EnquiryStatProperty
     value_str.split(VIEWS_SEPERATOR)[0].to_s.split(ENQUIRY_SEPERATOR)[enquiry_index].to_i
   end
 
-  def update_view_and_enquiry(event)
-    value_str = fetch_value
-    views = value_str.split(VIEWS_SEPERATOR)[1].to_i + 1
-    enquiries = value_str.split(VIEWS_SEPERATOR)[0].to_s.split(ENQUIRY_SEPERATOR)
-    form_value_str(enquiries)
-    enquiry_index = Event::ENQUIRY_EVENTS.index(Event::REVERSE_EVENTS[event])
-    enquiries[enquiry_index] += 1
-    enquiries[Event::ENQUIRY_EVENTS.length] += 1
-    value = enquiries.join(ENQUIRY_SEPERATOR) + VIEWS_SEPERATOR + views.to_s
-    set_value(value)
-  end
-
 end
+

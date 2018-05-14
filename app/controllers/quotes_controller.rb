@@ -51,7 +51,7 @@ class QuotesController < ApplicationController
         klass = Agents::Branches::AssignedAgents::Quote
         entity_class = AgentCreditVerifier::KLASSES.index(klass.to_s)
 
-        if agent.credit > ((Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(current_valuation.to_f)).round/Agents::Branches::AssignedAgent::PER_CREDIT_COST)
+        if agent.credit > ((Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(current_valuation.to_f)).round(2)/Agents::Branches::AssignedAgent::PER_CREDIT_COST)
           service = QuoteService.new(params[:udprn].to_i)
           response = service.submit_price_for_quote(params[:agent_id].to_i, params[:payment_terms], 
                                                     params[:quote_details], params[:services_required], params[:terms_url])
@@ -59,11 +59,11 @@ class QuotesController < ApplicationController
           ### Create a agent credit verifier to prevent duplicate entries
           AgentCreditVerifier.create!(entity_id: service.quote.id, entity_class: entity_class, agent_id: agent.id, udprn: params[:udprn].to_i, vendor_id: details[:vendor_id].to_i, amount: current_valuation.to_i)
 
-          agent.credit -= ((Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(current_valuation.to_f)).round/Agents::Branches::AssignedAgent::PER_CREDIT_COST)
+          agent.credit -= ((Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(current_valuation.to_f)).round(2)/Agents::Branches::AssignedAgent::PER_CREDIT_COST)
           agent.save!
           render json: response, status: 200
         else
-          render json: { message: "Credits possessed for quotes #{agent.credit}, not more than #{Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01} ", current_valuation: current_valuation, cost_of_quote: (Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(current_valuation.to_i.to_f)), beds: details[:beds], baths: details[:baths], receptions: details[:receptions], street_view_image_url: details[:street_view_image_url], pictures: details[:pictures] }, status: 400
+          render json: { message: "Credits possessed for quotes #{agent.credit}, not more than #{Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01} ", current_valuation: current_valuation, cost_of_quote: (Agents::Branches::AssignedAgent::CURRENT_VALUATION_PERCENT*0.01*(current_valuation.to_f)).round(2), beds: details[:beds], baths: details[:baths], receptions: details[:receptions], street_view_image_url: details[:street_view_image_url], pictures: details[:pictures] }, status: 400
         end
       else
         render json: { message: 'Current valuation of the property, does not exist' }, status: 400

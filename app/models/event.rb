@@ -96,8 +96,7 @@ class Event < ActiveRecord::Base
     :interested_in_making_an_offer,
     :requested_message,
     :requested_callback,
-    :requested_viewing,
-    :requested_floorplan
+    :requested_viewing
   ]
 
   TRACKING_EVENTS = [
