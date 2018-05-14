@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta content='text/html; charset=UTF-8' http-equiv='Content-Type' />
+  </head>
+  <body>
+   
+    <p>
+      Hi <%= @agent_attrs['first_name'].to_s + ' ' + @agent_attrs['last_name'].to_s %>    
+    </p>
+
+    <p>
+      A buyer is interested to view the floorplan of your property located at <%= @property_attrs['address'] %>
+    </p>
+
+    <p>
+      Buyer details:
+    </p>
+
+    <p>
+      Buyer Name: <%= @buyer_attrs['first_name'].to_s + ' ' + @buyer_attrs['last_name'].to_s %>
+    </p>
+
+    <p>
+      Buyer Email: <%= @buyer_attrs['email'] %>
+    </p>
+
+    <p>
+      Buyer Mobile: <%= @buyer_attrs['mobile'] %>
+    </p>
+
+  </body>
+</html>
+
