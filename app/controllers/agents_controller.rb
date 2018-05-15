@@ -1217,7 +1217,17 @@ class AgentsController < ApplicationController
     else
       render json: { required_credit: required_credit, credits_remaining: agent.credit, message: 'Credits remaining are not enough to send enquiries' }, status: 200
     end
+  end
 
+  ### Send bulk emails to buyers from agents
+  ### curl -XPOST 'http://localhost/agents/bulk/send/buyers/emails' -d '{ "subject" : "Random subject", "body": "Gusnz adkasc ak", "buyer_emails" : [ "a@b.com", "b@c.com", "c@d.com" ]  }'
+  def send_bulk_emails_to_buyers
+    agent = @current_user
+    subject = params[:subject]
+    body = params[:body]
+    buyer_emails = params[:buyer_emails]
+    SesSendBulkEmailWorker.perform_async(buyer_emails, agent.email, body, subject) if !buyer_emails.empty?
+    render json: { message: 'Bulk emails queued for sending' }, status: 200
   end
 
   ### Send emails to all buyer emails

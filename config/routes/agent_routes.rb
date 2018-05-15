@@ -162,5 +162,8 @@ Rails.application.routes.draw do
   ### Send emails to all buyer emails which made enquiries for this property
   get 'agents/enquiry/count/emails/:udprn',                     to: 'agents#enquiry_count_for_buyer_emails'
 
+  ### Send emails to all buyer emails
+  get 'agents/bulk/send/buyers/emails',                         to: 'agents#send_bulk_emails_to_buyers'
+
 end
 

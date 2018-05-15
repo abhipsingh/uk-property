@@ -5,5 +5,6 @@ class SesSendBulkEmailWorker
   def perform(buyer_emails, sender, body, subject)
     SesService.send_bulk_emails(buyer_emails, sender, body, subject)
   end
+
 end
 
