@@ -85,7 +85,9 @@ module Agents
         query = query.where(vendor_id: vendor_id) if buyer_id
         query = query.where(payment_terms: payment_terms_params) if payment_terms_params
         query = query.where(services_required: services_required) if service_required_param
-        query = query.where("(agent_id is null and status = ? and expired = 'f') OR ( agent_id = ? and ( expired= 't' OR status = ? OR status = ? ))", new_status, self.id, won_status, lost_status)
+        query = query.where("((agent_id is null and status = ? and expired = 'f') OR ( agent_id = ? and ( expired= 't' OR status = ? OR status = ? ))) OR pre_agent_id = ? ", new_status, self.id, won_status, lost_status, self.id)
+        
+ 
 
         if status_param == 'New'
           query = query.where(agent_id: nil).where(expired: false)
@@ -258,12 +260,14 @@ module Agents
         vendor = PropertyBuyer.where(id: buyer_id).select(:vendor_id).first if buyer_id
         vendor_id = vendor.vendor_id if vendor
         vendor_id ||= nil
+        source_mailshot = Agents::Branches::AssignedAgents::Lead::SOURCE_MAP[:mailshot]
+        branch_id = self.branch_id
 
         if !self.locked
           query = query.where('created_at > ?', Time.parse(latest_time)) if latest_time
           query = query.where(vendor_id: vendor_id) if buyer_id
           query = query.where(owned_property: owned_property) if !owned_property.nil?
-          query = query.where("(district = ? AND owned_property = 'f') OR (owned_property='t' AND agent_id = ?)", district, self.id)
+          query = query.where("(((district = ? AND owned_property = 'f') OR (owned_property='t' AND agent_id = ?))  AND source is null ) OR ( source = ? AND pre_agent_id = ? )", district, self.id, source_mailshot, branch_id)
   
           if search_str && is_premium
             udprns = Enquiries::PropertyService.fetch_udprns(search_str)
@@ -278,6 +282,9 @@ module Agents
           elsif status == 'Lost'
             query = query.where.not(agent_id: self.id).where.not(agent_id: nil)
           end
+
+          Rails.logger.info("QUERY_#{query.to_sql}")
+
           if self.is_premium
             leads = query.order('created_at DESC')
             results = leads.map{|lead| populate_lead_details(lead, status) }

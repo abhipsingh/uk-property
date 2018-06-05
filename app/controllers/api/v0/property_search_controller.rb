@@ -87,6 +87,8 @@ module Api
         details_json = PropertyDetails.details(udprn)[:_source]
         details_json[:locality_hash] = Events::Track.locality_hash(details_json)
         details_json[:street_hash] = Events::Track.street_hash(details_json)
+        details_json[:county_hash] = MatrixViewService.form_hash(details_json, :county)
+        details_json[:post_town_hash] = MatrixViewService.form_hash(details_json, :post_town)
         if true
           details_json['photo_urls'] =  process_image(details_json)
           details_json['description'] = PropertyService.get_description(udprn)

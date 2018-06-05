@@ -1,7 +1,7 @@
 class PropertiesController < ActionController::Base
   include CacheHelper
   before_filter :set_headers
-  around_action :authenticate_agent_and_vendor, only: [ :interest_info, :supply_info_aggregate, :enquiries, :property_stats ]
+  around_action :authenticate_agent_and_vendor, only: [ :interest_info, :supply_info_aggregate, :enquiries, :property_stats, :edit_property_details ]
   around_action :authenticate_buyer_and_vendor, only: [ :invite_friends_and_family, :invited_f_and_f_list ]
   around_action :authenticate_premium_agent_vendor, only: [ :supply_info, :demand_info, :agent_stage_and_rating_stats, :ranking_stats, :buyer_profile_stats ]
   around_action :authenticate_all, only: [ :predict_tags, :add_new_tags, :show_tags, :vanity_url ]
@@ -44,6 +44,8 @@ class PropertiesController < ActionController::Base
     #details[:percent_completed] = nil if user.nil?
     details[:locality_hash] = Events::Track.locality_hash(details)
     details[:street_hash] = Events::Track.street_hash(details)
+    details[:county_hash] = MatrixViewService.form_hash(details, :county)
+    details[:post_town_hash] = MatrixViewService.form_hash(details, :post_town)
     details[:photo_urls] = [ details[:photo_urls] ]
     render json: details, status: 200
   end
@@ -65,14 +67,14 @@ class PropertiesController < ActionController::Base
   ### This route provides all the details of the recent enquiries made by the users on this property
   ### curl -XGET -H "Content-Type: application/json"  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0MywiZXhwIjoxNDg1NTMzMDQ5fQ.KPpngSimK5_EcdCeVj7rtIiMOtADL0o5NadFJi2Xs4c" 'http://localhost/enquiries/property/10966139'
   def enquiries
-    cache_response(params[:udprn].to_i, [params[:page], params[:buyer_id], params[:qualifying_stage], params[:rating], params[:archived], params[:closed], params[:count]]) do
+    #cache_response(params[:udprn].to_i, [params[:page], params[:buyer_id], params[:qualifying_stage], params[:rating], params[:archived], params[:closed], params[:count]]) do
       page = params[:page]
       page ||= 0
       page = page.to_i
       udprn = params[:udprn].to_i
       count = params[:count].to_s == 'true'
       is_premium = @current_user.is_premium rescue false
-      old_stats_flag = params[:old_stats_flag].to_s == 'true' ? true : false
+      old_stats_flag = (params[:old_stats_flag].to_s == 'true')
       profile = @current_user.class.to_s
       event_service = EventService.new(udprn: udprn, buyer_id: params[:buyer_id], 
                                    last_time: params[:latest_time], qualifying_stage: params[:qualifying_stage],
@@ -84,7 +86,7 @@ class PropertiesController < ActionController::Base
         enquiries = event_service.property_specific_enquiry_details(page)
         render json: enquiries, status: 200
       end
-    end
+    #end
   end
 
   #### The following actions are specific for data related to buyer interest tables and pie charts
@@ -469,37 +471,13 @@ class PropertiesController < ActionController::Base
     
   end
 
-  ### Get list of invited properties for a district
-  ### curl -XGET 'http://localhost/list/invited/properties/vendors?hash_str=Devon_Plymouth_@_Kilmar%20Street_@_@_@_@_@|PL9%207FJ_PL9%207_PL9&hash_type=text'
-  def fetch_invited_properties_for_district
-    property_search_api = PropertySearchApi.new(filtered_params: params)
-    udprns, status = property_search_api.matching_udprns
-    invitation_udprns = AddressDistrictRegister.where(udprn: udprns).select([:vendor_registered, :invite_sent, :udprn])
-    bulk_details = PropertyService.bulk_details(udprns)
-    results = bulk_details.map do |each_detail|
-      invitation_udprn = invitation_udprns.select{|t| t.udprn == each_detail[:udprn].to_i}.last
-      vendor_registered = false
-      invite_sent = false
-      if invitation_udprn
-        invite_sent = true
-        vendor_registered = invitation_udprn.vendor_registered  
-      end
-      {
-        address: each_detail[:address],
-        is_vendor_registered: vendor_registered,
-        invite_sent: invite_sent,
-        udprn: each_detail[:udprn]
-      }
-    end
-    render json: results, status: 200
-  end
 
   private
-
+  
   def short_form_params
     params.permit(:agent, :branch, :property_status, :receptions, :beds, :baths, :property_type, :dream_price, :udprn)
   end
-
+  
   def user_valid_for_viewing?(user_types)
     user_types.any? do |user_type|
       @current_user = authenticate_request(user_type).result

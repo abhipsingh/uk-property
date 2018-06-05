@@ -21,6 +21,13 @@ module Agents
     BRANCH_CACHE_KEY_PREFIX = 'branch_stats_'
     REVERSE_INDEPENDENT_TYPE_MAP = INDEPENDENT_TYPE_MAP.invert
 
+    CHARGE_PER_PROPERTY_MAP = {
+      'diy' => 0.2
+    }
+
+    MIN_MAILSHOT_CHARGE = 4
+    MAX_BRANCH_MAILSHOT_LIMIT = 35000
+
     def self.table_name
       'agents_branches'
     end

@@ -163,7 +163,25 @@ Rails.application.routes.draw do
   get 'agents/enquiry/count/emails/:udprn',                     to: 'agents#enquiry_count_for_buyer_emails'
 
   ### Send emails to all buyer emails
-  get 'agents/bulk/send/buyers/emails',                         to: 'agents#send_bulk_emails_to_buyers'
+  post 'agents/bulk/send/buyers/emails',                        to: 'agents#send_bulk_emails_to_buyers'
+
+  ### Fetch invited properties for a district
+  get 'list/invited/properties/vendors',                        to: 'agents#fetch_invited_properties_for_district'
+
+  ### Marked by an admin to note the invitation which has been sent to the vendor
+  post 'agents/properties/send/mailshots',                      to: 'agents#send_mailshots_to_properties'
+
+  ### Branch search
+  get 'agents/search/branches',                                 to: 'agents#search_branch'
+
+  ### Agent property vendor info
+  get 'agents/property/vendors/info/:udprn',                    to: 'agents#agent_properties_vendor_buying_reqs'
+
+  ### Agent enquiry buyer info
+  get 'agents/enquiries/buyer/info/:buyer_id',                  to: 'agents#agent_enquiries_buyer_reqs'
+
+  ### Display branch preemption properties 
+  get 'agents/branches/mailshot/preemptions',                   to: 'agents#branch_mailshot_properties'
 
 end
 

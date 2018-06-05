@@ -1,0 +1,9 @@
+{
+  "Template": {
+    "TemplateName": "agents_bulk_buyers_notify",
+    "SubjectPart": "{{subject}}",
+    "HtmlPart": "<!DOCTYPE html><p>Sent from {{agent_email}}.</p>Sent from Prophety®",
+    "TextPart": "Sent from {{agent_email}}"
+  }
+}
+

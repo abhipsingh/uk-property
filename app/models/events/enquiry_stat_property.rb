@@ -4,7 +4,7 @@ class Events::EnquiryStatProperty
   ENQUIRY_SEPERATOR = ','
   VIEWS_SEPERATOR = '|'
 
-  attr_accessor :id
+  attr_accessor :id, :val
 
   def initialize(udprn: property_id)
     @id = udprn
@@ -13,12 +13,15 @@ class Events::EnquiryStatProperty
   def fetch_value
     ardb_client = Rails.configuration.ardb_client
     cache_key = CACHE_KEY_PREFIX + @id.to_s
-    ardb_client.get(cache_key).to_s
+    @val ||= ardb_client.get(cache_key).to_s
   end
 
   def set_value(value)
     ardb_client = Rails.configuration.ardb_client
     cache_key = CACHE_KEY_PREFIX + @id.to_s
+
+    ### Update cache value
+    @val = value
     ardb_client.set(cache_key, value)
   end
 
@@ -32,6 +35,7 @@ class Events::EnquiryStatProperty
     enquiries[enquiry_index] += 1
     enquiries[Event::ENQUIRY_EVENTS.length] += 1
     value = [ enquiries.join(ENQUIRY_SEPERATOR), views.to_s,  requested_floorplans.to_s ].join(VIEWS_SEPERATOR)
+
     set_value(value)
   end
 

@@ -155,7 +155,7 @@ class EventService
     @details = PropertyDetails.details(@udprn.to_i)['_source'] if @udprn
     @count = count
     @profile_type = profile
-    @old_stats_flag = old_flag
+    @old_stats_flag = old_stats_flag
   end
 
   def property_specific_enquiries(page)
@@ -178,7 +178,8 @@ class EventService
     query = query.where(stage: [Event::EVENTS[:closed_won_stage], Event::EVENTS[:closed_lost_stage]]) if @closed
 
     ### Archived filter
-    query = query.unscope(where: :is_archived).where(is_archived: true) if @archived == true && @is_premium
+    archived_cond = ((@archived || @old_stats_flag) && @is_premium)
+    query = query.unscope(where: :is_archived) if archived_cond
 
     query
 
@@ -214,6 +215,7 @@ class EventService
         enquiry_details.each { |row| add_buyer_details(row, buyer_hash) }
       end
       enquiry_details
+
     end
   end
 
@@ -279,9 +281,9 @@ class EventService
     event = Events::Track::TRACKING_TYPE_MAP[:property_tracking]
     if @is_premium && @old_stats_flag
       ### Last sold property date
-      completion_date = SoldProperty.where(udprn: property_id).select([:completion_date]).last.completion_date
-      if completion_date
-        Events::Track.where('created_at > ?', completion_date).where(type_of_tracking: event).where(udprn: @udprn).count
+      sp = SoldProperty.where(udprn: @udprn).select([:completion_date]).last
+      if sp
+        Events::Track.where('created_at > ?', sp.completion_date).where(type_of_tracking: event).where(udprn: @udprn).count
       else
         Events::Track.where(type_of_tracking: event).where(udprn: @udprn).count
       end
@@ -300,13 +302,13 @@ class EventService
     property_enquiries = buyer_enquiries = nil
 
     if @is_premium && @old_stats_flag
-      buyer_enquiries = Event.where(buyer_id: buyer_id).where(udprn: udprn).count
-      property_enquiries = Events::EnquiryStatProperty.new(udprn: udprn).enquiries
-    else old_stats_flag
       buyer_enquiries = Event.where(buyer_id: buyer_id).unscope(where: :is_archived).where(udprn: udprn).count
       unarchived_property_enquiries = Events::EnquiryStatProperty.new(udprn: udprn).enquiries
       archived_property_enquiries = Events::ArchivedStat.new(udprn: udprn).enquiries
       property_enquiries = unarchived_property_enquiries + archived_property_enquiries
+    else
+      buyer_enquiries = Event.where(buyer_id: buyer_id).where(udprn: udprn).count
+      property_enquiries = Events::EnquiryStatProperty.new(udprn: udprn).enquiries
     end
 
     buyer_enquiries.to_s + '/' + property_enquiries.to_s
@@ -317,13 +319,13 @@ class EventService
     property_views = buyer_views = nil
 
     if @is_premium && @old_stats_flag
-      buyer_views = Events::View.where(udprn: udprn).where(buyer_id: buyer_id).count
-      property_views = Events::EnquiryStatProperty.new(udprn: udprn).views
-    else old_stats_flag
       buyer_views = Events::View.where(udprn: udprn).unscope(where: :is_archived).where(buyer_id: buyer_id).count
       unarchived_property_views = Events::EnquiryStatProperty.new(udprn: udprn).views
       archived_property_views = Events::ArchivedStat.new(udprn: udprn).views
       property_views = unarchived_property_views + archived_property_views
+    else
+      buyer_views = Events::View.where(udprn: udprn).where(buyer_id: buyer_id).count
+      property_views = Events::EnquiryStatProperty.new(udprn: udprn).views
     end
 
     buyer_views.to_s + '/' + property_views.to_s

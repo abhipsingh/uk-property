@@ -17,4 +17,6 @@
     cron: '20 0 * * *'
   S3ImageCleanUpWorker:
     every: '1440m'
+  AdminDeassignMailshotPropertyWorker:
+    cron: '30 0 * * *'
 

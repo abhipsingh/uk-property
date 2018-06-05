@@ -90,7 +90,7 @@ module EventsHelper
         ardb_client.del("cache_#{property_id}_interest_info")
         ardb_client.del("cache_#{buyer_id}_history_enquiries")
 
-      elsif Event::EVENTS[:requested_floorplan] == Event::REVERSE_EVENTS[event]
+      elsif Event::EVENTS[:requested_floorplan] == event
 
         ### Enquiry stat for property
         enquiry_stat = Events::EnquiryStatProperty.new(udprn: property_id) 

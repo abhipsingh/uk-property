@@ -225,6 +225,28 @@ class VendorsController < ApplicationController
     render json: 'SUCCESS', status: 200
   end
 
+  ### Shows availability of the vendor
+  ### curl -XGET -H "Authorization: abxsbsk21w1xa" 'http://localhost/vendors/availability'
+  def show_vendor_availability
+    vendor = @current_user
+    meetings = VendorAgentMeetingCalendar.where(vendor_id: vendor.id).where("created_at > ?", Time.now).select([:id, :agent_id, :vendor_id, :start_time, :end_time])
+    unavailable_times = VendorCalendarUnavailability.where(vendor_id: vendor.id).where("created_at > ?", Time.now)
+    render json: { meetings: meetings, unavailable_times: unavailable_times }, status: 200
+  end
+
+  ### Add unavailablity slot for the vendor
+  ### curl -XPUT -H "Authorization: abxsbsk21w1xa" 'http://localhost/vendors/availability' -d '{ "start_time" : "2017-01-10 14:00:06 +00:00", "end_time" : "2017-02-11 15:00:07 +00:00" }'
+  def add_unavailable_slot
+    vendor = @current_user
+    start_time = Time.parse(start_time)
+    end_time = Time.parse(end_time)
+    meeting_details = nil
+    if start_time > Time.now && end_time > Time.now && start_time > end_time
+      meeting_details = VendorCalendarUnavailability.create!(start_time: start_time, end_time: end_time)
+    end
+    render json: { meeting_details: meeting_details }, status: 200
+  end
+
   private
 
   def user_valid_for_viewing?(user_types, udprn)

@@ -7,7 +7,7 @@ class PropertyService
   ####    1 => 'Lead',
   ####    2 => 'AssignedAgent'
   #### }
-  MANDATORY_ATTRS = [ :property_type, :beds, :baths, :receptions, :pictures, :current_valuation, :inner_area, :outer_area, :additional_features,
+  MANDATORY_ATTRS = [ :property_type, :beds, :baths, :receptions, :pictures, :current_valuation,  :additional_features,
                       :description_set, :property_style, :tenure, :floors, :listed_status, :year_built, :parking_type, :outside_space_types, :decorative_condition,
                       :council_tax_band, :council_tax_band_cost, :council_tax_band_cost_unit, :lighting_cost, :lighting_cost_unit, :heating_cost,
                       :heating_cost_unit, :hot_water_cost, :hot_water_cost_unit, :annual_service_charge, :ground_rent_cost, :ground_rent_unit,
@@ -53,7 +53,7 @@ class PropertyService
                       :is_developer, :floorplan_urls, :latitude, :longitude, :renter_id, :council_tax_band_cost, :council_tax_band_cost_unit,
                       :resident_parking_cost_unit, :outside_space_types, :ground_rent_cost, :ground_rent_type, :sale_price_type, :percent_completed, 
                       :lettings, :rent_available_from, :rent_available_to, :rent_price, :rent_price_type, :rent_furnishing_type, :student_accommodation,
-                      :assigned_agent_branch_website, :ground_rent_unit, :property_status_last_updated, :floorplan_hidden ]
+                      :assigned_agent_branch_website, :ground_rent_unit, :property_status_last_updated, :floorplan_hidden, :ads]
 
   COUNTIES = ["Aberdeenshire", "Kincardineshire", "Lincolnshire", "Banffshire", "Hertfordshire", "West Midlands", "Warwickshire", "Worcestershire", "Staffordshire", "Avon", "Somerset", "Wiltshire", "Lancashire", "West Yorkshire", "North Yorkshire", "ZZZZ", "Dorset", "Hampshire", "East Sussex", "West Sussex", "Kent", "County Antrim", "County Down", "Gwynedd", "County Londonderry", "County Armagh", "County Tyrone", "County Fermanagh", "Cumbria", "Cambridgeshire", "Suffolk", "Essex", "South Glamorgan", "Mid Glamorgan", "Cheshire", "Clwyd", "Merseyside", "Surrey", "Angus", "Fife", "Derbyshire", "Dumfriesshire", "Kirkcudbrightshire", "Wigtownshire", "County Durham", "Tyne and Wear", "South Yorkshire", "North Humberside", "South Humberside", "Nottinghamshire", "Midlothian", "West Lothian", "East Lothian", "Peeblesshire", "Middlesex", "Devon", "Cornwall", "Stirlingshire", "Clackmannanshire", "Perthshire", "Lanarkshire", "Dunbartonshire", "Gloucestershire", "Berkshire", "not", "Buckinghamshire", "Herefordshire", "Isle of Lewis", "Isle of Harris", "Isle of Scalpay", "Isle of North Uist", "Isle of Benbecula", "Inverness-shire", "Isle of Barra", "Norfolk", "Ross-shire", "Nairnshire", "Sutherland", "Morayshire", "Isle of Skye", "Ayrshire", "Isle of Arran", "Isle of Cumbrae", "Caithness", "Orkney", "Kinross-shire", "Powys", "Leicestershire", "Leicestershire / ", "Leicestershire / Rutland", "Dyfed", "Bedfordshire", "Northumberland", "Northamptonshire", "Gwent", "Shropshire", "Oxfordshire", "Renfrewshire", "Isle of Bute", "Argyll", "Isle of Gigha", "Isle of Islay", "Isle of Jura", "Isle of Colonsay", "Isle of Mull", "Isle of Iona", "Isle of Tiree", "Isle of Coll", "Isle of Eigg", "Isle of Rum", "Isle of Canna", "Isle of Wight", "West Glamorgan", "Selkirkshire", "Berwickshire", "Roxburghshire", "Isles of Scilly", "Cleveland", "Shetland Islands", "Central London", "East London", "North West London", "North London", "South East London", "South West London","Dummy", "West London"] 
        
@@ -169,18 +169,27 @@ class PropertyService
   def attach_vendor_to_property(vendor_id, details={}, property_for='Sale')
     property_details = PropertyDetails.details(udprn)[:_source]
     district = property_details[:district]
-    create_lead_and_update_vendor_details(district, udprn, vendor_id, property_details, property_for)
+
+    ### Attach address district register id
+    pre_agent_id = source = nil
+    addr_dist_reg = AddressDistrictRegister.where(udprn: udprn, expired: false).last
+    if addr_dist_reg
+      source = Agents::Branches::AssignedAgents::Lead::SOURCE_MAP[:mailshot]
+      pre_agent_id = addr_dist_reg.pre_agent_id
+    end
+
+    create_lead_and_update_vendor_details(district, udprn, vendor_id, property_details, property_for, source, pre_agent_id)
   end
 
-  def create_lead_and_update_vendor_details(district, udprn, vendor_id, details, property_for='Sale')
-    create_lead_for_local_branches(district, udprn, vendor_id) 
+  def create_lead_and_update_vendor_details(district, udprn, vendor_id, details, property_for='Sale', source=nil, pre_agent_id=nil)
+    create_lead_for_local_branches(district, udprn, vendor_id, source, pre_agent_id)
     update_hash = { vendor_id: vendor_id, claimed_on: Time.now.to_s, claimed_by: 'Vendor' }
-    Rails.logger.info("UPDATE_HASH_#{update_hash}")
+    Rails.logger.info("CREATE_LEAD_UPDATE_HASH_#{update_hash}")
     PropertyService.new(udprn.to_i).update_details(update_hash)
   end
 
-  def create_lead_for_local_branches(district, property_id, vendor_id)
-    lead = Agents::Branches::AssignedAgents::Lead.create(district: district, property_id: udprn, vendor_id: vendor_id)
+  def create_lead_for_local_branches(district, property_id, vendor_id, source=nil, pre_agent_id=nil)
+    lead = Agents::Branches::AssignedAgents::Lead.create(district: district, property_id: udprn, vendor_id: vendor_id, source: source, pre_agent_id: pre_agent_id)
     @created_lead ||= lead
     AgentVendorLeadNotifyWorker.perform_async(property_id)
   end

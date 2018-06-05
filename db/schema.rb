@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180511152405) do
+ActiveRecord::Schema.define(version: 20180605110138) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -38,11 +38,28 @@ ActiveRecord::Schema.define(version: 20180511152405) do
     t.boolean  "vendor_registered"
     t.integer  "vendor_id"
     t.boolean  "invite_sent"
-    t.datetime "created_at",        null: false
-    t.datetime "updated_at",        null: false
+    t.datetime "created_at",                        null: false
+    t.datetime "updated_at",                        null: false
+    t.integer  "branch_id"
+    t.date     "expiry_date"
+    t.integer  "payment_group_id",                  null: false
+    t.boolean  "expired",           default: false
+    t.boolean  "processed",         default: false
+    t.integer  "agent_id"
   end
 
+  add_index "address_district_registers", ["agent_id"], name: "preemptions_agents_idx", using: :btree
+  add_index "address_district_registers", ["branch_id", "udprn"], name: "preassigned_addr_non_exp_uniq_prop", unique: true, where: "(expired = false)", using: :btree
+  add_index "address_district_registers", ["branch_id"], name: "index_address_district_registers_on_branch_id", using: :btree
+  add_index "address_district_registers", ["processed"], name: "processed_preassigned_prop", where: "(processed = false)", using: :btree
   add_index "address_district_registers", ["udprn"], name: "index_address_district_registers_on_udprn", unique: true, using: :btree
+
+  create_table "agent_calendar_unavailabilities", force: :cascade do |t|
+    t.datetime "start_time"
+    t.datetime "end_time"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
 
   create_table "agent_credit_verifiers", force: :cascade do |t|
     t.integer  "entity_id"
@@ -146,14 +163,16 @@ ActiveRecord::Schema.define(version: 20180511152405) do
     t.integer  "agent_id"
     t.string   "district"
     t.integer  "vendor_id"
-    t.datetime "created_at",                           null: false
-    t.datetime "updated_at",                           null: false
+    t.datetime "created_at",                                     null: false
+    t.datetime "updated_at",                                     null: false
     t.boolean  "submitted"
     t.integer  "property_status_type"
-    t.boolean  "owned_property",       default: false
+    t.boolean  "owned_property",                 default: false
     t.datetime "visit_time"
-    t.boolean  "expired",              default: false
+    t.boolean  "expired",                        default: false
     t.datetime "claimed_at"
+    t.integer  "source",               limit: 2
+    t.integer  "pre_agent_id"
   end
 
   add_index "agents_branches_assigned_agents_leads", ["agent_id"], name: "index_agents_branches_assigned_agents_leads_on_agent_id", using: :btree
@@ -185,6 +204,7 @@ ActiveRecord::Schema.define(version: 20180511152405) do
     t.integer  "parent_quote_id"
     t.integer  "amount"
     t.integer  "existing_agent_id"
+    t.integer  "pre_agent_id"
   end
 
   add_index "agents_branches_assigned_agents_quotes", ["agent_id", "property_id"], name: "agent_unique_quotes_active_property_idx", unique: true, where: "((parent_quote_id IS NOT NULL) AND (status = 1) AND (expired = false))", using: :btree
@@ -735,6 +755,22 @@ ActiveRecord::Schema.define(version: 20180511152405) do
     t.string   "charge_id"
     t.integer  "udprn"
     t.integer  "entity_type"
+  end
+
+  create_table "vendor_agent_meeting_calendars", force: :cascade do |t|
+    t.integer  "agent_id"
+    t.integer  "vendor_id"
+    t.datetime "start_time"
+    t.datetime "end_time"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "vendor_calendar_unavailabilities", force: :cascade do |t|
+    t.datetime "start_time"
+    t.datetime "end_time"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
   end
 
   create_table "vendors", force: :cascade do |t|

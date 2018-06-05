@@ -7,8 +7,15 @@ class AgentsController < ApplicationController
                                              :inactive_property_credits, :crawled_property_details, :verify_manual_property_from_agent,
 																						 :claim_property, :matching_udprns,  :list_of_properties, :invite_agents_to_register,
                                              :additional_agent_details_intercom, :agent_credit_info, :verify_manual_property_from_agent_non_f_and_f,
-                                             :incomplete_list_of_properties, :unlock_agent, :send_emails_to_enquiry_producing_buyers, :verify_property_through_agent,
-                                             :enquiry_count_for_buyer_emails ]
+                                             :incomplete_list_of_properties, :unlock_agent, :send_emails_to_enquiry_producing_buyers,
+                                             :enquiry_count_for_buyer_emails, :send_bulk_emails_to_buyers, :send_mailshots_to_properties,
+                                             :mailshot_payment_history, :fetch_invited_properties_for_district, :agent_details, 
+                                             :group_details, :agent_properties_vendor_buying_reqs, :verify_property_through_agent,
+                                             :agent_enquiries_buyer_reqs, :branch_mailshot_properties ]
+
+  around_action :authenticate_agent_and_buyer, only: [ :company_details, :branch_details, :assigned_agent_details ]
+
+
   ### Details of the branch
   ### curl -XGET 'http://localhost/agents/predictions?str=Dyn'
   def search
@@ -39,6 +46,14 @@ class AgentsController < ApplicationController
     render json: companies, status: 200
   end
 
+  ### Branch search
+  ### curl -XGET 'http://localhost/agents/search/branches?str=Dyn' 
+  def search_branch
+    page_size = 20
+    branches = Agents::Branch.where("lower(name) LIKE ?", "#{params[:str].downcase}%").select([:id, :name]).limit(page_size)
+    render json: branches, status: 200
+  end
+
   def quotes_per_property
     quotes = AgentApi.new(params[:udprn].to_i, params[:agent_id].to_i).calculate_quotes
     render json: quotes, status: 200
@@ -47,51 +62,66 @@ class AgentsController < ApplicationController
   ### Details of the agent
   ### curl -XGET 'http://localhost/agents/agent/1234'
   def assigned_agent_details
-    assigned_agent_id = params[:assigned_agent_id]
-    assigned_agent = Agents::Branches::AssignedAgent.find(assigned_agent_id)
-    agent_details = assigned_agent.as_json(methods: [:active_properties, :vanity_url], except: [:password_digest, :password, :provider, :uid, :oauth_token, :oauth_expires_at, :invited_agents])
-    agent_details[:company_id] = assigned_agent.branch.agent_id
-    agent_details[:group_id] = assigned_agent.branch.agent.group_id
-    agent_details[:company_name] = assigned_agent.branch.agent.name
-    agent_details[:domain_name] = assigned_agent.branch.domain_name
-    render json: agent_details, status: 200
+    assigned_agent = Agents::Branches::AssignedAgent.find(params[:assigned_agent_id].to_i)
+    if @current_user.class.name == 'Vendor' || @current_user.branch.agent.group_id == assigned_agent.branch.agent.group_id
+      agent_details = assigned_agent.as_json(methods: [:active_properties, :vanity_url], except: [:password_digest, :password, :provider, :uid, :oauth_token, :oauth_expires_at, :invited_agents])
+      agent_details[:company_id] = assigned_agent.branch.agent_id
+      agent_details[:group_id] = assigned_agent.branch.agent.group_id
+      agent_details[:company_name] = assigned_agent.branch.agent.name
+      agent_details[:domain_name] = assigned_agent.branch.domain_name
+      render json: agent_details, status: 200
+    else
+      message = "Sorry, but you do not have permission to view this page"
+      render json: { message: message }, status: 400
+    end
   end
  
   ### Details of the company
   ### curl XGET 'http://localhost/agents/company/6290'
   def company_details
     company_id = params[:company_id]
-    company_details = cache_response_value(company_id) do 
-      company_details = Agent.find(company_id)
-      company_details = company_details.as_json(methods: [:vanity_url, :children_vanity_urls], include:  { branches: { include: { assigned_agents: {methods: [:active_properties], except: [ :password_digest, :password, :provider, :uid, :oauth_token, :oauth_expires_at ]}}, except: [:verification_hash]}})
-    end
-    render json: company_details, status: 200
+    #company_details = cache_response_value(company_id) do 
+        company_details = Agent.find(company_id)
+        if @current_user.class.name == 'Vendor' || @current_user.branch.agent.group_id == company_details.group_id
+          company_details = company_details.as_json(methods: [:vanity_url, :children_vanity_urls], include:  { branches: { include: { assigned_agents: {methods: [:active_properties], except: [ :password_digest, :password, :provider, :uid, :oauth_token, :oauth_expires_at ]}}, except: [:verification_hash]}})
+          render json: company_details, status: 200
+        else
+          message = "Sorry, but you do not have permission to view this page"
+          render json: { message: message }, status: 401
+        end
+    #end
   end
 
   ### Details of the group
   ### curl XGET 'http://localhost/agents/group/1'
   def group_details
     group_id = params[:group_id]
-    group_details = cache_response_value(group_id) do 
+    #group_details = cache_response_value(group_id) do 
       group = Agents::Group.find(group_id)
-      group_details = group.as_json(methods: [:vanity_url, :children_vanity_urls], include:  { companies: { include: { branches: { include: { assigned_agents: {methods: [:active_properties]}}}}}})
-    end
-    render json: group_details, status: 200
+      if @current_user.class.name == 'Vendor' || @current_user.branch.agent.group_id == group.id
+        group_details = group.as_json(methods: [:vanity_url, :children_vanity_urls], include:  { companies: { include: { branches: { include: { assigned_agents: {methods: [:active_properties]}}}}}})
+        render json: group_details, status: 200
+      else
+        message = "Sorry, but you do not have permission to view this page"
+        render json: { message: message }, status: 401
+      end
+    #end
   end
 
   ### Details of the branch
   ### curl -XGET 'http://localhost/agents/branch/9851'
   def branch_details
     branch_id = params[:branch_id]
-    branch_details = cache_response_value(branch_id) do
+    status = nil
+    #branch_details = cache_response_value(branch_id) do
       branch = Agents::Branch.where(id: branch_id).last
-      if branch
+      if branch && ( @current_user.class.name == 'Vendor' || @current_user.branch.agent.group_id == branch.agent.group_id )
 
         branch_details = branch.as_json(methods: [:vanity_url, :children_vanity_urls], include: {assigned_agents: {methods: [:active_properties], except: [:password_digest, 
                                                   :password, :provider, :uid, :oauth_token, :oauth_expires_at, :invited_agents]}},
                                         except: [:verification_hash, :invited_agents])
         branch_details[:company_id] = branch.agent_id
-        first_agent_id = Agents::Branches::AssignedAgent.where(branch_id: branch.id).order('id asc').limit(1).first.id
+        first_agent_id = Agents::Branches::AssignedAgent.where(branch_id: branch.id).order('id asc').limit(1).pluck(:id).first.to_i
         branch_details['assigned_agents'] = branch_details['assigned_agents'].select{|t| t['id'].to_i != first_agent_id }
         branch_details[:group_id] = branch.agent.group.id
         branch_details[:invited_agents] = InvitedAgent.where(branch_id: branch_id).select([:email, :created_at]).as_json
@@ -101,12 +131,13 @@ class AgentsController < ApplicationController
           invited_agent['group_id'] = branch_details[:group_id].to_i
         end
         branch_details
+        status = 200
       else
-        {}
+        branch_details = { message: "Sorry, but you do not have permission to view this page" }
+        status = 401
       end
-    end
+    #end
     status = nil
-    branch_details.empty? ? status = 400 : status = 200
     render json: branch_details, status: status
   end
 
@@ -787,6 +818,7 @@ class AgentsController < ApplicationController
   ### curl -XGET  -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/properties/quotes/missing/price'
   def missing_sale_price_properties_for_agents
     agent = @current_user
+    Rails.logger.info("MISSING_SALE_PRICE__#{agent.id}")
     response = cache_response_value(agent.id) do
       agent = @current_user
       api = PropertySearchApi.new(filtered_params: { not_exists: 'sale_price', agent_id: agent.id, results_per_page: 200 })
@@ -1242,13 +1274,282 @@ class AgentsController < ApplicationController
     render json: buyer_count, status: 200
   end
 
+  ### Shows availability of the agent
+  ### curl -XGET -H "Authorization: abxsbsk21w1xa" 'http://localhost/agents/availability'
+  def show_agent_availability
+    agent = @current_user
+    meetings = VendorAgentMeetingCalendar.where(agent_id: agent.id).where("created_at > ?", Time.now).select([:id, :agent_id, :vendor_id, :start_time, :end_time])
+    unavailable_times = VendorCalendarUnavailability.where(agent_id: agent.id).where("created_at > ?", Time.now)
+    render json: { meetings: meetings, unavailable_times: unavailable_times }, status: 200
+  end
+
+  ### Add unavailablity slot for the vendor
+  ### curl -XPUT -H "Authorization: abxsbsk21w1xa" 'http://localhost/agents/availability' -d '{ "start_time" : "2017-01-10 14:00:06 +00:00", "end_time" : "2017-02-11 15:00:07 +00:00" }'
+  def add_unavailable_slot
+    agent = @current_user
+    start_time = Time.parse(start_time)
+    end_time = Time.parse(end_time)
+    meeting_details = nil
+    if start_time > Time.now && end_time > Time.now && start_time > end_time
+      meeting_details = AgentCalendarUnavailability.create!(start_time: start_time, end_time: end_time)
+    end
+    render json: { meeting_details: meeting_details }, status: 200
+  end
+
+  ### Send mailshots to the selected properties
+  ### curl -XPOST -H "Authorization: abxsbsk21w1xa" 'http://localhost/agents/properties/send/mailshots' -d '{ "udprns" : [ 671717, 541517, 7626251 ], "district" : "SW5", "months" : 1 }'
+  def send_mailshots_to_properties
+    agent = @current_user
+    branch = agent.branch
+    udprns = params[:udprns]
+    udprns = [] if !udprns.is_a?(Array)
+    mode = 'diy'
+    total_collectible_charge = Agents::Branch::CHARGE_PER_PROPERTY_MAP[mode] * udprns.count
+    if agent.credit > total_collectible_charge && total_collectible_charge >= Agents::Branch::MIN_MAILSHOT_CHARGE
+
+      branch_mailshot_property_count = AddressDistrictRegister.where(branch_id: branch.id).count
+
+      if branch_mailshot_property_count <= Agents::Branch::MAX_BRANCH_MAILSHOT_LIMIT
+
+        branch = agent.branch
+        payment_group_id = AddressDistrictRegister.pluck("max(id)").first.to_i
+        payment_group_id ||= 1
+        bulk_details = PropertyService.bulk_details(udprns)
+  
+        bulk_details.each do |detail|
+          udprn = detail[:udprn]
+  
+          ### Prevent an already registered property from being registered
+          if (detail[:agent_id].to_i == 0) && (detail[:vendor_id].to_i == 0)
+            AddressDistrictRegister.create!(
+              udprn: udprn, 
+              branch_id: branch.id,
+              agent_id: agent.id,
+              expiry_date: 364.days.from_now.to_date.to_s,
+              invite_sent: true,
+              payment_group_id: payment_group_id
+            )
+          end
+  
+        end
+        agent.credit -= total_collectible_charge
+        agent.save!
+        render json: { message: "Successfully invited all the properties" }, status: 200
+
+      else
+        message = { property_limit: Agents::Branch::MAX_BRANCH_MAILSHOT_LIMIT, properties_claimed: branch_mailshot_property_count }
+        render json: message, status: 400
+      end
+
+    elsif total_collectible_charge < Agents::Branch::MIN_MAILSHOT_CHARGE
+      render json: { message: "Min charge should be greater than atleast #{Agents::Branch::MIN_MAILSHOT_CHARGE}", min_order_size: Agents::Branch::MIN_MAILSHOT_CHARGE }
+    else 
+      message = "Required credits #{total_collectible_charge} less than credits possessed #{agent.credit}"
+      render json: { message: message, credits_required: total_collectible_charge, credits_possessed: agent.credit }
+    end
+  end
+
+  ### Get list of invited properties for a district
+  ### curl -XGET  -H "Content-Type: application/json" -H "Authorization: zxbcskbskbd"  'http://localhost/list/invited/properties/vendors?hash_str=Devon_Plymouth_@_Kilmar%20Street_@_@_@_@_@|PL9%207FJ_PL9%207_PL9&hash_type=text' -d '{"email" : "stephenkassi@gmail.com", "password" : "1234567890", "branch_id" : 22341}'
+  def fetch_invited_properties_for_district
+    #if AdminAuth.authenticate(params[:email], params[:password])
+    #if true
+      results = nil
+      branch_id = params[:branch_id]
+      branch = Agents::Branch.where(id: branch_id).last
+      if branch
+        district = branch.district
+        area = district.match(/[A-Z+]+/)[0]
+        mvc = MatrixViewService.new(hash_str: params[:hash_str])
+        searched_district = mvc.context_hash[mvc.level].split(' ')[0]
+        searched_area = searched_district.match(/[A-Z+]+/)[0] if searched_district
+    
+        ### Check if the searched area is equal to the area of the branch
+        if searched_area.to_s == area.to_s
+          property_search_api = PropertySearchApi.new(filtered_params: params)
+          udprns, status = property_search_api.matching_udprns
+          preassigned_count = AddressDistrictRegister.where(branch_id: branch_id, expired: false).count
+          query = AddressDistrictRegister
+          query = query.where.not(branch_id: branch_id) if params[:hide_self_properties].to_s == 'true'
+          invitation_udprns = query.where(udprn: udprns, expired: false).select([:vendor_registered, :invite_sent, :udprn, :branch_id, :expiry_date, :processed])
+          bulk_details = PropertyService.bulk_details(udprns)
+    
+          results = bulk_details.map do |each_detail|
+            invitation_udprn = invitation_udprns.select{|t| t.udprn == each_detail[:udprn].to_i}.last
+            is_vendor_registered = branch_assigned = invite_sent = branch_owned = false
+            branch_id = expiry_date = nil
+            property_claimed = false
+            if invitation_udprn
+              invite_sent = true if invitation_udprn.processed.to_s == 'true'
+              expiry_date = invitation_udprn.expiry_date
+              if invitation_udprn.branch_id != branch.id
+                branch_assigned = true
+              else
+                vendor_registered = invitation_udprn.vendor_registered
+                branch_owned = true
+              end
+            elsif (each_detail[:vendor_id].to_i > 0) || (each_detail[:agent_id].to_i > 0)
+              invite_sent = false
+              is_vendor_registered = true if each_detail[:vendor_id].to_i > 0
+              propert_claimed = true
+              branch_assigned = true
+              branch_owned = false
+            end
+
+            {
+              address: each_detail[:address],
+              is_vendor_registered: is_vendor_registered,
+              invite_sent: invite_sent,
+              udprn: each_detail[:udprn],
+              branch_owned: branch_owned,
+              expiry_date: expiry_date,
+              branch_assigned: branch_assigned,
+              propert_claimed: propert_claimed
+            }
+          end
+          branch_details = { branch_id: branch.id, branch_name: branch.name, branch_logo: branch.image_url }
+          result_hash = { results: results, preassigned_count: preassigned_count }
+          result_hash.merge!(branch_details)
+          render json: result_hash, status: 200
+        else
+          message = "Sorry, but you can only mailshot vendors with an #{area} postcode district, sector or unit."
+          render json: { message: message }, status: 400
+        end
+      else
+        render json: { message: 'The specified branch was not found in the database' }, status: 400
+      end
+#    else
+#      render json: { message: 'Branch authentication failed' }, status: 400
+#    end
+  end
+
+  ### Display the preemptions for the agents claimed
+  ### curl -XGET -H "Authorization: csvna1vmvcssw" 'http://localhost/agents/branches/mailshot/preemptions'
+  def branch_mailshot_properties
+    agent = @current_user
+    branch_id = agent.branch_id
+    page_size = 20
+    page_offset = (params[:page].to_i - 1)
+    page_offset < 0 ? page_offset = 0 : page_offset = page_offset
+    results = []
+
+    if params[:count].to_s != 'true'
+      results = AddressDistrictRegister.where(branch_id: branch_id).order('created_at DESC').limit(page_size).offset(page_offset*page_size).map do |address|
+        {
+          udprn: address.udprn,
+          is_vendor_registered: address.vendor_registered,
+          expired: address.expired,
+          expiry_date: address.expiry_date,
+          created_at: address.created_at,
+          expired: address.expired
+        }
+      end
+      udprns = results.map{|t| t[:udprn] }
+  
+      bulk_response = PropertyService.bulk_details(udprns.uniq)
+  
+      bulk_response.each do |each_res|
+        index = results.index{ |t| t[:udprn] == each_res[:udprn].to_i }
+        results[index][:address] = each_res[:address]
+      end
+    else
+      results = AddressDistrictRegister.where(branch_id: branch_id).count
+    end
+
+    Rails.logger.info("Results hash #{results}")
+
+    render json: results, status: 200
+  end
+
+  ### Payment history for agents
+  ### curl -XGET -H "Authorization: csvna1vmvcssw" 'http://localhost/agents/mailshot/payment/history'
+  def mailshot_payment_history
+    agent = @current_user
+    branch = agent.branch
+    page = params[:page].to_i
+    page_size = 20
+    results = AddressDistrictRegsiter.where(branch_id: branch.id).group(:payment_group_id).select("max(created_at) as created_at").select("string_agg(udprn::text, ',') as udprns").limit(page_size).offset(page_size.to_i*page).map do |preassigned_property|
+      udprns = preassigned_property.udprns.split(',')
+      cost = udprns.count.to_f * Agents::Branch::CHARGE_PER_PROPERTY
+      {
+        payment_time: preassigned_property.created_at,
+        udprns: udprns,
+        cost: (udprns.count.to_f * Agents::Branch::CHARGE_PER_PROPERTY),
+      }
+    end
+    render json: results, status: 200
+  end
+
+  ### Extract buyer's info for agent's properties
+  ### curl -XGET 'Authorization: bns6nsk2n' 'http://localhost/agents/property/vendors/info/:udprn'
+  def agent_properties_vendor_buying_reqs
+    property_details = PropertyDetails.details(params[:udprn].to_i)[:_source]
+    attr_list = [:min_beds, :max_beds, :min_baths, :max_baths, :min_receptions, :max_receptions, :property_types,
+                 :status, :buying_status, :funding, :biggest_problems, :chain_free, :budget_from, :budget_to, :locations,
+                 :mortgage_approval ].map(&:to_s)
+    buyer_details = PropertyBuyer.where(vendor_id: property_details[:vendor_id].to_i).select(attr_list).last.as_json
+    response = nil
+
+    if buyer_details
+      buyer_details['status'] = PropertyBuyer::REVERSE_STATUS_HASH[buyer_details['status']]
+      buyer_details['buying_status'] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[buyer_details['buying_status']]
+      buyer_details['funding'] = PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[buyer_details['funding']]
+      buyer_details['property_tracking'] = Events::Track.where(udprn: params[:udprn].to_i).select(:id).last.nil?
+      response = {}
+      (attr_list- ['property_tracking', 'chain_free', 'budget_from', 'budget_to']).each { |t| response["buyer_#{t}"] = buyer_details[t] }
+      response['property_tracking'] = buyer_details['property_tracking']
+      response['chain_free'] = buyer_details['chain_free']
+      response['buyer_min_budget'] = buyer_details['budget_from']
+      response['buyer_max_budget'] = buyer_details['budget_to']
+    end
+
+    render json: { buyer_details: response }, status: 200
+  end
+
+  ### Extract buyer's info for agent's enquiries
+  ### curl -XGET 'Authorization: bns6nsk2n' 'http://localhost/agents/enquiries/buyer/info/:buyer_id?udprn=1234567'
+  def agent_enquiries_buyer_reqs
+    attr_list = [:min_beds, :max_beds, :min_baths, :max_baths, :min_receptions, :max_receptions, :property_types,
+                 :status, :buying_status, :funding, :biggest_problems, :chain_free, :budget_from, :budget_to, :locations,
+                 :mortgage_approval ].map(&:to_s)
+    buyer_details = PropertyBuyer.where(id: params[:buyer_id].to_i).select(attr_list).last.as_json
+    response = nil
+
+    if buyer_details
+      buyer_details['status'] = PropertyBuyer::REVERSE_STATUS_HASH[buyer_details['status']]
+      buyer_details['buying_status'] = PropertyBuyer::REVERSE_BUYING_STATUS_HASH[buyer_details['buying_status']]
+      buyer_details['funding'] = PropertyBuyer::REVERSE_FUNDING_STATUS_HASH[buyer_details['funding']]
+      buyer_details['property_tracking'] = Events::Track.where(udprn: params[:udprn].to_i).select(:id).last.nil?
+      response = {}
+      (attr_list- ['property_tracking', 'chain_free', 'budget_from', 'budget_to']).each { |t| response["buyer_#{t}"] = buyer_details[t] }
+      response['property_tracking'] = buyer_details['property_tracking']
+      response['chain_free'] = buyer_details['chain_free']
+      response['buyer_min_budget'] = buyer_details['budget_from']
+      response['buyer_max_budget'] = buyer_details['budget_to']
+    end
+    Rails.logger.info("RESPONSE_#{response}")
+
+    render json: { buyer_details: response }, status: 200
+  end
+
   private
 
   def authenticate_agent
     if user_valid_for_viewing?('Agent')
       yield
     else
-      render json: { message: 'Authorization failed' }, status: 401
+      message = "Sorry, but you do not have permission to view this page" if action_name == 'fetch_invited_properties_for_district'
+      message ||= 'Authorization failed'
+      render json: { message: message }, status: 401
+    end
+  end
+
+  def authenticate_agent_and_buyer
+    if user_valid_for_viewing?('Agent') || user_valid_for_viewing?('Vendor')
+      yield
+    else
+      message = 'Authorization failed'
+      render json: { message: message }, status: 401
     end
   end
 

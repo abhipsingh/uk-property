@@ -248,6 +248,8 @@ class PropertyDetails
 
       (PropertySearchApi::ES_ATTRS - [:status_last_updated]).each { |key| es_hash[key] = details[key] if details[key] }
       PropertySearchApi::ADDRESS_LOCALITY_LEVELS.each { |key| es_hash[key] = details[key] if details[key] }
+
+      details[:vanity_url] = nil
       PropertyService.update_udprn(udprn, details)
 
       ### Updated status of es model

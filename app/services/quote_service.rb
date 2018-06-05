@@ -79,6 +79,8 @@ class QuoteService
     district = details['district']
     vendor = Vendor.find(details[:vendor_id])
     property_status_type = Event::PROPERTY_STATUS_TYPES[details['property_status_type']]
+    address_district_register = AddressDistrictRegister.where(udprn: details[:udprn], expired: false).last
+    pre_agent_id = address_district_register.pre_agent_id if address_district_register
     quote = Agents::Branches::AssignedAgents::Quote.create!(
       deadline: deadline,
       property_id: @udprn,
@@ -94,7 +96,8 @@ class QuoteService
       vendor_email: vendor.email,
       vendor_mobile: vendor.mobile,
       amount: details[:current_valuation].to_i,
-      existing_agent_id: existing_agent_id.to_i
+      existing_agent_id: existing_agent_id.to_i,
+      pre_agent_id: pre_agent_id
     )
 
     ### Send email to all local agents
@@ -115,6 +118,7 @@ class QuoteService
     Rails.logger.info("#{quote.id}__#{agent_quote.id}__#{agent_id}")
     if quote && quote.status != won_status && agent_quote && agent
       parent_quote_id = quote.id
+      agent_quote.pre_agent_id = quote.pre_agent_id
       quote.destroy!
       agent_quote.status = won_status
       agent_quote.parent_quote_id = nil

@@ -253,7 +253,7 @@ module EnquiryInfoHelper
     ### with new row
     def push_property_enquiry_details_buyer(new_row, details)
       attrs = [:address, :price, :dream_price, :current_valuation, :pictures, :street_view_image_url, :sale_prices, :property_status_type, 
-               :verification_status, :vanity_url, :assigned_agent_id, :assigned_agent_image_url, :assigned_agent_mobile,
+               :verification_status, :vanity_url, :assigned_agent_id, :assigned_agent_image_url, :assigned_agent_mobile, :assigned_agent_office_number,
                :assigned_agent_email, :assigned_agent_title, :dependent_locality, :thoroughfare_description, :post_town, :agent_id,
                :beds, :baths, :receptions, :assigned_agent_first_name, :assigned_agent_last_name, :percent_completed, :assigned_agent_branch_logo, 
                :floor_plan_url]
@@ -300,6 +300,8 @@ module EnquiryInfoHelper
         ### Total Visits for premium users
         new_row['total_visits'] = archived_property_stat.views + unarchived_property_stat.views
         new_row['total_enquiries'] = archived_property_stat.enquiries + unarchived_property_stat.enquiries
+        new_row['recent_enquiries'] =  unarchived_property_stat.enquiries
+        new_row['archived_enquiries'] =  archived_property_stat.enquiries
         new_row['requested_viewing'] = archived_property_stat.specific_enquiry_count(:requested_viewing) + unarchived_property_stat.specific_enquiry_count(:requested_viewing)
         new_row['requested_message'] = archived_property_stat.specific_enquiry_count(:requested_message) + unarchived_property_stat.specific_enquiry_count(:requested_message)
         new_row['requested_callback'] = archived_property_stat.specific_enquiry_count(:requested_callback) + unarchived_property_stat.specific_enquiry_count(:requested_callback)
@@ -312,6 +314,8 @@ module EnquiryInfoHelper
         property_stat = Events::EnquiryStatProperty.new(udprn: property_id)
         new_row['total_visits'] = property_stat.views
         new_row['total_enquiries'] = property_stat.enquiries
+        new_row['recent_enquiries'] =  new_row['total_enquiries']
+        new_row['archived_enquiries'] =  nil
         new_row['requested_viewing'] = property_stat.specific_enquiry_count(:requested_viewing)
         new_row['requested_message'] = property_stat.specific_enquiry_count(:requested_message)
         new_row['requested_callback'] = property_stat.specific_enquiry_count(:requested_callback)
