@@ -79,14 +79,7 @@ class SessionsController < ApplicationController
   ### curl -XPOST  -H "Content-Type: application/json" 'http://localhost/send/otp'  -d '{ "mobile" : "+446474255672"  }'
   ### TODO: This is an open api. Checks needs to be put in place to prevent abuse of this api.
   def send_otp_to_number
-    sns = Aws::SNS::Client.new(region: "us-west-2", access_key_id: Rails.configuration.aws_access_key, secret_access_key: Rails.configuration.aws_access_secret)
-    mobile = params[:mobile]
-    totp = ROTP::TOTP.new("base32secret3232", interval: 1)
-    #totp.verify_with_drift(totp, 3600, Time.now+3600)
-    otp = totp.now
-    mobile_otp = MobileOtpVerify.create!(mobile: mobile, otp: otp)
-    message = "You have received an OTP from Prophety. Enter the OTP #{otp} to proceed"
-    sns.publish({ phone_number: mobile, message: message })
+    SnsOtpWorker.new.perform(params[:mobile])
     render json: { message: 'OTP sent successfully' }, status: 200
   end
 
@@ -113,9 +106,13 @@ class SessionsController < ApplicationController
         user_otp = agent_params['otp']
         otp_verified ||= totp.verify_with_drift(user_otp, 3600, Time.now)
         agent_params.delete("otp")
+        mobile_otp = MobileOtpVerify.where(otp: user_otp).where("created_at > ?", MobileOtpVerify::OTP_EXPIRY_PERIOD.ago).last
+        verified_cond = (otp_verified && mobile_otp || ENV['EMAIL_ENV'] == 'dev')
 
-        if true
-  
+        if verified_cond
+          mobile = nil
+          mobile = mobile_otp.mobile if mobile_otp
+          agent_params['mobile'] = mobile 
           agent = Agents::Branches::AssignedAgent.new(agent_params)
           ### To calculate if it is the first agent
           agent.is_first_agent = agent.calculate_is_first_agent
@@ -174,8 +171,13 @@ class SessionsController < ApplicationController
         user_otp = developer_params['otp']
         otp_verified ||= totp.verify_with_drift(user_otp, 3600, Time.now)
         developer_params.delete("otp")
+        mobile_otp = MobileOtpVerify.where(otp: user_otp).where("created_at > ?", MobileOtpVerify::OTP_EXPIRY_PERIOD.ago).last
+        verified_cond = (otp_verified && mobile_otp || ENV['EMAIL_ENV'] == 'dev')
 
-        if true
+        if verified_cond
+          mobile = nil
+          mobile = mobile_otp.mobile if mobile_otp
+          developer_params['mobile'] = mobile 
 
           developer = Agents::Branches::AssignedAgent.new(developer_params)
           developer.is_first_agent = developer.calculate_is_first_agent
@@ -237,8 +239,14 @@ class SessionsController < ApplicationController
       totp = ROTP::TOTP.new("base32secret3232", interval: 1)
       user_otp = vendor_params['otp']
       otp_verified = totp.verify_with_drift(user_otp, 3600, Time.now)
+      mobile_otp = MobileOtpVerify.where(otp: user_otp).where("created_at > ?", MobileOtpVerify::OTP_EXPIRY_PERIOD.ago).last
+      verified_cond = (otp_verified && mobile_otp || ENV['EMAIL_ENV'] == 'dev')
+
+      if verified_cond
+        mobile = nil
+        mobile = mobile_otp.mobile if mobile_otp
+        vendor_params['mobile'] = mobile 
   
-      if true
         if verification_hash
           vendor_params['name'] = '' if vendor_params['name']
           vendor_params.delete("hash_value")
@@ -480,7 +488,14 @@ class SessionsController < ApplicationController
       buyer_params.delete("otp")
       buyer = PropertyBuyer.new(buyer_params)
   
-      if true
+      mobile_otp = MobileOtpVerify.where(otp: user_otp).where("created_at > ?", MobileOtpVerify::OTP_EXPIRY_PERIOD.ago).last
+      verified_cond = (otp_verified && mobile_otp || ENV['EMAIL_ENV'] == 'dev')
+
+      if verified_cond
+        mobile = nil
+        mobile = mobile_otp.mobile if mobile_otp
+        buyer_params['mobile'] = mobile 
+
         verification_hash = VerificationHash.where(email: buyer_params['email'])
         if buyer.save! && vendor.save! && verification_hash.update_all({verified: true})
           buyer.vendor_id = vendor.id
