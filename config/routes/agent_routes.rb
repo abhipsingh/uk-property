@@ -183,5 +183,11 @@ Rails.application.routes.draw do
   ### Display branch preemption properties 
   get 'agents/branches/mailshot/preemptions',                   to: 'agents#branch_mailshot_properties'
 
+  ### Search agent of a particular branch
+  get 'agents/search/assigned_agents',                          to: 'agents#search_agent'
+
+  ### Preemption stats for properties
+  get 'agents/premeption/conversion/rate',                      to: 'agents#preemption_conversion_rate'
+
 end
 

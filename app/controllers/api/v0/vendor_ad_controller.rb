@@ -1,6 +1,5 @@
 module Api
   module V0
-
     class VendorAdController < ActionController::Base
 
       include CacheHelper
@@ -66,7 +65,7 @@ module Api
           locations.each do |key, location|
             hash_value = location[:hash]
             type = location[:type]
-            value = (( PropertyAd::PRICE[location[:type]])*100*location[:months].to_i)
+            value = ((PropertyAd::PRICE[location[:type]])*100*location[:months].to_i)
             num_months = location[:months].to_i
             expiry_at = (num_months*29).days.from_now.to_time
           #  Rails.logger.info(location)
@@ -156,8 +155,8 @@ module Api
         headers['Access-Control-Allow-Headers'] = '*,x-requested-with,Content-Type,If-Modified-Since,If-None-Match'
         headers['Access-Control-Max-Age'] = '86400'
       end
+
     end
   end
-
 end
 

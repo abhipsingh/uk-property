@@ -267,7 +267,7 @@ module Agents
           query = query.where('created_at > ?', Time.parse(latest_time)) if latest_time
           query = query.where(vendor_id: vendor_id) if buyer_id
           query = query.where(owned_property: owned_property) if !owned_property.nil?
-          query = query.where("(((district = ? AND owned_property = 'f') OR (owned_property='t' AND agent_id = ?))  AND source is null ) OR ( source = ? AND pre_agent_id = ? )", district, self.id, source_mailshot, branch_id)
+          query = query.where("(((district = ? AND owned_property = 'f') OR (owned_property='t' AND agent_id = ?))  AND source is null ) OR ( source = ? AND pre_agent_id = ? )", district, self.id, source_mailshot, self.id)
   
           if search_str && is_premium
             udprns = Enquiries::PropertyService.fetch_udprns(search_str)
@@ -321,6 +321,10 @@ module Agents
           new_row[:submitted_on] = nil
         end
         new_row[:created_at] = lead.created_at
+
+        ### Tag a lead with preemption
+        new_row[:preempted_property] = !lead.pre_agent_id.nil?
+
         details = PropertyDetails.details(lead.property_id)[:_source]
         new_row = new_row.merge(['property_type', 'street_view_url', 'udprn', 'beds', 'baths', 'receptions', 'dream_price', 'pictures', 'street_view_image_url', 'claimed_on', 'address', 'sale_prices', 'vanity_url', 'property_status_type'].reduce({}) {|h, k| h[k] = details[k]; h })
         new_row['street_view_url'] = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details['udprn']}/fov_120_#{details['udprn']}.jpg"

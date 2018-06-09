@@ -175,7 +175,7 @@ class PropertyService
     addr_dist_reg = AddressDistrictRegister.where(udprn: udprn, expired: false).last
     if addr_dist_reg
       source = Agents::Branches::AssignedAgents::Lead::SOURCE_MAP[:mailshot]
-      pre_agent_id = addr_dist_reg.pre_agent_id
+      pre_agent_id = addr_dist_reg.agent_id
     end
 
     create_lead_and_update_vendor_details(district, udprn, vendor_id, property_details, property_for, source, pre_agent_id)
@@ -219,7 +219,12 @@ class PropertyService
       status = 200
       ### Update the agents credits
       Rails.logger.info("PROPERTY_CLAIM_#{agent.id}_#{udprn.to_i}  with credit #{agent.credit} and email #{agent.email}")
-      agent.credit = agent.credit - Agents::Branches::AssignedAgent::PER_LEAD_COST ### Deduct 10 credits for claiming a lead
+
+      ### If lead is not preempted
+      if lead.pre_agent_id.nil?
+        agent.credit = agent.credit - Agents::Branches::AssignedAgent::PER_LEAD_COST ### Deduct 10 credits for claiming a lead
+      end
+
       agent.save!
     else
       message = 'Sorry, this property has already been claimed'
@@ -502,7 +507,8 @@ class PropertyService
     details = PropertyDetails.details(udprn.to_i)[:_source]
     details[:percent_completed] = PropertyService.new(udprn.to_i).compute_percent_completed({}, details)
     if true
-      details[:photo_urls] =  Api::V0::PropertySearchController.helpers.process_image(details)
+      photo_urls = Api::V0::PropertySearchController.helpers.process_image(details)
+      !photo_urls.is_a?(Array) ? details['photo_urls'] = [ photo_urls ] : details['photo_urls'] = photo_urls
       details[:description] = get_description(udprn)
     else
       details.keys.each do |each_key|

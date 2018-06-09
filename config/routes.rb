@@ -302,6 +302,8 @@ Rails.application.routes.draw do
   ### List of properties for the vendor and the agent confirmation status
   get 'list/inviting/agents/properties',                        to: 'vendors#list_inviting_agents_properties'
 
+  ### Returns whether a property has been preempted by the agent or not
+  get 'property/:udprn/preemption/status',                      to: 'properties#preemption_status'
   #####################################################################
   #####################################################################
   #####################################################################

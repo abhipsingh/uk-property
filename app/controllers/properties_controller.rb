@@ -4,7 +4,7 @@ class PropertiesController < ActionController::Base
   around_action :authenticate_agent_and_vendor, only: [ :interest_info, :supply_info_aggregate, :enquiries, :property_stats, :edit_property_details ]
   around_action :authenticate_buyer_and_vendor, only: [ :invite_friends_and_family, :invited_f_and_f_list ]
   around_action :authenticate_premium_agent_vendor, only: [ :supply_info, :demand_info, :agent_stage_and_rating_stats, :ranking_stats, :buyer_profile_stats ]
-  around_action :authenticate_all, only: [ :predict_tags, :add_new_tags, :show_tags, :vanity_url ]
+  around_action :authenticate_all, only: [ :predict_tags, :add_new_tags, :show_tags, :vanity_url, :preemption_status ]
   around_action :authenticate_vendor, only: [ :attach_vendor_to_udprn_manual_for_manually_added_properties, :edit_basic_details_with_an_assigned_agent,
                                               :agent_details_for_the_vendor ]
   around_action :authenticate_buyer, only: [ :upload_property_details_from_a_renter, :historical_enquiries ]
@@ -210,6 +210,13 @@ class PropertiesController < ActionController::Base
     include_archived = (params[:include_archived].to_s == 'true')
     stats = Enquiries::PropertyService.new(udprn: params[:udprn].to_i).enquiry_and_view_stats(@current_user.is_premium, include_archived)
     render json: { property_stats: stats }, status: 200
+  end
+
+  ### Returns whether a property has been preempted by the agent or not
+  ### curl -XGET -H "Authorization: xsub1msks" 'http://localhost/property/:udprn/preemption/status'
+  def preemption_status
+    status = (AddressDistrictRegister.where(udprn: params[:udprn].to_i, expired: false).count > 0)
+    render json: status, status: 200
   end
 
   ### Edit basic details of a property

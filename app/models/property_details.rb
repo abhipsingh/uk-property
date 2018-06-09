@@ -212,7 +212,7 @@ class PropertyDetails
 
       ### If vendor id has been changed or added, add this to AddressDistrictRegister
       if update_hash[:vendor_id] && details[:vendor_id].to_i != update_hash[:vendor_id].to_i
-        AddressDistrictRegister.where(udprn: udprn).update_all(vendor_registered: true)
+        AddressDistrictRegister.where(udprn: udprn).update_all(vendor_registered: true, vendor_claimed_at: Time.now)
       end
 
       ### If price or sale price has been changed, then make them the same attribute to be stored

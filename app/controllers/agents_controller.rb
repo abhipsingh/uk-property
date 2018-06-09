@@ -11,7 +11,8 @@ class AgentsController < ApplicationController
                                              :enquiry_count_for_buyer_emails, :send_bulk_emails_to_buyers, :send_mailshots_to_properties,
                                              :mailshot_payment_history, :fetch_invited_properties_for_district, :agent_details, 
                                              :group_details, :agent_properties_vendor_buying_reqs, :verify_property_through_agent,
-                                             :agent_enquiries_buyer_reqs, :branch_mailshot_properties ]
+                                             :agent_enquiries_buyer_reqs, :branch_mailshot_properties, :search_agent,
+                                             :preemption_conversion_rate ]
 
   around_action :authenticate_agent_and_buyer, only: [ :company_details, :branch_details, :assigned_agent_details ]
 
@@ -44,6 +45,19 @@ class AgentsController < ApplicationController
     page_size = 20
     companies = Agent.where("lower(name) LIKE ?", "#{params[:str].downcase}%").select([:id, :name]).limit(page_size)
     render json: companies, status: 200
+  end
+
+  ### Search agent of a particular branch
+  ### curl -XGET 'http://localhost/agents/search/assigned_agents?str=Dyn' 
+  def search_agent
+    agent = @current_user
+    page_size = 20
+    agents = Agents::Branches::AssignedAgent.where("lower(first_name) LIKE ?", "#{params[:str].downcase}%")
+                                            .where(branch_id: agent.branch_id)
+                                            .select([:id, :first_name, :last_name, :email])
+                                            .limit(page_size)
+                                            .map{ |t| { id: t.id, first_name: t.first_name, last_name: t.last_name, email: t.email } }
+    render json: agents, status: 200
   end
 
   ### Branch search
@@ -344,11 +358,12 @@ class AgentsController < ApplicationController
 
   ### Add manual property's basic attributes and attach the crawled property to a udprn for a non f and f property
   ### Done when the agent attaches the udprn to the property
-  ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/agents/properties/10968961/manual/verify/non/fandf' -d '{  "agent_id": 1234, "vendor_email": "residentevil293@prophety.co.uk", "assigned_agent_email" :  "residentevil293@prophety.co.uk" }'
+  ### curl  -XPOST -H  "Content-Type: application/json" 'http://localhost/agents/properties/10968961/manual/verify/non/fandf' -d '{  "agent_id": 1234, "vendor_email": "residentevil293@prophety.co.uk", "assigned_agent_email" :  "residentevil293@prophety.co.uk", "assigned_agent_id" : 1234 }'
   def verify_manual_property_from_agent_non_f_and_f
     agent = @current_user
     udprn = params[:udprn].to_i
-    agent_id = agent.id
+    agent_id = params[:assigned_agent_id].to_i
+    assigned_agent = agent.class.where(id: agent_id).last
     vendor_email = params[:vendor_email]
 
     if (Vendor.where(email: vendor_email).count == 0)
@@ -358,14 +373,14 @@ class AgentsController < ApplicationController
         details_completed: false,
         claimed_on: Time.now.to_s,
         claimed_by: 'Agent',
-        agent_id: agent_id.to_i,
+        agent_id: agent_id,
         property_id: params[:udprn],
         property_status_type: 'Green'
       }
       Rails.logger.info("#{property_attrs}  CLAIM_PROPERTY_#{agent.id}")
       
       assigned_agent_email = params[:assigned_agent_email]
-      response, status = agent_service.verify_manual_property_from_agent_non_f_and_f(property_attrs, vendor_email, assigned_agent_email, agent)
+      response, status = agent_service.verify_manual_property_from_agent_non_f_and_f(property_attrs, vendor_email, assigned_agent_email, assigned_agent)
       response['message'] = "Property details updated." unless status.nil? || status != 200
       render json: response, status: status
     else
@@ -805,6 +820,7 @@ class AgentsController < ApplicationController
         vendor_email: invited_vendor.email,
         property_type: details[:property_type],
         address: details[:address],
+        udprn: details[:udprn],
         source: Vendor::REVERSE_INVITED_FROM_CONST[invited_vendor.source.to_i].to_s,
         last_email_sent: invited_vendor.created_at,
         is_vendor_registered: !Vendor.where(email: invited_vendor.email).last.nil?
@@ -812,6 +828,15 @@ class AgentsController < ApplicationController
       results.push(result)
     end
     render json: results, status: 200
+  end
+
+  ### Preemption stats for properties
+  ### curl -XGET -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/premeption/conversion/rate'
+  def preemption_conversion_rate
+    agent = @current_user
+    total_preempted_stats = AddressDistrictRegister.where(agent_id: agent.id).count
+    vendor_registered_stats = AddressDistrictRegister.where(agent_id: agent.id, vendor_registered: true).count
+    render json: { total_properties_invited: total_preempted_stats, vendor_registered_stats: vendor_registered_stats }, status: 200
   end
 
   ### List of properties which have been won by the agent, to be show for filling sale price
@@ -1308,8 +1333,9 @@ class AgentsController < ApplicationController
     if agent.credit > total_collectible_charge && total_collectible_charge >= Agents::Branch::MIN_MAILSHOT_CHARGE
 
       branch_mailshot_property_count = AddressDistrictRegister.where(branch_id: branch.id).count
+      addresses_count = udprns.count
 
-      if branch_mailshot_property_count <= Agents::Branch::MAX_BRANCH_MAILSHOT_LIMIT
+      if branch_mailshot_property_count + addresses_count <= Agents::Branch::MAX_BRANCH_MAILSHOT_LIMIT
 
         branch = agent.branch
         payment_group_id = AddressDistrictRegister.pluck("max(id)").first.to_i
@@ -1325,7 +1351,7 @@ class AgentsController < ApplicationController
               udprn: udprn, 
               branch_id: branch.id,
               agent_id: agent.id,
-              expiry_date: 364.days.from_now.to_date.to_s,
+              expiry_date: 179.days.from_now.to_date.to_s,
               invite_sent: true,
               payment_group_id: payment_group_id
             )
@@ -1337,7 +1363,7 @@ class AgentsController < ApplicationController
         render json: { message: "Successfully invited all the properties" }, status: 200
 
       else
-        message = { property_limit: Agents::Branch::MAX_BRANCH_MAILSHOT_LIMIT, properties_claimed: branch_mailshot_property_count }
+        message = { property_limit: Agents::Branch::MAX_BRANCH_MAILSHOT_LIMIT, properties_claimed: branch_mailshot_property_count, properties_attempted: addresses_count }
         render json: message, status: 400
       end
 
@@ -1354,6 +1380,7 @@ class AgentsController < ApplicationController
   def fetch_invited_properties_for_district
     #if AdminAuth.authenticate(params[:email], params[:password])
     #if true
+      agent = @current_user
       results = nil
       branch_id = params[:branch_id]
       branch = Agents::Branch.where(id: branch_id).last
@@ -1370,14 +1397,14 @@ class AgentsController < ApplicationController
           udprns, status = property_search_api.matching_udprns
           preassigned_count = AddressDistrictRegister.where(branch_id: branch_id, expired: false).count
           query = AddressDistrictRegister
-          query = query.where.not(branch_id: branch_id) if params[:hide_self_properties].to_s == 'true'
-          invitation_udprns = query.where(udprn: udprns, expired: false).select([:vendor_registered, :invite_sent, :udprn, :branch_id, :expiry_date, :processed])
+          query = query.where.not(agent: agent.id) if params[:hide_self_properties].to_s == 'true'
+          invitation_udprns = query.where(udprn: udprns, expired: false).select([:vendor_registered, :invite_sent, :udprn, :branch_id, :expiry_date, :processed, :vendor_claimed_at])
           bulk_details = PropertyService.bulk_details(udprns)
     
           results = bulk_details.map do |each_detail|
             invitation_udprn = invitation_udprns.select{|t| t.udprn == each_detail[:udprn].to_i}.last
             is_vendor_registered = branch_assigned = invite_sent = branch_owned = false
-            branch_id = expiry_date = nil
+            branch_id = vendor_claimed_at = expiry_date = nil
             property_claimed = false
             if invitation_udprn
               invite_sent = true if invitation_udprn.processed.to_s == 'true'
@@ -1385,9 +1412,10 @@ class AgentsController < ApplicationController
               if invitation_udprn.branch_id != branch.id
                 branch_assigned = true
               else
-                vendor_registered = invitation_udprn.vendor_registered
                 branch_owned = true
               end
+              vendor_claimed_at = invitation_udprn.vendor_claimed_at
+              is_vendor_registered = invitation_udprn.vendor_registered
             elsif (each_detail[:vendor_id].to_i > 0) || (each_detail[:agent_id].to_i > 0)
               invite_sent = false
               is_vendor_registered = true if each_detail[:vendor_id].to_i > 0
@@ -1395,6 +1423,7 @@ class AgentsController < ApplicationController
               branch_assigned = true
               branch_owned = false
             end
+            
 
             {
               address: each_detail[:address],
@@ -1404,7 +1433,10 @@ class AgentsController < ApplicationController
               branch_owned: branch_owned,
               expiry_date: expiry_date,
               branch_assigned: branch_assigned,
-              propert_claimed: propert_claimed
+              propert_claimed: propert_claimed,
+              vendor_claimed_at: vendor_claimed_at,
+              assigned_agent_id: each_detail[:agent_id],
+              vanity_url: each_detail[:vanity_url]
             }
           end
           branch_details = { branch_id: branch.id, branch_name: branch.name, branch_logo: branch.image_url }
@@ -1425,6 +1457,7 @@ class AgentsController < ApplicationController
 
   ### Display the preemptions for the agents claimed
   ### curl -XGET -H "Authorization: csvna1vmvcssw" 'http://localhost/agents/branches/mailshot/preemptions'
+  ### TODO: Add vendor claimed timestamp 
   def branch_mailshot_properties
     agent = @current_user
     branch_id = agent.branch_id
@@ -1441,7 +1474,8 @@ class AgentsController < ApplicationController
           expired: address.expired,
           expiry_date: address.expiry_date,
           created_at: address.created_at,
-          expired: address.expired
+          expired: address.expired,
+          vendor_claimed_at: address.vendor_claimed_at
         }
       end
       udprns = results.map{|t| t[:udprn] }
@@ -1451,6 +1485,8 @@ class AgentsController < ApplicationController
       bulk_response.each do |each_res|
         index = results.index{ |t| t[:udprn] == each_res[:udprn].to_i }
         results[index][:address] = each_res[:address]
+        results[index][:vanity_url] = each_res[:vanity_url]
+        results[index][:assigned_agent_id] = each_res[:agent_id].to_i
       end
     else
       results = AddressDistrictRegister.where(branch_id: branch_id).count

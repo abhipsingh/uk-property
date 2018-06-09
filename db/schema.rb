@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180605110138) do
+ActiveRecord::Schema.define(version: 20180607074406) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -39,13 +39,13 @@ ActiveRecord::Schema.define(version: 20180605110138) do
     t.integer  "vendor_id"
     t.boolean  "invite_sent"
     t.datetime "created_at",                        null: false
-    t.datetime "updated_at",                        null: false
     t.integer  "branch_id"
     t.date     "expiry_date"
     t.integer  "payment_group_id",                  null: false
     t.boolean  "expired",           default: false
     t.boolean  "processed",         default: false
     t.integer  "agent_id"
+    t.datetime "vendor_claimed_at"
   end
 
   add_index "address_district_registers", ["agent_id"], name: "preemptions_agents_idx", using: :btree
