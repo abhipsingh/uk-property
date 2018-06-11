@@ -143,7 +143,7 @@ class GoogleApiCrawler
   end
 
   def self.match_udprns_to_historical_data
-    file = File.open('/mnt3/lspm.csv', 'a')
+    file = File.open('/mnt3/csv/lspm.csv', 'a')
     #g_zero_file = File.open('/mnt3/lspgz.csv', 'a')
     #zero_file = File.open('/mnt3/lspz.csv', 'a')
     #file = File.open('/mnt3/lspm.csv', 'a')
