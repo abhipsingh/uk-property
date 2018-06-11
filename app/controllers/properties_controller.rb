@@ -53,6 +53,7 @@ class PropertiesController < ActionController::Base
   ### When a request is made to fetch the historic pricing details for a udprn
   ### curl -XGET -H "Content-Type: application/json" 'http://localhost/property/prices/10966139'
   def historic_pricing
+    raise "Error"
     details = PropertyDetails.historic_pricing_details(params[:udprn].to_i)
     render json: details, status: 200
   end

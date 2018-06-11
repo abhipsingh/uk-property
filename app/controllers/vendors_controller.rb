@@ -10,33 +10,37 @@ class VendorsController < ApplicationController
   ### curl -XGET -H "Authorization:  izxbsz373hdxsnsz2" 'http://localhost/list/inviting/agents/properties'
   def list_inviting_agents_properties
     agents = []
-    user_valid_for_viewing?(['Vendor'], nil)
-    InvitedVendor.where(email: @current_user.email, accepted: nil).select([:created_at, :udprn, :agent_id, :id]).each do |invited_vendor|
-      result_hash = {}
-      result_hash[:created_at] = invited_vendor.created_at
-      result_hash[:udprn] = invited_vendor.udprn
-      udprn = invited_vendor.udprn
-      details = PropertyDetails.details(udprn)[:_source]
-      result_hash[:address] = details[:address]
-      result_hash[:agent_id] = invited_vendor.agent_id
-      result_hash[:invitation_id] = invited_vendor.id
-      agent = Agents::Branches::AssignedAgent.where(id: invited_vendor.agent_id).last
-      if agent
-        branch = agent.branch
-        result_hash[:agent_email] = agent.email
-        result_hash[:agent_name] = agent.first_name + ' ' + agent.last_name
-        result_hash[:agent_image_url] = agent.image_url
-        result_hash[:branch_image_url] = branch.image_url
-        result_hash[:branch_address] = branch.address
-        result_hash[:branch_website] = branch.website
-        result_hash[:branch_phone_number] = branch.phone_number
-        result_hash[:title] = agent.title
-        result_hash[:mobile_phone_number] = agent.mobile
-        result_hash[:office_phone_number] = agent.office_phone_number
+    user_valid_for_viewing?(['Vendor', 'Agent'], nil)
+    if @current_user
+      InvitedVendor.where(email: @current_user.email, accepted: nil).select([:created_at, :udprn, :agent_id, :id]).each do |invited_vendor|
+        result_hash = {}
+        result_hash[:created_at] = invited_vendor.created_at
+        result_hash[:udprn] = invited_vendor.udprn
+        udprn = invited_vendor.udprn
+        details = PropertyDetails.details(udprn)[:_source]
+        result_hash[:address] = details[:address]
+        result_hash[:agent_id] = invited_vendor.agent_id
+        result_hash[:invitation_id] = invited_vendor.id
+        agent = Agents::Branches::AssignedAgent.where(id: invited_vendor.agent_id).last
+        if agent
+          branch = agent.branch
+          result_hash[:agent_email] = agent.email
+          result_hash[:agent_name] = agent.first_name + ' ' + agent.last_name
+          result_hash[:agent_image_url] = agent.image_url
+          result_hash[:branch_image_url] = branch.image_url
+          result_hash[:branch_address] = branch.address
+          result_hash[:branch_website] = branch.website
+          result_hash[:branch_phone_number] = branch.phone_number
+          result_hash[:title] = agent.title
+          result_hash[:mobile_phone_number] = agent.mobile
+          result_hash[:office_phone_number] = agent.office_phone_number
+        end
+        agents.push(result_hash)
       end
-      agents.push(result_hash)
+      render json: agents, status: 200
+    else
+      render json: { message: 'Authorization failed' }, status: 401
     end
-    render json: agents, status: 200
   end
 
 

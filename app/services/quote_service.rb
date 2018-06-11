@@ -80,7 +80,7 @@ class QuoteService
     vendor = Vendor.find(details[:vendor_id])
     property_status_type = Event::PROPERTY_STATUS_TYPES[details['property_status_type']]
     address_district_register = AddressDistrictRegister.where(udprn: details[:udprn], expired: false).last
-    pre_agent_id = address_district_register.pre_agent_id if address_district_register
+    pre_agent_id = address_district_register.agent_id if address_district_register
     quote = Agents::Branches::AssignedAgents::Quote.create!(
       deadline: deadline,
       property_id: @udprn,

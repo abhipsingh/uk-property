@@ -164,6 +164,7 @@ class PropertyDetails
       details[:assigned_agent_email] = agent.email
       details[:assigned_agent_mobile] = agent.mobile
       details[:assigned_agent_title] = agent.title
+      details[:assigned_agent_office_number] = agent.office_phone_number
       details[:assigned_agent_image_url] = agent.image_url
       details[:assigned_agent_branch_name] = branch.name
       details[:assigned_agent_branch_number] = branch.phone_number

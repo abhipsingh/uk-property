@@ -71,6 +71,7 @@ class BuyersController < ActionController::Base
   #### Serves predictions for the buyers
   #### curl -XGET  'http://localhost/buyers/predict?str=test10@pr'
   def predictions
+    raise "Err"
     buyer_suggestions = PropertyBuyer.suggest_buyers(params[:str]).select([:id, :name, :image_url]).limit(20)
     render json: buyer_suggestions, status: 200
   end
