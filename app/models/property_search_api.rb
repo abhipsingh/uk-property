@@ -3,7 +3,7 @@ class PropertySearchApi
   attr_accessor :hash_key, :total_count
   include Elasticsearch::Search
   NEARBY_MAX_RADIUS = 5000
-  RESULTS_PER_PAGE = 20
+  RESULTS_PER_PAGE = 10
   MAX_RESULTS_PER_PAGE = 200
   ES_EC2_URL = Rails.configuration.remote_es_url
   ES_EC2_HOST = Rails.configuration.remote_es_host

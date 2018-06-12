@@ -44,7 +44,7 @@ class MatrixViewController < ActionController::Base
     predictions = predictions.each_with_index do |t, index|
       text = t['text']
       if text.end_with?('bt')
-        address = PropertyDetails.address(details[counter])
+        address = details[counter][:address]
         udprn = text.split('_')[0]
         hash = "@_@_@_@_@_@_@_@_#{udprn}"
         final_predictions.push({ hash: hash, output: address, type: 'building_type' })
@@ -93,7 +93,11 @@ class MatrixViewController < ActionController::Base
         output = nil
         if text.start_with?('post_town')
           hash = MatrixViewService.form_hash(location_hash, :post_town)
-          output = post_town + ' (' + county + ')'
+          if post_town == 'London'
+            output = county + ' (' + post_town + ')'
+          else
+            output = post_town + ' (' + county + ')'
+          end
         else
           location_hash[:county] = post_town
           hash = MatrixViewService.form_hash(location_hash, :county)
