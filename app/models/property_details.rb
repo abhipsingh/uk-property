@@ -15,24 +15,9 @@ class PropertyDetails
 
   def self.address(details)
     details = details.with_indifferent_access
-    published_address = ''
-    published_address += ', ' + details[:organization_name] if details[:organization_name]
-    published_address += ', ' + details[:department_name] if details[:department_name]
-    published_address += ', ' + details[:sub_building_name] if details[:sub_building_name]
-    published_address += ', ' + details[:building_name] if details[:building_name]
-    published_address += ', ' + details[:building_number].to_s if details[:building_number]
-    published_address += ', ' + details[:dependent_thoroughfare_description] if details[:dependent_thoroughfare_description]
-    published_address += ', ' + details[:thoroughfare_description] if details[:thoroughfare_description]
-    published_address += ', ' + details[:double_dependent_locality] if details[:double_dependent_locality]
-    if details[:dependent_locality] && details[:dependent_locality].is_a?(Array)
-      published_address += ', ' + details[:dependent_locality].join(',')
-    else
-      published_address += ', ' + details[:dependent_locality] if details[:dependent_locality]
-    end
-    published_address += ', ' + details[:post_town] if details[:post_town]
-    published_address += ', ' + details[:county] if details[:county]
-    published_address += ', ' + details[:postcode] if details[:postcode]
-    published_address[1, published_address.length-1]
+    units = [:organization_name, :department_name, :sub_building_name, :building_name, :building_number, :dependent_thoroughfare_description, 
+             :thoroughfare_description, :dependent_locality, :post_town, :county, :postcode ]
+    units.select { |t| details[t] && !details[t].blank? }.map{|t| details[t] }.join(', ')
   end
 
   def self.google_st_view_address(details)
