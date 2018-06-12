@@ -451,7 +451,7 @@ class PropertyService
         result_hash[attr_value] = Oj.load(values[index]) rescue values[index]
       elsif (NON_ZERO_INT_FLOAT_ATTRS.include?(attr_value)) && values[index].to_i == 0
       else
-        result_hash[attr_value] = values[index]
+        result_hash[attr_value] = values[index].strip
       end
     end
   end
@@ -470,7 +470,7 @@ class PropertyService
           values[index] = value.to_json
         elsif (NON_ZERO_INT_FLOAT_ATTRS.include?(key)) && value.to_i == 0
         else
-          values[index] = value
+          values[index] = value.strip
         end
       end
     end
@@ -598,7 +598,7 @@ class PropertyService
     udprns = []
     count = 0
     counter = 0
-    File.foreach('/mnt3/csv/corrected_royal.csv') do |line|
+    File.foreach('/mnt3/csv/corrected_not_yet_built.csv') do |line|
       fields = line.strip.split(',')
       udprn = fields[12].to_i
       udprns.push([udprn, fields[13], fields[14], fields[15], fields[9], fields[10], fields[11], fields[6], fields[7], fields[8], fields[4], fields[5], fields[0], fields[1], fields[2], fields[-3], fields[-2], fields[-1]])
@@ -633,11 +633,11 @@ class PropertyService
             details[:vanity_url] = nil
             details[:address] = nil
             details[:udprn] = udprns[index][0]
-            #details[:not_yet_built] = true
+            details[:not_yet_built] = true
             details_arr.push(details)
           end
         end
-        PropertyService.bulk_set(details_arr)
+       	PropertyService.bulk_set(details_arr)
         details_arr = []
         udprns = []
       end
@@ -671,7 +671,7 @@ class PropertyService
             details[:vanity_url] = nil
             details[:address] = nil
             details[:udprn] = udprns[index][0]
-            #details[:not_yet_built] = true
+            details[:not_yet_built] = true
             details_arr.push(details)
           end
         end
@@ -774,6 +774,40 @@ class PropertyService
       details_arr.push(details)
     end
     PropertyService.bulk_set(details_arr)
+  end
+
+  def self.populate_property_addresses
+    f=File.open('/mnt3/csv/test_tpa.csv', 'a')
+    counter = 0
+    CSV.open('/mnt3/csv/corrected_not_yet_built.csv').each do |parts|
+      postcode = parts[0]
+      udprn = parts[12]
+      dl = parts[2]
+      td = parts[3]
+      dtd = parts[4]
+      pt = parts[1]
+      county = parts[16]
+      postcode_parts = postcode.split(' ')
+      district = postcode_parts[0]
+      sector = district + ' ' + postcode_parts[1].match(/[0-9]+/)[0]
+      postcode = postcode_parts.join('')
+      test_postcode = postcode
+      if district.length == 3
+        test_postcode = district + 'Z' + postcode_parts[1]
+      end
+      county = MatrixViewCount::COUNTIES.index(parts[16])
+      pt_index = MatrixViewCount::POST_TOWNS.index(pt.upcase) 
+      if pt_index
+        pt_index = MatrixViewCount::POST_TOWNS.index(pt.upcase) + 1
+        pt_index = pt_index - 1 if pt_index && pt_index < 76
+        address_parts =  [postcode, udprn, dl, td, dtd, pt_index, county, test_postcode, sector, district]
+        f.puts(address_parts.join(','))
+      end
+      p "#{counter/10000}" if (counter % 10000 == 0)
+      counter += 1
+    end
+    f.close
+
   end
 
 end
