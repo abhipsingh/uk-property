@@ -1353,7 +1353,8 @@ class AgentsController < ApplicationController
               agent_id: agent.id,
               expiry_date: 179.days.from_now.to_date.to_s,
               invite_sent: true,
-              payment_group_id: payment_group_id
+              payment_group_id: payment_group_id,
+              rate: Agents::Branch::CHARGE_PER_PROPERTY_MAP[mode]
             )
           end
   
@@ -1504,9 +1505,9 @@ class AgentsController < ApplicationController
     branch = agent.branch
     page = params[:page].to_i
     page_size = 20
-    results = AddressDistrictRegsiter.where(branch_id: branch.id).group(:payment_group_id).select("max(created_at) as created_at").select("string_agg(udprn::text, ',') as udprns").limit(page_size).offset(page_size.to_i*page).map do |preassigned_property|
+    results = AddressDistrictRegsiter.where(branch_id: branch.id).group(:payment_group_id).select("max(created_at) as created_at, max(rate) as rate").select("string_agg(udprn::text, ',') as udprns").limit(page_size).offset(page_size.to_i*page).map do |preassigned_property|
       udprns = preassigned_property.udprns.split(',')
-      cost = udprns.count.to_f * Agents::Branch::CHARGE_PER_PROPERTY
+      cost = udprns.count.to_f * preassigned_property.rate.to_f
       {
         payment_time: preassigned_property.created_at,
         udprns: udprns,

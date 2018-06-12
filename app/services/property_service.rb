@@ -470,7 +470,8 @@ class PropertyService
           values[index] = value.to_json
         elsif (NON_ZERO_INT_FLOAT_ATTRS.include?(key)) && value.to_i == 0
         else
-          values[index] = value.strip
+          value = value.strip if value.is_a?(String)
+          values[index] = value
         end
       end
     end

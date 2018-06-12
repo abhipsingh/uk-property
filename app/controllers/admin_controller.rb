@@ -18,13 +18,13 @@ class AdminController < ActionController::Base
         count = query.select("count(distinct(payment_group_id))").map(&:count).first
         results = { count: count }
       else
-        query = query.select("payment_group_id, max(branch_id) as branch_id, max(created_at) as created_at, string_agg(udprn::text, ',') as udprns") 
+        query = query.select("payment_group_id, max(branch_id) as branch_id, max(created_at) as created_at, string_agg(udprn::text, ',') as udprns, max(rate) as rate")
         query = query.order('created_at DESC')
         query = query.limit(page_size)
         query = query.offset(((params[:page].to_i) - 1)*page_size)
         results = query.map do |mailshot_payment|
           udprns = mailshot_payment.udprns.split(',')
-          cost = udprns.count.to_f * Agents::Branch::CHARGE_PER_PROPERTY_MAP['diy']
+          cost = udprns.count.to_f * mailshot_payment.rate.to_f
           branch_ids.push(mailshot_payment.branch_id)
           {
             payment_id: mailshot_payment.payment_group_id,

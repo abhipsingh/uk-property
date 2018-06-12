@@ -42,7 +42,7 @@ class Vendor < ActiveRecord::Base
 
    def self.from_omniauth(auth)
      new_params = auth.as_json.with_indifferent_access
-     where(new_params.slice(:provider, :uid)).first_or_initialize.tap do |user|
+     where(new_params.slice(:email)).first_or_initialize.tap do |user|
        user.new_record? ? user.social_sign_status = true : user.social_sign_status = false
        Rails.logger.info("FB_LOGIN_#{user.social_sign_status}")
        user.provider = new_params['provider']

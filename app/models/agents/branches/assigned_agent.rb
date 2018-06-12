@@ -436,7 +436,7 @@ module Agents
       def self.from_omniauth(auth)
         new_params = auth.as_json.with_indifferent_access
         user_details = nil
-        where(new_params.slice(:provider, :uid)).first_or_initialize.tap do |user|
+        where(new_params.slice(:email)).first_or_initialize.tap do |user|
           user.provider = new_params['provider']
           user.uid = new_params['uid']
           user.first_name = new_params['first_name']
