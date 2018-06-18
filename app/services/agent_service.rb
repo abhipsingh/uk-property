@@ -101,13 +101,15 @@ class AgentService
       property_attrs[:vendor_id] = vendor.id if vendor
       assigned_agent_present = true
     end
+
+    ### Add this vendor to invited vendors table, source
+    InvitedVendor.create!(udprn: @udprn, email: vendor_email, agent_id: @agent_id.to_i, source: Vendor::INVITED_FROM_CONST[:crawled] )
+
     property_id = @udprn
     property_service = PropertyService.new(property_id)
     response, status = property_service.update_details(property_attrs)
     agent.send_vendor_email(vendor_email, @udprn, assigned_agent_present, assigned_agent_email)
     
-    ### Add this vendor to invited vendors table, source
-    InvitedVendor.create!(udprn: @udprn, email: vendor_email, agent_id: @agent_id.to_i, source: Vendor::INVITED_FROM_CONST[:crawled] )
 
     return response, status
   end

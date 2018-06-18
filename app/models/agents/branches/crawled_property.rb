@@ -2,6 +2,13 @@ module Agents
   module Branches
     class CrawledProperty < ActiveRecord::Base
       belongs_to :branch, class_name: 'Agents::Branch'
+      PST_MAP = {
+        'Green' => 1,
+        'Amber' => 2,
+        'Red' => 3
+      }
+
+      REVERSE_PST_MAP = PST_MAP.invert
 
       def self.images_from_aws(stored_response)
         s3 = Aws::S3::Resource.new

@@ -189,5 +189,11 @@ Rails.application.routes.draw do
   ### Preemption stats for properties
   get 'agents/premeption/conversion/rate',                      to: 'agents#preemption_conversion_rate'
 
+  ### Payment history for agents 
+  get 'agents/mailshot/payment/history',                        to: 'agents#mailshot_payment_history'
+
+  ### Uploads csvs to agents crawled properties for v1 upload
+  post 'agents/bulk/v1/csv/upload',                             to: 'agents#agent_bulk_v1_csv_upload'
+
 end
 

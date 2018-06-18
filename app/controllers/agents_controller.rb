@@ -12,7 +12,7 @@ class AgentsController < ApplicationController
                                              :mailshot_payment_history, :fetch_invited_properties_for_district, :agent_details, 
                                              :group_details, :agent_properties_vendor_buying_reqs, :verify_property_through_agent,
                                              :agent_enquiries_buyer_reqs, :branch_mailshot_properties, :search_agent,
-                                             :preemption_conversion_rate ]
+                                             :preemption_conversion_rate, :agent_bulk_v1_csv_upload ]
 
   around_action :authenticate_agent_and_buyer, only: [ :company_details, :branch_details, :assigned_agent_details ]
 
@@ -325,28 +325,54 @@ class AgentsController < ApplicationController
     property_for = params[:property_for]
     property_for ||= 'Sale'
     property_status_type = nil
+    crawled_property = Agents::Branches::CrawledProperty.where(id: params[:property_id].to_i).last
     Rails.logger.info("UPLOAD_CRAWLED_PROPERTY_#{udprn}_#{agent_id}")
     pictures = params[:pictures]
+    property_id = params[:property_id].to_i
+    assigned_agent_email = vendor_email = beds = baths = receptions = description = property_type = property_status_type = lettings = nil
+    property_attrs = {}
+    if crawled_property.zoopla_id.nil?
+      property_status_type = crawled_property.property_status_type
+      property_type = crawled_property.property_type
+      beds = crawled_property.stored_response[:beds]
+      baths = crawled_property.stored_response[:baths]
+      receptions = crawled_property.stored_response[:receptions]
+      description = crawled_property.stored_response[:description]
+      assigned_agent_email = crawled_property.agent_email
+      vendor_email = crawled_property.vendor_email
+      lettings = true if crawled_property.lettings
+    else
+      property_status_type = 'Green'
+      property_type = params[:property_type]
+      beds = params[:beds].to_i if params[:beds]
+      baths = params[:baths].to_i if params[:baths]
+      receptions = params[:receptions].to_i if params[:receptions]
+    end
+
     property_attrs = {
-      property_status_type: 'Green',
+      property_status_type: property_status_type,
       verification_status: false,
-      property_type: params[:property_type],
-      beds: params[:beds].to_i,
-      baths: params[:baths].to_i,
-      receptions: params[:receptions].to_i,
-      property_id: params[:property_id].to_i,
+      property_type: property_type,
+      beds: beds,
+      baths: baths,
+      receptions: receptions,
+      property_id: property_id,
+      description: description,
       details_completed: false,
       claimed_on: Time.now.to_s,
-      claimed_by: 'Agent'
+      claimed_by: 'Agent',
+      lettings: lettings
     }
+
+
 
     if pictures.is_a?(Array) && pictures.length > 0 && pictures.all?{ |t| t.has_key?('priority') && t.has_key?('url') && t.has_key?('description') }
       property_attrs[:pictures] = pictures
     end
-    vendor_email = params[:vendor_email]
-    assigned_agent_email = params[:assigned_agent_email]
+    vendor_email ||= params[:vendor_email]
+    assigned_agent_email ||= params[:assigned_agent_email]
     ### Update udprn in crawled properties
-    Agents::Branches::CrawledProperty.where(id: params[:property_id].to_i).last.update_attributes({udprn: udprn})
+    crawled_property.update_attributes({udprn: udprn})
     PropertyService.new(udprn).attach_crawled_property_attrs_to_udprn
     response, status = agent_service.verify_crawled_property_from_agent(property_attrs, vendor_email, assigned_agent_email, agent)
     response['message'] = 'Property details updated.' unless status.nil? || status != 200
@@ -439,7 +465,7 @@ class AgentsController < ApplicationController
     Rails.logger.info("GET_CRAWLED_PROPERTY_#{agent_id}")
     if agent
       branch_id = agent.branch_id
-      properties = Agents::Branches::CrawledProperty.where(branch_id: branch_id).select([:id, :postcode, :image_urls, :stored_response, :additional_details, :udprn]).where.not(postcode: nil).where(udprn: nil).limit(page_size).offset(page_no*page_size).order('created_at asc')
+      properties = Agents::Branches::CrawledProperty.where(branch_id: branch_id).select([:id, :postcode, :image_urls, :stored_response, :additional_details, :udprn, :agent_email, :vendor_email, :lettings]).where.not(postcode: nil).where(udprn: nil).limit(page_size).offset(page_no*page_size).order('created_at asc')
       property_count = Agents::Branches::CrawledProperty.where(branch_id: branch_id).where.not(postcode: nil).where(udprn: nil).count
       assigned_agent_emails = Agents::Branches::AssignedAgent.where(branch_id: branch_id).pluck(:email)
       properties.each do |property|
@@ -449,7 +475,17 @@ class AgentsController < ApplicationController
         new_row['image_urls'] = property.image_urls.map { |e| base_url + e }
         new_row['post_code'] = property.postcode
         new_row['property_status_type'] = 'Green'
-        new_row['assigned_agent_emails'] = assigned_agent_emails
+
+        if property.agent_email
+          new_row['assigned_agent_emails'] = [ property.agent_email ]
+          new_row['vendor_email'] = property.vendor_email
+          new_row['rental_status'] = property.lettings
+        else
+          new_row['assigned_agent_emails'] = assigned_agent_emails
+          new_row['vendor_email'] = nil
+          new_row['rental_status'] = nil
+        end
+
         new_row['udprn'] = property.udprn
         postcode = property.postcode
         response.push(new_row)
@@ -1502,19 +1538,14 @@ class AgentsController < ApplicationController
   ### curl -XGET -H "Authorization: csvna1vmvcssw" 'http://localhost/agents/mailshot/payment/history'
   def mailshot_payment_history
     agent = @current_user
-    branch = agent.branch
     page = params[:page].to_i
     page_size = 20
-    results = AddressDistrictRegsiter.where(branch_id: branch.id).group(:payment_group_id).select("max(created_at) as created_at, max(rate) as rate").select("string_agg(udprn::text, ',') as udprns").limit(page_size).offset(page_size.to_i*page).map do |preassigned_property|
+    cost = 0
+    AddressDistrictRegister.where(agent_id: agent.id).group(:payment_group_id).select("max(rate) as rate").select("string_agg(udprn::text, ',') as udprns").limit(page_size).offset(page_size.to_i*page).map do |preassigned_property|
       udprns = preassigned_property.udprns.split(',')
-      cost = udprns.count.to_f * preassigned_property.rate.to_f
-      {
-        payment_time: preassigned_property.created_at,
-        udprns: udprns,
-        cost: (udprns.count.to_f * Agents::Branch::CHARGE_PER_PROPERTY),
-      }
+      cost += udprns.count.to_f * preassigned_property.rate.to_f
     end
-    render json: results, status: 200
+    render json: cost, status: 200
   end
 
   ### Extract buyer's info for agent's properties
@@ -1567,6 +1598,45 @@ class AgentsController < ApplicationController
     Rails.logger.info("RESPONSE_#{response}")
 
     render json: { buyer_details: response }, status: 200
+  end
+
+  ### Uploads csvs to agents crawled properties for v1 upload
+  ### curl -XPOST -H "Authorization: xxxx" 'http://localhost/agents/bulk/v1/csv/upload' -d '{"csv_content" : [["addr", "postcode", "property_status", ....]]}'
+  def agent_bulk_v1_csv_upload
+    agent = @current_user
+    columns = [:address, :postcode, :property_status_type, :rental_status, :property_type, :beds, :baths, :receptions, :description, :branch_id, :agent_email, :vendor_email]
+    csv_content = params[:csv_content]
+    if csv_content.length <= 10000
+      csv_content.each do |each_elem|
+        property_detail = {} 
+        columns.each_with_index{ |column, index| property_detail[column] = each_elem[index] }
+        postcode = property_detail[:postcode]
+        district = postcode.split(' ')[0]
+        stored_response = {
+          beds: property_detail[:beds],
+          baths: property_detail[:baths],
+          receptions: property_detail[:receptions],
+          description: property_detail[:description]
+
+        }
+        agent_property = Agents::Branches::CrawledProperty.new(
+          district: district,
+          branch_id: property_detail[:branch_id],
+          lettings: (property_detail[:rental_status].to_s == 'true'),
+          postcode: property_detail[:postcode],
+          agent_email: property_detail[:agent_email],
+          vendor_email: property_detail[:vendor_email],
+          property_status_type: property_detail[:property_status_type],
+          property_type: property_detail[:property_type],
+          stored_response: stored_response
+        )
+        agent_property.save!
+      end
+      no_of_properties = csv_content.length
+      render json: { message: "#{no_of_properties} uploaded to the agents v1 list"}, status: 200
+    else
+      render json: { message: 'Number of records to be uploaded is larger than 10000' }, status: 400
+    end
   end
 
   private

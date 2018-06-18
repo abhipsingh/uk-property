@@ -9,9 +9,9 @@ module EventsHelper
       key: 'AIzaSyBfcSipqHZEZooyoKqxpLzVu3u-NuEdIt8'
     }
     result = result.with_indifferent_access
-    s3 = Aws::S3::Resource.new(region: 'ap-south-1')
+    s3 = Aws::S3::Resource.new(region: 'eu-west-2')
+    bucket = Aws::S3::Bucket.new(ENV['S3_STREET_VIEW_BUCKET'], region: 'eu-west-2')
     file_name = "fov_120_#{result[:udprn]}.jpg"
-    bucket = Aws::S3::Bucket.new('google-street-view-prophety', region: 'ap-south-1')
     obj = bucket.object("#{result[:udprn]}/#{file_name}")
     udprn = result[:udprn]
     if !obj.exists?

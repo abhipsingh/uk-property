@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180612152541) do
+ActiveRecord::Schema.define(version: 20180613171821) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -238,6 +238,11 @@ ActiveRecord::Schema.define(version: 20180612152541) do
     t.string   "double_dependent_locality"
     t.string   "dependent_locality"
     t.string   "dependent_thoroughfare_description"
+    t.string   "property_status_type"
+    t.string   "property_type"
+    t.boolean  "lettings"
+    t.string   "agent_email"
+    t.string   "vendor_email"
   end
 
   add_index "agents_branches_crawled_properties", ["branch_id"], name: "crawled_properties_branches_idx", using: :btree
