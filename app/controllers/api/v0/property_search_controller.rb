@@ -52,6 +52,34 @@ module Api
         render :json => new_result, :status => status
       end
 
+      def search_fr
+        api = ::Fr::PropertySearchApi.new(filtered_params: params)
+        result, status = api.filter
+        result = result[:results]#.sort_by{|t| t[:score]}.reverse
+        result = result.each{|t| t[:photo_urls] = []; t[:percent_completed] = nil }
+        result = result.each{ |t| t[:photo_urls] = [ process_image(t) ] + t[:photo_urls] }
+        #user_valid_for_viewing?(['Buyer', 'Agent', 'Developer'])
+        new_result = []
+        if false
+          new_result = result.map do |each_arr|
+            hash = {}
+            PropertyService::LOCALITY_ATTRS.each do |attr|
+              hash[attr] = each_arr[attr] if each_arr[attr]
+            end
+
+            hash[:address] = each_arr['address']
+            hash[:vanity_url] = each_arr['vanity_url']
+            hash[:udprn] = each_arr[:udprn]
+            hash[:not_yet_built] = each_arr[:not_yet_built]
+            hash[:latitude] = each_arr[:latitude]
+            hash[:longitude] = each_arr[:longitude]
+            hash
+          end
+        else
+          new_result = result
+        end
+        render :json => new_result, :status => status
+      end
       ### Matching property count for particular set of filters
       ### curl -XGET 'http://localhost/api/v0/properties/matching/count?hash_str=LIVERPOOL&hash_type=Text&count=true'
       def matching_property_count

@@ -1,9 +1,8 @@
 module EventsHelper
   def process_image(result)
-    result = result.with_indifferent_access
     request_params = {
       size: '1200x800',
-      location: result[:address],
+      location: result[:google_st_view_address],
       fov: 120,
       pitch: 0,
       key: 'AIzaSyBfcSipqHZEZooyoKqxpLzVu3u-NuEdIt8'
@@ -11,12 +10,11 @@ module EventsHelper
     result = result.with_indifferent_access
     s3 = Aws::S3::Resource.new(region: 'eu-west-2')
     bucket = Aws::S3::Bucket.new(ENV['S3_STREET_VIEW_BUCKET'], region: 'eu-west-2')
-    file_name = "fov_120_#{result[:udprn]}.jpg"
-    obj = bucket.object("#{result[:udprn]}/#{file_name}")
+    obj = bucket.object("#{result[:udprn]}.jpg")
     udprn = result[:udprn]
-    if !obj.exists?
+    #if !obj.exists?
       process_each_address(udprn, request_params)
-    end
+    #end
     obj.public_url   
   end
 
@@ -32,7 +30,7 @@ module EventsHelper
   end
 
   def make_request(req, uri, udprn)
-    file_name = "fov_120_#{udprn}.jpg"
+    file_name = "#{udprn}.jpg"
     Net::HTTP.start(uri.host, uri.port, use_ssl: true) do |http|
       request = Net::HTTP::Get.new uri
       http.request request do |response|
@@ -43,8 +41,8 @@ module EventsHelper
         end
       end
     end
-    s3 = Aws::S3::Resource.new(region: 'ap-south-1')
-    obj = s3.bucket("google-street-view-prophety").object("#{udprn}/#{file_name}")
+    s3 = Aws::S3::Resource.new(region: 'eu-west-2')
+    obj = s3.bucket(ENV['S3_STREET_VIEW_BUCKET']).object("#{file_name}")
     res = obj.upload_file(file_name, acl: 'public-read')
     File.delete(file_name) if res
   end

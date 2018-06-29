@@ -191,7 +191,7 @@ module Agents
           new_row[:assigned_branch_logo] = property_details[:assigned_agent_branch_logo]
           new_row[:assigned_branch_name] = property_details[:assigned_agent_branch_name]
 
-          new_row['street_view_url'] = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{property_details['udprn']}/fov_120_#{property_details['udprn']}.jpg"
+          new_row['street_view_url'] = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{property_details['udprn']}.jpg"
           new_row[:current_valuation] = property_details['current_valuation']
           new_row[:latest_valuation] = property_details['current_valuation']
 
@@ -327,7 +327,7 @@ module Agents
 
         details = PropertyDetails.details(lead.property_id)[:_source]
         new_row = new_row.merge(['property_type', 'street_view_url', 'udprn', 'beds', 'baths', 'receptions', 'dream_price', 'pictures', 'street_view_image_url', 'claimed_on', 'address', 'sale_prices', 'vanity_url', 'property_status_type'].reduce({}) {|h, k| h[k] = details[k]; h })
-        new_row['street_view_url'] = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details['udprn']}/fov_120_#{details['udprn']}.jpg"
+        new_row['street_view_url'] = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details['udprn']}.jpg"
         new_row[:photo_url] = details['pictures'] ? details['pictures'][0] : "Image not available"
         #new_row[:last_sale_prices] = PropertyHistoricalDetail.where(udprn: details['udprn']).order('date DESC').pluck(:price)
         

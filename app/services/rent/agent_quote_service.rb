@@ -101,7 +101,7 @@ module Rent
                             :assigned_agent_first_name, :assigned_agent_last_name ]
             agent_attrs.each { |t| new_row[t] = nil }
           end
-          new_row[:street_view_url] = "#{S3_BASE_URL}#{property_details[:udprn]}/fov_120_#{property_details[:udprn]}.jpg"
+          new_row[:street_view_url] = "#{S3_BASE_URL}#{property_details[:udprn]}/#{property_details[:udprn]}.jpg"
 
           if quote_status == 'New'
             vendor_attrs = [ :vendor_id, :vendor_first_name, :vendor_last_name, :vendor_email, :vendor_mobile, :vendor_image_url ]

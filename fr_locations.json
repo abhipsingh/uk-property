@@ -1,0 +1,2 @@
+{"settings" : {"number_of_shards" : 1}, "mappings":{"fr_location":{"_source" : { "enabled" : false },"properties":{"suggest":{"type":"completion","analyzer":"whitespace","payloads":false,"preserve_separators":true,"preserve_position_increments":true,"max_input_length":60}}}}}
+      

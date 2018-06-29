@@ -111,38 +111,73 @@ class MatrixViewController < ActionController::Base
     render json: final_predictions, status: code
   end
 
-#  def matrix_view
-#    hash = { hash_str: params[:str] }
-#    PropertySearchApi.construct_hash_from_hash_str(hash)
-#    params.delete(:str)
-#    hash.delete(:hash_str)
-#    type_of_str(hash)
-#    area, district, sector, unit = nil
-#    if [:district, :sector, :unit].include?(hash[:type])
-#      type = hash[:type]
-#    else
-#      type = PropertySearchApi::POSTCODE_LEVELS.reverse.select { |e| hash[e] }.first
-#    end
-#    new_params = params.merge!(hash)
-#    new_params.delete(hash[:type])
-#    api = ::PropertySearchApi.new(filtered_params: new_params)
-#    api.modify_range_params
-#    api.apply_filters
-#    api.modify_query
-#    area, district, sector, unit = compute_postcode_units(hash[type]) if hash[type]
-#    hash[:area] = area
-#    hash[:district] = district
-#    hash[:sector] = sector
-#    hash[:unit] = unit
-#    code = 200
-#    Rails.logger.info(hash[:type])
-#    if [:district, :sector, :unit].include?(hash[:type])
-#      res, code = aggs_data_for_postcode(hash, api.query)
-#    else
-#      res, code = find_results(hash, api.query[:filter]) 
-#    end
-#    render json: res, status: code
-#  end
+  def fr_predictive_search
+    str = params[:str].gsub(',',' ').strip.downcase
+    str = str.gsub('.','')
+    str = str.gsub('-','')
+    results, code = PropertyService.get_results_from_es_suggest_fr(str, 30)
+    #Rails.logger.info("Prediction str #{str} #{results}")
+    predictions = Oj.load(results)['postcode_suggest'][0]['options']
+    predictions.sort_by!{|t| (1.to_f/t['score'].to_f) }
+    final_predictions = []
+    #Rails.logger.info(predictions)
+    udprns = []
+    predictions = predictions.each do |t|
+      text = t['text']
+      if text.end_with?('bt') || text.end_with?('dl') || text.end_with?('dtd')
+        udprns.push(text.split('_')[0..1].join('_'))
+      end
+    end
+    Rails.logger.info(udprns)
+    details = PropertyService.bulk_details(udprns)
+    details = details.map{|t| t.with_indifferent_access }
+
+    counter = 0
+    predictions = predictions.each_with_index do |t, index|
+      text = t['text']
+      Rails.logger.info("TEXT_#{text}")
+      if text.end_with?('bt') && details[counter]['udprn']
+        address = details[counter][:address]
+        udprn = text.split('_')[0]
+        hash = "@_@_@_@_@_@_@_@_#{udprn}"
+        final_predictions.push({ hash: hash, output: address, type: 'building_type' })
+        counter += 1
+      elsif text.end_with?('dl') && details[counter]['udprn']
+        output = "#{details[counter]['dependent_locality']} (#{details[counter]['post_town']}, #{details[counter]['county']})"
+        hash = MatrixViewService.form_hash(details[counter], :dependent_locality)
+        final_predictions.push({ hash: hash, output: output , type: 'dependent_locality'})
+        counter += 1
+      elsif  text.end_with?('dtd') && details[counter]['udprn']
+        loc = ''
+        hash_loc = '@'
+        details[counter]['dependent_locality'].nil? ? loc = '' : loc = "#{details[counter]['dependent_locality']}, "
+        output = "#{details[counter]['dependent_thoroughfare_description']} (#{loc}#{details[counter]['post_town']}, #{details[counter]['county']})"
+        hash = MatrixViewService.form_hash(details[counter], :dependent_thoroughfare_description)
+        final_predictions.push({ hash: hash, output: output, type: 'dependent_thoroughfare_description' })
+        counter += 1
+      elsif text.start_with?('post_town') || text.start_with?('county')
+        output_parts = text.split('|')[1].split('_')
+        hash = nil
+        county = output_parts[1]
+        post_town = output_parts[0]
+        location_hash = { post_town: post_town, county: county }
+        output = nil
+        if text.start_with?('post_town')
+          hash = MatrixViewService.form_hash(location_hash, :post_town)
+          output = post_town + ' (' + county + ')'
+        else
+          location_hash[:county] = post_town
+          hash = MatrixViewService.form_hash(location_hash, :county)
+          output = post_town
+        end
+        final_predictions.push({ hash: hash, output: output, type: text.split('|')[0] })
+      end
+    end
+    #Rails.logger.info(details)
+    #final_predictions = final_predictions.uniq{|t| t[:hash] }
+    render json: final_predictions, status: code
+  end
+
 
   def matrix_view_level
     response = nil

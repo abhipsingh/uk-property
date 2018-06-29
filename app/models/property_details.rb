@@ -53,7 +53,7 @@ class PropertyDetails
     details = PropertyService.bulk_details([udprn]).first
     details[:address] = address(details)
     details[:vanity_url] = vanity_url(details[:address])
-    details[:udprn] = udprn.to_i
+    details[:udprn] = udprn
     details[:latitude] = details[:latitude].to_f
     details[:longitude] = details[:longitude].to_f
     details[:percent_completed] = PropertyService.new(udprn).compute_percent_completed({}, details)

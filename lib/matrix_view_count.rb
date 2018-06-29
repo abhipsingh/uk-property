@@ -15,6 +15,15 @@ class MatrixViewCount
     dependent_thoroughfare_description: 'dtd'
   }
 
+  FR_COLUMN_MAP = {
+    county: 'county',
+    post_town: 'pt',
+    pt: 'pt',
+    dependent_locality: 'dl',
+    dl: 'dl',
+    dependent_thoroughfare_description: 'dtd',
+    dtd: 'dtd'
+  }
   REVERSE_COLUMN_MAP = COLUMN_MAP.invert
   COUNTY_MAP = JSON.parse(File.read("county_map.json"))
 

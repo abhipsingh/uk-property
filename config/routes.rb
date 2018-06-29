@@ -304,6 +304,9 @@ Rails.application.routes.draw do
 
   ### Returns whether a property has been preempted by the agent or not
   get 'property/:udprn/preemption/status',                      to: 'properties#preemption_status'
+
+  ### Autosuggest for france
+  get 'addresses/predictions/fr',                               to: 'matrix_view#fr_predictive_search'
   #####################################################################
   #####################################################################
   #####################################################################
@@ -325,6 +328,7 @@ Rails.application.routes.draw do
       get  'properties/breadcrumbs',                 to: 'property_search#breadcrumbs'
 
       get  'properties/search',                      to: 'property_search#search'
+      get  'properties/fr/search',                   to: 'property_search#search_fr'
       get  'properties/saved/searches',              to: 'property_search#show_save_searches'
       post  'properties/search/searches',            to: 'property_search#save_searches'
       get  'agents/search',                          to: 'agent_search#search'

@@ -181,16 +181,16 @@ class AgentsController < ApplicationController
     Rails.logger.info("EDIT_AGENTS_#{agent_id.to_i}_#{params[:agent]}")
     agent = Agents::Branches::AssignedAgent.find(agent_id)
     agent_params = params[:agent].as_json
-    agent.first_name = agent_params['first_name'] if agent_params['first_name']
-    agent.last_name = agent_params['last_name'] if agent_params['last_name']
-    agent.email = agent_params['email'] if agent_params['email']
-    agent.title = agent_params['title'] if agent_params['title']
-    agent.mobile = agent_params['mobile'] if agent_params['mobile']
-    agent.image_url = agent_params['image_url'] if agent_params['image_url']
-    agent.branch_id = agent_params['branch_id'] if agent_params['branch_id']
-    agent.password = agent_params['password'] if agent_params['password']
-    agent.office_phone_number = agent_params['office_phone_number'] if agent_params['office_phone_number']
-    agent.mobile_phone_number = agent_params['mobile_phone_number'] if agent_params['mobile']
+    agent.first_name = agent_params['first_name'] if agent_params.has_key?('first_name')
+    agent.last_name = agent_params['last_name'] if agent_params.has_key?('last_name')
+    agent.email = agent_params['email'] if agent_params.has_key?('email')
+    agent.title = agent_params['title'] if agent_params.has_key?('title')
+    agent.mobile = agent_params['mobile'] if agent_params.has_key?('mobile')
+    agent.image_url = agent_params['image_url'] if agent_params.has_key?('image_url')
+    agent.branch_id = agent_params['branch_id'] if agent_params.has_key?('branch_id')
+    agent.password = agent_params['password'] if agent_params.has_key?('password')
+    agent.office_phone_number = agent_params['office_phone_number'] if agent_params.has_key?('office_phone_number')
+    agent.mobile_phone_number = agent_params['mobile_phone_number'] if agent_params.has_key?('mobile')
     agent.save!
     AgentUpdateWorker.new.perform(agent.id)
     ### TODO: Update all properties containing this agent
@@ -522,13 +522,13 @@ class AgentsController < ApplicationController
     Rails.logger.info("EDIT_BRANCH_DETAILS_#{branch.id}")
     if branch
       branch_details = params[:branch]
-      branch.name = branch_details[:name] if branch_details[:name] && !branch_details[:name].blank?
-      branch.address = branch_details[:address] if branch_details[:address] && !branch_details[:address].blank?
-      branch.phone_number = branch_details[:phone_number] if branch_details[:phone_number] && !branch_details[:phone_number].blank?
-      branch.website = branch_details[:website] if branch_details[:website] && !branch_details[:website].blank?
-      branch.image_url = branch_details[:image_url] if branch_details[:image_url] && !branch_details[:image_url].blank?
-      branch.email = branch_details[:email] if branch_details[:email] && !branch_details[:email].blank?
-      branch.domain_name = branch_details[:domain_name] if branch_details[:domain_name] && !branch_details[:domain_name].blank?
+      branch.name = branch_details[:name] if branch_details.has_key?(:name)
+      branch.address = branch_details[:address] if branch_details.has_key?(:address)
+      branch.phone_number = branch_details[:phone_number] if branch_details.has_key?(:phone_number)
+      branch.website = branch_details[:website] if branch_details.has_key?(:website)
+      branch.image_url = branch_details[:image_url] if branch_details.has_key?(:image_url)
+      branch.email = branch_details[:email] if branch_details.has_key?(:email)
+      branch.domain_name = branch_details[:domain_name] if branch_details.has_key?(:domain_name)
       agents = branch.assigned_agents
       agents.each { |agent| AgentUpdateWorker.perform_async(agent.id) }
 
@@ -549,12 +549,12 @@ class AgentsController < ApplicationController
     Rails.logger.info("EDIT_COMPANY_DETAILS_#{company.id}")
     if company
       company_details = params[:company]
-      company.name = company_details[:name] if company_details[:name] && !company_details[:name].blank?
-      company.image_url = company_details[:image_url] if company_details[:image_url] && !company_details[:image_url].blank?
-      company.email = company_details[:email] if company_details[:email] && !company_details[:email].blank?
-      company.phone_number = company_details[:phone_number] if company_details[:phone_number] && !company_details[:phone_number].blank?
-      company.website = company_details[:website] if company_details[:website] && !company_details[:website].blank?
-      company.address = company_details[:address] if company_details[:address] && !company_details[:address].blank?
+      company.name = company_details[:name] if company_details.has_key?(:name)
+      company.image_url = company_details[:image_url] if company_details.has_key?(:image_url)
+      company.email = company_details[:email] if company_details.has_key?(:email)
+      company.phone_number = company_details[:phone_number] if company_details.has_key?(:phone_number)
+      company.website = company_details[:website] if company_details.has_key?(:website)
+      company.address = company_details[:address] if company_details.has_key?(:address)
       if company.save!
         render json: { message: 'Company edited successfully', details: company.as_json(only: [:name, :address, :phone_number, :website, :image_url, :email]) }, status: 200
       else
@@ -572,12 +572,12 @@ class AgentsController < ApplicationController
       Rails.logger.info("EDIT_GROUP_DETAILS_#{group.id}")
       if group
         group_details = params[:group]
-        group.name = group_details[:name] if group_details[:name] && !group_details[:name].blank?
-        group.image_url = group_details[:image_url] if group_details[:image_url] && !group_details[:image_url].blank?
-        group.email = group_details[:email] if group_details[:email] && !group_details[:email].blank?
-        group.phone_number = group_details[:phone_number] if group_details[:phone_number] && !group_details[:phone_number].blank?
-        group.website = group_details[:website] if group_details[:website] && !group_details[:website].blank?
-        group.address = group_details[:address] if group_details[:address] && !group_details[:address].blank?
+        group.name = group_details[:name] if group_details.has_key?(:name)
+        group.image_url = group_details[:image_url] if group_details.has_key?(:image_url)
+        group.email = group_details[:email] if group_details.has_key?(:email)
+        group.phone_number = group_details[:phone_number] if group_details.has_key?(:phone_number)
+        group.website = group_details[:website] if group_details.has_key?(:website)
+        group.address = group_details[:address] if group_details.has_key?(:address)
         if group.save!
           render json: { message: 'Group edited successfully', details: group.as_json(only: [:name, :address, :phone_number, :website, :image_url, :email]) }, status: 200
         else
@@ -1529,7 +1529,7 @@ class AgentsController < ApplicationController
       results = AddressDistrictRegister.where(branch_id: branch_id).count
     end
 
-    Rails.logger.info("Results hash #{results}")
+    #Rails.logger.info("Results hash #{results}")
 
     render json: results, status: 200
   end

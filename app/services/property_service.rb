@@ -90,6 +90,18 @@ class PropertyService
     'Red'   => MANDATORY_ATTRS
   }
 
+  FR_COUNTY_MAP = Oj.load(File.read("fr_county_map.json"))
+
+  FR_CSV_INDEX = {
+    numero: 3,
+    rep: 4,
+    udprn: 0,
+    street: 9,
+    locality: 15,
+    post_town: 10,
+    postcode: 6
+  }
+
   def initialize(udprn)
     @udprn = udprn
   end
@@ -127,6 +139,19 @@ class PropertyService
       }
     }
     res, code = post_url(Rails.configuration.new_property_locations_index_name, nil, '_suggest' , query_str)
+  end
+
+  def self.get_results_from_es_suggest_fr(query_str, size=10)
+    query_str = {
+      postcode_suggest: {
+        text: query_str,
+        completion: {
+          field: 'suggest',
+          size: size
+        }
+      }
+    }
+    res, code = post_url(Rails.configuration.fr_location_index_name, nil, '_suggest' , query_str)
   end
 
   def self.attach_vendor_details(vendor_id, update_hash={})
@@ -355,7 +380,7 @@ class PropertyService
     details = []
     details = Rails.configuration.ardb_client.mget(*udprns) if udprns.length > 0
     results = details.map{ |detail| process_each_detail(detail) }
-    results = results.each{ |t| t[:verification_status] = (t[:details_completed].to_s == "true"); t[:floorplan_url] = t[:floorplan_urls] = nil if t[:floorplan_hidden].to_s == 'true';   t[:address] = PropertyDetails.address(t); t[:vanity_url] = PropertyDetails.vanity_url(t[:address]) }
+    results = results.each{ |t| t[:verification_status] = (t[:details_completed].to_s == "true"); t[:floorplan_url] = t[:floorplan_urls] = nil if t[:floorplan_hidden].to_s == 'true';   t[:address] = PropertyDetails.address(t); t[:vanity_url] = PropertyDetails.vanity_url(t[:address]); t[:google_st_view_address] = PropertyDetails.google_st_view_address(t) }
     results
   end
 
@@ -591,7 +616,7 @@ class PropertyService
   end
 
   def self.send_tracking_email_to_tracking_buyers(update_hash, property_details)
-    property_status_type_changed = (update_hash[:property_status_type] != property_details[:property_status_type])
+    property_status_type_changed = (update_hash[:property_status_type] != property_details[:property_status_type] && !update_hash[:property_status_type].nil?)
     TrackingEmailWorker.new.perform(update_hash, property_details) if property_status_type_changed
   end
 
@@ -809,6 +834,61 @@ class PropertyService
     end
     f.close
 
+  end
+
+  def self.populate_fr_index_data
+    batch_size = 5000
+    glob_count = 0
+    FR_COUNTY_MAP.each do |key, value|
+      file = File.open("/mnt4/france_data/BAN_licence_gratuite_repartage_#{key}.csv")
+
+      arr_details = []
+
+      file.each_line do |line|
+        parts = line.gsub("\"","").split(";")
+        numero = parts[FR_CSV_INDEX[:numero]].strip
+        rep = parts[FR_CSV_INDEX[:rep]].strip
+        street = parts[FR_CSV_INDEX[:street]].strip
+        locality = parts[FR_CSV_INDEX[:locality]].strip
+        post_town = parts[FR_CSV_INDEX[:post_town]].strip
+        county = value
+        udprn = parts[FR_CSV_INDEX[:udprn]]
+        postcode = parts[FR_CSV_INDEX[:postcode]]
+        building_name = [numero, rep].select{ |t| !t.blank? }.join(', ')
+
+        update_hash = {
+          building_name: building_name,
+          udprn: udprn,
+          postcode: postcode,
+          post_town: post_town,
+          county: county,
+          dependent_locality: locality,
+          dependent_thoroughfare_description: street
+        }
+
+        arr_details.push(update_hash)
+
+        if arr_details.length == batch_size
+          PropertyService.bulk_set(arr_details)
+          #p arr_details.last
+          arr_details = []
+
+          p "#{glob_count/batch_size} batch completed"
+        end
+        glob_count += 1
+
+
+      end
+      
+      PropertyService.bulk_set(arr_details)
+
+      p "#{glob_count/batch_size} batch completed"
+
+      file.close
+
+      #FileUtils.remove("/mnt3/france_data/#{key}.csv")
+
+    end
   end
 
 end
