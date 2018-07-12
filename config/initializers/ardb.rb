@@ -14,4 +14,10 @@ Rails.configuration.ardb_client_rate_limit = Redis.new(
   timeout: 600
 )
 
+Rails.configuration.fr_db = Redis.new(
+  host: Rails.configuration.ardb_host,
+  port: Rails.configuration.ardb_port,
+  db: ENV['FR_DATA_ARDB_DB_NO'],
+  timeout: 600
+)
 

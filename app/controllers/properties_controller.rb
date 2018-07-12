@@ -476,9 +476,32 @@ class PropertiesController < ActionController::Base
 
     end
     render json: details, status: 200 
-    
+
   end
 
+  def process_url
+    crawled_urls = params[:crawled_urls]
+    property_urls = []
+    ActiveRecord::Base.isolation_level(:serializable) do
+      crawled_urls.each do |each_url, property_addrs|
+        FrUrl.where(processed: false, url: each_url).update_attributes(processed: true)
+        property_urls += property_addrs
+      end 
+    end
+
+    fr_file = File.open('fr_properties.txt', 'a')
+    property_urls.each{ |t| fr_file.puts(t) }
+    fr_file.close
+    render json: { message: 'Successful' }, status: 200
+  end
+
+  def fetch_available_url
+    urls = []
+    ActiveRecord::Base.isolation_level(:serializable) do
+      urls = FrUrl.where(processed: false).limit(20).pluck(:url)
+    end
+    render json: urls, status: 200
+  end
 
   private
   

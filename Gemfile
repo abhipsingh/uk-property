@@ -111,4 +111,6 @@ gem 'hairtrigger'
 
 ### Bulk insert 
 gem 'bulk_insert'
+gem 'redisearch-rb'
+gem 'transaction_isolation'
 

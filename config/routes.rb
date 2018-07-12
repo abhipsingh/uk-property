@@ -307,6 +307,10 @@ Rails.application.routes.draw do
 
   ### Autosuggest for france
   get 'addresses/predictions/fr',                               to: 'matrix_view#fr_predictive_search'
+
+  get 'fetch/available/url/fr',                                 to: 'properties#fetch_available_url'
+
+  post 'process/url/fr',                                        to: 'properties#process_url'
   #####################################################################
   #####################################################################
   #####################################################################

@@ -22,9 +22,18 @@ class PropertyDetails
 
   def self.google_st_view_address(details)
     published_address = ''
-    address_fields = [:building_name, :building_number, :dependent_thoroughfare_description, :thoroughfare_description,
+    address_fields = [:building_number, :dependent_thoroughfare_description, :thoroughfare_description,
                       :double_dependent_locality, :dependent_locality, :post_town, :postcode]
     address_fields.select{ |t| details[t] }.map{|t| details[t] }.join(', ')
+  end
+
+  def self.fr_google_st_view_address(details)
+    published_address = ''
+    address_fields = [:building_name, :dependent_thoroughfare_description, :dependent_locality, :postcode]
+    building_name = details[:building_name].split(",")[0]
+    hash = details.deep_dup
+    hash[:building_name] = building_name
+    address_fields.select{ |t| hash[t] }.map{|t| hash[t] }.join(', ')
   end
 
   def self.street_address(details)

@@ -125,12 +125,13 @@ class MatrixViewController < ActionController::Base
     predictions = predictions.each do |t|
       text = t['text']
       if text.end_with?('bt') || text.end_with?('dl') || text.end_with?('dtd')
-        udprns.push(text.split('_')[0..1].join('_'))
+        udprns.push(text.split('_')[0])
       end
     end
     Rails.logger.info(udprns)
-    details = PropertyService.bulk_details(udprns)
+    details = PropertyService.bulk_details_fr(udprns)
     details = details.map{|t| t.with_indifferent_access }
+    Rails.logger.info(details)
 
     counter = 0
     predictions = predictions.each_with_index do |t, index|
@@ -138,7 +139,7 @@ class MatrixViewController < ActionController::Base
       Rails.logger.info("TEXT_#{text}")
       if text.end_with?('bt') && details[counter]['udprn']
         address = details[counter][:address]
-        udprn = text.split('_')[0]
+        udprn = details[counter]['udprn']
         hash = "@_@_@_@_@_@_@_@_#{udprn}"
         final_predictions.push({ hash: hash, output: address, type: 'building_type' })
         counter += 1

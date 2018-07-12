@@ -99,7 +99,9 @@ class PropertyService
     street: 9,
     locality: 15,
     post_town: 10,
-    postcode: 6
+    postcode: 6,
+    latitude: -2,
+    longitude: -3
   }
 
   def initialize(udprn)
@@ -384,6 +386,14 @@ class PropertyService
     results
   end
 
+  def self.bulk_details_fr(udprns=[])
+    details = []
+    details = Rails.configuration.fr_db.mget(*udprns) if udprns.length > 0
+    results = details.map{ |detail| process_each_detail(detail) }
+    results = results.each{ |t| t[:verification_status] = (t[:details_completed].to_s == "true"); t[:floorplan_url] = t[:floorplan_urls] = nil if t[:floorplan_hidden].to_s == 'true';   t[:address] = PropertyDetails.address(t); t[:vanity_url] = PropertyDetails.vanity_url(t[:address]); t[:google_st_view_address] = PropertyDetails.fr_google_st_view_address(t) }
+    results
+  end
+
   def self.details_with_only_locality_attrs(udprns=[])
     details = []
     details = Rails.configuration.ardb_client.mget(*udprns) if udprns.length > 0
@@ -391,14 +401,18 @@ class PropertyService
     results
   end
 
-  def self.bulk_set(details_arr)
+  def self.bulk_set(details_arr, country='uk')
     mset_arr = []
     details_arr.each do |each_elem|
       mset_arr.push(each_elem[:udprn])
       value_str = form_value_str(each_elem)
       mset_arr.push(value_str)
     end
-    Rails.configuration.ardb_client.mset(*mset_arr) if mset_arr.length > 0
+    if country == 'uk'
+      Rails.configuration.ardb_client.mset(*mset_arr) if mset_arr.length > 0
+    else
+      Rails.configuration.fr_db.mset(*mset_arr) if mset_arr.length > 0
+    end
   end
 
   def self.process_locality_attr(detail_str)
@@ -837,7 +851,7 @@ class PropertyService
   end
 
   def self.populate_fr_index_data
-    batch_size = 5000
+    batch_size = 15000
     glob_count = 0
     FR_COUNTY_MAP.each do |key, value|
       file = File.open("/mnt4/france_data/BAN_licence_gratuite_repartage_#{key}.csv")
@@ -855,6 +869,9 @@ class PropertyService
         udprn = parts[FR_CSV_INDEX[:udprn]]
         postcode = parts[FR_CSV_INDEX[:postcode]]
         building_name = [numero, rep].select{ |t| !t.blank? }.join(', ')
+        area = postcode[0..1]
+        latitude = parts[FR_CSV_INDEX[:latitude]]
+        longitude = parts[FR_CSV_INDEX[:longitude]]
 
         update_hash = {
           building_name: building_name,
@@ -863,13 +880,19 @@ class PropertyService
           post_town: post_town,
           county: county,
           dependent_locality: locality,
-          dependent_thoroughfare_description: street
+          district: locality,
+          dependent_thoroughfare_description: street,
+          area: area,
+          longitude: longitude,
+          latitude: latitude
         }
 
         arr_details.push(update_hash)
 
         if arr_details.length == batch_size
-          PropertyService.bulk_set(arr_details)
+          #udprns = arr_details.map{|t| t[:udprn] }
+          #Rails.configuration.ardb_client.del(*udprns)
+          PropertyService.bulk_set(arr_details, 'fr')
           #p arr_details.last
           arr_details = []
 
@@ -880,7 +903,10 @@ class PropertyService
 
       end
       
-      PropertyService.bulk_set(arr_details)
+      udprns = arr_details.map{|t| t[:udprn] }
+      #Rails.configuration.ardb_client.del(*udprns)
+      #arr_details.each_with_index{|t, index| arr_details[index][:udprn] = t[:udprn].split("ADRNIVX_").last.to_i }
+      PropertyService.bulk_set(arr_details, 'fr')
 
       p "#{glob_count/batch_size} batch completed"
 

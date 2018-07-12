@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180629145417) do
+ActiveRecord::Schema.define(version: 20180711101552) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -484,14 +484,19 @@ ActiveRecord::Schema.define(version: 20180629145417) do
   add_index "field_value_stores", ["name"], name: "field_value_stores_names_idx", using: :btree
 
   create_table "fr_properties", id: false, force: :cascade do |t|
-    t.string  "udprn"
     t.integer "pt"
     t.integer "county"
     t.string  "dl"
     t.string  "dtd"
+    t.integer "udprn"
   end
 
-  add_index "fr_properties", ["county", "pt"], name: "fr_addresses_search_idx", using: :btree
+  add_index "fr_properties", ["county", "pt", "udprn"], name: "fr_addresses_search_idx", using: :btree
+
+  create_table "fr_urls", force: :cascade do |t|
+    t.string  "url"
+    t.boolean "processed"
+  end
 
   create_table "google_st_view_images", id: false, force: :cascade do |t|
     t.integer "udprn"

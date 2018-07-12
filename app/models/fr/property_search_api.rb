@@ -17,7 +17,7 @@ module Fr
               :county, :pt, :dl, :dtd, :property_type, :property_status_type, :beds, :baths, :receptions
             ]
 
-  ADDRESS_LOCALITY_LEVELS = [:county, :pt, :dl, :dtd]
+  ADDRESS_LOCALITY_LEVELS = [:county, :pt, :dl, :dtd, :td, :building_name, :building_number, :sub_building_name, :udprn ]
   
   #### The list of statuses are 'Green', 'Amber', 'Red'.
   ### Please see the previous commits to see what existed here
@@ -195,7 +195,7 @@ module Fr
   end
   
   def fetch_details_from_udprns(udprns)
-    body = PropertyService.bulk_details(udprns)    
+    body = PropertyService.bulk_details_fr(udprns)    
     return body
   end
 
@@ -219,11 +219,9 @@ module Fr
 
   def self.construct_hash_from_hash_str(hash)
     address_levels = hash[:hash_str].split('|')[0]
-    if address_levels.split('_').length > 0
-      arr = address_levels.split('_')
-      ADDRESS_LOCALITY_LEVELS.each_with_index do |level, index|
-        hash[level] = arr[index] if !arr[index].nil? && arr[index] != '@'
-      end
+    arr = address_levels.split('_')
+    ADDRESS_LOCALITY_LEVELS.each_with_index do |level, index|
+      hash[level] = arr[index] if !arr[index].nil? && arr[index] != '@'
     end
   end
 
@@ -238,7 +236,7 @@ module Fr
       dtd: :dependent_thoroughfare_description
     }
 
-    if !search_columns.empty?
+    if search_columns
       postcode = nil
 
       address_columns = search_columns
@@ -246,6 +244,7 @@ module Fr
         value = nil
         column = MatrixViewCount::FR_COLUMN_MAP[addr_col]
         params_key = search_column_hash[column.to_sym]
+        Rails.logger.info("Hello_#{mvc.context_hash[params_key]}")
         value = FR_POST_TOWNS.index(mvc.context_hash[params_key].upcase)  if addr_col == :pt && mvc.context_hash[params_key]
         value = FR_COUNTIES.index(mvc.context_hash[params_key]) if addr_col == :county && mvc.context_hash[params_key]
         value ||= mvc.context_hash[params_key]

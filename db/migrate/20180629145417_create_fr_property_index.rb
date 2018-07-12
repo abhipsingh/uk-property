@@ -1,9 +1,13 @@
 class CreateFrPropertyIndex < ActiveRecord::Migration
   def up
-    execute("CREATE INDEX fr_addresses_search_idx ON fr_properties(county, pt, md5(dl), md5(dtd))")
+    remove_column(:fr_properties, :udprn, :string)
+    add_column(:fr_properties, :udprn, :integer)
   end
 
   def down
-    execute("DROP INDEX fr_addresses_search_idx")
+    remove_column(:fr_properties, :udprn, :integer)
+    add_column(:fr_properties, :udprn, :string)
   end
+
 end
+
