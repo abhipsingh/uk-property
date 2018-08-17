@@ -311,6 +311,11 @@ Rails.application.routes.draw do
   get 'fetch/available/url/fr',                                 to: 'properties#fetch_available_url'
 
   post 'process/url/fr',                                        to: 'properties#process_url'
+
+  ### Unique buyer count for property's enquiries
+  get 'enquiries/unique/buyer/count/:udprn',                    to: 'events#unique_buyer_count'
+
+
   #####################################################################
   #####################################################################
   #####################################################################

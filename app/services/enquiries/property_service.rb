@@ -42,14 +42,28 @@ module Enquiries
       results = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events_is_deleteds WHERE udprn=#{property_id} ").as_json
       aggregated_result[:deleted] =  results
 
+      event = Event::EVENTS[:requested_floorplan]
+      results = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE udprn=#{property_id} ").as_json
+      aggregated_result[:requested_floorplan] =  results
+
+      ### Unique buyer count
+      sql = "select count(distinct(buyer_id)), EXTRACT(month FROM created_at) as month from events where udprn=#{property_id} group by month"
+      results = Event.connection.execute(sql).as_json
+      aggregated_result[:unique_buyer_count] =  results
       months = (1..12).to_a
       aggregated_result.each do |key, value|
-        present_months = value.map { |e| e['month'].to_i }
-        missing_months = months.select{ |t| !present_months.include?(t) }
-        missing_months.each do |each_month|
-          value.push({ 'month': each_month.to_s, count: 0.to_s })
+        aggregated_value = []
+
+        months.each do |each_month|
+          aggregated_value.push({ "month" => each_month.to_s, "count" => 0.to_s})
         end
-        aggregated_result[key] = value.sort_by{ |t| t['month'].to_i }
+        
+        value.each do |each_value|
+          idx = aggregated_value.find_index{|t| t["month"] == each_value["month"]}
+          aggregated_value[idx]["count"] = each_value["count"]
+        end
+
+        aggregated_result[key] = aggregated_value
       end
 
       aggregated_result[:monthly_views] = months.map do |month|
@@ -107,13 +121,17 @@ module Enquiries
       street = :thoroughfare_description if details[:thoroughfare_description]
       street ||= :dependent_thoroughfare_description if details[:dependent_thoroughfare_description]
       
-      [ :dependent_locality, street ].each do |region_type|
+      [ :dependent_locality, street, :unit, :sector ].each do |region_type|
         ### Default search stats
         region = region_type
         if region_type == :thoroughfare_description || region_type == :dependent_thoroughfare_description
           region = :street
-        else
+        elsif region_type == :dependent_locality
           region = :locality
+        elsif region_type == :unit
+          region = :unit
+        elsif region_type == :sector
+          region = :sector
         end
         search_stats[region] = {}
 
@@ -132,6 +150,7 @@ module Enquiries
             api = PropertySearchApi.new(filtered_params: search_params)
             body = []
             body, status = api.filter
+            puts(body[:results])
             break if body[:results].length == 0
             results += body[:results]
             page_counter += 1
@@ -241,10 +260,7 @@ module Enquiries
       buyer_ids = query.where(udprn: property_id).pluck(:buyer_id).uniq
       ### Buying status stats
       buying_status_distribution = PropertyBuyer.where(id: buyer_ids).where.not(buying_status: nil).group(:buying_status).count
-      p buyer_ids
-      total_count = buying_status_distribution.inject(0) do |result, (key, value)|
-        result += value
-      end
+      total_count = buying_status_distribution.values.sum
       buying_status_stats = {}
       buying_status_distribution.each do |key, value|
         buying_status_stats[PropertyBuyer::REVERSE_BUYING_STATUS_HASH[key]] = ((value.to_f/total_count.to_f)*100).round(2)
@@ -252,6 +268,7 @@ module Enquiries
       PropertyBuyer::BUYING_STATUS_HASH.each { |k,v| buying_status_stats[k] = 0 unless buying_status_stats[k] }
 
       result_hash[:buying_status] = buying_status_stats
+      result_hash[:unique_buyer_count] = buyer_ids.count
 
       ### Funding status stats
       funding_status_distribution = PropertyBuyer.where(id: buyer_ids).where.not(funding: nil).group(:funding).count
@@ -267,9 +284,7 @@ module Enquiries
 
       ### Biggest problem stats
       biggest_problem_distribution = PropertyBuyer.where(id: buyer_ids).where.not(biggest_problems: nil).group(:biggest_problems).count
-      total_count = biggest_problem_distribution.inject(0) do |result, (key, value)|
-        result += (value*(key.length))
-      end
+      total_count = biggest_problem_distribution.values.sum
       biggest_problem_stats = {}
       biggest_problem_distribution.each do |keys, value|
         keys.each do |key|
@@ -380,6 +395,7 @@ module Enquiries
         ### Accumulate all stats for each udprn
         total_enquiry_hash = save_search_hash = view_hash = would_view_hash = tracking_hash = requested_message_hash = {}
         hidden_hash = would_make_an_offer_hash = requested_callback_hash = requested_viewing_hash = {}
+        requested_floorplan_hash = {}
         table = nil
         udprns.each do |udprn|
           udprn = udprn.to_i
@@ -394,6 +410,7 @@ module Enquiries
           requested_message_hash[udprn] = property_stat.specific_enquiry_count(:requested_message)
           requested_viewing_hash[udprn] = property_stat.specific_enquiry_count(:requested_viewing)
           requested_callback_hash[udprn] = property_stat.specific_enquiry_count(:requested_callback)
+          requested_floorplan_hash[udprn] = property_stat.specific_enquiry_count(:requested_floorplan)
           hidden_hash[udprn] = Events::IsDeleted.where(udprn: property_id).count
         end
         ranking_stats[region_type][:total_properties] = udprns.count
@@ -405,6 +422,7 @@ module Enquiries
         ranking_stats[region_type][:message_requested_ranking] = rank(requested_message_hash, property_id)
         ranking_stats[region_type][:callback_requested_ranking] = rank(requested_callback_hash, property_id)
         ranking_stats[region_type][:requested_viewing_ranking] = rank(requested_viewing_hash, property_id)
+        ranking_stats[region_type][:requested_floorplan_ranking] = rank(requested_floorplan_hash, property_id)
         ranking_stats[region_type][:deleted_ranking] = rank(hidden_hash, property_id)
       end
       ranking_stats

@@ -46,7 +46,6 @@ class PropertiesController < ActionController::Base
     details[:street_hash] = Events::Track.street_hash(details)
     details[:county_hash] = MatrixViewService.form_hash(details, :county)
     details[:post_town_hash] = MatrixViewService.form_hash(details, :post_town)
-    details[:photo_urls] = [ details[:photo_urls] ]
     render json: details, status: 200
   end
 
@@ -386,14 +385,16 @@ class PropertiesController < ActionController::Base
     validate_rent_property_upload_params
     update_hash = {}
     udprn = params[:udprn].to_i
-    update_hash[:beds] = params[:beds] if params[:beds].is_a?(Integer)
-    update_hash[:baths] = params[:baths] if params[:baths].is_a?(Integer)
-    update_hash[:receptions] = params[:receptions] if params[:receptions].is_a?(Integer)
+    update_hash[:beds] = params[:beds] if params[:beds].to_i > 0
+    update_hash[:baths] = params[:baths] if params[:baths].to_i > 0
+    update_hash[:receptions] = params[:receptions] if params[:receptions].to_i > 0
     update_hash[:property_type] = params[:property_type] if params[:property_type].is_a?(String)
     update_hash[:verification_status] = false
     update_hash[:renter_id] = @current_user.id
-    PropertyService.new(udprn).update_details(update_hash)
-    @current_user.send_vendor_email(params[:vendor_email], udprn)
+    if @current_user.first_name && @current_user.last_name
+      PropertyService.new(udprn).update_details(update_hash)
+      @current_user.send_vendor_email(params[:vendor_email], udprn)
+    end
     render json: { message: 'Property details have been updated successfully' }, status: 200
   end
 

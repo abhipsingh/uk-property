@@ -47,7 +47,7 @@ class Event < ActiveRecord::Base
     sold: 31,
     valuation_change: 32,
     dream_price_change: 33,
-    requested_floorplan: 34  
+    requested_floorplan: 34
   }
 
   TYPE_OF_MATCH = {
@@ -96,7 +96,8 @@ class Event < ActiveRecord::Base
     :interested_in_making_an_offer,
     :requested_message,
     :requested_callback,
-    :requested_viewing
+    :requested_viewing,
+    :requested_floorplan
   ]
 
   TRACKING_EVENTS = [

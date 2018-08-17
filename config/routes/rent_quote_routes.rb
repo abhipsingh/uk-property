@@ -1,6 +1,6 @@
 Rails.application.routes.draw do
   namespace 'rent' do
-    get '/rent/quotes/property/:udprn',                                    to: 'quotes#quotes_per_property'
+    get '/property/quotes/agents/:udprn',                                  to: 'quotes#quotes_per_property'
 
     post '/quotes/property/:udprn',                                        to: 'quotes#new_quote_for_property'
 
@@ -8,7 +8,7 @@ Rails.application.routes.draw do
 
     post '/quotes/edit/',                                                  to: 'quotes#edit_agent_quote'
 
-    post '/quotes/submit/:udprn',                                          to: 'quotes#submit'
+    post '/quotes/submit/:quote_id',                                       to: 'quotes#submit'
 
     get '/property/quotes/details/:id',                                    to: 'quotes#quote_details'
 

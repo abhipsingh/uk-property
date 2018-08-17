@@ -26,6 +26,7 @@ class VendorMailer < ApplicationMailer
     invitation = InvitedVendor.where(email: @user.vendor_email).last
     @link = "http://prophety-test.herokuapp.com/auth?verification_hash=#{@user.verification_hash}&udprn=#{@user.email_udprn}&email=#{@user.vendor_email}&vendor_present=#{vendor_flag}&user_type=Vendor"
     @link += "&invitation_id=#{invitation.id}" if invitation
+    @link += "&source=renter"
     mail(to: @user.vendor_email, subject: "Welcome to Prophety #{@user.vendor_email}")
   end
 

@@ -11,8 +11,8 @@ class AgentsController < ApplicationController
                                              :enquiry_count_for_buyer_emails, :send_bulk_emails_to_buyers, :send_mailshots_to_properties,
                                              :mailshot_payment_history, :fetch_invited_properties_for_district, :agent_details, 
                                              :group_details, :agent_properties_vendor_buying_reqs, :verify_property_through_agent,
-                                             :agent_enquiries_buyer_reqs, :branch_mailshot_properties, :search_agent,
-                                             :preemption_conversion_rate, :agent_bulk_v1_csv_upload ]
+                                             :agent_enquiries_buyer_reqs, :branch_mailshot_properties, :search_agent, :add_unavailable_slot,
+                                             :preemption_conversion_rate, :agent_bulk_v1_csv_upload, :branch_properties, :show_agent_availability ]
 
   around_action :authenticate_agent_and_buyer, only: [ :company_details, :branch_details, :assigned_agent_details ]
 
@@ -191,6 +191,7 @@ class AgentsController < ApplicationController
     agent.password = agent_params['password'] if agent_params.has_key?('password')
     agent.office_phone_number = agent_params['office_phone_number'] if agent_params.has_key?('office_phone_number')
     agent.mobile_phone_number = agent_params['mobile_phone_number'] if agent_params.has_key?('mobile')
+    agent.working_hours = agent_params['working_hours'] if agent_params['working_hours']
     agent.save!
     AgentUpdateWorker.new.perform(agent.id)
     ### TODO: Update all properties containing this agent
@@ -361,9 +362,9 @@ class AgentsController < ApplicationController
       details_completed: false,
       claimed_on: Time.now.to_s,
       claimed_by: 'Agent',
-      lettings: lettings
+      lettings: lettings,
+      source: PropertyService::SOURCE_MAP[:agent_v1]
     }
-
 
 
     if pictures.is_a?(Array) && pictures.length > 0 && pictures.all?{ |t| t.has_key?('priority') && t.has_key?('url') && t.has_key?('description') }
@@ -401,7 +402,8 @@ class AgentsController < ApplicationController
         claimed_by: 'Agent',
         agent_id: agent_id,
         property_id: params[:udprn],
-        property_status_type: 'Green'
+        property_status_type: 'Green',
+        source: PropertyService::SOURCE_MAP[:agent_v2]
       }
       Rails.logger.info("#{property_attrs}  CLAIM_PROPERTY_#{agent.id}")
       
@@ -437,7 +439,8 @@ class AgentsController < ApplicationController
       claimed_on: Time.now.to_s,
       claimed_by: 'Agent',
       agent_id: agent_id.to_i,
-      property_status_type: 'Red'
+      property_status_type: 'Red',
+      source: PropertyService::SOURCE_MAP[:f_and_f]
     }
     Rails.logger.info("#{property_attrs}  CLAIM_PROPERTY_#{agent.id}")
     
@@ -846,7 +849,7 @@ class AgentsController < ApplicationController
   def invited_vendor_history
     agent = @current_user
     results = []
-    InvitedVendor.where(agent_id: agent.id).where(source: [ Vendor::INVITED_FROM_CONST[:family], Vendor::INVITED_FROM_CONST[:non_crawled] ]).group(:email, :id).order('created_at DESC').each do |invited_vendor|
+    InvitedVendor.where(agent_id: agent.id).where(source: [ Vendor::INVITED_FROM_CONST[:family], Vendor::INVITED_FROM_CONST[:non_crawled] ]).group(:email, :id).order('created_at DESC').limit(20).each do |invited_vendor|
       udprn = invited_vendor.udprn
       details = PropertyDetails.details(udprn)[:_source]
       result = {
@@ -870,8 +873,14 @@ class AgentsController < ApplicationController
   ### curl -XGET -H "Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo4OCwiZXhwIjoxNTAzNTEwNzUyfQ.7zo4a8g4MTSTURpU5kfzGbMLVyYN_9dDTKIBvKLSvPo" 'http://localhost/agents/premeption/conversion/rate'
   def preemption_conversion_rate
     agent = @current_user
-    total_preempted_stats = AddressDistrictRegister.where(agent_id: agent.id).count
-    vendor_registered_stats = AddressDistrictRegister.where(agent_id: agent.id, vendor_registered: true).count
+    total_preempted_stats, vendor_registered_stats = nil
+    if params[:mode] == 'branch'
+      total_preempted_stats = AddressDistrictRegister.where(agent_id: agent.branch_id).count
+      vendor_registered_stats = AddressDistrictRegister.where(agent_id: agent.branch_id, vendor_registered: true).count
+    else
+      total_preempted_stats = AddressDistrictRegister.where(agent_id: agent.id).count
+      vendor_registered_stats = AddressDistrictRegister.where(agent_id: agent.id, vendor_registered: true).count
+    end
     render json: { total_properties_invited: total_preempted_stats, vendor_registered_stats: vendor_registered_stats }, status: 200
   end
 
@@ -1338,21 +1347,21 @@ class AgentsController < ApplicationController
   ### Shows availability of the agent
   ### curl -XGET -H "Authorization: abxsbsk21w1xa" 'http://localhost/agents/availability'
   def show_agent_availability
-    agent = @current_user
-    meetings = VendorAgentMeetingCalendar.where(agent_id: agent.id).where("created_at > ?", Time.now).select([:id, :agent_id, :vendor_id, :start_time, :end_time])
-    unavailable_times = VendorCalendarUnavailability.where(agent_id: agent.id).where("created_at > ?", Time.now)
-    render json: { meetings: meetings, unavailable_times: unavailable_times }, status: 200
+    start_time = params[:start_time]
+    end_time = params[:end_time]
+    meetings = AgentCalendarUnavailability.where(agent_id: @current_user.id).where("((end_time > ?) OR (end_time < ?)) AND ((start_time > ?) OR (start_time < ?))", start_time, end_time, start_time, end_time)
+    render json: { unavailable_times: meetings }, status: 200
   end
 
   ### Add unavailablity slot for the vendor
-  ### curl -XPUT -H "Authorization: abxsbsk21w1xa" 'http://localhost/agents/availability' -d '{ "start_time" : "2017-01-10 14:00:06 +00:00", "end_time" : "2017-02-11 15:00:07 +00:00" }'
+  ### curl -XPUT -H "Authorization: abxsbsk21w1xa" 'http://localhost/agents/add/unavailability' -d '{ "start_time" : "2017-01-10 14:00:06 +00:00", "end_time" : "2017-02-11 15:00:07 +00:00" }'
   def add_unavailable_slot
     agent = @current_user
     start_time = Time.parse(start_time)
     end_time = Time.parse(end_time)
     meeting_details = nil
-    if start_time > Time.now && end_time > Time.now && start_time > end_time
-      meeting_details = AgentCalendarUnavailability.create!(start_time: start_time, end_time: end_time)
+    if start_time > Time.now && end_time > Time.now && start_time < end_time
+      meeting_details = AgentCalendarUnavailability.create!(start_time: start_time, end_time: end_time, agent_id: @current_user.id)
     end
     render json: { meeting_details: meeting_details }, status: 200
   end
@@ -1418,6 +1427,7 @@ class AgentsController < ApplicationController
     #if AdminAuth.authenticate(params[:email], params[:password])
     #if true
       agent = @current_user
+      #agent = Agents::Branches::AssignedAgent.find(340)
       results = nil
       branch_id = params[:branch_id]
       branch = Agents::Branch.where(id: branch_id).last
@@ -1430,11 +1440,17 @@ class AgentsController < ApplicationController
     
         ### Check if the searched area is equal to the area of the branch
         if searched_area.to_s == area.to_s
-          property_search_api = PropertySearchApi.new(filtered_params: params)
+          property_search_api = PropertySearchApi.new(filtered_params: {hash_str: params[:hash_str], hash_type: 'Text', p: params[:p]})
           udprns, status = property_search_api.matching_udprns
-          preassigned_count = AddressDistrictRegister.where(branch_id: branch_id, expired: false).count
+          preassigned_count = 0
+
+          if params[:mode] == 'branch'
+            preassigned_count = AddressDistrictRegister.where(branch_id: branch_id, expired: false).count
+          else
+            preassigned_count = AddressDistrictRegister.where(agent_id: agent.id, expired: false).count
+          end
+          agent_ids = []
           query = AddressDistrictRegister
-          query = query.where.not(agent: agent.id) if params[:hide_self_properties].to_s == 'true'
           invitation_udprns = query.where(udprn: udprns, expired: false).select([:vendor_registered, :invite_sent, :udprn, :branch_id, :expiry_date, :processed, :vendor_claimed_at])
           bulk_details = PropertyService.bulk_details(udprns)
     
@@ -1443,7 +1459,12 @@ class AgentsController < ApplicationController
             is_vendor_registered = branch_assigned = invite_sent = branch_owned = false
             branch_id = vendor_claimed_at = expiry_date = nil
             property_claimed = false
+            agent_claimed = false
+            inviting_agent_id = nil
             if invitation_udprn
+              agent_claimed = true if invitation_udprn.agent_id == agent.id
+              inviting_agent_id = invitation_udprn.agent_id
+              agent_ids.push(invitation_udprn.agent_id)
               invite_sent = true if invitation_udprn.processed.to_s == 'true'
               expiry_date = invitation_udprn.expiry_date
               if invitation_udprn.branch_id != branch.id
@@ -1473,9 +1494,23 @@ class AgentsController < ApplicationController
               propert_claimed: propert_claimed,
               vendor_claimed_at: vendor_claimed_at,
               assigned_agent_id: each_detail[:agent_id],
-              vanity_url: each_detail[:vanity_url]
+              vanity_url: each_detail[:vanity_url],
+              agent_claimed: agent_claimed,
+              inviting_agent_id: inviting_agent_id,
+              agent_name: nil
             }
           end
+
+          agent_names = @current_user.class.where(id: agent_ids.uniq).select([:id, :first_name, :last_name])
+          agent_details_hash = agent_names.reduce({}) { |acc_hash, hash| acc_hash.merge(hash.id => hash)}
+
+          results.each_with_index do |res, index|
+            if res[:invite_sent]
+              agent_details = agent_details_hash[res[:inviting_agent_id].to_i]
+              results[index][:agent_name] = agent_details.first_name + ' '+ agent_details.last_name
+            end
+          end
+
           branch_details = { branch_id: branch.id, branch_name: branch.name, branch_logo: branch.image_url }
           result_hash = { results: results, preassigned_count: preassigned_count }
           result_hash.merge!(branch_details)
@@ -1502,9 +1537,18 @@ class AgentsController < ApplicationController
     page_offset = (params[:page].to_i - 1)
     page_offset < 0 ? page_offset = 0 : page_offset = page_offset
     results = []
+    agent_id = agent.id
 
     if params[:count].to_s != 'true'
-      results = AddressDistrictRegister.where(branch_id: branch_id).order('created_at DESC').limit(page_size).offset(page_offset*page_size).map do |address|
+      query = AddressDistrictRegister
+      if params[:mode] == 'branch'
+        query = query.where(branch_id: agent.branch_id)
+      else
+        query = query.where(agent_id: agent_id)
+      end
+      agent_ids = []
+      results = query.order('created_at DESC').limit(page_size).offset(page_offset*page_size).map do |address|
+        agent_ids.push(address.agent_id)
         {
           udprn: address.udprn,
           is_vendor_registered: address.vendor_registered,
@@ -1512,10 +1556,18 @@ class AgentsController < ApplicationController
           expiry_date: address.expiry_date,
           created_at: address.created_at,
           expired: address.expired,
-          vendor_claimed_at: address.vendor_claimed_at
+          vendor_claimed_at: address.vendor_claimed_at,
+          inviting_agent_id: address.agent_id
         }
       end
       udprns = results.map{|t| t[:udprn] }
+      agent_names = @current_user.class.where(id: agent_ids.uniq).select([:id, :first_name, :last_name])
+      agent_details_hash = agent_names.reduce({}) { |acc_hash, hash| acc_hash.merge(hash.id => hash)}
+
+      results.each_with_index do |each_res, index|
+        agent_details = agent_details_hash[each_res[:inviting_agent_id]]
+        results[index][:agent_name] = agent_details.first_name + ' ' + agent_details.last_name
+      end
   
       bulk_response = PropertyService.bulk_details(udprns.uniq)
   
@@ -1526,7 +1578,12 @@ class AgentsController < ApplicationController
         results[index][:assigned_agent_id] = each_res[:agent_id].to_i
       end
     else
-      results = AddressDistrictRegister.where(branch_id: branch_id).count
+      ### CACHED counter
+      if params[:mode] == 'branch'
+        results = AddressDistrictRegister.where(branch_id: branch_id).count
+      else
+        results = AddressDistrictRegister.where(agent_id: agent_id).count
+      end
     end
 
     #Rails.logger.info("Results hash #{results}")
@@ -1541,7 +1598,13 @@ class AgentsController < ApplicationController
     page = params[:page].to_i
     page_size = 20
     cost = 0
-    AddressDistrictRegister.where(agent_id: agent.id).group(:payment_group_id).select("max(rate) as rate").select("string_agg(udprn::text, ',') as udprns").limit(page_size).offset(page_size.to_i*page).map do |preassigned_property|
+    query = AddressDistrictRegister
+    if params[:mode] == 'branch'
+      query = query.where(branch_id: agent.branch_id)
+    else
+      query = query.where(agent_id: agent.id)
+    end
+    query.group(:payment_group_id).select("max(rate) as rate").select("string_agg(udprn::text, ',') as udprns").limit(page_size).offset(page_size.to_i*page).map do |preassigned_property|
       udprns = preassigned_property.udprns.split(',')
       cost += udprns.count.to_f * preassigned_property.rate.to_f
     end
@@ -1637,6 +1700,18 @@ class AgentsController < ApplicationController
     else
       render json: { message: 'Number of records to be uploaded is larger than 10000' }, status: 400
     end
+  end
+
+  ### Fetch properties of a branch
+  ### curl -XGET -H "Authorization: xxxx" 'http://localhost/branches/properties/details'
+  def branch_properties
+    branch_id = @current_user.branch_id
+    filtered_params = { branch_id: branch_id }
+    property_search_api = PropertySearchApi.new(filtered_params: filtered_params)
+    property_search_api = property_search_api.filter_query
+    udprns = property_search_api.fetch_udprns
+    bulk_details = PropertyService.bulk_details(udprns)
+    render json: bulk_details, status: 200
   end
 
   private

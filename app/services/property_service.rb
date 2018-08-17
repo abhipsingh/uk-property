@@ -53,7 +53,8 @@ class PropertyService
                       :is_developer, :floorplan_urls, :latitude, :longitude, :renter_id, :council_tax_band_cost, :council_tax_band_cost_unit,
                       :resident_parking_cost_unit, :outside_space_types, :ground_rent_cost, :ground_rent_type, :sale_price_type, :percent_completed, 
                       :lettings, :rent_available_from, :rent_available_to, :rent_price, :rent_price_type, :rent_furnishing_type, :student_accommodation,
-                      :assigned_agent_branch_website, :ground_rent_unit, :property_status_last_updated, :floorplan_hidden, :ads]
+                      :assigned_agent_branch_website, :ground_rent_unit, :property_status_last_updated, :floorplan_hidden, :ads, :branch_id,
+                      :source ]
 
   COUNTIES = ["Aberdeenshire", "Kincardineshire", "Lincolnshire", "Banffshire", "Hertfordshire", "West Midlands", "Warwickshire", "Worcestershire", "Staffordshire", "Avon", "Somerset", "Wiltshire", "Lancashire", "West Yorkshire", "North Yorkshire", "ZZZZ", "Dorset", "Hampshire", "East Sussex", "West Sussex", "Kent", "County Antrim", "County Down", "Gwynedd", "County Londonderry", "County Armagh", "County Tyrone", "County Fermanagh", "Cumbria", "Cambridgeshire", "Suffolk", "Essex", "South Glamorgan", "Mid Glamorgan", "Cheshire", "Clwyd", "Merseyside", "Surrey", "Angus", "Fife", "Derbyshire", "Dumfriesshire", "Kirkcudbrightshire", "Wigtownshire", "County Durham", "Tyne and Wear", "South Yorkshire", "North Humberside", "South Humberside", "Nottinghamshire", "Midlothian", "West Lothian", "East Lothian", "Peeblesshire", "Middlesex", "Devon", "Cornwall", "Stirlingshire", "Clackmannanshire", "Perthshire", "Lanarkshire", "Dunbartonshire", "Gloucestershire", "Berkshire", "not", "Buckinghamshire", "Herefordshire", "Isle of Lewis", "Isle of Harris", "Isle of Scalpay", "Isle of North Uist", "Isle of Benbecula", "Inverness-shire", "Isle of Barra", "Norfolk", "Ross-shire", "Nairnshire", "Sutherland", "Morayshire", "Isle of Skye", "Ayrshire", "Isle of Arran", "Isle of Cumbrae", "Caithness", "Orkney", "Kinross-shire", "Powys", "Leicestershire", "Leicestershire / ", "Leicestershire / Rutland", "Dyfed", "Bedfordshire", "Northumberland", "Northamptonshire", "Gwent", "Shropshire", "Oxfordshire", "Renfrewshire", "Isle of Bute", "Argyll", "Isle of Gigha", "Isle of Islay", "Isle of Jura", "Isle of Colonsay", "Isle of Mull", "Isle of Iona", "Isle of Tiree", "Isle of Coll", "Isle of Eigg", "Isle of Rum", "Isle of Canna", "Isle of Wight", "West Glamorgan", "Selkirkshire", "Berwickshire", "Roxburghshire", "Isles of Scilly", "Cleveland", "Shetland Islands", "Central London", "East London", "North West London", "North London", "South East London", "South West London","Dummy", "West London"] 
        
@@ -63,7 +64,7 @@ class PropertyService
                             :annual_ground_water_cost_unit, :resident_parking_cost_unit, :outside_space_types, :lettings,
                             :rent_available_from, :rent_available_to, :rent_price, :rent_price_type, :rent_furnishing_type,
                             :student_accommodation, :ground_rent_unit, :sale_price, :sale_price_type, :is_new_home, :is_retirement_home,
-                            :is_shared_ownership, :chain_free, :property_status_last_updated, :floorplan_hidden ]
+                            :is_shared_ownership, :chain_free, :property_status_last_updated, :floorplan_hidden, :branch_id, :source ]
 
   AGENT_STATUS = {
     lead: 1,
@@ -103,6 +104,16 @@ class PropertyService
     latitude: -2,
     longitude: -3
   }
+
+  SOURCE_MAP = {
+    f_and_f: 0,
+    agent_v1: 1,
+    agent_v2: 2,
+    quote_agent_invite: 3,
+    quote_vendor_invite: 4
+  }
+
+  REVERSE_SOURCE_MAP = SOURCE_MAP.invert
 
   def initialize(udprn)
     @udprn = udprn
@@ -353,6 +364,7 @@ class PropertyService
     details['assigned_agent_office_number'] = agent.office_phone_number
     details['assigned_agent_image_url'] = agent.image_url
     branch = agent.branch
+    details['branch_id'] = branch.id
     details['assigned_agent_branch_name'] = branch.name
 		details['assigned_agent_branch_number'] = branch.phone_number
     details['assigned_agent_branch_address'] = branch.address
@@ -631,7 +643,7 @@ class PropertyService
 
   def self.send_tracking_email_to_tracking_buyers(update_hash, property_details)
     property_status_type_changed = (update_hash[:property_status_type] != property_details[:property_status_type] && !update_hash[:property_status_type].nil?)
-    TrackingEmailWorker.new.perform(update_hash, property_details) if property_status_type_changed
+    TrackingEmailWorker.perform_async(update_hash, property_details) if property_status_type_changed
   end
 
   def self.update_full_ardb_db

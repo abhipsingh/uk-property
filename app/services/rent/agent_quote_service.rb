@@ -1,6 +1,6 @@
 module Rent
   class AgentQuoteService
-    S3_BASE_URL = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/"
+    S3_BASE_URL = "https://s3.#{ENV['S3_REGION']}.amazonaws.com/#{ENV['S3_STREET_VIEW_BUCKET']}/"
     
     attr_accessor :agent_id, :agent
   
@@ -51,6 +51,8 @@ module Rent
         results = query.order('created_at DESC')
       else
         page_number = page_number.to_i
+        page_number == 0 ? page_number = 1 : page_number = page_number
+        page_number = page_number - 1
         #Rails.logger.info(query.to_sql)
         results = query.order('created_at DESC').limit(PAGE_SIZE).offset(page_number*PAGE_SIZE)
       end
@@ -68,6 +70,7 @@ module Rent
             agent_quote = Rent::Quote.where(udprn: property_id, agent_id: @agent_id).last
           elsif each_quote.status == new_status && each_quote.agent_id.nil?
             quote_status = 'New'
+            agent_quote = Rent::Quote.where(agent_id: @agent_id).where(udprn: property_id).where(parent_quote_id: each_quote.id).where(expired: false).where(status: new_status).last
           end
           new_row = {}
           new_row[:id] = each_quote.id
@@ -76,6 +79,7 @@ module Rent
           new_row[:terms_url] ||= each_quote.terms_url
           new_row[:submitted_on] = agent_quote.created_at.to_s if agent_quote
           new_row[:submitted_on] ||= each_quote.created_at.to_s
+          new_row[:quote_submitted] = !agent_quote.nil?
           new_row[:status] = quote_status
           new_row[:activated_on] = each_quote.created_at.to_s
           new_row[:photo_url] = property_details[:pictures] ? property_details[:pictures][0] : "Image not available"
@@ -88,6 +92,13 @@ module Rent
                     :vendor_image_url, :assigned_agent_branch_name, :assigned_agent_branch_logo, :assigned_agent_first_name, :agent_id,
                     :assigned_agent_last_name, :property_status_type, :current_valuation, :sale_prices ]
           attrs.each {|key| new_row[key] = property_details[key] }
+          new_row[:latest_valuation] = property_details[:current_valuation]
+          new_row[:historical_prices] = property_details[:sale_prices]
+          new_row[:asking_price] = property_details[:asking_price]
+          new_row[:created_at] = each_quote.created_at
+          new_row[:locked_status] = @agent.locked
+          new_row[:type] = 'RENT'
+          new_row[:quotes_received] = Rent::Quote.where(udprn: each_quote.udprn).where.not(agent_id: nil).where(expired: false).where(parent_quote_id: each_quote.id).count
 
           new_row[:payment_terms] = nil
           new_row[:payment_terms] ||=  klass::REVERSE_PAYMENT_TERMS_HASH[agent_quote.payment_terms] if agent_quote
@@ -95,9 +106,10 @@ module Rent
           new_row[:quote_price] = each_quote.price
           
           if property_details[:agent_id].to_i > 0
-            new_row[:current_agent] = property_details[:assigned_agent_first_name] + ' ' + property_details[:assigned_agent_last_name]
+            new_row[:assigned_agent_id] = property_details[:agent_id].to_i
+            new_row[:assigned_agent_name] = property_details[:assigned_agent_first_name] + ' ' + property_details[:assigned_agent_last_name]
           else
-            agent_attrs = [ :current_agent, :assigned_agent_branch_logo, :assigned_agent_branch_name, :agent_id,
+            agent_attrs = [ :assigned_agent_name, :assigned_agent_branch_logo, :assigned_agent_branch_name, :assigned_agent_id,
                             :assigned_agent_first_name, :assigned_agent_last_name ]
             agent_attrs.each { |t| new_row[t] = nil }
           end

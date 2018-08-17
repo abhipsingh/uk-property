@@ -13,6 +13,13 @@ class Agents::Branches::AssignedAgents::Quote < ActiveRecord::Base
     'Won' => 3
   }
 
+  SOURCE_MAP = {
+    vendor: 0,
+    agent: 1
+  }
+
+  REVERSE_SOURCE_MAP = SOURCE_MAP.invert
+
   #MAX_AGENT_QUOTE_WAIT_TIME = 48.hours
   MAX_AGENT_QUOTE_WAIT_TIME = 10.minutes
   #MAX_VENDOR_QUOTE_WAIT_TIME = 72.hours

@@ -23,7 +23,8 @@ class QuotesController < ApplicationController
     Rails.logger.info("VENDOR_NEW_QUOTE_#{vendor_id}_#{params[:udprn].to_i}_#{yearly_quote_count}_#{buyer.is_premium}")
     if yearly_quote_count < Vendor::QUOTE_LIMIT_MAP[buyer.is_premium.to_s]
       response, status = service.new_quote_for_property(params[:services_required], params[:payment_terms],
-                                              params[:quote_details], params[:assigned_agent], existing_agent_id)
+                                                        params[:quote_details], params[:assigned_agent],
+                                                        existing_agent_id, 'agent')
       render json: response, status: status
     else
       render json: { message: "Yearly quota limit for vendor has exceeded #{Vendor::QUOTE_LIMIT_MAP[buyer.is_premium.to_s]}. You have claimed #{yearly_quote_count} quotes till now in this year ", quotes_count: yearly_quote_count, quote_limit: Vendor::QUOTE_LIMIT_MAP[buyer.is_premium.to_s] }, status: 400

@@ -195,5 +195,14 @@ Rails.application.routes.draw do
   ### Uploads csvs to agents crawled properties for v1 upload
   post 'agents/bulk/v1/csv/upload',                             to: 'agents#agent_bulk_v1_csv_upload'
 
+  ### Fetch properties of a branch
+  get 'branches/properties/details',                            to: 'agents#branch_properties'
+
+  ### Add unavailablity slot for the agent
+  post 'agents/add/unavailability',                             to: 'agents#add_unavailable_slot'
+
+  ### Shows availability of the agent
+  get 'agents/unavailability',                                  to: 'agents#show_agent_availability'
+
 end
 

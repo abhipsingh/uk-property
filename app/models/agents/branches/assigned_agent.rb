@@ -191,7 +191,7 @@ module Agents
           new_row[:assigned_branch_logo] = property_details[:assigned_agent_branch_logo]
           new_row[:assigned_branch_name] = property_details[:assigned_agent_branch_name]
 
-          new_row['street_view_url'] = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{property_details['udprn']}.jpg"
+          new_row['street_view_url'] = "https://#{ENV['S3_STREET_VIEW_BUCKET']}.s3.#{ENV['S3_REGION']}.amazonaws.com/#{property_details[:udprn]}.jpg"
           new_row[:current_valuation] = property_details['current_valuation']
           new_row[:latest_valuation] = property_details['current_valuation']
 
@@ -327,7 +327,7 @@ module Agents
 
         details = PropertyDetails.details(lead.property_id)[:_source]
         new_row = new_row.merge(['property_type', 'street_view_url', 'udprn', 'beds', 'baths', 'receptions', 'dream_price', 'pictures', 'street_view_image_url', 'claimed_on', 'address', 'sale_prices', 'vanity_url', 'property_status_type'].reduce({}) {|h, k| h[k] = details[k]; h })
-        new_row['street_view_url'] = "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details['udprn']}.jpg"
+        new_row['street_view_url'] = "https://#{ENV['S3_STREET_VIEW_BUCKET']}.s3.#{ENV['S3_REGION']}.amazonaws.com/#{details[:udprn]}.jpg"
         new_row[:photo_url] = details['pictures'] ? details['pictures'][0] : "Image not available"
         #new_row[:last_sale_prices] = PropertyHistoricalDetail.where(udprn: details['udprn']).order('date DESC').pluck(:price)
         
@@ -400,7 +400,9 @@ module Agents
 
         ### Normalize timestamps
         new_row[:claimed_on] = lead.claimed_at
-        new_row[:claimed_on] = Time.parse(new_row['claimed_on']).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row['claimed_on']
+        new_row[:claimed_on] ||= Time.parse(new_row[:claimed_on].to_s).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:claimed_on]
+        new_row[:claimed_on] ||= Time.parse(lead.created_at.to_s).strftime("%Y-%m-%dT%H:%M:%SZ")
+        new_row[:owned_property] = lead.owned_property
         new_row[:submitted_on] = Time.parse(new_row[:submitted_on]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:submitted_on]
         new_row[:deadline] = Time.parse(new_row[:deadline]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:deadline]
         new_row

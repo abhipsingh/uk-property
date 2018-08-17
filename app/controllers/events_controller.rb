@@ -2,7 +2,8 @@ class EventsController < ApplicationController
   include EventsHelper
   include CacheHelper
   before_filter :set_headers
-  around_action :authenticate_agent_and_buyer, only: [ :process_event ]
+  around_action :authenticate_agent_and_buyer, only: [ :process_event, :book_calendar, :show_calendar ]
+  around_action :authenticate_agent_and_vendor, only: [ :unique_buyer_count ]
   around_action :authenticate_agent_and_developer, only: [ :buyer_stats_for_enquiry, :agent_new_enquiries ]
 
   ### List of params
@@ -144,6 +145,73 @@ class EventsController < ApplicationController
     render json: {message: "Unsubscribed"}, status: 200
   end
 
+  ### Get unique buyer count for property's enquiries
+  ### curl -XGET 'http://localhost/enquiries/unique/buyer/count/:udprn'
+  def unique_buyer_count
+    udprn = params[:udprn].to_i
+    old_stats_flag = params[:old_stats_flag].to_s == 'true'
+    query_model = Event
+    query_model = query_model.unscoped(where: :is_archived).where(is_archived: true) if old_stats_flag
+    unique_buyer_count = query_model.where(udprn: udprn).pluck(:buyer_id).uniq.count
+    render json: unique_buyer_count, status: 200
+  end
+
+  ### Shows the calendar to the agents and buyers about the property's viewing
+  ### curl -XGET 'http://localhost/property/viewing/availability/:udprn'
+  def show_calendar
+    udprn = params[:udprn].to_i
+    details = PropertyDetails.details(udprn)[:_source]
+    end_time = Time.parse(params[:end_time])
+    start_time = Time.parse(params[:start_time])
+    if details[:source]
+      property_status_type = details[:property_status_type]
+      if property_status_type == 'Green' && PropertyService::REVERSE_SOURCE_MAP[details[:source].to_i] == :quote_vendor_invite
+        results = VendorCalendarUnavailability.where("((end_time > ?) OR (end_time < ?)) AND ((start_time > ?) OR (start_time < ?))", start_time, end_time, start_time, end_time)
+        render json: results, status: 200
+      else
+        results = AgentCalendarUnavailability.where("((end_time > ?) OR (end_time < ?)) AND ((start_time > ?) OR (start_time < ?))", start_time, end_time, start_time, end_time)
+        render json: results, status: 200
+      end
+    else
+      render json: { message: 'No calendar has been assigned to this property' }, status: 400
+    end
+  end
+
+  ### Book the calendar to the agents and buyers about the property's viewing
+  ### curl -XPOST 'http://localhost/property/book/viewing/:udprn' -d  '{ "buyer_id" : 121, "start_time":"2018-09-12 01:02:03", "end_time" : "2018-09-09 01:03:03" }'
+  def book_calendar
+    udprn = params[:udprn].to_i
+    details = PropertyDetails.details(udprn)[:_source]
+    end_time = Time.parse(params[:end_time])
+    start_time = Time.parse(params[:start_time])
+    #if details[:source]
+    if true
+      property_status_type = details[:property_status_type]
+      #if property_status_type == 'Green' && PropertyService::REVERSE_SOURCE_MAP[details[:source].to_i] == :quote_vendor_invite
+      if true
+        vendor_unavailability = VendorCalendarUnavailability.create!(
+          buyer_id: params[:buyer_id],
+          udprn: udprn,
+          start_time: Time.parse(params[:start_time]),
+          end_time: Time.parse(params[:end_time]),
+          vendor_id: details[:vendor_id]
+        )
+        render json: { message: 'Created an invite in the calendar', details: vendor_unavailability }, status: 200
+      else
+        agent_unavailability = AgentCalendarUnavailability.create!(
+          buyer_id: params[:buyer_id],
+          udprn: udprn,
+          start_time: Time.parse(params[:start_time]),
+          end_time: Time.parse(params[:end_time]),
+          agent_id: details[:agent_id]
+        )
+        render json: { message: 'Created an invite in the calendar', details: agent_unavailability }, status: 200
+      end
+    else
+      render json: { message: 'No calendar has been assigned to this property' }, status: 400
+    end
+  end
+
   private
 
   def set_headers
@@ -164,6 +232,14 @@ class EventsController < ApplicationController
 
   def authenticate_agent_and_buyer
     if user_valid_for_viewing?(['Agent','Buyer', 'Developer'])
+      yield
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  def authenticate_agent_and_vendor
+    if user_valid_for_viewing?(['Agent','Vendor', 'Developer'])
       yield
     else
       render json: { message: 'Authorization failed' }, status: 401

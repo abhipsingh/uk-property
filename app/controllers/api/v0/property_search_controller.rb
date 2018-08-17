@@ -57,7 +57,7 @@ module Api
         result, status = api.filter
         result = result[:results]#.sort_by{|t| t[:score]}.reverse
         result = result.each{|t| t[:photo_urls] = []; t[:percent_completed] = nil }
-        result = result.each{ |t| t[:photo_urls] = [ process_image(t) ] + t[:photo_urls] }
+        result = result.each{ |t| t[:photo_urls] = [ process_image_fr(t) ] + t[:photo_urls] }
         #user_valid_for_viewing?(['Buyer', 'Agent', 'Developer'])
         new_result = []
         if false

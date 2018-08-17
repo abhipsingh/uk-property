@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180711101552) do
+ActiveRecord::Schema.define(version: 20180817125947) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -60,6 +60,9 @@ ActiveRecord::Schema.define(version: 20180711101552) do
     t.datetime "end_time"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer  "udprn"
+    t.integer  "buyer_id"
+    t.integer  "agent_id"
   end
 
   create_table "agent_credit_verifiers", force: :cascade do |t|
@@ -154,6 +157,7 @@ ActiveRecord::Schema.define(version: 20180711101552) do
     t.datetime "created_at"
     t.boolean  "locked",              default: false
     t.date     "locked_date"
+    t.jsonb    "working_hours"
   end
 
   add_index "agents_branches_assigned_agents", ["branch_id"], name: "index_agents_branches_assigned_agents_on_branch_id", using: :btree
@@ -189,8 +193,8 @@ ActiveRecord::Schema.define(version: 20180711101552) do
     t.string   "payment_terms"
     t.jsonb    "quote_details"
     t.boolean  "service_required"
-    t.datetime "created_at",                           null: false
-    t.datetime "updated_at",                           null: false
+    t.datetime "created_at",                                     null: false
+    t.datetime "updated_at",                                     null: false
     t.string   "district"
     t.string   "vendor_name"
     t.string   "vendor_email"
@@ -199,13 +203,14 @@ ActiveRecord::Schema.define(version: 20180711101552) do
     t.integer  "property_status_type"
     t.boolean  "is_assigned_agent"
     t.string   "terms_url"
-    t.boolean  "refund_status",        default: false
-    t.integer  "vendor_id",                            null: false
-    t.boolean  "expired",              default: false
+    t.boolean  "refund_status",                  default: false
+    t.integer  "vendor_id",                                      null: false
+    t.boolean  "expired",                        default: false
     t.integer  "parent_quote_id"
     t.integer  "amount"
     t.integer  "existing_agent_id"
     t.integer  "pre_agent_id"
+    t.integer  "viewing_entity",       limit: 2
   end
 
   add_index "agents_branches_assigned_agents_quotes", ["agent_id", "property_id"], name: "agent_unique_quotes_active_property_idx", unique: true, where: "((parent_quote_id IS NOT NULL) AND (status = 1) AND (expired = false))", using: :btree
@@ -730,6 +735,10 @@ ActiveRecord::Schema.define(version: 20180711101552) do
     t.datetime "updated_at",                        null: false
   end
 
+  add_index "rent_quotes", ["agent_id", "udprn"], name: "rent_agent_unique_quotes_active_property_idx", unique: true, where: "((parent_quote_id IS NOT NULL) AND (status = 1) AND (expired = false))", using: :btree
+  add_index "rent_quotes", ["district"], name: "rent_quotes_district_idx", using: :btree
+  add_index "rent_quotes", ["udprn"], name: "rent_vendor_quote_active_property_idx", unique: true, where: "((parent_quote_id IS NULL) AND (status = 1) AND (expired = false))", using: :btree
+
   create_table "rent_requirements", force: :cascade do |t|
     t.integer  "min_beds"
     t.integer  "max_beds"
@@ -794,6 +803,9 @@ ActiveRecord::Schema.define(version: 20180711101552) do
     t.datetime "end_time"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer  "udprn"
+    t.integer  "buyer_id"
+    t.integer  "vendor_id"
   end
 
   create_table "vendors", force: :cascade do |t|
@@ -816,6 +828,7 @@ ActiveRecord::Schema.define(version: 20180711101552) do
     t.string   "first_name"
     t.string   "last_name"
     t.boolean  "is_premium",       default: false
+    t.jsonb    "working_hours"
   end
 
   add_index "vendors", ["email"], name: "index_vendors_on_email", unique: true, using: :btree

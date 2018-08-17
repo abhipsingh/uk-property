@@ -13,7 +13,7 @@ class PropertySearchApi
              :agent_id, :district, :udprn, :vendor_id, :postcode, :sector, :unit, :building_name, :building_number, :sub_building_name, :property_status_type, 
              :postcode, :post_town, :thoroughfare_description, :dependent_thoroughfare_description, :dependent_locality, :double_dependent_locality,
              :county, :udprn, :not_yet_built , :is_new_home, :is_retirement_home, :is_shared_ownership, :area, :property_type, :lettings, :rent_price_type,
-             :rent_furnishing_type, :student_accommodation, :ads ],
+             :rent_furnishing_type, :student_accommodation, :ads, :branch_id ],
     range: [ :cost_per_month, :date_added, :floors, :year_built, :inner_area, :outer_area, :total_area, :improvement_spend, :beds, :baths, :receptions, :current_valuation, :dream_price, :last_sale_price, :rent_available_from, :rent_available_to, :rent_price ],
     exists: [ :vendor_id, :agent_id, :property_status_type, :udprn, :postcode, :property_style, :sale_price ],
     not_exists: [ :vendor_id, :agent_id, :property_status_type, :udprn, :postcode, :property_style, :sale_price ]

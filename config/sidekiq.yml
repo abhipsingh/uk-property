@@ -3,6 +3,8 @@
     every: '10m'
   QuoteExpiryWorker:
     every: '3m'
+  RentQuoteExpiryWorker:
+    every: '3m'
   AdminStatusPanelWorker:
     every: '1440m'
   BranchLockedStatusUpdateWorker:

@@ -17,6 +17,7 @@ class PropertyDetails
     details = details.with_indifferent_access
     units = [:organization_name, :department_name, :sub_building_name, :building_name, :building_number, :dependent_thoroughfare_description, 
              :thoroughfare_description, :dependent_locality, :post_town, :county, :postcode ]
+    units = units - [:post_town] if details[:post_town] == 'London'
     units.select { |t| details[t] && !details[t].blank? }.map{|t| details[t] }.join(', ')
   end
 
@@ -28,12 +29,7 @@ class PropertyDetails
   end
 
   def self.fr_google_st_view_address(details)
-    published_address = ''
-    address_fields = [:building_name, :dependent_thoroughfare_description, :dependent_locality, :postcode]
-    building_name = details[:building_name].split(",")[0]
-    hash = details.deep_dup
-    hash[:building_name] = building_name
-    address_fields.select{ |t| hash[t] }.map{|t| hash[t] }.join(', ')
+    "#{details[:latitude]},#{details[:longitude]}"
   end
 
   def self.street_address(details)
@@ -165,10 +161,11 @@ class PropertyDetails
       details[:assigned_agent_branch_address] = branch.address
       details[:assigned_agent_branch_website] = branch.website
       details[:assigned_agent_branch_logo] = branch.image_url
+      details[:branch_id] = branch.id
     else
       attrs = [ :assigned_agent_first_name, :assigned_agent_last_name, :assigned_agent_email, :assigned_agent_mobile, :assigned_agent_title,
                 :assigned_agent_image_url, :assigned_agent_branch_name, :assigned_agent_branch_number, :assigned_agent_branch_website, 
-                :assigned_agent_branch_address, :assigned_agent_branch_logo ]
+                :assigned_agent_branch_address, :assigned_agent_branch_logo, :branch_id ]
       attrs.each { |attr| details[attr] = nil }
     end
   end

@@ -261,7 +261,7 @@ module EnquiryInfoHelper
       new_row[:image_url] = new_row[:street_view_image_url] || details[:pictures].first rescue nil
       if new_row[:image_url].nil?
         # image_url = process_image(details) if Rails.env != 'test'
-        image_url ||= "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details['udprn']}.jpg"
+        image_url ||= "https://#{ENV['S3_STREET_VIEW_BUCKET']}.s3.#{ENV['S3_REGION']}.amazonaws.com/#{details[:udprn]}.jpg"
         new_row[:street_view_image_url] = image_url
         new_row[:image_url] = image_url
       end

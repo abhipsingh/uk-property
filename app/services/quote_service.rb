@@ -69,11 +69,13 @@ class QuoteService
     return { message: 'Quote successfully edited', quote: quote_details }, 200
   end
 
-  def new_quote_for_property(services_required, payment_terms, quote_details, assigned_agent, existing_agent_id)
-    deadline = Agents::Branches::AssignedAgents::Quote::MAX_AGENT_QUOTE_WAIT_TIME.from_now.to_s
-    services_required = Agents::Branches::AssignedAgents::Quote::REVERSE_SERVICES_REQUIRED_HASH[services_required]
+  def new_quote_for_property(services_required, payment_terms, quote_details, assigned_agent, existing_agent_id, viewing_entity)
+    klass = Agents::Branches::AssignedAgents::Quote
+    deadline = klass::MAX_AGENT_QUOTE_WAIT_TIME.from_now.to_s
+    services_required = klass::REVERSE_SERVICES_REQUIRED_HASH[services_required]
     services_required = eval(services_required.to_s)
-    status = Agents::Branches::AssignedAgents::Quote::STATUS_HASH['New']
+    viewing_entity = klass::SOURCE_MAP[viewing_entity.to_sym]
+    status = klass::STATUS_HASH['New']
     # Rails.logger.info("QUOTE_DETAILS_#{quote_details}")
     details = PropertyDetails.details(@udprn)[:_source]
     district = details['district']
@@ -97,7 +99,8 @@ class QuoteService
       vendor_mobile: vendor.mobile,
       amount: details[:current_valuation].to_i,
       existing_agent_id: existing_agent_id.to_i,
-      pre_agent_id: pre_agent_id
+      pre_agent_id: pre_agent_id,
+      viewing_entity: viewing_entity
     )
 
     ### Send email to all local agents
@@ -119,6 +122,9 @@ class QuoteService
     if quote && quote.status != won_status && agent_quote && agent
       parent_quote_id = quote.id
       agent_quote.pre_agent_id = quote.pre_agent_id
+      viewing_entity = klass::REVERSE_SOURCE_MAP[quote.viewing_entity]
+      viewing_source = nil
+      viewing_entity == :vendor ? viewing_source = PropertyService::SOURCE_MAP[:quote_vendor_invite] : viewing_source = PropertyService::SOURCE_MAP[:quote_agent_invite]
       quote.destroy!
       agent_quote.status = won_status
       agent_quote.parent_quote_id = nil
@@ -127,7 +133,7 @@ class QuoteService
 
       ### Attach the agent to the property and tag the property
       ### enquiries to the agent
-      doc = { agent_id: agent_id, agent_status: 2, property_status_type: 'Green' } #### agent_status = 2(agent is actively attached, agent_status = 1, agent submitting pictures and quote)
+      doc = { agent_id: agent_id, agent_status: 2, property_status_type: 'Green', source: viewing_source } #### agent_status = 2(agent is actively attached, agent_status = 1, agent submitting pictures and quote)
       PropertyService.new(@udprn.to_i).update_details(doc)
       Event.where(udprn: @udprn).unscope(where: :is_archived).update_all(agent_id: agent_id)
 

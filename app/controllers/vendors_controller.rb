@@ -1,4 +1,6 @@
 class VendorsController < ApplicationController
+  around_action :authenticate_vendor, only: [ :show_vendor_availability, :add_unavailable_slot ]
+
   def valuations
     property_id = params[:udprn]
     vendor_api = VendorApi.new(property_id)
@@ -121,6 +123,7 @@ class VendorsController < ApplicationController
       vendor.mobile = vendor_params[:mobile] if vendor_params[:mobile]
       vendor.password = vendor_params[:password] if vendor_params[:password]
       vendor.image_url = vendor_params[:image_url] if vendor_params[:image_url]
+      vendor.working_hours = vendor_params[:working_hours] if vendor_params[:working_hours]
       update_hash = { vendor_id: params[:id].to_i }
       ### TODO: Update attributes in all the properties
       if vendor.save
@@ -232,23 +235,23 @@ class VendorsController < ApplicationController
   ### Shows availability of the vendor
   ### curl -XGET -H "Authorization: abxsbsk21w1xa" 'http://localhost/vendors/availability'
   def show_vendor_availability
-    vendor = @current_user
-    meetings = VendorAgentMeetingCalendar.where(vendor_id: vendor.id).where("created_at > ?", Time.now).select([:id, :agent_id, :vendor_id, :start_time, :end_time])
-    unavailable_times = VendorCalendarUnavailability.where(vendor_id: vendor.id).where("created_at > ?", Time.now)
-    render json: { meetings: meetings, unavailable_times: unavailable_times }, status: 200
+    start_time = params[:start_time]
+    end_time = params[:end_time]
+    meetings = VendorCalendarUnavailability.where(vendor_id: @current_user.id).where("((end_time > ?) OR (end_time < ?)) AND ((start_time > ?) OR (start_time < ?))", start_time, end_time, start_time, end_time)
+    render json: { unavailable_times: meetings }, status: 200
   end
 
   ### Add unavailablity slot for the vendor
-  ### curl -XPUT -H "Authorization: abxsbsk21w1xa" 'http://localhost/vendors/availability' -d '{ "start_time" : "2017-01-10 14:00:06 +00:00", "end_time" : "2017-02-11 15:00:07 +00:00" }'
+  ### curl -XPUT -H "Authorization: abxsbsk21w1xa" 'http://localhost/vendors/add/unavailability' -d '{ "start_time" : "2017-01-10 14:00:06 +00:00", "end_time" : "2017-02-11 15:00:07 +00:00" }'
   def add_unavailable_slot
     vendor = @current_user
-    start_time = Time.parse(start_time)
-    end_time = Time.parse(end_time)
+    start_time = Time.parse(params[:start_time])
+    end_time = Time.parse(params[:end_time])
     meeting_details = nil
-    if start_time > Time.now && end_time > Time.now && start_time > end_time
-      meeting_details = VendorCalendarUnavailability.create!(start_time: start_time, end_time: end_time)
+    if start_time > Time.now && end_time > Time.now && start_time < end_time
+      meeting_details = VendorCalendarUnavailability.create!(start_time: start_time, end_time: end_time, vendor_id: @current_user.id)
     end
-    render json: { meeting_details: meeting_details }, status: 200
+    render json: { details: meeting_details }, status: 200
   end
 
   private
@@ -257,6 +260,14 @@ class VendorsController < ApplicationController
     user_types.any? do |user_type|
       @current_user ||= authenticate_request(user_type).result
       !@current_user.nil?
+    end
+  end
+
+  def authenticate_vendor
+    if user_valid_for_viewing?(['Vendor'], nil)
+      yield
+    else
+      render json: { message: 'Authorization failed' }, status: 401
     end
   end
 

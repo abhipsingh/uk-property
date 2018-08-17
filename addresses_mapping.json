@@ -8,6 +8,7 @@
       "monitoring_type":{"type":"string","index":"not_analyzed"},
       "property_status_type":{"type":"string","index":"not_analyzed"},
       "agent_id":{"type":"integer"},
+      "branch_id":{"type":"integer"},
       "area":{"type":"string","index":"not_analyzed"},
       "baths":{"type":"integer"},
       "beds":{"type":"integer"},

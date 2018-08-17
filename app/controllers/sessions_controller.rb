@@ -419,7 +419,7 @@ class SessionsController < ApplicationController
       verification_hash = BCrypt::Password.create salt_str
       VerificationHash.create(hash_value: verification_hash, email: email, entity_type: 'PropertyBuyer')
       email_link = 'http://prophety-test.herokuapp.com/auth?verification_hash=' + verification_hash  + '&user_type=Buyer'
-      email_link += '&udprn=' + params[:udprn].to_i if params[:udprn]
+      email_link += '&udprn=' + params[:udprn] if params[:udprn]
       email_link += '&rent=true' if params[:rent].to_s == 'true'
       params_hash = { verification_hash: verification_hash, email: email, link: email_link }
 

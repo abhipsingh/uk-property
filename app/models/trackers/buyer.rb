@@ -188,7 +188,7 @@ class Trackers::Buyer
 
     new_row[:pictures] = details[:_source][:pictures]
     new_row[:pictures] = [] if details[:_source][:pictures].nil?
-    image_url ||= "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details[:_source][:udprn]}.jpg"
+    image_url ||= "https://#{ENV['S3_STREET_VIEW_BUCKET']}.s3.#{ENV['S3_REGION']}.amazonaws.com/#{details[:_source][:udprn]}.jpg"
     new_row[:street_view_image_url] = image_url
     new_row[:status_last_updated] = details[:_source][:status_last_updated].to_i
     new_row[:status_last_updated] = Time.at(new_row[:status_last_updated]).strftime("%Y-%m-%dT%H:%M:%SZ") if new_row[:status_last_updated]
@@ -216,7 +216,7 @@ class Trackers::Buyer
     new_row.merge!(details.slice(*attrs))
     if new_row[:street_view_image_url].nil?
       image_url = process_image(details) if Rails.env != 'test'
-      image_url ||= "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details['udprn']}.jpg"
+      image_url ||= "https://#{ENV['S3_STREET_VIEW_BUCKET']}.s3.#{ENV['S3_REGION']}.amazonaws.com/#{details[:udprn]}.jpg"
       new_row[:street_view_image_url] = image_url
     end
     new_row[:pictures] = [] if new_row[:pictures].nil?
@@ -411,7 +411,7 @@ class Trackers::Buyer
     new_row[:image_url] = new_row[:street_view_image_url] || details[:pictures].first rescue nil
     if new_row[:image_url].nil?
       image_url = process_image(details) if Rails.env != 'test'
-      image_url ||= "https://s3.ap-south-1.amazonaws.com/google-street-view-prophety/#{details['udprn']}.jpg"
+      image_url ||= "https://#{ENV['S3_STREET_VIEW_BUCKET']}.s3.#{ENV['S3_REGION']}.amazonaws.com/#{details[:udprn]}.jpg"
       new_row[:street_view_image_url] = image_url
     end
     new_row[:status] = new_row[:property_status_type]

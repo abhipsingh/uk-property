@@ -2,7 +2,7 @@
 module Rent
   class QuotesController < ApplicationController
     include CacheHelper
-    around_action :authenticate_agent, only: [ :new, :edit_agent_quote,  ]
+    around_action :authenticate_agent, only: [ :new, :edit_agent_quote, :agents_recent_properties_for_quotes]
     around_action :authenticate_vendor, only: [ :submit, :quote_details, :new_quote_for_property, :quotes_per_property ]
   
     #### When a vendor changes the status to Green or when a vendor selects a Fixed or Ala Carte option,
@@ -41,7 +41,8 @@ module Rent
       details = PropertyDetails.details(params[:udprn].to_i)[:_source]
       klass = Rent::Quote
       service = Rent::PropertyQuoteService.new(udprn: params[:udprn].to_i)
-      response = service.submit_price_for_quote(params[:agent_id].to_i, params[:payment_terms], params[:quote_price].to_i, params[:terms_url])
+      quote_price = params[:quote_details].first['price']
+      response = service.submit_price_for_quote(params[:agent_id].to_i, params[:payment_terms], quote_price.to_i, params[:terms_url])
       render json: response, status: 200
     end
   
@@ -65,11 +66,13 @@ module Rent
       quote_id = params[:quote_id]
       #### when the quote is won
       quote = Rent::Quote.find(quote_id)
+      parent_quote = Rent::Quote.find(quote.parent_quote_id)
+      
       new_status = Rent::Quote::STATUS_HASH['New']
-      if !quote.expired && quote.status == new_status && (Time.now > (quote.created_at + Rent::Quote::MAX_AGENT_QUOTE_WAIT_TIME)) && (Time.now < (quote.created_at + Rent::Quote::MAX_VENDOR_QUOTE_WAIT_TIME))
-        service = Rent::PropertyQuoteService.new(udprn: quote.property_id)
+      if !quote.expired && quote.status == new_status && (Time.now > (parent_quote.created_at + Rent::Quote::MAX_AGENT_QUOTE_WAIT_TIME)) && (Time.now < (parent_quote.created_at + Rent::Quote::MAX_VENDOR_QUOTE_WAIT_TIME))
+        service = Rent::PropertyQuoteService.new(udprn: quote.udprn)
         agent_id = quote.agent_id
-        message = service.accept_quote_from_agent(agent_id)
+        message = service.accept_quote_from_agent(quote, parent_quote)
         render json: message, status: 200
       else
         message = 'current time is not within the time bounds'
@@ -86,9 +89,9 @@ module Rent
   
         final_result = []
         ### last vendor quote submitted for this property
-        vendor_quote = Rent::Quote.where(expired: false).where(agent_id: nil).where(property_id: property_id).where.not(vendor_id: nil).last
+        vendor_quote = Rent::Quote.where(expired: false).where(agent_id: nil).where(udprn: property_id).where.not(vendor_id: nil).last
         if vendor_quote
-          final_result = Rent::PropertyQuoteService.new(udprn: property_id).fetch_all_agent_quotes
+          final_result = Rent::PropertyQuoteService.new(udprn: property_id).agent_quotes
         else
           final_result = []
         end
@@ -130,10 +133,10 @@ module Rent
       status = 200
       count = params[:count].to_s == 'true'
       agent = @current_user
-      agent_quote_service = Rent::AgentQuoteService.new(agent_id: agent.id)
+      agent_quote_service = Rent::AgentQuoteService.new(agent: agent)
       results = agent_quote_service.recent_properties_for_quotes(params[:payment_terms], params[:quote_status], agent.is_premium,
                                                                  params[:page], count, params[:latest_time])
-      response = (!results.is_a?(fixnum) && results.empty?) ? {"quotes" => results, "message" => "no claims to show"} : {"quotes" => results}
+      response = (!results.is_a?(Fixnum) && results.empty?) ? {"quotes" => results, "message" => "no claims to show"} : {"quotes" => results}
       render json: response, status: status
     end
   
