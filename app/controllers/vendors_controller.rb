@@ -1,5 +1,5 @@
 class VendorsController < ApplicationController
-  around_action :authenticate_vendor, only: [ :show_vendor_availability, :add_unavailable_slot ]
+  around_action :authenticate_vendor, only: [ :show_vendor_availability, :add_unavailable_slot, :vendor_calendar_events ]
 
   def valuations
     property_id = params[:udprn]
@@ -123,8 +123,15 @@ class VendorsController < ApplicationController
       vendor.mobile = vendor_params[:mobile] if vendor_params[:mobile]
       vendor.password = vendor_params[:password] if vendor_params[:password]
       vendor.image_url = vendor_params[:image_url] if vendor_params[:image_url]
-      vendor.working_hours = vendor_params[:working_hours] if vendor_params[:working_hours]
+
+      ### Update working hours for vendor
+      if vendor_params[:working_hours]
+        working_hours = vendor_params[:working_hours].slice('sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun', 'meeting_length')
+        vendor.working_hours = working_hours
+      end
+
       update_hash = { vendor_id: params[:id].to_i }
+
       ### TODO: Update attributes in all the properties
       if vendor.save
         VendorUpdateWorker.new.perform(vendor.id)
@@ -252,6 +259,14 @@ class VendorsController < ApplicationController
       meeting_details = VendorCalendarUnavailability.create!(start_time: start_time, end_time: end_time, vendor_id: @current_user.id)
     end
     render json: { details: meeting_details }, status: 200
+  end
+
+  ### Buyer's calendar events
+  ### curl -XGET -H "Content-Type: application/json" -H "Authorization: zbdxhsaba" 'http://localhost/events/viewings/vendor'
+  def vendor_calendar_events
+    vendor = @current_user
+    calendar_events = VendorCalendarUnavailability.where(vendor: vendor.id)
+    render json: { calendar_events: calendar_events }, status: 200
   end
 
   private

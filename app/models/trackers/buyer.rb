@@ -344,6 +344,7 @@ class Trackers::Buyer
       new_row[:buyer_id] = each_row.buyer_id
       new_row[:type_of_match] = REVERSE_TYPE_OF_MATCH[each_row.type_of_match]
       new_row[:scheduled_visit_time] = each_row.scheduled_visit_time
+      new_row[:scheduled_visit_end_time] = each_row.scheduled_visit_end_time
       property_id = each_row.udprn
       push_property_details_row(new_row, property_id)
       add_details_to_enquiry_row_buyer(new_row, property_id, each_row, agent_id, 'Sale')

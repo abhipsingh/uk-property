@@ -394,7 +394,7 @@ class PropertyService
     details = []
     details = Rails.configuration.ardb_client.mget(*udprns) if udprns.length > 0
     results = details.map{ |detail| process_each_detail(detail) }
-    results = results.each{ |t| t[:verification_status] = (t[:details_completed].to_s == "true"); t[:floorplan_url] = t[:floorplan_urls] = nil if t[:floorplan_hidden].to_s == 'true';   t[:address] = PropertyDetails.address(t); t[:vanity_url] = PropertyDetails.vanity_url(t[:address]); t[:google_st_view_address] = PropertyDetails.google_st_view_address(t) }
+    results = results.each{ |t| t[:verification_status] = (t[:details_completed].to_s == "true"); t[:floorplan_url] = t[:floorplan_urls] = nil if t[:floorplan_hidden].to_s == 'true';   t[:address] = PropertyDetails.address(t); t[:vanity_url_address] = PropertyDetails.vanity_url_address(t); t[:vanity_url] = PropertyDetails.vanity_url(t[:vanity_url_address]); t[:google_st_view_address] = PropertyDetails.google_st_view_address(t) }
     results
   end
 
@@ -546,14 +546,28 @@ class PropertyService
     ardb_client.get(key_name)
   end
 
+  def self.fetch_str_without_county(str_parts)
+    ### County can be of four different lengths
+    if COUNTIES.include?(str_parts[-1..-1].compact.map(&:titleize).join(' '))
+      str_parts[0..-2].join(' ')
+    elsif COUNTIES.include?(str_parts[-2..-1].compact.map(&:titleize).join(' '))
+      str_parts[0..-3].join(' ')
+    elsif COUNTIES.include?(str_parts[-3..-1].compact.map(&:titleize).join(' '))
+      str_parts[0..-4].join(' ')
+    elsif COUNTIES.include?(str_parts[-4..-1].compact.map(&:titleize).join(' '))
+      str_parts[0..-5].join(' ')
+    else
+      nil
+    end
+  end
+
   def self.fetch_details_from_vanity_url(url, user=nil)
     url = url.gsub(/[_]/,"/")
     str_parts = url.split('-')[0..-3]
     str_parts = str_parts.map {|t| t.gsub("|","") }
     str = ''
-    last_occurence = str_parts.reverse.find_all{|t| str=t+' '+ str;COUNTIES.include?(str.titleize.strip)}.last
-    county_index = str_parts.index(last_occurence)
-    prediction_str = str_parts[0..county_index-1].join(' ')
+
+    prediction_str = fetch_str_without_county(str_parts)
     results, code = PropertyService.get_results_from_es_suggest(prediction_str, 1)
     udprn = Oj.load(results)['postcode_suggest'][0]['options'][0]['text'].split('_')[0]
     details = PropertyDetails.details(udprn.to_i)[:_source]

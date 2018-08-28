@@ -1,7 +1,7 @@
 ### Base controller
 class BuyersController < ActionController::Base
   around_action :authenticate_buyer, only: [ :tracking_history, :process_premium_payment, :tracking_stats, :tracking_details, :edit_tracking,
-                                             :subscribe_premium_service ]
+                                             :subscribe_premium_service, :buyer_calendar_events ]
 
 	#### When basic details of the buyer is saved
   #### curl -XPOST -H "Content-Type: application/json"  'http://localhost/buyers/7/edit' -d '{ "status" : "Green", "buying_status" : "First time buyer", "budget_from" : 5000, "budget_to": 100000, "chain_free" : false, "funding_status" : "Mortgage approved", "biggest_problem" : "Money" , "rent_requirement": { "min_beds" :3, "max_beds":4, "min_baths" : 1, "max_baths" : 2, "min_receptions":1, "max_receptions":3, "locations" : "bla bla bla"}  }'
@@ -235,6 +235,14 @@ class BuyersController < ActionController::Base
   ### curl -XGET 'http://localhost/agents/premium/cost'
   def info_premium
     render json: { value: (PropertyBuyer::PREMIUM_COST*100) }, status: 200
+  end
+
+  ### Buyer's calendar events
+  ### curl -XGET -H "Content-Type: application/json" -H "Authorization: zbdxhsaba" 'http://localhost/events/viewings/buyer'
+  def buyer_calendar_events
+    buyer = @current_user
+    calendar_events = AgentCalendarUnavailability.where(buyer_id: buyer.id)
+    render json: { calendar_events: calendar_events }, status: 200
   end
 
   def test_view

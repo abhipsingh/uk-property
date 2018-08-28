@@ -102,17 +102,12 @@ module Events
     end
 
     def requested_floorplans
-      value_str = fetch_value
-      value_str.split(VIEWS_SEPERATOR)[2].to_i
+      specific_enquiry_count(:requested_floorplan)
     end
 
     def update_requested_floorplans
-      value_str = fetch_value
-      value_parts = value_str.split(VIEWS_SEPERATOR)
-      requested_floorplans = value_parts[2].to_i
-      requested_floorplans += 1
-      value = [ value_parts[0], value_parts[1], requested_floorplans.to_s ].join(VIEWS_SEPERATOR)
-      set_value(value)
+      event_index = Event::EVENTS[:requested_floorplan]
+      update_enquiries(event_index, 0)
     end
   
     def enquiries

@@ -38,10 +38,6 @@ module Enquiries
         aggregated_result[event] =  result
       end
 
-      event = Event::EVENTS[:deleted]
-      results = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events_is_deleteds WHERE udprn=#{property_id} ").as_json
-      aggregated_result[:deleted] =  results
-
       event = Event::EVENTS[:requested_floorplan]
       results = Event.connection.execute("SELECT DISTINCT EXTRACT(month FROM created_at) as month,  COUNT(*) OVER(PARTITION BY (EXTRACT(month FROM created_at)) )  FROM events WHERE udprn=#{property_id} ").as_json
       aggregated_result[:requested_floorplan] =  results

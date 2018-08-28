@@ -2,9 +2,10 @@ class EventsController < ApplicationController
   include EventsHelper
   include CacheHelper
   before_filter :set_headers
-  around_action :authenticate_agent_and_buyer, only: [ :process_event, :book_calendar, :show_calendar ]
+  around_action :authenticate_agent_and_buyer, only: [ :process_event, :book_calendar, :show_calendar, :show_calendar_booking_details, :delete_calendar_viewing ]
   around_action :authenticate_agent_and_vendor, only: [ :unique_buyer_count ]
   around_action :authenticate_agent_and_developer, only: [ :buyer_stats_for_enquiry, :agent_new_enquiries ]
+  around_action :authenticate_buyer, only: [ :buyer_calendar_events ]
 
   ### List of params
   ### :udprn, :event, :message, :type_of_match, :buyer_id, :agent_id
@@ -79,7 +80,7 @@ class EventsController < ApplicationController
                    :buyer_biggest_problem, :buyer_chain_free, :hash_str, :budget_from, :budget_to, 
                    :property_for, :archived, :closed, :count ]
     cache_parameters = param_list.map{ |t| params[t].to_s }
-    cache_response(params[:agent_id].to_i, cache_parameters) do
+    #cache_response(params[:agent_id].to_i, cache_parameters) do
       last_time = params[:latest_time]
       is_premium = Agents::Branches::AssignedAgent.unscope(where: :is_developer).where(id: params[:agent_id].to_i).select(:is_premium).first.is_premium rescue nil
       buyer_id = params[:buyer_id]
@@ -94,7 +95,7 @@ class EventsController < ApplicationController
          
       final_response = (!results.is_a?(Fixnum) && results.empty?) ? { enquiries: results, message: 'No enquiries to show', count: count } : { enquiries: results, count: count }
       render json: final_response, status: status
-    end
+    #end
   end
 
   #### Get buyer stats for an enquiry
@@ -157,7 +158,7 @@ class EventsController < ApplicationController
   end
 
   ### Shows the calendar to the agents and buyers about the property's viewing
-  ### curl -XGET 'http://localhost/property/viewing/availability/:udprn'
+  ### curl -XGET 'http://localhost/property/viewing/availability/:udprn?start_time=%222018-08-20T16:48:00.035Z%22&end_time=%222018-08-26T16:48:00.036Z%22'
   def show_calendar
     udprn = params[:udprn].to_i
     details = PropertyDetails.details(udprn)[:_source]
@@ -166,11 +167,19 @@ class EventsController < ApplicationController
     if details[:source]
       property_status_type = details[:property_status_type]
       if property_status_type == 'Green' && PropertyService::REVERSE_SOURCE_MAP[details[:source].to_i] == :quote_vendor_invite
-        results = VendorCalendarUnavailability.where("((end_time > ?) OR (end_time < ?)) AND ((start_time > ?) OR (start_time < ?))", start_time, end_time, start_time, end_time)
-        render json: results, status: 200
+        vendor = Vendor.where(id: details[:vendor_id].to_i).select([:working_hours, :id]).first
+        working_hours = nil
+        Rails.logger.info("WORKING_HOURS #{vendor.working_hours}")
+        working_hours = vendor.working_hours if vendor
+        results = VendorCalendarUnavailability.where(vendor_id: vendor.id).where("((end_time > ?) OR (end_time < ?)) AND ((start_time > ?) OR (start_time < ?))", start_time, end_time, start_time, end_time)
+        render json: { unavailabilities: results, viewing_entity: 'vendor', working_hours: working_hours }, status: 200
       else
-        results = AgentCalendarUnavailability.where("((end_time > ?) OR (end_time < ?)) AND ((start_time > ?) OR (start_time < ?))", start_time, end_time, start_time, end_time)
-        render json: results, status: 200
+        agent = Agents::Branches::AssignedAgent.where(id: details[:agent_id].to_i).select([:working_hours, :id]).first
+        working_hours = nil
+        Rails.logger.info("WORKING_HOURS #{agent.working_hours}")
+        working_hours = agent.working_hours if agent
+        results = AgentCalendarUnavailability.where(agent_id: agent.id).where("((end_time > ?) OR (end_time < ?)) AND ((start_time > ?) OR (start_time < ?))", start_time, end_time, start_time, end_time)
+        render json: { unavailabilities: results, viewing_entity: 'agent', working_hours: working_hours }, status: 200
       end
     else
       render json: { message: 'No calendar has been assigned to this property' }, status: 400
@@ -184,11 +193,11 @@ class EventsController < ApplicationController
     details = PropertyDetails.details(udprn)[:_source]
     end_time = Time.parse(params[:end_time])
     start_time = Time.parse(params[:start_time])
-    #if details[:source]
-    if true
+    if details[:source]
+    #if true
       property_status_type = details[:property_status_type]
-      #if property_status_type == 'Green' && PropertyService::REVERSE_SOURCE_MAP[details[:source].to_i] == :quote_vendor_invite
-      if true
+      if property_status_type == 'Green' && PropertyService::REVERSE_SOURCE_MAP[details[:source].to_i] == :quote_vendor_invite
+      #if true
         vendor_unavailability = VendorCalendarUnavailability.create!(
           buyer_id: params[:buyer_id],
           udprn: udprn,
@@ -198,18 +207,97 @@ class EventsController < ApplicationController
         )
         render json: { message: 'Created an invite in the calendar', details: vendor_unavailability }, status: 200
       else
-        agent_unavailability = AgentCalendarUnavailability.create!(
-          buyer_id: params[:buyer_id],
-          udprn: udprn,
-          start_time: Time.parse(params[:start_time]),
-          end_time: Time.parse(params[:end_time]),
-          agent_id: details[:agent_id]
-        )
-        render json: { message: 'Created an invite in the calendar', details: agent_unavailability }, status: 200
+        response, status = EventService.new(udprn: udprn, buyer_id: params[:buyer_id].to_i, agent_id: details[:agent_id].to_i).schedule_viewing(start_time.to_s, end_time.to_s, 'book_viewing')
+        render json: response, status: status
       end
     else
       render json: { message: 'No calendar has been assigned to this property' }, status: 400
     end
+  end
+
+  ### Show detail about a calendar booking
+  ### curl -XGET 'http://localhost/viewing/details/:id' 
+  def show_calendar_booking_details
+    id = params[:id].to_i
+    viewing = AgentCalendarUnavailability.where(id: id).last
+    if viewing
+      enquiry_id = viewing.event_id
+      event = Event.find(enquiry_id)
+      result = Enquiries::AgentService.process_enquiries_result([event], event.agent_id)
+      render json: { details: result.first }, status: 200
+    else
+      render json: { message: 'Viewing does not exist' }, status: 400
+    end
+  end
+
+  ### Edit the start and the end time of the viewing
+  ### curl -XPOST -H "Content-Type: application/json" -H "Authorization: zbdxhsaba" 'http://localhost/events/viewing/edit/:id' -d '{"start_time" : "2018-10-21 09:00:00", "end_time":"2018-10-21 09:30:00", "source": "agent"}'
+  def edit_calendar_viewing
+    id = params[:id].to_i
+    viewing = AgentCalendarUnavailability.where(id: id).last
+    viewing ||= VendorCalendarUnavailability.where(id: id).last
+    if viewing.class.to_s == 'AgentCalendarUnavailability'
+      viewing.start_time = Time.parse(params[:start_time])
+      Event.where(udprn: viewing.udprn, buyer_id: viewing.buyer_id, agent_id: viewing.agent_id).update_all(scheduled_visit_time: params[:start_time], scheduled_visit_end_time: params[:end_time] )
+      viewing.end_time = Time.parse(params[:end_time])
+      viewing.save!
+      render json: { details: viewing }, status: 200
+    elsif viewing.class.to_s == 'VendorCalendarUnavailability'
+      viewing.start_time = Time.parse(params[:start_time])
+      viewing.end_time = Time.parse(params[:end_time])
+      Event.where(udprn: viewing.udprn, buyer_id: viewing.buyer_id, agent_id: viewing.agent_id).update_all(schedule_visit_time: params[:start_time], scheduled_visit_end_time: params[:end_time])
+      viewing.save!
+      render json: { details: viewing }, status: 200
+    else
+      render json: { message: 'Viewing does not exist' }, status: 400
+    end
+  end
+
+  ### Delete the viewing
+  ### curl -XPOST -H "Content-Type: application/json" -H "Authorization: zbdxhsaba" 'http://localhost/events/viewing/delete/:id?source=agent' 
+  def delete_calendar_viewing
+    id = params[:id].to_i
+    viewing = AgentCalendarUnavailability.where(id: id).last
+    viewing ||= VendorCalendarUnavailability.where(id: id).last
+    Event.where(udprn: viewing.udprn, buyer_id: viewing.buyer_id, agent_id: viewing.agent_id).update_all(stage: Event::EVENTS[:qualifying_stage])
+    viewing.delete
+    render json: { message: 'Viewing has been deleted' }, status: 200
+  end
+
+  ### Delete the viewing by enquiry id
+  ### curl -XPOST -H "Content-Type: application/json" -H "Authorization: zbdxhsaba" 'http://localhost/events/viewing/enquiry/delete/:enquiry_id'
+  def delete_calendar_viewing_by_enquiry
+    enquiry_id = params[:enquiry_id].to_i
+    event = Event.where(id: enquiry_id).last
+    if event
+      AgentCalendarUnavailability.where(udprn: event.udprn, buyer_id: event.buyer_id, agent_id: event.agent_id).delete_all
+      Event.where(udprn: event.udprn, buyer_id: event.buyer_id, agent_id: event.agent_id).update_all(stage: Event::EVENTS[:qualifying_stage])
+      render json: { message: 'Viewing has been deleted' }, status: 200
+    else
+      render json: { message: 'Viewing with the passed enquiry id does not exist' }, status: 404
+    end
+  end
+
+  ### Edit the viewing by enquiry id
+  ### curl -XPOST -H "Content-Type: application/json" -H "Authorization: zbdxhsaba" 'http://localhost/events/viewing/enquiry/edit/:enquiry_id'
+  def edit_calendar_viewing_by_enquiry
+    enquiry_id = params[:enquiry_id].to_i
+    event = Event.where(id: enquiry_id).last
+    if event
+      Event.where(udprn: event.udprn, buyer_id: event.buyer_id, agent_id: event.agent_id).update_all(scheduled_visit_time: params[:start_time], scheduled_visit_end_time: params[:end_time] )
+      AgentCalendarUnavailability.where(udprn: event.udprn, buyer_id: event.buyer_id, agent_id: event.agent_id).update_all(scheduled_visit_time: params[:start_time], scheduled_visit_end_time: params[:end_time])
+      render json: { message: 'Viewing has been edited' }, status: 200
+    else
+      render json: { message: 'Viewing with the passed enquiry id does not exist' }, status: 404
+    end
+  end
+
+  ### Buyer's calendar events
+  ### curl -XGET -H "Content-Type: application/json" -H "Authorization: zbdxhsaba" 'http://localhost/events/viewings/buyer'
+  def buyer_calendar_events
+    buyer = @current_user
+    calendar_events = AgentCalendarUnavailability.where(buyer_id: buyer.id)
+    render json: { calendar_events: calendar_events }, status: 200
   end
 
   private
@@ -224,6 +312,14 @@ class EventsController < ApplicationController
 
   def authenticate_agent_and_developer
     if user_valid_for_viewing?(['Agent', 'Developer'])
+      yield
+    else
+      render json: { message: 'Authorization failed' }, status: 401
+    end
+  end
+
+  def authenticate_buyer
+    if user_valid_for_viewing?(['Buyer'])
       yield
     else
       render json: { message: 'Authorization failed' }, status: 401

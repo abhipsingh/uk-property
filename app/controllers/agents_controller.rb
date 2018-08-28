@@ -180,7 +180,7 @@ class AgentsController < ApplicationController
     agent_id = params[:id].to_i
     Rails.logger.info("EDIT_AGENTS_#{agent_id.to_i}_#{params[:agent]}")
     agent = Agents::Branches::AssignedAgent.find(agent_id)
-    agent_params = params[:agent].as_json
+    agent_params = params[:agent].as_json.with_indifferent_access
     agent.first_name = agent_params['first_name'] if agent_params.has_key?('first_name')
     agent.last_name = agent_params['last_name'] if agent_params.has_key?('last_name')
     agent.email = agent_params['email'] if agent_params.has_key?('email')
@@ -191,7 +191,12 @@ class AgentsController < ApplicationController
     agent.password = agent_params['password'] if agent_params.has_key?('password')
     agent.office_phone_number = agent_params['office_phone_number'] if agent_params.has_key?('office_phone_number')
     agent.mobile_phone_number = agent_params['mobile_phone_number'] if agent_params.has_key?('mobile')
-    agent.working_hours = agent_params['working_hours'] if agent_params['working_hours']
+
+    ### Accomodate working hours
+    if agent_params[:working_hours]
+      working_hours = agent_params[:working_hours].slice('sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun', 'meeting_length')
+      agent.working_hours = working_hours
+    end
     agent.save!
     AgentUpdateWorker.new.perform(agent.id)
     ### TODO: Update all properties containing this agent
@@ -1027,18 +1032,25 @@ class AgentsController < ApplicationController
           end
 
           property_ids = []
+          Rails.logger.info("Search params #{search_params}")
           api = PropertySearchApi.new(filtered_params: search_params)
           api.modify_filtered_params
           api.apply_filters
 
           ### THIS LIMIT IS THE MAXIMUM. CAN BE BREACHED IN AN EXCEPTIONAL CASE
           #api.query[:size] = 10000
-
-          ### Take the first exists status updated at filter out
-          api.query[:filter][:and][:filters] = [ api.query[:filter][:and][:filters].last ]
+          api.query[:filter][:and][:filters] = api.query[:filter][:and][:filters].select{|h| h.values.first[:_name] != :status_last_updated }
+          verification_status_index = api.query[:filter][:and][:filters].find_index{|h| h.values.first[:_name] == :verification_status }
+          if verification_status_index
+            filter = api.query[:filter][:and][:filters][verification_status_index]
+            if filter[:term][:verification_status].to_s == 'false'
+              filter[:term][:verification_status] = true
+              new_filter = { not: filter }
+              api.query[:filter][:and][:filters][verification_status_index] = new_filter
+            end
+          end
 
           udprns, status = api.fetch_udprns
-          Rails.logger.info("AGENT_PROPERTIES_QUERY_#{api.query}")
           total_count = api.total_count
 
           ### Get all properties for whom the agent has won leads

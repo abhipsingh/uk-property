@@ -334,6 +334,7 @@ class EventService
   def qualifying_stage_detail_for_enquiry(buyer_id, new_row, each_row)
     raise StandardError, 'Udprn is not present ' if @udprn.nil?
     new_row[:scheduled_visit_time] = each_row.scheduled_visit_time
+    new_row[:scheduled_visit_end_time] = each_row.scheduled_visit_end_time
     new_row[:offer_price] = each_row.offer_price
     new_row[:offer_date] = each_row.offer_date
     new_row[:expected_completion_date] = each_row.expected_completion_date
@@ -407,6 +408,50 @@ class EventService
     results = results.where('budget_from < ?', budget_from.to_i) if budget_from
     results = results.where('budget_to > ?', budget_to.to_i) if budget_to
     results.pluck(:id)
+  end
+
+  def schedule_viewing(start_time, end_time, source)
+    event = Event::EVENTS[:requested_viewing]
+    agent_id = @agent_id
+    property_id = @udprn
+    message = nil
+    buyer_id = @buyer_id
+    type_of_match = 'perfect'
+    property_status_type = nil
+
+    ### Creates an enquiry only when the source is book viewing page
+    insert_events(agent_id, property_id, buyer_id, message, type_of_match, property_status_type, event) if source == 'book_viewing'
+
+    original_enquiries = Event.where(buyer_id: @buyer_id).where(udprn: @udprn).where(is_archived: false).order('created_at ASC')
+    present_stage = original_enquiries.last.stage
+    present_index = Event::QUALIFYING_STAGE_EVENTS.index(Trackers::Buyer::REVERSE_EVENTS[present_stage])
+    event_index = Event::QUALIFYING_STAGE_EVENTS.index(:viewing_stage)
+    enquiries = []
+    if start_time.nil?
+      return { message: 'Scheduled viewing time is null', details: nil }, 400
+    elsif event_index < present_index
+      return { message: 'Current stage of the property is ahead of viewing stage', details: nil }, 400
+    else
+      event = Event::EVENTS[:viewing_stage]
+      original_enquiries.update_all(stage: event, scheduled_visit_time: start_time, scheduled_visit_end_time: end_time)
+      agent_unavailability = AgentCalendarUnavailability.create!(
+        buyer_id: @buyer_id,
+        udprn: @udprn,
+        start_time: Time.parse(start_time),
+        end_time: Time.parse(end_time),
+        agent_id: @agent_id,
+        event_id: original_enquiries.last.id
+      )
+      enquiries = Enquiries::PropertyService.process_enquiries_result(original_enquiries)
+      return { message: 'Created an invite in the calendar', details: agent_unavailability, enquiries: enquiries }, 200
+    end
+
+    ardb_client = Rails.configuration.ardb_client
+    ardb_client.del("cache_#{@agent_id}_agent_new_enquiries") if @agent_id
+    ardb_client.del("cache_#{@udprn}_enquiries")
+    ardb_client.del("cache_#{@udprn}_interest_info")
+    ardb_client.del("cache_#{@buyer_id}_history_enquiries")
+    enquiries
   end
 
 end

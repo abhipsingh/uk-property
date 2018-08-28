@@ -105,6 +105,7 @@ module EnquiryInfoHelper
         new_row[:buyer_id] = each_row.buyer_id
         new_row[:type_of_match] = Event::REVERSE_TYPE_OF_MATCH[each_row.type_of_match]
         new_row[:scheduled_visit_time] = each_row.scheduled_visit_time
+        new_row[:scheduled_visit_end_time] = each_row.scheduled_visit_end_time
         property_id = each_row.udprn
         push_property_details_row(new_row, property_id, details_arr[index])
         new_row[:stage] = Event::REVERSE_EVENTS[each_row.stage]
@@ -292,7 +293,6 @@ module EnquiryInfoHelper
       table = ''
       #Rails.logger.info(details)
       property_id = details['udprn']
-      Rails.logger.info("hello start #{Time.now.to_f}") 
       if old_stats_flag && is_premium
         unarchived_property_stat = Events::EnquiryStatProperty.new(udprn: property_id)
         archived_property_stat = Events::ArchivedStat.new(udprn: property_id)
@@ -307,7 +307,7 @@ module EnquiryInfoHelper
         new_row['requested_callback'] = archived_property_stat.specific_enquiry_count(:requested_callback) + unarchived_property_stat.specific_enquiry_count(:requested_callback)
         new_row['interested_in_making_an_offer'] = archived_property_stat.specific_enquiry_count(:interested_in_making_an_offer) + unarchived_property_stat.specific_enquiry_count(:interested_in_making_an_offer)
         new_row['interested_in_viewing'] = archived_property_stat.specific_enquiry_count(:interested_in_viewing) + unarchived_property_stat.specific_enquiry_count(:interested_in_viewing)
-        new_row['requested_floorplan'] = archived_property_stat.requested_floorplans + unarchived_property_stat.requested_floorplans
+        new_row['requested_floorplan'] = archived_property_stat.specific_enquiry_count(:requested_floorplan) + unarchived_property_stat.specific_enquiry_count(:requested_floorplan)
         #new_row['offer_made_stage'] = Event.unscope(where: :is_developer).where(udprn: property_id).where(stage: EVENTS[:offer_made_stage]).count
         new_row['trackings'] = Events::Track.where(udprn: property_id).count 
       else
@@ -321,9 +321,8 @@ module EnquiryInfoHelper
         new_row['requested_callback'] = property_stat.specific_enquiry_count(:requested_callback)
         new_row['interested_in_making_an_offer'] = property_stat.specific_enquiry_count(:interested_in_making_an_offer)
         new_row['interested_in_viewing'] = property_stat.specific_enquiry_count(:interested_in_viewing) 
-        new_row['requested_floorplan'] = property_stat.requested_floorplans
+        new_row['requested_floorplan'] = property_stat.specific_enquiry_count(:requested_floorplan)
         #new_row['offer_made_stage'] = Event.where(udprn: property_id).where(stage: Event::EVENTS[:offer_made_stage]).count
-        Rails.logger.info("hello end #{Time.now.to_f}") 
 
         ### Last sold property date
         sold_property = SoldProperty.where(udprn: property_id).select([:completion_date]).last

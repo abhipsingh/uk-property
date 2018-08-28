@@ -191,19 +191,15 @@ module EventsHelper
           response[:enquiries] ||= []
   
         elsif Event::EVENTS[:viewing_stage] == event
-
-          if message && message[:scheduled_viewing_time]
-            original_enquiries = Event.where(buyer_id: buyer_id).where(udprn: property_id).where(is_archived: false)
-            present_stage = original_enquiries.last.stage
-            present_index = Event::QUALIFYING_STAGE_EVENTS.index(Trackers::Buyer::REVERSE_EVENTS[present_stage])
-            event_index = Event::QUALIFYING_STAGE_EVENTS.index(:viewing_stage)
-            if event_index >= present_index
-              original_enquiries.update_all(stage: event, scheduled_visit_time: Time.parse(message[:scheduled_viewing_time])) 
-              enquiries = Enquiries::PropertyService.process_enquiries_result(original_enquiries)
-              response[:enquiries] = enquiries
-            end
+          agent = @current_user
+          response[:enquiries] = []
+          if message && message[:scheduled_viewing_time] 
+            meeting_length = agent.working_hours.meeting_length.to_i.minutes rescue 30.minutes
+            end_time = message[:end_time]
+            end_time ||= (Time.parse(message[:scheduled_viewing_time]) + meeting_length).to_s
+            enquiries, status = EventService.new(buyer_id: buyer_id, udprn: property_id, agent_id: agent.id).schedule_viewing(message[:scheduled_viewing_time], end_time, 'agents_stage')
+            response[:enquiries] = enquiries[:enquiries] if status.to_i == 200
           end
-          response[:enquiries] ||= []
   
         elsif Event::EVENTS[:completion_stage] == event
 

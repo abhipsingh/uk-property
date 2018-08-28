@@ -57,6 +57,7 @@ class MatrixViewController < ActionController::Base
       elsif  text.end_with?('dtd')
         loc = ''
         hash_loc = '@'
+        Rails.logger.info("UDPRN #{details[counter]['udprn']}")
         details[counter]['dependent_locality'].nil? ? loc = '' : loc = "#{details[counter]['dependent_locality']}, "
         output = "#{details[counter]['dependent_thoroughfare_description']} (#{loc}#{details[counter]['post_town']}, #{details[counter]['county']}, #{details[counter]['district']})"
         hash = MatrixViewService.form_hash(details[counter], :dependent_thoroughfare_description)

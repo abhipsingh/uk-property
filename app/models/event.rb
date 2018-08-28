@@ -47,7 +47,8 @@ class Event < ActiveRecord::Base
     sold: 31,
     valuation_change: 32,
     dream_price_change: 33,
-    requested_floorplan: 34
+    requested_floorplan: 34,
+    book_viewing: 35
   }
 
   TYPE_OF_MATCH = {

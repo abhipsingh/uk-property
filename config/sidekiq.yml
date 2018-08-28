@@ -23,4 +23,6 @@
     every: '1440m'
   AdminDeassignMailshotPropertyWorker:
     cron: '30 0 * * *'
+  AdminNotifyIncorrectPropertyWorker:
+    cron: '6 0 * * *'
 

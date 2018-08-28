@@ -32,6 +32,13 @@ class PropertyDetails
     "#{details[:latitude]},#{details[:longitude]}"
   end
 
+  def self.vanity_url_address(details)
+    details = details.with_indifferent_access
+    units = [:organization_name, :department_name, :sub_building_name, :building_name, :building_number, :dependent_thoroughfare_description, 
+             :thoroughfare_description, :dependent_locality, :post_town, :county, :postcode ]
+    units.select { |t| details[t] && !details[t].blank? }.map{|t| details[t] }.join(', ')
+  end
+
   def self.street_address(details)
     address_parts = [:dependent_thoroughfare_description, :thoroughfare_description, :dependent_locality, :post_town, :county, :postcode].map do |t|
       details[t]
@@ -57,7 +64,8 @@ class PropertyDetails
   def self.details(udprn)
     details = PropertyService.bulk_details([udprn]).first
     details[:address] = address(details)
-    details[:vanity_url] = vanity_url(details[:address])
+    details[:vanity_url_address] = vanity_url_address(details)
+    details[:vanity_url] = vanity_url(details[:vanity_url_address])
     details[:udprn] = udprn
     details[:latitude] = details[:latitude].to_f
     details[:longitude] = details[:longitude].to_f

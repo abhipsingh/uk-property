@@ -183,6 +183,7 @@ module Api
               end
             end
             resp_hash[:output_str] = output_str
+
           else
             PropertySearchApi.construct_hash_from_hash_str(resp_hash)
             udprn = resp_hash[:udprn]
@@ -209,6 +210,8 @@ module Api
               result[(key.to_s + "_hash").to_sym] = hash
             end
           end
+          result[:post_town] = resp_hash[:county] if resp_hash[:post_town] == 'London'
+
           render json: result, status: 200
         else
           render json: { message: 'Hash str cannot be null' }, status: 400

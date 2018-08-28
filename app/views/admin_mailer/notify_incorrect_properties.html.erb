@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta content='text/html; charset=UTF-8' http-equiv='Content-Type' />
+  </head>
+  <body>
+    The following properties have non matching pair of agents 
+    
+    <% @properties.each do |property| %>
+    <% address = property[:address] %>
+    <% udprn = property[:udprn] %>
+
+    <p>
+      Address: <%= address %>
+    </p>
+
+    <p>
+      udprn: <%= udprn %>
+    </p>
+    <% end %>
+
+  </body>
+</html>
+

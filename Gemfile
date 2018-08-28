@@ -105,6 +105,7 @@ gem 'prometheus_exporter'
 
 ### Sidekiq scheduler
 gem 'sidekiq-scheduler'
+gem 'redis-namespace'
 
 ### Postgres library for triggers lower case all emails
 gem 'hairtrigger'

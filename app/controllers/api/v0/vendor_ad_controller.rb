@@ -67,7 +67,7 @@ module Api
             type = location[:type]
             value = ((PropertyAd::PRICE[location[:type]])*100*location[:months].to_i)
             num_months = location[:months].to_i
-            expiry_at = (num_months*29).days.from_now.to_time
+            expiry_at = (num_months*30).days.from_now.to_time - 1
           #  Rails.logger.info(location)
             if PropertyAd.where(hash_str: hash_value, ad_type: PropertyAd::TYPE_HASH[type], service: service).count < PropertyAd::MAX_ADS_HASH[type]
               ads = PropertyAd.create(hash_str: hash_value, property_id: udprn.to_i, ad_type: PropertyAd::TYPE_HASH[type], service: service, expiry_at: expiry_at)

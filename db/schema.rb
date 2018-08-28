@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20180817125947) do
+ActiveRecord::Schema.define(version: 20180828100718) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -22,6 +22,7 @@ ActiveRecord::Schema.define(version: 20180817125947) do
   enable_extension "pg_trgm"
   enable_extension "uint"
   enable_extension "unaccent"
+  enable_extension "btree_gist"
 
   create_table "ad_payment_histories", force: :cascade do |t|
     t.string   "hash_str",   null: false
@@ -63,7 +64,11 @@ ActiveRecord::Schema.define(version: 20180817125947) do
     t.integer  "udprn"
     t.integer  "buyer_id"
     t.integer  "agent_id"
+    t.integer  "event_id"
   end
+
+  add_index "agent_calendar_unavailabilities", ["agent_id"], name: "uniq_calendar_agent_idx", using: :gist
+  add_index "agent_calendar_unavailabilities", ["buyer_id"], name: "uniq_calendar_buyer_idx", using: :gist
 
   create_table "agent_credit_verifiers", force: :cascade do |t|
     t.integer  "entity_id"
@@ -417,6 +422,7 @@ ActiveRecord::Schema.define(version: 20180817125947) do
     t.integer  "offer_price"
     t.date     "offer_date"
     t.date     "expected_completion_date"
+    t.datetime "scheduled_visit_end_time"
   end
 
   create_table "events_enquiry_stat_buyers", force: :cascade do |t|

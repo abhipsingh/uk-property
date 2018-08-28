@@ -202,7 +202,7 @@ Rails.application.routes.draw do
   post 'agents/add/unavailability',                             to: 'agents#add_unavailable_slot'
 
   ### Shows availability of the agent
-  get 'agents/unavailability',                                  to: 'agents#show_agent_availability'
+  get 'agents/availability',                                    to: 'agents#show_agent_availability'
 
 end
 

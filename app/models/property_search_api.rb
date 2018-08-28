@@ -149,7 +149,6 @@ class PropertySearchApi
   end
 
   def fetch_data_from_es
-    # Rails.logger.info(inst.query)
     udprns, status = fetch_udprns
     Rails.logger.info("UDPRN_INFO_#{udprns[5]}")
     body = fetch_details_from_udprns(udprns)
@@ -214,8 +213,6 @@ class PropertySearchApi
   def fetch_details_from_udprns(udprns)
     udprns = udprns.map(&:to_i).uniq.select{|t| t> 0 }
     body = PropertyService.bulk_details(udprns)    
-    body.each{|t| t['address'] = PropertyDetails.address(t)}
-    body.each{|t| t['vanity_url'] = PropertyDetails.vanity_url(t['address'])}
     return body
   end
 
