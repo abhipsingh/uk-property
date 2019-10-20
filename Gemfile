@@ -14,7 +14,7 @@ gem 'elasticsearch-rails'
 gem 'elasticsearch-persistence'
 # Use Uglifier as compressor for JavaScript assets
 gem 'oj'
-gem 'sprockets', '2.11.0'
+gem 'sprockets', '2.12.5'
 gem 'minitest'
 gem 'httparty'
 
